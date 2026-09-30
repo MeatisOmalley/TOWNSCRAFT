@@ -1,0 +1,1115 @@
+/* Voxel renderer.
+
+   Painter's algorithm without a depth buffer.  Chunk meshes hold greedy-
+   merged quads (see world.c).  Primitives are drawn in a nested back-to-front
+   order: y slices far to near, rows (z) far to near within a slice, cells (x)
+   far to near within a row.  A cell that occludes another lies between it
+   and the camera on every axis, so this lexicographic order is correct for
+   cells.  A merged horizontal quad is drawn at the end of its slice and a
+   merged Z-facing run at the end of its row: everything it can hide lies
+   behind its plane and was drawn earlier, and everything that can hide it
+   lies in front and comes later.  The order is produced with a radix sort.
+
+   Camera-space positions of grid corners are sums of per-axis tables
+   (TX[x]+TY[y]+TZ[z]), so transforming a face costs additions only. */
+#include "render.h"
+#include "raster.h"
+#include "fmath.h"
+#include "world.h"
+#include "textures.h"
+#include "sys.h"
+#include "gfx.h"
+
+Camera g_cam;
+int g_viewDist=16;
+int g_renderScale=2;
+u32 g_statFaces,g_statItems;
+u32 g_prof[8];
+int g_flatLOD=6*16;   /* 28.4: faces smaller than this are flat shaded */
+
+#define NEAR_Z 12       /* units (~0.05 block) */
+#define MAX_BOXES 96
+#define GUARD 48        /* pixels outside the viewport before 2D clipping */
+
+typedef struct { int c[3]; } V3;
+
+static V3 *TX,*TY,*TZ;           /* Camera-space of grid lines, per axis */
+static V3 AX16[17],AY16[17],AZ16[17];  /* Axis step of k/16 block */
+static u8 *visX,*visY,*visZ;
+static int rot[3][3];            /* Rows: right, up, forward (2.14) */
+static int camBX,camBY,camBZ;
+static int vw,vh,focal16,cx16,cy16;
+static int skyDarkenCur;
+static u8 texTransparent[NUM_TEXTURES];
+static u8 texAvg[NUM_TEXTURES];
+
+/* Draw list.
+   a: x | z<<8 | y<<16 | dir<<22 | kind<<25
+   b: quad: tex | light<<8 | (w-1)<<16 | (h-1)<<20;  model: block;  box: index */
+enum
+{
+	IK_QUAD,IK_MODEL,IK_BOX
+};
+typedef struct
+{
+	u32 a,b;
+} Item;
+static Item *items;
+static u32 *itemKey;
+static u16 *order,*order2;
+static int maxItems,nItems;
+
+static MBox boxes[MAX_BOXES];
+static int sqTab[256];
+static int nBoxes;
+
+static u8 dirShade[6]={2,2,3,0,1,1};
+/* Corner selection per face: which of lo/hi on each axis, TL,TR,BR,BL */
+static const u8 faceCorner[6][4][3]=
+{
+	{{0,1,1},{0,1,0},{0,0,0},{0,0,1}},  /* -X */
+	{{1,1,0},{1,1,1},{1,0,1},{1,0,0}},  /* +X */
+	{{0,0,1},{1,0,1},{1,0,0},{0,0,0}},  /* -Y */
+	{{0,1,0},{1,1,0},{1,1,1},{0,1,1}},  /* +Y */
+	{{0,1,0},{1,1,0},{1,0,0},{0,0,0}},  /* -Z */
+	{{1,1,1},{0,1,1},{0,0,1},{1,0,1}},  /* +Z */
+};
+
+typedef struct
+{
+	int x,y,z,u,v;
+} CVert;
+
+void render_init(void)
+{
+	int t,i;
+	TX=heap_alloc_low(sizeof(V3)*(g_W+2));
+	TZ=heap_alloc_low(sizeof(V3)*(g_W+2));
+	TY=heap_alloc_low(sizeof(V3)*(WH+2));
+	visX=heap_alloc_low(g_W+2);
+	visZ=heap_alloc_low(g_W+2);
+	visY=heap_alloc_low(WH+2);
+	maxItems=(g_ramMB>=4 ? 12000 : 3000);
+	for(i=0; i<256; ++i)
+	{
+		sqTab[i]=i*i;
+	}
+	items=heap_alloc_low(sizeof(Item)*maxItems);
+	itemKey=heap_alloc_low(4*maxItems);
+	order=heap_alloc_low(2*maxItems);
+	order2=heap_alloc_low(2*maxItems);
+	for(t=0; t<NUM_TEXTURES; ++t)
+	{
+		texTransparent[t]=0;
+		for(i=0; i<256; ++i)
+		{
+			if(0==g_tex[t][i])
+			{
+				texTransparent[t]=1;
+				break;
+			}
+		}
+		texAvg[t]=texture_average(t);
+	}
+}
+
+void render_clear_boxes(void)
+{
+	nBoxes=0;
+}
+
+MBox *render_add_box(void)
+{
+	if(nBoxes<MAX_BOXES)
+	{
+		MBox *b=&boxes[nBoxes++];
+		memset(b,0,sizeof(*b));
+		return b;
+	}
+	return NULL;
+}
+
+int face_light_level(int lightByte,int dir,int skyDarken)
+{
+	int sky=(lightByte>>4)-skyDarken,blk=lightByte&15,L;
+	L=MAX(sky,blk);
+	L-=dirShade[dir];
+	return CLAMP(L,0,15);
+}
+
+/* ---------- Projection and clipping ---------- */
+
+static int clip_near(const CVert *in,int n,CVert *out)
+{
+	int i,m=0;
+	for(i=0; i<n; ++i)
+	{
+		const CVert *a=&in[i],*b=&in[(i+1)%n];
+		int ain=(a->z>=NEAR_Z),bin=(b->z>=NEAR_Z);
+		if(ain)
+		{
+			out[m++]=*a;
+		}
+		if(ain!=bin)
+		{
+			int t=divshift(NEAR_Z-a->z,b->z-a->z,16);
+			CVert *o=&out[m++];
+			o->x=a->x+mulshift(b->x-a->x,t,16);
+			o->y=a->y+mulshift(b->y-a->y,t,16);
+			o->z=NEAR_Z;
+			o->u=a->u+mulshift(b->u-a->u,t,16);
+			o->v=a->v+mulshift(b->v-a->v,t,16);
+		}
+	}
+	return m;
+}
+
+/* Clip polygon against one screen edge.  axis 0=x 1=y, sign +1 keep >=bound, -1 keep <=bound */
+static int clip_2d(const RVert *in,int n,RVert *out,int axis,int bound,int sign)
+{
+	int i,m=0;
+	for(i=0; i<n; ++i)
+	{
+		const RVert *a=&in[i],*b=&in[(i+1)%n];
+		int av=(axis ? a->y : a->x),bv=(axis ? b->y : b->x);
+		int ain=(sign>0 ? av>=bound : av<=bound),bin=(sign>0 ? bv>=bound : bv<=bound);
+		if(ain)
+		{
+			out[m++]=*a;
+		}
+		if(ain!=bin)
+		{
+			int t=divshift(bound-av,bv-av,16);
+			RVert *o=&out[m++];
+			o->x=a->x+mulshift(b->x-a->x,t,16);
+			o->y=a->y+mulshift(b->y-a->y,t,16);
+			o->u=a->u+mulshift(b->u-a->u,t,16);
+			o->v=a->v+mulshift(b->v-a->v,t,16);
+			if(axis)
+			{
+				o->y=bound;
+			}
+			else
+			{
+				o->x=bound;
+			}
+		}
+	}
+	return m;
+}
+
+static inline void project(int x,int y,int z,int *sx,int *sy)
+{
+	int inv=(focal16<<16)/z;
+	*sx=cx16+mulshift(x,inv,16);
+	*sy=cy16-mulshift(y,inv,16);
+}
+
+/* Draw a projected polygon: off-screen and tiny rejection, guard band clip. */
+static void draw_spoly(RVert *sv,int n,const u8 *tex,int transparent,u8 flat)
+{
+	RVert tmp[12];
+	int i,m,minx=0x7FFFFFFF,maxx=-0x7FFFFFFF,miny=0x7FFFFFFF,maxy=-0x7FFFFFFF;
+	for(i=0; i<n; ++i)
+	{
+		if(sv[i].x<minx) minx=sv[i].x;
+		if(sv[i].x>maxx) maxx=sv[i].x;
+		if(sv[i].y<miny) miny=sv[i].y;
+		if(sv[i].y>maxy) maxy=sv[i].y;
+	}
+	if(maxx<0 || maxy<0 || minx>=vw*16 || miny>=vh*16)
+	{
+		return;
+	}
+	++g_statFaces;
+	/* Tiny face: one pixel */
+	if(maxx-minx<20 && maxy-miny<20)
+	{
+		if(!transparent)
+		{
+			raster_pixel((minx+maxx)>>5,(miny+maxy)>>5,flat);
+		}
+		return;
+	}
+	/* Small face: flat shaded with the texture's average color */
+	if(!transparent && maxx-minx<g_flatLOD && maxy-miny<g_flatLOD)
+	{
+		tex=NULL;
+	}
+	m=n;
+	if(minx<-GUARD*16 || maxx>(vw+GUARD)*16 || miny<-GUARD*16 || maxy>(vh+GUARD)*16)
+	{
+		m=clip_2d(sv,m,tmp,0,-GUARD*16,1);
+		m=clip_2d(tmp,m,sv,0,(vw+GUARD)*16,-1);
+		m=clip_2d(sv,m,tmp,1,-GUARD*16,1);
+		m=clip_2d(tmp,m,sv,1,(vh+GUARD)*16,-1);
+		if(m<3)
+		{
+			return;
+		}
+	}
+	if(tex)
+	{
+		raster_poly(sv,m,tex,transparent);
+	}
+	else
+	{
+		raster_flat_poly(sv,m,flat);
+	}
+}
+
+/* Draw a camera-space polygon (n<=4 input vertices). */
+static void draw_cpoly(const CVert *cv,int n,const u8 *tex,int transparent,u8 flat)
+{
+	CVert clipped[8];
+	RVert sv[12];
+	int i;
+	for(i=0; i<n; ++i)
+	{
+		if(cv[i].z<NEAR_Z)
+		{
+			n=clip_near(cv,n,clipped);
+			if(n<3)
+			{
+				return;
+			}
+			cv=clipped;
+			break;
+		}
+	}
+	for(i=0; i<n; ++i)
+	{
+		project(cv[i].x,cv[i].y,cv[i].z,&sv[i].x,&sv[i].y);
+		sv[i].u=cv[i].u;
+		sv[i].v=cv[i].v;
+	}
+	draw_spoly(sv,n,tex,transparent,flat);
+}
+
+static inline int to_screen(const V3 *p,int *sx,int *sy)
+{
+	if(p->c[2]<NEAR_Z)
+	{
+		return 0;
+	}
+	project(p->c[0],p->c[1],p->c[2],sx,sy);
+	return 1;
+}
+
+/* ---------- Faces and models ---------- */
+
+#define UVMAX ((16<<16)-0x200)
+#define UVMIN 0x200
+
+static inline int uvc(int k)
+{
+	/* k in 1/16 block -> 16.16 texel, kept inside the texture */
+	int v=k<<16;
+	return CLAMP(v,UVMIN,UVMAX);
+}
+
+/* Axis-aligned box inside cell (bx,by,bz).  lo/hi in 1/16.  uvRot rotates
+   the top/bottom texture by 90 degree steps. */
+static void draw_box_face(int bx,int by,int bz,const u8 *lo,const u8 *hi,int dir,int texId,int level,int uvRot)
+{
+	CVert cv[4];
+	int k;
+	for(k=0; k<4; ++k)
+	{
+		const u8 *sel=faceCorner[dir][k];
+		int x=sel[0] ? hi[0] : lo[0];
+		int y=sel[1] ? hi[1] : lo[1];
+		int z=sel[2] ? hi[2] : lo[2];
+		int u,v,c;
+		/* Index the grid tables by the integer part so that corners shared
+		   with neighboring cells come out bit-identical (no cracks). */
+		const V3 *tx=&TX[bx+(x>>4)],*ty=&TY[by+(y>>4)],*tz=&TZ[bz+(z>>4)];
+		for(c=0; c<3; ++c)
+		{
+			(&cv[k].x)[c]=tx->c[c]+ty->c[c]+tz->c[c]+AX16[x&15].c[c]+AY16[y&15].c[c]+AZ16[z&15].c[c];
+		}
+		switch(dir)
+		{
+		case DIR_NX: u=16-z; v=16-y; break;
+		case DIR_PX: u=z;    v=16-y; break;
+		case DIR_NZ: u=x;    v=16-y; break;
+		case DIR_PZ: u=16-x; v=16-y; break;
+		case DIR_PY: u=x;    v=z;    break;
+		default:     u=x;    v=16-z; break;
+		}
+		switch(uvRot&3)
+		{
+		case 1: c=u; u=16-v; v=c; break;
+		case 2: u=16-u; v=16-v; break;
+		case 3: c=u; u=v; v=16-c; break;
+		}
+		cv[k].u=uvc(u);
+		cv[k].v=uvc(v);
+	}
+	draw_cpoly(cv,4,TEX_TILE(texId,level),texTransparent[texId],g_shadeLUT[level][texAvg[texId]]);
+}
+
+/* Face of a sub-box is visible if the camera is on the outer side of its plane */
+static inline int box_face_visible(int bx,int by,int bz,const u8 *lo,const u8 *hi,int dir)
+{
+	switch(dir)
+	{
+	case DIR_NX: return g_cam.x<bx*256+lo[0]*16;
+	case DIR_PX: return g_cam.x>bx*256+hi[0]*16;
+	case DIR_NY: return g_cam.y<by*256+lo[1]*16;
+	case DIR_PY: return g_cam.y>by*256+hi[1]*16;
+	case DIR_NZ: return g_cam.z<bz*256+lo[2]*16;
+	default:     return g_cam.z>bz*256+hi[2]*16;
+	}
+}
+
+static int light_level_at(int x,int y,int z,int dir)
+{
+	return face_light_level(world_light_at(x,y,z),dir,skyDarkenCur);
+}
+
+/* A mesh quad: extends w cells along x and h cells along z (top/bottom),
+   or w cells along x (Z-facing), and repeats the texture per cell. */
+static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light)
+{
+	int ex=(dir<=DIR_PX) ? 1 : w;
+	int ez=(dir<=DIR_PY) ? h : 1;
+	/* Near the camera, affine texturing of a big quad visibly warps: draw it
+	   cell by cell instead.  Painter's order is unaffected (same plane). */
+	if((ex>1 || ez>1) && ABS(x+ex/2-camBX)<=ex/2+2 && ABS(z+ez/2-camBZ)<=ez/2+2 && ABS(y-camBY)<=3)
+	{
+		int i,j;
+		for(j=0; j<ez; ++j)
+		{
+			for(i=0; i<ex; ++i)
+			{
+				draw_quad(x+i,y,z+j,dir,1,1,tex,light);
+			}
+		}
+		return;
+	}
+	int Ex=ex*16,Ez=ez*16;
+	int L=face_light_level(light,dir,skyDarkenCur);
+	const u8 *tile=TEX_TILE(tex,L);
+	CVert cv[4];
+	RVert sv[12];
+	int k,c,all=1;
+	for(k=0; k<4; ++k)
+	{
+		const u8 *sel=faceCorner[dir][k];
+		const V3 *tx=&TX[x+sel[0]*ex],*ty=&TY[y+sel[1]],*tz=&TZ[z+sel[2]*ez];
+		int rx=sel[0]*Ex,ry=sel[1]*16,rz=sel[2]*Ez,u,v;
+		for(c=0; c<3; ++c)
+		{
+			(&cv[k].x)[c]=tx->c[c]+ty->c[c]+tz->c[c];
+		}
+		switch(dir)
+		{
+		case DIR_NX: u=Ez-rz; v=16-ry; break;
+		case DIR_PX: u=rz;    v=16-ry; break;
+		case DIR_NZ: u=rx;    v=16-ry; break;
+		case DIR_PZ: u=Ex-rx; v=16-ry; break;
+		case DIR_PY: u=rx;    v=rz;    break;
+		default:     u=rx;    v=Ez-rz; break;
+		}
+		/* Keep samples a hair inside the quad so edges never wrap */
+		cv[k].u=(u<<16)+(u ? -0x200 : 0x200);
+		cv[k].v=(v<<16)+(v ? -0x200 : 0x200);
+		if(cv[k].z<NEAR_Z)
+		{
+			all=0;
+		}
+	}
+	if(all)
+	{
+		for(k=0; k<4; ++k)
+		{
+			project(cv[k].x,cv[k].y,cv[k].z,&sv[k].x,&sv[k].y);
+			sv[k].u=cv[k].u;
+			sv[k].v=cv[k].v;
+		}
+		draw_spoly(sv,4,tile,texTransparent[tex],g_shadeLUT[L][texAvg[tex]]);
+	}
+	else
+	{
+		draw_cpoly(cv,4,tile,texTransparent[tex],g_shadeLUT[L][texAvg[tex]]);
+	}
+}
+
+static void draw_model_box(int bx,int by,int bz,const u8 *lo,const u8 *hi,const u8 *tex,int L,int topRot)
+{
+	int d;
+	for(d=0; d<6; ++d)
+	{
+		if(box_face_visible(bx,by,bz,lo,hi,d))
+		{
+			int l=L-dirShade[d];
+			draw_box_face(bx,by,bz,lo,hi,d,tex[d],CLAMP(l,0,15),(d==DIR_PY||d==DIR_NY) ? topRot : 0);
+		}
+	}
+}
+
+static void draw_cross(int bx,int by,int bz,int texId,int L)
+{
+	/* Two diagonal quads, double sided */
+	CVert cv[4];
+	int q,k,c;
+	static const u8 pts[2][4][3]=
+	{
+		{{1,16,1},{15,16,15},{15,0,15},{1,0,1}},
+		{{15,16,1},{1,16,15},{1,0,15},{15,0,1}},
+	};
+	for(q=0; q<2; ++q)
+	{
+		for(k=0; k<4; ++k)
+		{
+			const u8 *p=pts[q][k];
+			const V3 *tx=&TX[bx+(p[0]>>4)],*ty=&TY[by+(p[1]>>4)],*tz=&TZ[bz+(p[2]>>4)];
+			for(c=0; c<3; ++c)
+			{
+				(&cv[k].x)[c]=tx->c[c]+ty->c[c]+tz->c[c]+AX16[p[0]&15].c[c]+AY16[p[1]&15].c[c]+AZ16[p[2]&15].c[c];
+			}
+			cv[k].u=uvc((k==1||k==2) ? 16 : 0);
+			cv[k].v=uvc((k>=2) ? 16 : 0);
+		}
+		draw_cpoly(cv,4,TEX_TILE(texId,L),1,0);
+	}
+}
+
+static void draw_model(int bx,int by,int bz,u8 b)
+{
+	int id=BLK_ID(b),meta=BLK_META(b);
+	int L=light_level_at(bx,by,bz,DIR_PY);
+	switch(id)
+	{
+	case B_TORCH:
+		{
+			static const u8 floorLo[3]={7,0,7},floorHi[3]={9,10,9};
+			static const u8 wallLo[4][3]={{0,3,7},{14,3,7},{7,3,0},{7,3,14}};
+			u8 tex[6]={T_TORCH,T_TORCH,T_TORCH,T_TORCH,T_TORCH,T_TORCH};
+			L=15;
+			if(0==meta)
+			{
+				draw_model_box(bx,by,bz,floorLo,floorHi,tex,L,0);
+			}
+			else
+			{
+				u8 lo[3],hi[3];
+				int k;
+				for(k=0; k<3; ++k)
+				{
+					lo[k]=wallLo[(meta-1)&3][k];
+					hi[k]=lo[k]+(k==1 ? 10 : 2);
+				}
+				/* Mid-height on the wall.  Texel rows above the flame are transparent. */
+				lo[1]=3; hi[1]=13;
+				draw_model_box(bx,by,bz,lo,hi,tex,L,0);
+			}
+		}
+		break;
+	case B_DOOR_LOWER:
+	case B_DOOR_UPPER:
+		{
+			/* meta bits0-1: side the door sits on (0 -X,1 +X,2 -Z,3 +Z), bit2 open */
+			static const u8 sideLo[4][3]={{0,0,0},{13,0,0},{0,0,0},{0,0,13}};
+			static const u8 sideHi[4][3]={{3,16,16},{16,16,16},{16,16,3},{16,16,16}};
+			static const u8 openSide[4]={2,3,1,0};
+			int side=meta&3;
+			u8 tex[6];
+			int k,t=(id==B_DOOR_LOWER ? T_DOOR_BOTTOM : T_DOOR_TOP);
+			if(meta&4)
+			{
+				side=openSide[side];
+			}
+			for(k=0; k<6; ++k)
+			{
+				tex[k]=t;
+			}
+			tex[DIR_PY]=tex[DIR_NY]=T_PLANKS;
+			draw_model_box(bx,by,bz,sideLo[side],sideHi[side],tex,L,0);
+		}
+		break;
+	case B_BED_FOOT:
+	case B_BED_HEAD:
+		{
+			static const u8 lo[3]={0,0,0},hi[3]={16,9,16};
+			/* meta: facing direction from foot to head (0 +Z,1 -X,2 -Z,3 +X) */
+			static const u8 rotForFacing[4]={2,1,0,3};
+			const BlockDef *def=&g_blockDef[id];
+			u8 tex[6];
+			int k;
+			for(k=0; k<6; ++k)
+			{
+				tex[k]=def->tex[k];
+			}
+			draw_model_box(bx,by,bz,lo,hi,tex,L,rotForFacing[meta&3]);
+		}
+		break;
+	case B_FLOWER:
+	case B_TALLGRASS:
+		draw_cross(bx,by,bz,g_blockDef[id].tex[0],CLAMP(L,0,15));
+		break;
+	}
+}
+
+/* ---------- Entity boxes ---------- */
+
+static void draw_mbox(const MBox *mb)
+{
+	int sy=fsin(mb->yaw),cy=fcos(mb->yaw),sp=fsin(mb->pitch),cp=fcos(mb->pitch);
+	int ew[3][3],ec[3][3];   /* Local axes in world, then in camera space (2.14) */
+	int pivW[3],pivC[3],corner[8][3];
+	int a,c,k,d;
+	/* Local axes after pitch (about X) and yaw (about Y) */
+	ew[0][0]=cy;               ew[0][1]=0;   ew[0][2]=-sy;
+	ew[1][0]=(sp*sy)>>14;      ew[1][1]=cp;  ew[1][2]=(sp*cy)>>14;
+	ew[2][0]=(cp*sy)>>14;      ew[2][1]=-sp; ew[2][2]=(cp*cy)>>14;
+	/* Pivot in world units */
+	pivW[0]=mb->ox+((mb->px*16*cy+mb->pz*16*sy)>>14);
+	pivW[1]=mb->oy+mb->py*16;
+	pivW[2]=mb->oz+((-mb->px*16*sy+mb->pz*16*cy)>>14);
+	for(c=0; c<3; ++c)
+	{
+		pivC[c]=((pivW[0]-g_cam.x)*rot[c][0]+(pivW[1]-g_cam.y)*rot[c][1]+(pivW[2]-g_cam.z)*rot[c][2])>>14;
+		for(a=0; a<3; ++a)
+		{
+			ec[a][c]=(ew[a][0]*rot[c][0]+ew[a][1]*rot[c][1]+ew[a][2]*rot[c][2])>>14;
+		}
+	}
+	for(k=0; k<8; ++k)
+	{
+		int lx=((k&1) ? mb->x1 : mb->x0)-mb->px;
+		int ly=((k&2) ? mb->y1 : mb->y0)-mb->py;
+		int lz=((k&4) ? mb->z1 : mb->z0)-mb->pz;
+		for(c=0; c<3; ++c)
+		{
+			corner[k][c]=pivC[c]+((ec[0][c]*lx+ec[1][c]*ly+ec[2][c]*lz)>>10);
+		}
+	}
+	for(d=0; d<6; ++d)
+	{
+		/* Face corners (as bits of k: x=1,y=2,z=4), TL,TR,BR,BL from outside */
+		static const u8 fk[6][4]=
+		{
+			{6,2,0,4},{3,7,5,1},{4,5,1,0},{2,3,7,6},{2,3,1,0},{7,6,4,5}
+		};
+		static const int uvx[4]={0,16,16,0},uvy[4]={0,0,16,16};
+		int axis=d>>1,sign=(d&1) ? 1 : -1;
+		int dot=0,L;
+		CVert cv[4];
+		for(c=0; c<3; ++c)
+		{
+			dot+=ec[axis][c]*sign*(corner[fk[d][0]][c]>>2);
+		}
+		if(dot>=0)
+		{
+			continue;
+		}
+		for(k=0; k<4; ++k)
+		{
+			cv[k].x=corner[fk[d][k]][0];
+			cv[k].y=corner[fk[d][k]][1];
+			cv[k].z=corner[fk[d][k]][2];
+			cv[k].u=uvc(uvx[k]);
+			cv[k].v=uvc(uvy[k]);
+		}
+		L=mb->light-dirShade[d];
+		L=CLAMP(L,0,15);
+		if(mb->flash)
+		{
+			draw_cpoly(cv,4,NULL,0,P(R_RED,CLAMP(L,4,14)));
+		}
+		else
+		{
+			draw_cpoly(cv,4,TEX_TILE(mb->tex[d],L),texTransparent[mb->tex[d]],g_shadeLUT[L][texAvg[mb->tex[d]]]);
+		}
+	}
+}
+
+/* ---------- Frame ---------- */
+
+static void setup_camera(void)
+{
+	int sy=fsin(g_cam.yaw),cy=fcos(g_cam.yaw),sp=fsin(g_cam.pitch),cp=fcos(g_cam.pitch);
+	int i,k,x0,x1,z0,z1;
+	/* right, up, forward */
+	rot[0][0]=cy;               rot[0][1]=0;   rot[0][2]=-sy;
+	rot[1][0]=-(sy*sp)>>14;     rot[1][1]=cp;  rot[1][2]=-(cy*sp)>>14;
+	rot[2][0]=(sy*cp)>>14;      rot[2][1]=sp;  rot[2][2]=(cy*cp)>>14;
+
+	camBX=g_cam.x>>8;
+	camBY=g_cam.y>>8;
+	camBZ=g_cam.z>>8;
+
+	/* Merged quads can reach 16 cells past the view distance */
+	x0=MAX(0,camBX-g_viewDist-18); x1=MIN(g_W,camBX+g_viewDist+18);
+	z0=MAX(0,camBZ-g_viewDist-18); z1=MIN(g_W,camBZ+g_viewDist+18);
+	for(i=x0; i<=x1; ++i)
+	{
+		int d=i*256-g_cam.x;
+		for(k=0; k<3; ++k)
+		{
+			TX[i].c[k]=(d*rot[k][0])>>14;
+		}
+		visX[i]=(d>0 ? 1 : 0)|((d+256)<0 ? 2 : 0);
+	}
+	for(i=z0; i<=z1; ++i)
+	{
+		int d=i*256-g_cam.z;
+		for(k=0; k<3; ++k)
+		{
+			TZ[i].c[k]=(d*rot[k][2])>>14;
+		}
+		visZ[i]=(d>0 ? 16 : 0)|((d+256)<0 ? 32 : 0);
+	}
+	for(i=0; i<=WH; ++i)
+	{
+		int d=i*256-g_cam.y;
+		for(k=0; k<3; ++k)
+		{
+			TY[i].c[k]=(d*rot[k][1])>>14;
+		}
+		visY[i]=(d>0 ? 4 : 0)|((d+256)<0 ? 8 : 0);
+	}
+	for(i=0; i<=16; ++i)
+	{
+		for(k=0; k<3; ++k)
+		{
+			AX16[i].c[k]=(i*16*rot[k][0])>>14;
+			AY16[i].c[k]=(i*16*rot[k][1])>>14;
+			AZ16[i].c[k]=(i*16*rot[k][2])>>14;
+		}
+	}
+}
+
+/* Back-to-front order keys (larger = drawn earlier) */
+static inline int ord_slice(int y)
+{
+	int d=y-camBY;
+	return d<0 ? 1-2*d : 2*d;
+}
+static inline int ord_axis(int v,int c)
+{
+	int d=v-c;
+	return (d<0 ? 1-2*d : 2*d)+1;   /* 0 is reserved for end-of-row/slice */
+}
+
+/* Row axis of the nested order: z (rows of constant z, cells along x) or,
+   when looking mostly along x, x.  Chosen per frame so that the side faces
+   facing the camera are the ones drawn as merged runs. */
+static int nestX;
+static inline u32 cell_key(int x,int y,int z)
+{
+	if(nestX)
+	{
+		return (ord_slice(y)<<20)|(ord_axis(x,camBX)<<10)|ord_axis(z,camBZ);
+	}
+	return (ord_slice(y)<<20)|(ord_axis(z,camBZ)<<10)|ord_axis(x,camBX);
+}
+
+static inline void add_item(u32 key,u32 a,u32 b)
+{
+	if(nItems<maxItems)
+	{
+		items[nItems].a=a;
+		items[nItems].b=b;
+		itemKey[nItems]=key;
+		++nItems;
+	}
+}
+
+static void sort_items(void)
+{
+	static u16 cnt[1024];
+	int pass,i;
+	u16 *src=order,*dst=order2,*t;
+	for(i=0; i<nItems; ++i)
+	{
+		src[i]=i;
+	}
+	for(pass=0; pass<3; ++pass)
+	{
+		int shift=pass*10;
+		u32 sum=0;
+		memset(cnt,0,sizeof(cnt));
+		for(i=0; i<nItems; ++i)
+		{
+			++cnt[(itemKey[src[i]]>>shift)&1023];
+		}
+		for(i=0; i<1024; ++i)
+		{
+			u32 c=cnt[i];
+			cnt[i]=sum;
+			sum+=c;
+		}
+		for(i=0; i<nItems; ++i)
+		{
+			u16 k=src[i];
+			dst[cnt[(itemKey[k]>>shift)&1023]++]=k;
+		}
+		t=src; src=dst; dst=t;
+	}
+	if(src!=order)
+	{
+		memcpy(order,src,2*nItems);
+	}
+}
+
+/* Is a chunk (bounding sphere) possibly in view? */
+static int chunk_in_frustum(int cx,int cy,int cz)
+{
+	int wx=(cx*CS+8)*256-g_cam.x,wy=(cy*CS+8)*256-g_cam.y,wz=(cz*CS+8)*256-g_cam.z;
+	int x=(wx*rot[0][0]+wy*rot[0][1]+wz*rot[0][2])>>14;
+	int y=(wx*rot[1][0]+wy*rot[1][1]+wz*rot[1][2])>>14;
+	int z=(wx*rot[2][0]+wy*rot[2][1]+wz*rot[2][2])>>14;
+	const int R=3548;   /* 16*sqrt(3)/2 blocks in units */
+	int hw=vw*8,hh=vh*8;   /* half viewport in 28.4 = w/2*16 */
+	int nlen;
+	if(z<-R)
+	{
+		return 0;
+	}
+	/* Side planes: focal16*x <= hw*z (+R*len) */
+	nlen=isqrt((u32)(focal16>>4)*(focal16>>4)+(u32)(hw>>4)*(hw>>4));
+	if(((focal16>>4)*x-(hw>>4)*z)>R*nlen) return 0;
+	if((-(focal16>>4)*x-(hw>>4)*z)>R*nlen) return 0;
+	nlen=isqrt((u32)(focal16>>4)*(focal16>>4)+(u32)(hh>>4)*(hh>>4));
+	if(((focal16>>4)*y-(hh>>4)*z)>R*nlen) return 0;
+	if((-(focal16>>4)*y-(hh>>4)*z)>R*nlen) return 0;
+	return 1;
+}
+
+/* Sphere (center p in camera space, radius r units) against the frustum */
+static int fpxC,hwpC,hhpC,nlxC,nlyC;
+static V3 ctrC;   /* Offset from a cell corner to its center */
+static inline int sphere_visible(int px,int py,int pz,int r)
+{
+	int zx,zy;
+	if(pz<-r)
+	{
+		return 0;
+	}
+	zx=hwpC*pz;
+	px*=fpxC;
+	if(px-zx>r*nlxC || -px-zx>r*nlxC)
+	{
+		return 0;
+	}
+	zy=hhpC*pz;
+	py*=fpxC;
+	if(py-zy>r*nlyC || -py-zy>r*nlyC)
+	{
+		return 0;
+	}
+	return 1;
+}
+
+static void collect(void)
+{
+	int R=g_viewDist,R2=R*R;
+	int ccx0=MAX(0,(camBX-R)>>4),ccx1=MIN(g_NC-1,(camBX+R)>>4);
+	int ccz0=MAX(0,(camBZ-R)>>4),ccz1=MIN(g_NC-1,(camBZ+R)>>4);
+	int cxi,czi,cyi,dir;
+	for(cxi=0; cxi<3; ++cxi)
+	{
+		ctrC.c[cxi]=AX16[8].c[cxi]+AY16[8].c[cxi]+AZ16[8].c[cxi];
+	}
+	nestX=(ABS(rot[2][0])>ABS(rot[2][2]));
+	fpxC=focal16>>4;
+	hwpC=vw/2;
+	hhpC=vh/2;
+	nlxC=isqrt((u32)(fpxC*fpxC+hwpC*hwpC));
+	nlyC=isqrt((u32)(fpxC*fpxC+hhpC*hhpC));
+	for(czi=ccz0; czi<=ccz1; ++czi)
+	{
+		for(cxi=ccx0; cxi<=ccx1; ++cxi)
+		{
+			/* Horizontal distance from camera to chunk rectangle */
+			int ddx=0,ddz=0;
+			if(camBX<cxi*CS) ddx=cxi*CS-camBX; else if(camBX>=cxi*CS+CS) ddx=camBX-(cxi*CS+CS-1);
+			if(camBZ<czi*CS) ddz=czi*CS-camBZ; else if(camBZ>=czi*CS+CS) ddz=camBZ-(czi*CS+CS-1);
+			if(ddx*ddx+ddz*ddz>R2)
+			{
+				continue;
+			}
+			for(cyi=0; cyi<NCY; ++cyi)
+			{
+				Chunk *ch=&g_chunks[chunk_index(cxi,cyi,czi)];
+				const u32 *q,*end;
+				int x0=cxi*CS,y0=cyi*CS,z0=czi*CS;
+				if(0==ch->count || !chunk_in_frustum(cxi,cyi,czi))
+				{
+					continue;
+				}
+				q=g_meshPool+ch->off*2;
+				/* Faces, one direction group at a time.  Groups are sorted with
+				   the camera-facing planes first, so stop at the first
+				   back-facing one. */
+				for(dir=0; dir<6; ++dir)
+				{
+					const u32 *gend=q+ch->group[dir]*2;
+					for(; q<gend; q+=2)
+					{
+						u32 w0=q[0],w1=q[1];
+						int x=x0+MQ_LX(w0),y=y0+MQ_LY(w0),z=z0+MQ_LZ(w0);
+						int ex,ez,nx,nz,px,py,pz;
+						if(0==((visX[x]|visY[y]|visZ[z])&(1<<dir)))
+						{
+							break;
+						}
+						ex=(dir<=DIR_PX) ? 1 : MQ_W(w0);
+						ez=(dir<=DIR_PY) ? MQ_H(w0) : 1;
+						/* Nearest point of the quad's footprint for the distance limit */
+						nx=CLAMP(camBX,x,x+ex-1)-camBX;
+						nz=CLAMP(camBZ,z,z+ez-1)-camBZ;
+						if(sqTab[ABS(nx)]+sqTab[ABS(nz)]>R2)
+						{
+							continue;
+						}
+						/* Bounding sphere of the quad's cells */
+						px=(TX[x].c[0]+TX[x+ex].c[0]+TZ[z].c[0]+TZ[z+ez].c[0]+TY[y].c[0]+TY[y+1].c[0])>>1;
+						py=(TX[x].c[1]+TX[x+ex].c[1]+TZ[z].c[1]+TZ[z+ez].c[1]+TY[y].c[1]+TY[y+1].c[1])>>1;
+						pz=(TX[x].c[2]+TX[x+ex].c[2]+TZ[z].c[2]+TZ[z+ez].c[2]+TY[y].c[2]+TY[y+1].c[2])>>1;
+						if(!sphere_visible(px,py,pz,128*(ex+ez+1)))
+						{
+							continue;
+						}
+						{
+							u32 a=(u32)x|((u32)z<<8)|((u32)y<<16)|((u32)dir<<22)|((u32)IK_QUAD<<25);
+							u32 b=w1&0xFFFF;
+							int i;
+							if(DIR_PY==dir || DIR_NY==dir)
+							{
+								/* End of slice */
+								add_item(ord_slice(y)<<20,a,b|((u32)(ex-1)<<16)|((u32)(ez-1)<<20));
+							}
+							else if(dir>=DIR_NZ)
+							{
+								if(!nestX)
+								{
+									/* Run along the row: end of row */
+									add_item((ord_slice(y)<<20)|(ord_axis(z,camBZ)<<10),a,b|((u32)(ex-1)<<16));
+								}
+								else
+								{
+									/* Crosses rows: one item per cell */
+									for(i=0; i<ex; ++i)
+									{
+										add_item(cell_key(x+i,y,z),a+i,b);
+									}
+								}
+							}
+							else
+							{
+								if(nestX)
+								{
+									add_item((ord_slice(y)<<20)|(ord_axis(x,camBX)<<10),a,b|((u32)(ez-1)<<20));
+								}
+								else
+								{
+									for(i=0; i<ez; ++i)
+									{
+										add_item(cell_key(x,y,z+i),a+((u32)i<<8),b);
+									}
+								}
+							}
+						}
+					}
+					q=gend;
+				}
+				/* Model cells */
+				end=q+ch->group[6]*2;
+				for(; q<end; q+=2)
+				{
+					u32 w0=q[0],w1=q[1];
+					int x=x0+MQ_LX(w0),y=y0+MQ_LY(w0),z=z0+MQ_LZ(w0);
+					int dx=x-camBX,dz=z-camBZ,px,py,pz;
+					if(sqTab[ABS(dx)]+sqTab[ABS(dz)]>R2)
+					{
+						continue;
+					}
+					px=TX[x].c[0]+TY[y].c[0]+TZ[z].c[0]+ctrC.c[0];
+					py=TX[x].c[1]+TY[y].c[1]+TZ[z].c[1]+ctrC.c[1];
+					pz=TX[x].c[2]+TY[y].c[2]+TZ[z].c[2]+ctrC.c[2];
+					if(!sphere_visible(px,py,pz,230))
+					{
+						continue;
+					}
+					add_item(cell_key(x,y,z),(u32)x|((u32)z<<8)|((u32)y<<16)|((u32)IK_MODEL<<25),MQ_BLK(w1));
+				}
+			}
+		}
+	}
+}
+
+static void draw_sky(const RenderEnv *env)
+{
+	/* Horizon row: where forward pitch meets 0 elevation */
+	int sp=fsin(g_cam.pitch),cp=fcos(g_cam.pitch);
+	int horizon=vh/2;
+	if(cp>200)
+	{
+		horizon=vh/2+(int)(((focal16>>4)*sp)/cp);
+	}
+	raster_fill_rows(0,horizon-vh/10,env->skyColor);
+	raster_fill_rows(horizon-vh/10,horizon,(env->skyColor&0xF0)|MIN(15,(env->skyColor&15)+1));
+	raster_fill_rows(horizon,vh,env->fogColor);
+
+	/* Stars */
+	if(env->starBrightness>0)
+	{
+		int i;
+		for(i=0; i<48; ++i)
+		{
+			u32 h=hash3(i,7,3,99);
+			int yaw=h&1023,el=40+((h>>10)&255);
+			int ce=fcos(el),se=fsin(el);
+			V3 p;
+			int k,sx,sy;
+			int d[3]={(fsin(yaw)*ce)>>15,se>>1,(fcos(yaw)*ce)>>15};
+			for(k=0; k<3; ++k)
+			{
+				p.c[k]=(d[0]*rot[k][0]+d[1]*rot[k][1]+d[2]*rot[k][2])>>14;
+			}
+			if(to_screen(&p,&sx,&sy))
+			{
+				raster_pixel(sx>>4,sy>>4,P(R_GRAY,MIN(15,env->starBrightness+(h>>20)%3)));
+			}
+		}
+	}
+
+	/* Sun and moon: squares on the celestial circle (east-west) */
+	{
+		int body;
+		for(body=0; body<2; ++body)
+		{
+			int a=env->sunAngle+body*512;
+			int dxw=(fcos(a))>>4,dyw=(fsin(a))>>4;   /* direction, ~1024 */
+			int k,s;
+			V3 ctr;
+			CVert cv[4];
+			static const s8 ofs[4][2]={{-1,1},{1,1},{1,-1},{-1,-1}};
+			if(dyw<-200)
+			{
+				continue;
+			}
+			for(k=0; k<3; ++k)
+			{
+				ctr.c[k]=(dxw*16*rot[k][0]+dyw*16*rot[k][1])>>14;
+			}
+			s=(body ? 1100 : 1500);
+			for(k=0; k<4; ++k)
+			{
+				/* Square spanned by the north axis (z) and the up-tangent */
+				int wx=-ofs[k][1]*s*dyw/1024,wy=ofs[k][1]*s*dxw/1024,wz=ofs[k][0]*s;
+				int c;
+				for(c=0; c<3; ++c)
+				{
+					(&cv[k].x)[c]=ctr.c[c]+((wx*rot[c][0]+wy*rot[c][1]+wz*rot[c][2])>>14);
+				}
+				cv[k].u=cv[k].v=0;
+			}
+			draw_cpoly(cv,4,NULL,0,body ? P(R_GRAY,13) : P(R_FLAME,15));
+		}
+	}
+}
+
+static void draw_target_outline(const RenderEnv *env)
+{
+	static const u8 edges[12][2]={{0,1},{2,3},{4,5},{6,7},{0,2},{1,3},{4,6},{5,7},{0,4},{1,5},{2,6},{3,7}};
+	V3 c[8];
+	int k,e,ok[8],sx[8],sy[8];
+	int x=env->tx,y=env->ty,z=env->tz;
+	if(!env->targetValid || !in_world(x,y,z) || ABS(x-camBX)>g_viewDist+1 || ABS(z-camBZ)>g_viewDist+1)
+	{
+		return;
+	}
+	for(k=0; k<8; ++k)
+	{
+		int cc;
+		for(cc=0; cc<3; ++cc)
+		{
+			c[k].c[cc]=TX[x+(k&1)].c[cc]+TY[y+((k>>1)&1)].c[cc]+TZ[z+((k>>2)&1)].c[cc];
+		}
+		ok[k]=to_screen(&c[k],&sx[k],&sy[k]);
+	}
+	for(e=0; e<12; ++e)
+	{
+		int a=edges[e][0],b=edges[e][1];
+		if(ok[a] && ok[b])
+		{
+			raster_line(sx[a],sy[a],sx[b],sy[b],P(R_GRAY,2));
+		}
+	}
+}
+
+void render_frame(u8 *fb,const RenderEnv *env)
+{
+	int key;
+	vw=SCR_W/g_renderScale;
+	vh=SCR_H/g_renderScale;
+	focal16=(172*16)/g_renderScale;
+	cx16=vw*8;
+	cy16=vh*8;
+	skyDarkenCur=env->skyDarken;
+	raster_set_target(fb,vw,vh,SCR_W,g_renderScale);
+	setup_camera();
+
+	nItems=0;
+	g_statFaces=0;
+	{u32 t=g_ticks;
+	collect();
+	g_prof[0]+=g_ticks-t;}
+	{
+		int i;
+		for(i=0; i<nBoxes; ++i)
+		{
+			MBox *b=&boxes[i];
+			int bx=b->ox>>8,by=(b->oy+(b->y0+b->y1)*8)>>8,bz=b->oz>>8;
+			int dx=bx-camBX,dz=bz-camBZ;
+			if(dx*dx+dz*dz>g_viewDist*g_viewDist)
+			{
+				continue;
+			}
+			by=CLAMP(by,0,WH-1);
+			add_item(cell_key(bx,by,bz),(u32)IK_BOX<<25,i);
+		}
+	}
+	g_statItems=nItems;
+	sort_items();
+
+	{u32 t=g_ticks;
+	draw_sky(env);
+	g_prof[1]+=g_ticks-t;}
+	{u32 t=g_ticks;
+	for(key=nItems-1; key>=0; --key)
+	{
+		const Item *it=&items[order[key]];
+		int kind=(it->a>>25)&3;
+		if(IK_BOX==kind)
+		{
+			draw_mbox(&boxes[it->b]);
+		}
+		else
+		{
+			int x=it->a&255,z=(it->a>>8)&255,y=(it->a>>16)&63;
+			if(IK_MODEL==kind)
+			{
+				draw_model(x,y,z,(u8)it->b);
+			}
+			else
+			{
+				draw_quad(x,y,z,(it->a>>22)&7,((it->b>>16)&15)+1,((it->b>>20)&15)+1,it->b&255,(it->b>>8)&255);
+			}
+		}
+	}
+	g_prof[2]+=g_ticks-t;}
+	draw_target_outline(env);
+	{u32 t=g_ticks;
+	raster_finish();
+	g_prof[3]+=g_ticks-t;}
+	if(env->underwater)
+	{
+		gfx_darken(fb,0,0,SCR_W,SCR_H);
+	}
+}
