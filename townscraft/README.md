@@ -112,6 +112,23 @@ goes on port B.
 Not included: caves, flowing water, hunger, item drops on
 the ground (broken blocks go straight to the inventory).
 
+## Work in progress: caves and mesh streaming
+
+Caves, gold, diamonds and diamond tools are in the code, but caves do not
+render fully yet.  The mesh pool stores the faces of every chunk in the
+world, built once at generation and rebuilt only on edits.  It was sized
+for about 0.7 faces per block column (room for 1.25); with caves a world
+needs about 2.4 per column on a 2 MB machine and 1.8 on a 4 MB one, so the
+pool fills and the chunks built last get no faces.
+
+Planned fix: mesh streaming.  Only chunks within the view distance (plus a
+margin) keep faces.  Chunks are meshed as the player approaches and their
+pool space is freed when they fall out of range, so the pool size depends
+on the view distance instead of the world size.  This also frees memory
+for bigger worlds.  To watch: building a chunk's faces costs time on a
+25 MHz machine, so building should be spread over frames to avoid
+stutters when crossing chunk borders.
+
 ## How it works
 
 - `boot/ipl.S`: the CD boot sector ("IPL4").  The TOWNS boot ROM loads it
