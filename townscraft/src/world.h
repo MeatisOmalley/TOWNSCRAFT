@@ -87,5 +87,6 @@ int world_surface_y(int x,int z);         /* y of first air above ground (spawn 
 int world_is_solid(int x,int y,int z);
 
 extern int g_spawnX,g_spawnY,g_spawnZ;
+extern void (*g_genProgress)(int percent);
 
 #endif

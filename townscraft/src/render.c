@@ -25,10 +25,11 @@ int g_viewDist=16;
 int g_renderScale=2;
 u32 g_statFaces,g_statItems;
 u32 g_prof[8];
+u32 g_dbg[4];
 int g_flatLOD=6*16;   /* 28.4: faces smaller than this are flat shaded */
 
 #define NEAR_Z 12       /* units (~0.05 block) */
-#define MAX_BOXES 96
+#define MAX_BOXES 160
 #define GUARD 48        /* pixels outside the viewport before 2D clipping */
 
 typedef struct { int c[3]; } V3;
@@ -510,23 +511,15 @@ static void draw_model(int bx,int by,int bz,u8 b)
 	case B_DOOR_LOWER:
 	case B_DOOR_UPPER:
 		{
-			/* meta bits0-1: side the door sits on (0 -X,1 +X,2 -Z,3 +Z), bit2 open */
-			static const u8 sideLo[4][3]={{0,0,0},{13,0,0},{0,0,0},{0,0,13}};
-			static const u8 sideHi[4][3]={{3,16,16},{16,16,16},{16,16,3},{16,16,16}};
-			static const u8 openSide[4]={2,3,1,0};
-			int side=meta&3;
-			u8 tex[6];
+			u8 tex[6],lo[3],hi[3];
 			int k,t=(id==B_DOOR_LOWER ? T_DOOR_BOTTOM : T_DOOR_TOP);
-			if(meta&4)
-			{
-				side=openSide[side];
-			}
 			for(k=0; k<6; ++k)
 			{
 				tex[k]=t;
 			}
 			tex[DIR_PY]=tex[DIR_NY]=T_PLANKS;
-			draw_model_box(bx,by,bz,sideLo[side],sideHi[side],tex,L,0);
+			block_box(b,lo,hi);
+			draw_model_box(bx,by,bz,lo,hi,tex,L,0);
 		}
 		break;
 	case B_BED_FOOT:
@@ -556,6 +549,7 @@ static void draw_model(int bx,int by,int bz,u8 b)
 
 static void draw_mbox(const MBox *mb)
 {
+	++g_dbg[1];
 	int sy=fsin(mb->yaw),cy=fcos(mb->yaw),sp=fsin(mb->pitch),cp=fcos(mb->pitch);
 	int ew[3][3],ec[3][3];   /* Local axes in world, then in camera space (2.14) */
 	int pivW[3],pivC[3],corner[8][3];
@@ -605,6 +599,7 @@ static void draw_mbox(const MBox *mb)
 		{
 			continue;
 		}
+		++g_dbg[2];
 		for(k=0; k<4; ++k)
 		{
 			cv[k].x=corner[fk[d][k]][0];
@@ -1061,21 +1056,44 @@ void render_frame(u8 *fb,const RenderEnv *env)
 	collect();
 	g_prof[0]+=g_ticks-t;}
 	{
-		int i;
+		/* Entities span several cells.  Key each one by the cell holding
+		   the point of its bounding box nearest the camera: it is then
+		   drawn after everything fully behind it and before anything fully
+		   in front of it.  Parts of one entity share the key and are
+		   inserted near to far, so the stable sort draws far parts first. */
+		static u16 idx[MAX_BOXES];
+		static int dist[MAX_BOXES];
+		int i,j;
 		for(i=0; i<nBoxes; ++i)
 		{
-			MBox *b=&boxes[i];
-			int bx=b->ox>>8,by=(b->oy+(b->y0+b->y1)*8)>>8,bz=b->oz>>8;
-			int dx=bx-camBX,dz=bz-camBZ;
+			const MBox *b=&boxes[i];
+			int px=b->ox+((b->px*16*fcos(b->yaw)+b->pz*16*fsin(b->yaw))>>14)-g_cam.x;
+			int py=b->oy+b->py*16-g_cam.y;
+			int pz=b->oz+((-b->px*16*fsin(b->yaw)+b->pz*16*fcos(b->yaw))>>14)-g_cam.z;
+			dist[i]=(px>>4)*(px>>4)+(py>>4)*(py>>4)+(pz>>4)*(pz>>4);
+			for(j=i; j>0 && dist[idx[j-1]]>dist[i]; --j)
+			{
+				idx[j]=idx[j-1];
+			}
+			idx[j]=i;
+		}
+		for(j=0; j<nBoxes; ++j)
+		{
+			const MBox *b=&boxes[idx[j]];
+			int nx=CLAMP(g_cam.x,b->ox-b->hw,b->ox+b->hw)>>8;
+			int ny=CLAMP(g_cam.y,b->oy,b->oy+b->h-1)>>8;
+			int nz=CLAMP(g_cam.z,b->oz-b->hw,b->oz+b->hw)>>8;
+			int dx=nx-camBX,dz=nz-camBZ;
 			if(dx*dx+dz*dz>g_viewDist*g_viewDist)
 			{
 				continue;
 			}
-			by=CLAMP(by,0,WH-1);
-			add_item(cell_key(bx,by,bz),(u32)IK_BOX<<25,i);
+			ny=CLAMP(ny,0,WH-1);
+			add_item(cell_key(nx,ny,nz),(u32)IK_BOX<<25,idx[j]);
 		}
 	}
 	g_statItems=nItems;
+	g_dbg[0]=nBoxes;
 	sort_items();
 
 	{u32 t=g_ticks;

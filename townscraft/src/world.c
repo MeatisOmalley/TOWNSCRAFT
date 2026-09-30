@@ -12,6 +12,15 @@ u32 g_meshQuads;
 static u32 poolSize,poolTop;
 static int strideZ;
 int g_spawnX,g_spawnY,g_spawnZ;
+void (*g_genProgress)(int percent);
+
+static void progress(int p)
+{
+	if(g_genProgress)
+	{
+		g_genProgress(p);
+	}
+}
 
 const u8 g_lightOpacity[NUM_BLOCKS]=
 {
@@ -25,7 +34,14 @@ const u8 g_lightOpacity[NUM_BLOCKS]=
 	0,15,15,
 };
 
+static void init_hides_tab(void);
+
 /* ---------------- Allocation ---------------- */
+
+#define PQ_LEN 16384
+#define RQ_LEN 8192
+static u32 *pq,*rq;
+
 
 void world_alloc(void)
 {
@@ -46,6 +62,7 @@ void world_alloc(void)
 	g_light=heap_alloc_high(cells);
 	g_height=heap_alloc_low(g_W*g_W);
 	g_zOff=heap_alloc_low(sizeof(int)*g_W);
+	init_hides_tab();
 	for(z=0; z<g_W; ++z)
 	{
 		g_zOff[z]=z*strideZ;
@@ -55,13 +72,12 @@ void world_alloc(void)
 	poolSize=(u32)g_W*g_W*5/4;   /* quads; a generated world uses about 0.7 per column */
 	g_meshPool=heap_alloc_low(poolSize*8);
 	poolTop=0;
+	pq=heap_alloc_low(PQ_LEN*4);
+	rq=heap_alloc_low(RQ_LEN*4);
 }
 
 /* ---------------- Light ---------------- */
 
-#define PQ_LEN 16384
-#define RQ_LEN 8192
-static u32 *pq,*rq;
 static u32 pqHead,pqTail,rqHead,rqTail;
 
 static inline void pq_push(u32 i)
@@ -311,6 +327,18 @@ int world_light_at(int x,int y,int z)
 
 /* ---------------- Chunk meshes ---------------- */
 
+/* hidesTab[n]: a face next to block n is never visible (n is opaque or water) */
+static u8 hidesTab[256];
+
+static void init_hides_tab(void)
+{
+	int n;
+	for(n=0; n<256; ++n)
+	{
+		hidesTab[n]=(0!=(blk_flags(n)&BF_OPAQUE)) || B_WATER==BLK_ID(n);
+	}
+}
+
 static inline int face_visible(u8 b,u8 n)
 {
 	u8 nf=blk_flags(n);
@@ -398,6 +426,7 @@ static void runs1d_z(u16 *key,int ly,int dir)
 			{
 				continue;
 			}
+			key[lz*16+lx]=0;
 			for(h=1; lz+h<16 && key[(lz+h)*16+lx]==k; ++h)
 			{
 				key[(lz+h)*16+lx]=0;
@@ -421,6 +450,7 @@ static void runs1d(u16 *key,int ly,int dir)
 			{
 				continue;
 			}
+			key[lz*16+lx]=0;
 			for(w=1; lx+w<16 && key[lz*16+lx+w]==k; ++w)
 			{
 				key[lz*16+lx+w]=0;
@@ -475,13 +505,7 @@ static void rebuild_chunk(int cx,int cy,int cz)
 	nTmp=0;
 	for(ly=0; ly<CS; ++ly)
 	{
-		int y=y0+ly;
-		memset(keyTop,0,sizeof(keyTop));
-		memset(keyBot,0,sizeof(keyBot));
-		memset(keyNZ,0,sizeof(keyNZ));
-		memset(keyPZ,0,sizeof(keyPZ));
-		memset(keyNX,0,sizeof(keyNX));
-		memset(keyPX,0,sizeof(keyPX));
+		int y=y0+ly,used=0;
 		for(lz=0; lz<CS; ++lz)
 		{
 			int z=z0+lz;
@@ -501,29 +525,47 @@ static void rebuild_chunk(int cx,int cy,int cz)
 					emit(lx,ly,lz,0,1,1,(u32)b<<16,1);
 					continue;
 				}
+				/* Enclosed cell (the common case underground): nothing to emit */
+				if(x>0 && x<g_W-1 && y>0 && y<WH-1 && z>0 && z<g_W-1 &&
+				   hidesTab[g_blocks[i-1]] && hidesTab[g_blocks[i+1]] &&
+				   hidesTab[g_blocks[i-WH]] && hidesTab[g_blocks[i+WH]] &&
+				   hidesTab[g_blocks[i-strideZ]] && hidesTab[g_blocks[i+strideZ]])
+				{
+					continue;
+				}
 				def=&g_blockDef[BLK_ID(b)];
 				for(d=0; d<6; ++d)
 				{
-					int nx=x+(d==1)-(d==0),ny=y+(d==3)-(d==2),nz=z+(d==5)-(d==4);
 					u8 nb;
 					u16 k;
-					if(!in_world(nx,ny,nz))
+					u32 ni;
+					int L;
+					/* World edges and bottom are hidden; the sky above is lit */
+					switch(d)
 					{
-						if(ny<WH)
-						{
-							continue;   /* World edge and bottom: hidden */
-						}
+					case DIR_NX: if(0==x) continue; ni=i-WH; break;
+					case DIR_PX: if(g_W-1==x) continue; ni=i+WH; break;
+					case DIR_NY: if(0==y) continue; ni=i-1; break;
+					case DIR_PY: if(WH-1==y) { ni=0; break; } ni=i+1; break;
+					case DIR_NZ: if(0==z) continue; ni=i-strideZ; break;
+					default:     if(g_W-1==z) continue; ni=i+strideZ; break;
+					}
+					if(DIR_PY==d && WH-1==y)
+					{
 						nb=B_AIR;
+						L=0xF0;
 					}
 					else
 					{
-						nb=g_blocks[widx(nx,ny,nz)];
+						nb=g_blocks[ni];
+						if(hidesTab[nb] || ((f&BF_SAMEHIDE) && BLK_ID(nb)==BLK_ID(b)))
+						{
+							continue;
+						}
+						L=g_light[ni];
 					}
-					if(!face_visible(b,nb))
-					{
-						continue;
-					}
-					k=(u16)((def->tex[d]|(world_light_at(nx,ny,nz)<<8))+1);
+					k=(u16)((def->tex[d]|(L<<8))+1);
+					used|=1<<d;
 					switch(d)
 					{
 					case DIR_NX: keyNX[lz*16+lx]=k; break;
@@ -536,12 +578,12 @@ static void rebuild_chunk(int cx,int cy,int cz)
 				}
 			}
 		}
-		greedy2d(keyTop,ly,DIR_PY);
-		greedy2d(keyBot,ly,DIR_NY);
-		runs1d(keyNZ,ly,DIR_NZ);
-		runs1d(keyPZ,ly,DIR_PZ);
-		runs1d_z(keyNX,ly,DIR_NX);
-		runs1d_z(keyPX,ly,DIR_PX);
+		if(used&(1<<DIR_PY)) greedy2d(keyTop,ly,DIR_PY);
+		if(used&(1<<DIR_NY)) greedy2d(keyBot,ly,DIR_NY);
+		if(used&(1<<DIR_NZ)) runs1d(keyNZ,ly,DIR_NZ);
+		if(used&(1<<DIR_PZ)) runs1d(keyPZ,ly,DIR_PZ);
+		if(used&(1<<DIR_NX)) runs1d_z(keyNX,ly,DIR_NX);
+		if(used&(1<<DIR_PX)) runs1d_z(keyPX,ly,DIR_PX);
 	}
 	/* Group by direction (models last); within a group order by plane
 	   coordinate so visible planes come first: ascending for +X/+Y/+Z
@@ -729,17 +771,56 @@ int world_surface_y(int x,int z)
 
 static u32 genSeed;
 
+/* Value noise.  Lattice values are hashed once per (octave, seed) into a
+   small cache: the lattice for 256 blocks at spacing 8 is only 33x33. */
+#define LAT_N 66
+typedef struct
+{
+	u32 seed;
+	int sh;
+	u8 v[LAT_N*LAT_N];
+} Lattice;
+static Lattice lat[8];
+
+static const u8 *lattice(int sh,u32 seed)
+{
+	int i,x,z;
+	for(i=0; i<8; ++i)
+	{
+		if(lat[i].sh==sh && lat[i].seed==seed)
+		{
+			return lat[i].v;
+		}
+	}
+	for(i=0; i<8 && lat[i].sh; ++i);
+	if(i==8)
+	{
+		i=0;
+	}
+	lat[i].sh=sh;
+	lat[i].seed=seed;
+	for(z=0; z<LAT_N; ++z)
+	{
+		for(x=0; x<LAT_N; ++x)
+		{
+			lat[i].v[z*LAT_N+x]=hash3(x,z,0,seed)&255;
+		}
+	}
+	return lat[i].v;
+}
+
 static int vnoise(int x,int z,int sh,u32 seed)
 {
 	int cx=x>>sh,cz=z>>sh;
 	int fx=(x&((1<<sh)-1))<<(8-sh),fz=(z&((1<<sh)-1))<<(8-sh);
 	int a,b,c,d,ab,cd;
+	const u8 *L=lattice(sh,seed)+cz*LAT_N+cx;
 	fx=(fx*fx*(768-2*fx))>>16;
 	fz=(fz*fz*(768-2*fz))>>16;
-	a=hash3(cx,cz,0,seed)&255;
-	b=hash3(cx+1,cz,0,seed)&255;
-	c=hash3(cx,cz+1,0,seed)&255;
-	d=hash3(cx+1,cz+1,0,seed)&255;
+	a=L[0];
+	b=L[1];
+	c=L[LAT_N];
+	d=L[LAT_N+1];
 	ab=a+(((b-a)*fx)>>8);
 	cd=c+(((d-c)*fx)>>8);
 	return ab+(((cd-ab)*fz)>>8);
@@ -827,44 +908,42 @@ void world_generate(u32 seed)
 	int x,z,y,i;
 	genSeed=seed;
 	rnd_seed(seed);
-	pq=heap_alloc_low(PQ_LEN*4);
-	rq=heap_alloc_low(RQ_LEN*4);
+	memset(lat,0,sizeof(lat));
 	memset(g_blocks,0,(u32)g_W*g_W*WH);
+	memset(g_chunks,0,sizeof(Chunk)*g_NC*g_NC*NCY);
+	poolTop=0;
+	g_meshQuads=0;
+	trackLightDirty=0;
 	for(z=0; z<g_W; ++z)
 	{
 		for(x=0; x<g_W; ++x)
 		{
 			int h=terrain_height(x,z);
 			int beach=(h<=SEA_LEVEL+1);
+			g_height[z*g_W+x]=h;
 			u32 base=widx(x,0,z);
 			int gravelBed=(h<SEA_LEVEL-2 && vnoise(x,z,3,seed+9)>170);
-			for(y=0; y<WH; ++y)
+			/* Fill the column in runs: bedrock, stone, dirt/sand, top, water */
+			memset(g_blocks+base,B_AIR,WH);
+			if(h-4>1)
 			{
-				u8 b=B_AIR;
-				if(0==y || (y<=2 && 0==hash3(x,y,z,seed)%3))
-				{
-					b=B_BEDROCK;
-				}
-				else if(y<h-4)
-				{
-					b=B_STONE;
-				}
-				else if(y<h-1)
-				{
-					b=beach ? B_SAND : B_DIRT;
-				}
-				else if(y==h-1)
-				{
-					b=beach ? (gravelBed ? B_GRAVEL : B_SAND) : B_GRASS;
-				}
-				else if(y<SEA_LEVEL)
-				{
-					b=B_WATER;
-				}
-				g_blocks[base+y]=b;
+				memset(g_blocks+base+1,B_STONE,h-5);
 			}
+			for(y=MAX(1,h-4); y<h-1; ++y)
+			{
+				g_blocks[base+y]=beach ? B_SAND : B_DIRT;
+			}
+			g_blocks[base+h-1]=beach ? (gravelBed ? B_GRAVEL : B_SAND) : B_GRASS;
+			for(y=h; y<SEA_LEVEL; ++y)
+			{
+				g_blocks[base+y]=B_WATER;
+			}
+			g_blocks[base]=B_BEDROCK;
+			if(0==(rnd()&3)) g_blocks[base+1]=B_BEDROCK;
+			if(0==(rnd()&7)) g_blocks[base+2]=B_BEDROCK;
 		}
 	}
+	progress(25);
 	/* Ores */
 	for(i=0; i<g_W*g_W/48; ++i)
 	{
@@ -879,7 +958,7 @@ void world_generate(u32 seed)
 	{
 		for(x=3; x<g_W-3; ++x)
 		{
-			int h=terrain_height(x,z);
+			int h=g_height[z*g_W+x];
 			u32 r=hash3(x,z,77,seed);
 			int forest=vnoise(x,z,5,seed+5);
 			if(B_GRASS!=wget(x,h-1,z))
@@ -921,7 +1000,9 @@ void world_generate(u32 seed)
 		}
 	}
 
+	progress(40);
 	light_init();
+	progress(60);
 
 	/* Spawn near the center on dry land */
 	{
@@ -950,10 +1031,19 @@ void world_generate(u32 seed)
 		g_spawnY=world_surface_y(g_spawnX,g_spawnZ);
 	}
 
-	for(i=0; i<g_NC*g_NC*NCY; ++i)
 	{
-		g_chunks[i].dirty=DIRTY_GEOMETRY;
+		int cx,cy,cz;
+		for(cz=0; cz<g_NC; ++cz)
+		{
+			for(cx=0; cx<g_NC; ++cx)
+			{
+				for(cy=0; cy<NCY; ++cy)
+				{
+					rebuild_chunk(cx,cy,cz);
+				}
+			}
+			progress(60+40*(cz+1)/g_NC);
+		}
 	}
-	world_update_dirty_chunks(0);
 	trackLightDirty=1;
 }

@@ -21,6 +21,7 @@ typedef struct
 	u8 tex[6];          /* -X,+X,-Y,+Y,-Z,+Z */
 	u8 light;           /* 0..15 */
 	u8 flash;           /* Draw red (hurt) */
+	u16 hw,h;           /* Entity bounding box (units), for draw ordering */
 } MBox;
 
 typedef struct

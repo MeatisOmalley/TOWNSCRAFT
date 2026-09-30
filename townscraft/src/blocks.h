@@ -76,6 +76,9 @@ extern const BlockDef g_blockDef[NUM_BLOCKS];
 extern ItemDef g_itemDef[NUM_ITEMS];
 void items_init(void);
 
+int block_box(u8 b,u8 *lo,u8 *hi);   /* Collision box in 1/16 units, 0 if none */
+int door_side(u8 b);
+
 static inline u8 blk_flags(u8 b){return g_blockDef[BLK_ID(b)].flags;}
 
 /* Face directions */

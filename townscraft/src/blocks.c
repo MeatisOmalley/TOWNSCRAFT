@@ -91,3 +91,49 @@ void items_init(void)
 	def_item(I_BED,         "Bed",           T_I_BED,         TOOL_NONE,  0,1,0,1,0);
 	def_item(I_APPLE,       "Apple",         T_I_APPLE,       TOOL_NONE,  0,1,4,64,0);
 }
+
+/* Door geometry: meta bits 0-1 give the side of the cell the closed door
+   sits on (0 -X, 1 +X, 2 -Z, 3 +Z), bit 2 means open (swung to another side). */
+static const u8 doorLo[4][3]={{0,0,0},{13,0,0},{0,0,0},{0,0,13}};
+static const u8 doorHi[4][3]={{3,16,16},{16,16,16},{16,16,3},{16,16,16}};
+static const u8 doorOpenSide[4]={2,3,1,0};
+
+int door_side(u8 b)
+{
+	int meta=BLK_META(b),side=meta&3;
+	if(meta&4)
+	{
+		side=doorOpenSide[side];
+	}
+	return side;
+}
+
+int block_box(u8 b,u8 *lo,u8 *hi)
+{
+	int id=BLK_ID(b),k;
+	const BlockDef *d=&g_blockDef[id];
+	if(!(d->flags&BF_SOLID))
+	{
+		return 0;
+	}
+	switch(id)
+	{
+	case B_DOOR_LOWER:
+	case B_DOOR_UPPER:
+		for(k=0; k<3; ++k)
+		{
+			lo[k]=doorLo[door_side(b)][k];
+			hi[k]=doorHi[door_side(b)][k];
+		}
+		return 1;
+	case B_BED_FOOT:
+	case B_BED_HEAD:
+		lo[0]=lo[1]=lo[2]=0;
+		hi[0]=hi[2]=16;
+		hi[1]=9;
+		return 1;
+	}
+	lo[0]=lo[1]=lo[2]=0;
+	hi[0]=hi[1]=hi[2]=16;
+	return 1;
+}
