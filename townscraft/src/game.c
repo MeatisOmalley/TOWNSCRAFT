@@ -696,10 +696,90 @@ static void new_game(u32 seed)
 #endif
 }
 
+/* ---------------- Weather ---------------- */
+
+static int raining,rainLevel;       /* rainLevel fades 0..16 */
+static int weatherTimer=20*240;     /* Ticks to the next change */
+static u32 cloudTime;               /* Ticks, for cloud drift */
+
+static void weather_tick(void)
+{
+	++cloudTime;
+#ifdef TEST_RAIN
+	if(!raining)
+	{
+		raining=1;
+		rainLevel=16;
+		weatherTimer=20*600;
+	}
+#endif
+	if(--weatherTimer<=0)
+	{
+		raining=!raining;
+		/* Rain for 1-4 minutes, then clear for 3-9 */
+		weatherTimer=raining ? 20*(60+rnd_range(180)) : 20*(180+rnd_range(360));
+	}
+	if(0==(cloudTime&3))
+	{
+		if(raining && rainLevel<16) ++rainLevel;
+		if(!raining && rainLevel>0) --rainLevel;
+	}
+}
+
+/* Is anything above the player's head (a roof keeps the rain off)? */
+static int player_covered(void)
+{
+	int ex,ey,ez,y;
+	player_eye(&ex,&ey,&ez);
+	for(y=(ey>>12)+1; y<WH; ++y)
+	{
+		if(blk_flags(wget(ex>>12,y,ez>>12))&BF_OPAQUE)
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/* Rain streaks over the 3D view, and the rain sound */
+static void draw_rain(void)
+{
+	static u32 seed=1;
+	int i,n,covered;
+	if(rainLevel<=0 || GS_PLAY!=state)
+	{
+		sound_loop(SFX_RAIN,0);
+		return;
+	}
+	covered=player_covered() || g_player.body.headInWater;
+	sound_loop(SFX_RAIN,rainLevel*(covered ? 6 : 14));
+	if(covered)
+	{
+		return;
+	}
+	n=rainLevel*4;
+	for(i=0; i<n; ++i)
+	{
+		int x,y,len,k;
+		u8 *p;
+		seed=seed*1103515245u+12345u;
+		x=(seed>>8)%(SCR_W-4);
+		y=(seed>>17)%(VIEW_H-12);
+		len=6+(seed&3);
+		p=g_fb+y*FB_PITCH+x;
+		for(k=0; k<len; ++k)
+		{
+			p[k*FB_PITCH+k/4]=P(R_SKY,8);
+		}
+	}
+}
+
 static void game_tick(const PlayerInput *in,int breakHeld)
 {
 	g_time=(g_time+2)%24000;
-	g_skyDarken=game_sky_darken(g_time);
+	weather_tick();
+	/* Rain dims the daylight */
+	g_skyDarken=MIN(11,game_sky_darken(g_time)+rainLevel*3/16);
 	player_tick(in);
 	{
 		/* Footsteps about every 1.6 blocks walked on the ground */
@@ -806,7 +886,15 @@ static void draw_world(void)
 			env.fogColor=P(R_FLAME,MAX(4,level-2));
 		}
 	}
-	env.starBrightness=g_skyDarken>=6 ? g_skyDarken+2 : 0;
+	if(rainLevel>=8 && g_skyDarken<8)
+	{
+		/* Overcast */
+		env.skyColor=P(R_GRAY,MAX(4,level-3));
+		env.fogColor=P(R_GRAY,MAX(5,level-2));
+	}
+	env.starBrightness=(g_skyDarken>=6 && rainLevel<8) ? g_skyDarken+2 : 0;
+	env.cloudDrift=(int)(cloudTime*8);
+	env.cloudColor=P(R_GRAY,MAX(3,14-g_skyDarken-rainLevel/4));
 	env.targetValid=targetValid;
 	env.tx=tX; env.ty=tY; env.tz=tZ;
 	env.underwater=g_player.body.headInWater;
@@ -1562,6 +1650,7 @@ void kmain(void)
 			if(!inMenu || !menuFrozen)
 			{
 				draw_world();
+				draw_rain();
 				if(GS_PLAY==state || inMenu)
 				{
 					draw_hud();

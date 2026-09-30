@@ -32,6 +32,8 @@ typedef struct
 	int targetValid,tx,ty,tz;
 	int underwater;
 	int starBrightness; /* 0..15 */
+	int cloudDrift;     /* Units the cloud layer has moved east */
+	u8 cloudColor;      /* 0: no clouds */
 } RenderEnv;
 
 extern Camera g_cam;

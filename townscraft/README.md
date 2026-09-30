@@ -98,6 +98,8 @@ goes on port B.
 - Torches (floor and wall) with flood-fill block light.
 - Day/night cycle (10 minutes) with sky light, sunrise/sunset colors, sun,
   moon and stars.
+- Weather: drifting clouds; rain spells that dim the light, turn the sky
+  grey and bring rain streaks and sound (muffled under a roof).
 - Mobs: pigs and sheep (drop porkchops, wool and mutton), zombies (chase
   and attack, burn in daylight) and creepers (explode and destroy blocks).
 - Health, fall damage, drowning, eating, death and respawn.

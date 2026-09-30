@@ -1144,6 +1144,77 @@ static void draw_sky(const RenderEnv *env)
 	}
 }
 
+/* Clouds: a flat layer above the world in cells of CLOUD_CELL blocks,
+   cloudy or not by a hash, drifting east.  Runs of cloudy cells along x
+   are one polygon each.  Everything in the world is below them, so they
+   are drawn right after the sky. */
+#define CLOUD_CELL 16
+#define CLOUD_Y    60          /* Blocks */
+#define CLOUD_R    3           /* Cells around the camera */
+static void cloud_point(CVert *cv,int wx,int wy,int wz)
+{
+	int dx=wx-g_cam.x,dy=wy-g_cam.y,dz=wz-g_cam.z,k;
+	for(k=0; k<3; ++k)
+	{
+		(&cv->x)[k]=(dx*rot[k][0]+dy*rot[k][1]+dz*rot[k][2])>>14;
+	}
+	cv->u=cv->v=0;
+}
+
+static void draw_clouds(const RenderEnv *env)
+{
+	int cell=CLOUD_CELL*256,ccx,ccz,i,j;
+	if(!env->cloudColor || env->underwater)
+	{
+		return;
+	}
+	/* Cell containing the camera, in the drifting cloud frame */
+	ccx=g_cam.x-env->cloudDrift;
+	ccx=(ccx>=0) ? ccx/cell : -((cell-1-ccx)/cell);   /* Floor division */
+	ccz=g_cam.z/cell;
+	for(j=-CLOUD_R; j<=CLOUD_R; ++j)
+	{
+		for(i=-CLOUD_R; i<=CLOUD_R; )
+		{
+			int i0;
+			if(hash3(ccx+i,0,ccz+j,0xC10D)%100>=35)
+			{
+				++i;
+				continue;
+			}
+			i0=i;
+			while(i<=CLOUD_R && hash3(ccx+i,0,ccz+j,0xC10D)%100<35)
+			{
+				++i;
+			}
+			{
+				CVert cv[4];
+				int x0=(ccx+i0)*cell+env->cloudDrift,x1=(ccx+i)*cell+env->cloudDrift;
+				int z0=(ccz+j)*cell,z1=z0+cell,y=CLOUD_Y*256;
+				int k,behind=0,left=0,right=0,above=0;
+				cloud_point(&cv[0],x0,y,z0);
+				cloud_point(&cv[1],x1,y,z0);
+				cloud_point(&cv[2],x1,y,z1);
+				cloud_point(&cv[3],x0,y,z1);
+				/* Cheap rejection before projecting and clipping: all
+				   corners behind the camera, off one side or above the top */
+				for(k=0; k<4; ++k)
+				{
+					int zz=MAX(cv[k].z,NEAR_Z);
+					behind+=(cv[k].z<NEAR_Z);
+					left+=(cv[k].x*focal16<-zz*vw*8);
+					right+=(cv[k].x*focal16>zz*vw*8);
+					above+=(cv[k].y*focal16>zz*vh*8);
+				}
+				if(behind<4 && left<4 && right<4 && above<4)
+				{
+					draw_cpoly(cv,4,NULL,0,env->cloudColor);
+				}
+			}
+		}
+	}
+}
+
 static void draw_target_outline(const RenderEnv *env)
 {
 	static const u8 edges[12][2]={{0,1},{2,3},{4,5},{6,7},{0,2},{1,3},{4,6},{5,7},{0,4},{1,5},{2,6},{3,7}};
@@ -1286,6 +1357,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 	gfx_wait_flip();   /* First write to the frame buffer */
 	{u32 t=g_ticks;
 	draw_sky(env);
+	draw_clouds(env);
 	g_prof[1]+=g_ticks-t;}
 	{u32 t=g_ticks;
 	/* Far to near: merge the (cached) face list with the entity list.  On

@@ -132,6 +132,19 @@ static void gen_tone(int id,int len,int f0,int f1,int square,int click,int pitch
 	end_sample();
 }
 
+/* Steady filtered noise for a loop (no fade: the end joins the start) */
+static void gen_loop_noise(int id,int len,int lp,int pitch,int vol)
+{
+	int i,y=0;
+	begin_sample(id,pitch,vol);
+	for(i=0; i<len; ++i)
+	{
+		y+=(noise()-y)>>lp;
+		put_sample(y*3>>1);
+	}
+	end_sample();
+}
+
 static void pcm_init(void)
 {
 	int i;
@@ -150,6 +163,7 @@ static void pcm_init(void)
 	gen_noise(SFX_EXPLODE,14000,4,40,500,128,255);
 	gen_noise(SFX_HISS,9000,0,4000,0,256,110);
 	gen_tone(SFX_CLICK,300,1800,1600,1,60,256,140);
+	gen_loop_noise(SFX_RAIN,8000,1,256,150);
 	for(i=0; i<8; ++i)
 	{
 		outb(0x4F7,0x40|i);
@@ -181,7 +195,7 @@ void sound_play(int id,int pitch,int vol,int pan)
 	l=15-MAX(0,pan);
 	r=15-MAX(0,-pan);
 	ch=nextCh;
-	nextCh=(nextCh+1)&7;
+	nextCh=(nextCh+1)%7;              /* Channel 7 is for sound_loop */
 	outb(0x4F8,pcmOff|(1<<ch));       /* Stop the channel */
 	outb(0x4F7,0xC0|ch);
 	outb(0x4F0,vol);
@@ -191,6 +205,43 @@ void sound_play(int id,int pitch,int vol,int pan)
 	outb(0x4F6,d->start);
 	pcmOff&=~(1<<ch);
 	outb(0x4F8,pcmOff);               /* Start */
+}
+
+void sound_loop(int id,int vol)
+{
+	static int loopId=-1;
+	const SfxDef *d=&sfx[id];
+	if(!g_sfxOn)
+	{
+		vol=0;
+	}
+	vol=vol*d->vol>>8;
+	if(vol<=0)
+	{
+		if(loopId>=0)
+		{
+			pcmOff|=0x80;
+			outb(0x4F8,pcmOff);
+			loopId=-1;
+		}
+		return;
+	}
+	outb(0x4F7,0xC7);                 /* Channel 7 */
+	outb(0x4F0,vol);
+	if(loopId!=id)
+	{
+		int fd=d->pitch*8;
+		outb(0x4F8,pcmOff|0x80);
+		outb(0x4F1,0xFF);
+		outb(0x4F2,fd&0xFF);
+		outb(0x4F3,fd>>8);
+		outb(0x4F4,0);                /* Loop back to its own start */
+		outb(0x4F5,d->start);
+		outb(0x4F6,d->start);
+		pcmOff&=~0x80;
+		outb(0x4F8,pcmOff);
+		loopId=id;
+	}
 }
 
 void sound_set_listener(int x,int y,int z,int yaw)

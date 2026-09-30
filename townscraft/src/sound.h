@@ -14,6 +14,7 @@ enum
 	SFX_EXPLODE,
 	SFX_HISS,      /* creeper fuse */
 	SFX_CLICK,
+	SFX_RAIN,      /* Loop */
 	NUM_SFX
 };
 
@@ -27,6 +28,9 @@ void sound_play(int sfx,int pitch,int vol,int pan);
    the source is in fine units too.  Volume falls off over ~16 blocks. */
 void sound_set_listener(int x,int y,int z,int yaw);
 void sound_play_at(int sfx,int pitch,int vol,int x,int y,int z);
+
+/* A looping sound (rain) on its own channel; vol 0 stops it */
+void sound_loop(int sfx,int vol);
 
 /* Music plays now and then: music_schedule(ticks) sets the silence before
    the next play-through (100 ticks per second); after a play-through the
