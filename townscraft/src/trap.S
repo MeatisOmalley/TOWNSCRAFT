@@ -8,11 +8,21 @@
   left screen edge, and then runs the texel loop.  Doing the row setup here
   instead of in C removes most of the per-scanline cost.
 
-  Textures are atlas pages with a 256-byte row stride; the tile pointer
-  (ESI) selects a 16x16 tile.  In the texel loop BH=v and BL=u (integer
-  texels, masked to wrap every 16), ECX holds the fractions (u in the upper
-  half, v in the lower half), and stepping is ADD/ADC, so a pixel costs
-  about ten instructions.  The pixel counter lives in the upper half of EAX.
+  Textures are atlas pages with a 256-byte row stride (pages are 4 KB
+  aligned); the tile pointer selects a 16x16 tile.  In the texel loop BH=v
+  and BL=u (integer texels), ECX holds the fractions (u in the upper half,
+  v in the lower half), and stepping is ADD/ADC.  The pixel counter lives
+  in the upper half of EAX.  The loop is unrolled to two pixels.
+
+  Two kinds of loop:
+  - WRAP: texture coordinates repeat every 16 texels (merged quads that
+    span several blocks).  EBX holds only v:u and is masked with 0x0F0F
+    after each step; ESI is the tile pointer.
+  - No wrap: coordinates stay inside one tile (single block faces and
+    models).  EBX holds the texel address itself (the tile is at a 16 byte
+    boundary of a 4 KB page, so BL=shade*16+u and BH=page bits+v and the
+    byte-wide ADCs never leave the tile), which saves the mask and frees
+    ESI for the u step.
 
   void trap_xxx(Trap *t)     (see raster.c for the structure)
 */
@@ -39,8 +49,36 @@
 	.set T_MAXX,64
 	.set T_PIXELS,68
 
-	/* SCALE: 1 or 2 bytes per pixel.  TRANSP: skip texel 0. */
-	.macro TRAP name,SCALE,TRANSP
+	/* One texel step and store.  OFS: byte offset of the store. */
+	.macro TEXEL SCALE,TRANSP,WRAP,OFS
+	.if \WRAP
+	movb	(%esi,%ebx),%al
+	addl	duFracT,%ecx
+	.else
+	movb	(%ebx),%al
+	addl	%esi,%ecx
+	.endif
+	adcb	%dl,%bl
+	addw	%bp,%cx
+	adcb	%dh,%bh
+	.if \WRAP
+	andl	$0x0F0F,%ebx
+	.endif
+	.if \TRANSP
+	testb	%al,%al
+	jz	1f
+	.endif
+	.if \SCALE==2
+	movb	%al,%ah
+	movw	%ax,\OFS(%edi)
+	.else
+	movb	%al,\OFS(%edi)
+	.endif
+1:
+	.endm
+
+	/* SCALE: 1 or 2 bytes per pixel.  TRANSP: skip texel 0.  WRAP: see above. */
+	.macro TRAP name,SCALE,TRANSP,WRAP
 	.globl \name
 \name:
 	pushl	%ebp
@@ -129,7 +167,6 @@
 	addl	%eax,%edi
 	.endif
 	addl	%eax,%edi
-	movl	T_TILE(%ebp),%esi
 
 	/* Texel index BH=v int, BL=u int; ECX = u frac<<16 | v frac */
 	movl	%edx,%ebx
@@ -141,43 +178,42 @@
 	orl	%eax,%ebx
 	shll	$16,%ecx
 	movw	%dx,%cx
+	.if \WRAP
+	movl	T_TILE(%ebp),%esi
+	.else
+	addl	T_TILE(%ebp),%ebx	/* Texel address */
+	.endif
 
 	movl	rowDU,%eax
 	movl	%eax,%edx
 	shll	$16,%eax
+	.if \WRAP
 	movl	%eax,duFracT
+	.else
+	movl	%eax,%esi
+	.endif
 	sarl	$16,%edx		/* DL = du int */
 	movl	rowDV,%ebp		/* BP = dv frac */
 	movl	%ebp,%eax
 	sarl	$16,%eax
 	movb	%al,%dh			/* DH = dv int */
-	movl	rowW,%eax
-	decl	%eax
-	shll	$16,%eax		/* Counter in the upper half of EAX */
 
-20:	/* ---- per pixel ---- */
-	movb	(%esi,%ebx),%al
-	addl	duFracT,%ecx
-	adcb	%dl,%bl
-	addw	%bp,%cx
-	adcb	%dh,%bh
-	andl	$0x0F0F,%ebx
-	.if \TRANSP
-	testb	%al,%al
-	jz	21f
-	.endif
-	.if \SCALE==2
-	movb	%al,%ah
-	movw	%ax,(%edi)
-	.else
-	movb	%al,(%edi)
-	.endif
+	/* Pixel pairs; an odd count enters at the second pixel of a pair */
+	movl	rowW,%eax
+	incl	%eax
+	shrl	$1,%eax
+	decl	%eax
+	shll	$16,%eax		/* Pair counter in the upper half of EAX */
+	testb	$1,rowW
+	jz	20f
+	subl	$\SCALE,%edi
+	jmp	21f
+
+20:	/* ---- per pixel pair ---- */
+	TEXEL	\SCALE,\TRANSP,\WRAP,0
 21:
-	.if \SCALE==2
-	addl	$2,%edi
-	.else
-	incl	%edi
-	.endif
+	TEXEL	\SCALE,\TRANSP,\WRAP,\SCALE
+	addl	$2*\SCALE,%edi
 	subl	$0x10000,%eax
 	jnc	20b
 
@@ -207,10 +243,14 @@
 	ret
 	.endm
 
-	TRAP trap_opaque1,1,0
-	TRAP trap_opaque2,2,0
-	TRAP trap_transp1,1,1
-	TRAP trap_transp2,2,1
+	TRAP trap_opaque1,1,0,0
+	TRAP trap_opaque2,2,0,0
+	TRAP trap_transp1,1,1,0
+	TRAP trap_transp2,2,1,0
+	TRAP trap_opaque1w,1,0,1
+	TRAP trap_opaque2w,2,0,1
+	TRAP trap_transp1w,1,1,1
+	TRAP trap_transp2w,2,1,1
 
 	.bss
 	.align 4

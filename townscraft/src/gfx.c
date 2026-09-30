@@ -1,14 +1,22 @@
 #include "gfx.h"
+#include "hw.h"
+#include "sys.h"
 
 extern const u8 g_font8x8[95][8];
 u8 *g_fb;
 u8 g_darkenLUT[256];
-static u8 fbStatic[SCR_W*SCR_H];
+
+/* Two display pages in VRAM, 256 KB apart */
+#define PAGE_BYTES 0x40000
+static int backPage;        /* Page drawn into (g_fb) */
+static u32 flipVsync;
+static int flipPending;
 
 void gfx_init(void)
 {
 	int i;
-	g_fb=fbStatic;
+	backPage=1;
+	g_fb=(u8 *)VRAM+PAGE_BYTES;
 	for(i=0; i<256; ++i)
 	{
 		/* Palette is 16 ramps x 16 shades: halve the shade. */
@@ -18,18 +26,53 @@ void gfx_init(void)
 
 void gfx_clear(u8 *fb,u8 c)
 {
-	memset(fb,c,SCR_W*SCR_H);
-}
-
-void gfx_present(const u8 *fb)
-{
 	int y;
-	volatile u8 *dst=VRAM;
 	for(y=0; y<SCR_H; ++y)
 	{
-		memcpy((void *)dst,fb,SCR_W);
-		dst+=VRAM_PITCH;
-		fb+=SCR_W;
+		memset(fb+y*FB_PITCH,c,SCR_W);
+	}
+}
+
+/* Show the page just drawn and make the other one the frame buffer.  The
+   display start address (FA0, in 8 byte units in 256-color mode) may only
+   take effect at the next vertical sync, so the new back page must not be
+   drawn into until one has passed: see gfx_wait_flip(). */
+void gfx_present(void)
+{
+	u32 fa0=backPage ? PAGE_BYTES/8 : 0;
+	outb(0x440,0x11);   /* FA0 */
+	outb(0x442,fa0&0xFF);
+	outb(0x443,fa0>>8);
+	backPage^=1;
+	g_fb=(u8 *)VRAM+backPage*PAGE_BYTES;
+	flipVsync=g_vsyncCount;
+	flipPending=1;
+}
+
+/* Wait until the previously shown page is off screen: a vertical sync
+   has begun since the flip (at most 16.7 ms).  Usually the game logic
+   after the flip has already taken that long.  The timeout guards against
+   a machine that does not deliver the VSYNC interrupt. */
+void gfx_wait_flip(void)
+{
+	if(flipPending)
+	{
+		u32 t=g_ticks;
+		while(g_vsyncCount==flipVsync && g_ticks-t<3);
+		flipPending=0;
+	}
+}
+
+/* Copy the shown page into the back page (for screens that are only
+   partly redrawn each frame). */
+void gfx_sync_pages(void)
+{
+	int y;
+	const u8 *src=(const u8 *)VRAM+(backPage^1)*PAGE_BYTES;
+	gfx_wait_flip();
+	for(y=0; y<SCR_H; ++y)
+	{
+		memcpy(g_fb+y*FB_PITCH,src+y*FB_PITCH,SCR_W);
 	}
 }
 
@@ -46,7 +89,7 @@ void gfx_rect(u8 *fb,int x,int y,int w,int h,u8 c)
 	}
 	for(j=0; j<h; ++j)
 	{
-		memset(fb+(y+j)*SCR_W+x,c,w);
+		memset(fb+(y+j)*FB_PITCH+x,c,w);
 	}
 }
 
@@ -67,7 +110,7 @@ void gfx_darken(u8 *fb,int x,int y,int w,int h)
 	if(y+h>SCR_H){h=SCR_H-y;}
 	for(j=0; j<h; ++j)
 	{
-		u8 *p=fb+(y+j)*SCR_W+x;
+		u8 *p=fb+(y+j)*FB_PITCH+x;
 		for(i=0; i<w; ++i)
 		{
 			p[i]=g_darkenLUT[p[i]];
@@ -97,7 +140,7 @@ void gfx_char(u8 *fb,int x,int y,int ch,u8 c)
 			int xx=x+i;
 			if((bits>>i)&1 && 0<=xx && xx<SCR_W)
 			{
-				fb[yy*SCR_W+xx]=c;
+				fb[yy*FB_PITCH+xx]=c;
 			}
 		}
 	}

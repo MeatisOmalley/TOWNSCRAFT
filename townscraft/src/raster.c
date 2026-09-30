@@ -3,7 +3,8 @@
    Screen coordinates are 28.4 fixed point.  Texture coordinates are 16.16
    texels, interpolated along the polygon edges and then linearly across each
    span, so every edge maps exactly.  Textures repeat every 16 texels (merged
-   quads cover several blocks).  Textured polygons are split into
+   quads cover several blocks; RP_WRAP selects the loops that mask the
+   coordinates, the others require them to stay inside one tile).  Textured polygons are split into
    trapezoids (rows between vertex events), each drawn by one call to the
    assembly loops in trap.S.
 
@@ -28,6 +29,17 @@ void trap_opaque1(Trap *t);
 void trap_opaque2(Trap *t);
 void trap_transp1(Trap *t);
 void trap_transp2(Trap *t);
+void trap_opaque1w(Trap *t);
+void trap_opaque2w(Trap *t);
+void trap_transp1w(Trap *t);
+void trap_transp2w(Trap *t);
+
+/* Indexed by (scale-1) | flags<<1 */
+static void (*const trapFunc[8])(Trap *)=
+{
+	trap_opaque1,trap_opaque2,trap_transp1,trap_transp2,
+	trap_opaque1w,trap_opaque2w,trap_transp1w,trap_transp2w,
+};
 
 static u8 *rbuf;
 static int rw,rh,rpitch,rscale;
@@ -129,7 +141,7 @@ static inline int pedge_next(PEdge *e,const RVert *v,int n,int dir,int s,int tex
 	return 1;
 }
 
-static void poly_scan(const RVert *v,int n,const u8 *tile,int transparent,u8 flat)
+static void poly_scan(const RVert *v,int n,const u8 *tile,int flags,u8 flat)
 {
 	int i,top=0,bot=0,area=0,s,sTop,sBot;
 	int tex=(NULL!=tile);
@@ -175,8 +187,7 @@ static void poly_scan(const RVert *v,int n,const u8 *tile,int transparent,u8 fla
 	   trapezoid with fixed edges. */
 	{
 		int stride=rpitch*rscale;
-		void (*trap)(Trap *)=(1==rscale) ? (transparent ? trap_transp1 : trap_opaque1)
-		                                 : (transparent ? trap_transp2 : trap_opaque2);
+		void (*trap)(Trap *)=trapFunc[(rscale-1)|((flags&(RP_TRANSPARENT|RP_WRAP))<<1)];
 		s=sTop;
 		while(s<sBot)
 		{
@@ -231,9 +242,9 @@ static void poly_scan(const RVert *v,int n,const u8 *tile,int transparent,u8 fla
 	}
 }
 
-void raster_poly(const RVert *v,int n,const u8 *tile,int transparent)
+void raster_poly(const RVert *v,int n,const u8 *tile,int flags)
 {
-	poly_scan(v,n,tile,transparent,0);
+	poly_scan(v,n,tile,flags,0);
 }
 
 void raster_flat_poly(const RVert *v,int n,u8 color)

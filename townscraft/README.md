@@ -29,12 +29,13 @@ distance from a quick CPU speed check at startup.  Both can be changed in
 game (PF2, PF3).
 
 Measured in Tsugaru with the automatically chosen settings (160x120
-rendering):
+rendering), standing at the spawn point of a fixed test world and looking
+in 8 directions (see Testing):
 
-| Machine | View distance | Typical frame rate |
+| Machine | View distance | Frame rate (average, range) |
 |---|---|---|
-| Model 2, 386DX 16 MHz, 2 MB | 10 | 5-9 fps (lowest when a tree or wall fills the screen) |
-| Tsugaru default profile, 4 MB | 16 | 12-13 fps |
+| Model 2, 386DX 16 MHz, 2 MB | 10 | 8.8 fps, 7-11 fps |
+| Tsugaru default profile, 4 MB | 16 | 16 fps, 14-20 fps |
 
 ## Controls
 
@@ -88,12 +89,13 @@ the ground (broken blocks go straight to the inventory).
   library).  It programs the hardware directly: CRTC for 320x240 with 256
   colors, the interrupt controller and interval timer (100 Hz), the
   keyboard and the game port.
-- Rendering (`render.c`, `raster.c`, `span.S`): chunk meshes of greedily
+- Rendering (`render.c`, `raster.c`, `trap.S`): chunk meshes of greedily
   merged, lit face quads; a painter's algorithm without a depth buffer
   using a nested back-to-front order (y slices, then rows, then cells,
   with merged quads drawn at the end of their slice or row); fixed-point
-  projection from per-axis tables; a convex polygon rasterizer with an
-  assembly texture-span loop.
+  projection and frustum tests from per-axis tables; a convex polygon
+  rasterizer with assembly texture loops.  Frames are drawn straight into
+  one of two VRAM pages and shown by changing the display start address.
 - Palette: 16 color ramps of 16 shades with a constant brightness ratio,
   so lighting a texel is a subtraction.  Textures are generated at start.
 
@@ -120,7 +122,10 @@ python3 tests/run_headless.py <path>/Tsugaru_Headless build/STUBROM TOWNSCRAFT.I
 ```
 
 `tests/profile.py` symbolizes the sampling profiler buffer dumped from the
-VM.  Building with `EXTRA="-DTEST_SCENE -DTEST_TIME=3000 -DTEST_DOOR_OPEN=0"`
+VM.  Building with `EXTRA="-DFIXED_SEED=4242 -DBENCH"` creates a benchmark
+image: after the world is generated the player looks in 8 fixed directions
+for 3 seconds each, and `g_benchFrames` (8 counters) holds the frames drawn
+per direction.  Building with `EXTRA="-DTEST_SCENE -DTEST_TIME=3000 -DTEST_DOOR_OPEN=0"`
 creates a debug image that places a house, mobs and items in front of the
 player.
 

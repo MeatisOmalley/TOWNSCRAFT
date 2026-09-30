@@ -63,6 +63,25 @@ irq_timer:
 	popal
 	iret
 
+	/* VSYNC (IRQ 11): count vertical syncs (used for page flipping) */
+	.globl irq_vsync
+irq_vsync:
+	pushl	%eax
+	pushl	%edx
+	pushl	%ds
+	movw	$0x10,%ax
+	movw	%ax,%ds
+	incl	g_vsyncCount
+	movw	$0x5CA,%dx		/* Any write clears the VSYNC interrupt */
+	outb	%al,%dx
+	movb	$0x20,%al
+	outb	%al,$0x10		/* EOI secondary, then primary */
+	outb	%al,$0x00
+	popl	%ds
+	popl	%edx
+	popl	%eax
+	iret
+
 	/* Other IRQs are masked; if one ever arrives, EOI and ignore it. */
 	.globl irq_master_spurious
 irq_master_spurious:

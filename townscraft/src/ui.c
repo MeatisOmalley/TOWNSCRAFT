@@ -24,7 +24,7 @@ void ui_icon(u8 *fb,int x,int y,int item)
 		{
 			continue;
 		}
-		row=fb+yy*SCR_W;
+		row=fb+yy*FB_PITCH;
 		for(i=0; i<16; ++i)
 		{
 			u8 c=t[j*16+i];
@@ -66,10 +66,10 @@ void ui_small_number(u8 *fb,int x,int y,int n,u8 color)
 					int xx=x+i*4+c,yy=y+r;
 					if(xx>=0 && xx<SCR_W && yy>=0 && yy<SCR_H)
 					{
-						fb[yy*SCR_W+xx]=color;
+						fb[yy*FB_PITCH+xx]=color;
 						if(xx+1<SCR_W && yy+1<SCR_H)
 						{
-							u8 *sh=&fb[(yy+1)*SCR_W+xx+1];
+							u8 *sh=&fb[(yy+1)*FB_PITCH+xx+1];
 							if(*sh!=color) *sh=C_BLACK;
 						}
 					}
@@ -97,6 +97,12 @@ void ui_slot(u8 *fb,int x,int y,const Slot *s,int highlight)
 	}
 }
 
+/* Heart pixels at offsets from the heart's corner.  Emits either into the
+   frame buffer or, with fb==NULL, into the HUD cache pixel list. */
+static int hudHeartN;
+static u32 hudHeartOfs[10*40];
+static u8 hudHeartCol[10*40];
+
 static void heart(u8 *fb,int x,int y,int fill)
 {
 	static const u8 shape[7]={0x36,0x7F,0x7F,0x7F,0x3E,0x1C,0x08};
@@ -116,7 +122,15 @@ static void heart(u8 *fb,int x,int y,int fill)
 				{
 					col=P(R_GRAY,3);
 				}
-				fb[(y+r)*SCR_W+x+c]=col;
+				if(fb)
+				{
+					fb[(y+r)*FB_PITCH+x+c]=col;
+				}
+				else
+				{
+					hudHeartOfs[hudHeartN]=(y+r)*FB_PITCH+x+c;
+					hudHeartCol[hudHeartN++]=col;
+				}
 			}
 		}
 	}
@@ -153,13 +167,63 @@ void ui_hotbar(u8 *fb,int selected)
 	}
 }
 
+/* Hotbar and hearts for the play screen.  They change rarely, so they are
+   drawn once into a cache (the hotbar as an image, the hearts as a pixel
+   list) and copied to the frame buffer every frame. */
+#define HUD_BAR_W (9*20)
+#define HUD_BAR_H 20
+static u8 hudBar[HUD_BAR_W*HUD_BAR_H];
+static struct
+{
+	Slot slots[HOTBAR];
+	int selected,health,blink;
+} hudKey;
+static int hudValid;
+
+void ui_hud_bars(u8 *fb,int selected,int health,int blink)
+{
+	int x0=(SCR_W-HUD_BAR_W)/2,y0=SCR_H-22,i,same;
+	same=(hudValid && hudKey.selected==selected && hudKey.health==health && hudKey.blink==blink);
+	for(i=0; i<HOTBAR && same; ++i)
+	{
+		same=(hudKey.slots[i].item==g_inv[i].item && hudKey.slots[i].count==g_inv[i].count);
+	}
+	if(!same)
+	{
+		/* Changed: draw normally, then keep a copy */
+		ui_hotbar(fb,selected);
+		for(i=0; i<HUD_BAR_H; ++i)
+		{
+			memcpy(hudBar+i*HUD_BAR_W,fb+(y0+i)*FB_PITCH+x0,HUD_BAR_W);
+		}
+		hudHeartN=0;
+		ui_hearts(NULL,x0,SCR_H-32,health,blink);
+		memcpy(hudKey.slots,g_inv,sizeof(hudKey.slots));
+		hudKey.selected=selected;
+		hudKey.health=health;
+		hudKey.blink=blink;
+		hudValid=1;
+	}
+	else
+	{
+		for(i=0; i<HUD_BAR_H; ++i)
+		{
+			memcpy(fb+(y0+i)*FB_PITCH+x0,hudBar+i*HUD_BAR_W,HUD_BAR_W);
+		}
+	}
+	for(i=0; i<hudHeartN; ++i)
+	{
+		fb[hudHeartOfs[i]]=hudHeartCol[i];
+	}
+}
+
 void ui_crosshair(u8 *fb)
 {
 	int cx=SCR_W/2,cy=SCR_H/2,i;
 	for(i=-4; i<=4; ++i)
 	{
-		u8 *p=&fb[cy*SCR_W+cx+i];
-		u8 *q=&fb[(cy+i)*SCR_W+cx];
+		u8 *p=&fb[cy*FB_PITCH+cx+i];
+		u8 *q=&fb[(cy+i)*FB_PITCH+cx];
 		*p=g_darkenLUT[*p]^0x0F;
 		if(i)
 		{

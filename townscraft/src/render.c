@@ -37,6 +37,13 @@ typedef struct { int c[3]; } V3;
 static V3 *TX,*TY,*TZ;           /* Camera-space of grid lines, per axis */
 static V3 AX16[17],AY16[17],AZ16[17];  /* Axis step of k/16 block */
 static u8 *visX,*visY,*visZ;
+/* Frustum planes as linear functions of camera space, tabulated per grid
+   line like TX/TY/TZ: plane k of a point is PX[k][x]+PY[k][y]+PZ[k][z].
+   A sphere of radius r is outside plane k when that exceeds r*planeLen[k].
+   Planes: behind the camera, right, left, top, bottom. */
+#define NPLANES 5
+static int *PX[NPLANES],*PY[NPLANES],*PZ[NPLANES];
+static int planeLen[NPLANES];
 static int rot[3][3];            /* Rows: right, up, forward (2.14) */
 static int camBX,camBY,camBZ;
 static int vw,vh,focal16,cx16,cy16;
@@ -89,7 +96,8 @@ static int max_items_for_ram(void)
 u32 render_mem_needed(int w)
 {
 	return (u32)max_items_for_ram()*(sizeof(Item)+4+2+2)
-	      +sizeof(V3)*(2*(w+2)+WH+2)+2*(w+2)+WH+2;
+	      +sizeof(V3)*(2*(w+2)+WH+2)+2*(w+2)+WH+2
+	      +sizeof(int)*NPLANES*(2*(w+2)+WH+2);
 }
 
 void render_init(void)
@@ -101,6 +109,12 @@ void render_init(void)
 	visX=heap_alloc_low(g_W+2);
 	visZ=heap_alloc_low(g_W+2);
 	visY=heap_alloc_low(WH+2);
+	for(i=0; i<NPLANES; ++i)
+	{
+		PX[i]=heap_alloc_low(sizeof(int)*(g_W+2));
+		PZ[i]=heap_alloc_low(sizeof(int)*(g_W+2));
+		PY[i]=heap_alloc_low(sizeof(int)*(WH+2));
+	}
 	maxItems=max_items_for_ram();
 	for(i=0; i<256; ++i)
 	{
@@ -217,8 +231,9 @@ static inline void project(int x,int y,int z,int *sx,int *sy)
 	*sy=cy16-mulshift(y,inv,16);
 }
 
-/* Draw a projected polygon: off-screen and tiny rejection, guard band clip. */
-static void draw_spoly(RVert *sv,int n,const u8 *tex,int transparent,u8 flat)
+/* Draw a projected polygon: off-screen and tiny rejection, guard band clip.
+   flags: RP_TRANSPARENT, RP_WRAP. */
+static void draw_spoly(RVert *sv,int n,const u8 *tex,int flags,u8 flat)
 {
 	RVert tmp[12];
 	int i,m,minx=0x7FFFFFFF,maxx=-0x7FFFFFFF,miny=0x7FFFFFFF,maxy=-0x7FFFFFFF;
@@ -237,14 +252,14 @@ static void draw_spoly(RVert *sv,int n,const u8 *tex,int transparent,u8 flat)
 	/* Tiny face: one pixel */
 	if(maxx-minx<20 && maxy-miny<20)
 	{
-		if(!transparent)
+		if(!(flags&RP_TRANSPARENT))
 		{
 			raster_pixel((minx+maxx)>>5,(miny+maxy)>>5,flat);
 		}
 		return;
 	}
 	/* Small face: flat shaded with the texture's average color */
-	if(!transparent && maxx-minx<g_flatLOD && maxy-miny<g_flatLOD)
+	if(!(flags&RP_TRANSPARENT) && maxx-minx<g_flatLOD && maxy-miny<g_flatLOD)
 	{
 		tex=NULL;
 	}
@@ -262,7 +277,7 @@ static void draw_spoly(RVert *sv,int n,const u8 *tex,int transparent,u8 flat)
 	}
 	if(tex)
 	{
-		raster_poly(sv,m,tex,transparent);
+		raster_poly(sv,m,tex,flags);
 	}
 	else
 	{
@@ -271,7 +286,7 @@ static void draw_spoly(RVert *sv,int n,const u8 *tex,int transparent,u8 flat)
 }
 
 /* Draw a camera-space polygon (n<=4 input vertices). */
-static void draw_cpoly(const CVert *cv,int n,const u8 *tex,int transparent,u8 flat)
+static void draw_cpoly(const CVert *cv,int n,const u8 *tex,int flags,u8 flat)
 {
 	CVert clipped[8];
 	RVert sv[12];
@@ -295,7 +310,7 @@ static void draw_cpoly(const CVert *cv,int n,const u8 *tex,int transparent,u8 fl
 		sv[i].u=cv[i].u;
 		sv[i].v=cv[i].v;
 	}
-	draw_spoly(sv,n,tex,transparent,flat);
+	draw_spoly(sv,n,tex,flags,flat);
 }
 
 static inline int to_screen(const V3 *p,int *sx,int *sy)
@@ -400,33 +415,28 @@ static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light)
 		}
 		return;
 	}
-	int Ex=ex*16,Ez=ez*16;
 	int L=face_light_level(light,dir,skyDarkenCur);
 	const u8 *tile=TEX_TILE(tex,L);
+	/* Grid lines of the quad's two corners on each axis */
+	const V3 *gx[2]={&TX[x],&TX[x+ex]},*gy[2]={&TY[y],&TY[y+1]},*gz[2]={&TZ[z],&TZ[z+ez]};
+	/* Texture extent: faces are laid out so that the corners TL,TR,BR,BL
+	   map to (0,0),(W,0),(W,H),(0,H) in every direction.  Samples are kept
+	   a hair inside the quad so edges never wrap. */
+	int W=((dir<=DIR_PX) ? ez : ex)<<20,H=((dir==DIR_NY || dir==DIR_PY) ? ez<<20 : 16<<16);
+	int cu[4]={0x200,W-0x200,W-0x200,0x200},cvv[4]={0x200,0x200,H-0x200,H-0x200};
+	int flags=texTransparent[tex]|((ex>1 || ez>1) ? RP_WRAP : 0);
 	CVert cv[4];
 	RVert sv[12];
-	int k,c,all=1;
+	int k,all=1;
 	for(k=0; k<4; ++k)
 	{
 		const u8 *sel=faceCorner[dir][k];
-		const V3 *tx=&TX[x+sel[0]*ex],*ty=&TY[y+sel[1]],*tz=&TZ[z+sel[2]*ez];
-		int rx=sel[0]*Ex,ry=sel[1]*16,rz=sel[2]*Ez,u,v;
-		for(c=0; c<3; ++c)
-		{
-			(&cv[k].x)[c]=tx->c[c]+ty->c[c]+tz->c[c];
-		}
-		switch(dir)
-		{
-		case DIR_NX: u=Ez-rz; v=16-ry; break;
-		case DIR_PX: u=rz;    v=16-ry; break;
-		case DIR_NZ: u=rx;    v=16-ry; break;
-		case DIR_PZ: u=Ex-rx; v=16-ry; break;
-		case DIR_PY: u=rx;    v=rz;    break;
-		default:     u=rx;    v=Ez-rz; break;
-		}
-		/* Keep samples a hair inside the quad so edges never wrap */
-		cv[k].u=(u<<16)+(u ? -0x200 : 0x200);
-		cv[k].v=(v<<16)+(v ? -0x200 : 0x200);
+		const V3 *px=gx[sel[0]],*py=gy[sel[1]],*pz=gz[sel[2]];
+		cv[k].x=px->c[0]+py->c[0]+pz->c[0];
+		cv[k].y=px->c[1]+py->c[1]+pz->c[1];
+		cv[k].z=px->c[2]+py->c[2]+pz->c[2];
+		cv[k].u=cu[k];
+		cv[k].v=cvv[k];
 		if(cv[k].z<NEAR_Z)
 		{
 			all=0;
@@ -440,11 +450,11 @@ static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light)
 			sv[k].u=cv[k].u;
 			sv[k].v=cv[k].v;
 		}
-		draw_spoly(sv,4,tile,texTransparent[tex],g_shadeLUT[L][texAvg[tex]]);
+		draw_spoly(sv,4,tile,flags,g_shadeLUT[L][texAvg[tex]]);
 	}
 	else
 	{
-		draw_cpoly(cv,4,tile,texTransparent[tex],g_shadeLUT[L][texAvg[tex]]);
+		draw_cpoly(cv,4,tile,flags,g_shadeLUT[L][texAvg[tex]]);
 	}
 }
 
@@ -634,10 +644,21 @@ static void draw_mbox(const MBox *mb)
 
 /* ---------- Frame ---------- */
 
+static inline void plane_values(int *out,const V3 *v,int fpx,int hwp,int hhp)
+{
+	int x=v->c[0],y=v->c[1],z=v->c[2];
+	out[0]=-z;
+	out[1]=fpx*x-hwp*z;
+	out[2]=-fpx*x-hwp*z;
+	out[3]=fpx*y-hhp*z;
+	out[4]=-fpx*y-hhp*z;
+}
+
 static void setup_camera(void)
 {
 	int sy=fsin(g_cam.yaw),cy=fcos(g_cam.yaw),sp=fsin(g_cam.pitch),cp=fcos(g_cam.pitch);
-	int i,k,x0,x1,z0,z1;
+	int i,k,x0,x1,z0,z1,pv[NPLANES];
+	int fpx=focal16>>4,hwp=vw/2,hhp=vh/2;
 	/* right, up, forward */
 	rot[0][0]=cy;               rot[0][1]=0;   rot[0][2]=-sy;
 	rot[1][0]=-(sy*sp)>>14;     rot[1][1]=cp;  rot[1][2]=-(cy*sp)>>14;
@@ -658,6 +679,11 @@ static void setup_camera(void)
 			TX[i].c[k]=(d*rot[k][0])>>14;
 		}
 		visX[i]=(d>0 ? 1 : 0)|((d+256)<0 ? 2 : 0);
+		plane_values(pv,&TX[i],fpx,hwp,hhp);
+		for(k=0; k<NPLANES; ++k)
+		{
+			PX[k][i]=pv[k];
+		}
 	}
 	for(i=z0; i<=z1; ++i)
 	{
@@ -667,6 +693,11 @@ static void setup_camera(void)
 			TZ[i].c[k]=(d*rot[k][2])>>14;
 		}
 		visZ[i]=(d>0 ? 16 : 0)|((d+256)<0 ? 32 : 0);
+		plane_values(pv,&TZ[i],fpx,hwp,hhp);
+		for(k=0; k<NPLANES; ++k)
+		{
+			PZ[k][i]=pv[k];
+		}
 	}
 	for(i=0; i<=WH; ++i)
 	{
@@ -676,7 +707,15 @@ static void setup_camera(void)
 			TY[i].c[k]=(d*rot[k][1])>>14;
 		}
 		visY[i]=(d>0 ? 4 : 0)|((d+256)<0 ? 8 : 0);
+		plane_values(pv,&TY[i],fpx,hwp,hhp);
+		for(k=0; k<NPLANES; ++k)
+		{
+			PY[k][i]=pv[k];
+		}
 	}
+	planeLen[0]=1;
+	planeLen[1]=planeLen[2]=isqrt((u32)(fpx*fpx+hwp*hwp));
+	planeLen[3]=planeLen[4]=isqrt((u32)(fpx*fpx+hhp*hhp));
 	for(i=0; i<=16; ++i)
 	{
 		for(k=0; k<3; ++k)
@@ -688,7 +727,9 @@ static void setup_camera(void)
 	}
 }
 
-/* Back-to-front order keys (larger = drawn earlier) */
+/* Back-to-front order keys (larger = drawn earlier).  Each part is below
+   128 (world height 48, view distance at most 40 plus 16 for merged runs),
+   so a key is three 7-bit digits. */
 static inline int ord_slice(int y)
 {
 	int d=y-camBY;
@@ -708,9 +749,9 @@ static inline u32 cell_key(int x,int y,int z)
 {
 	if(nestX)
 	{
-		return (ord_slice(y)<<20)|(ord_axis(x,camBX)<<10)|ord_axis(z,camBZ);
+		return (ord_slice(y)<<14)|(ord_axis(x,camBX)<<7)|ord_axis(z,camBZ);
 	}
-	return (ord_slice(y)<<20)|(ord_axis(z,camBZ)<<10)|ord_axis(x,camBX);
+	return (ord_slice(y)<<14)|(ord_axis(z,camBZ)<<7)|ord_axis(x,camBX);
 }
 
 static inline void add_item(u32 key,u32 a,u32 b)
@@ -726,7 +767,7 @@ static inline void add_item(u32 key,u32 a,u32 b)
 
 static void sort_items(void)
 {
-	static u16 cnt[1024];
+	static u16 cnt[128];
 	int pass,i;
 	u16 *src=order,*dst=order2,*t;
 	for(i=0; i<nItems; ++i)
@@ -735,14 +776,14 @@ static void sort_items(void)
 	}
 	for(pass=0; pass<3; ++pass)
 	{
-		int shift=pass*10;
+		int shift=pass*7;
 		u32 sum=0;
 		memset(cnt,0,sizeof(cnt));
 		for(i=0; i<nItems; ++i)
 		{
-			++cnt[(itemKey[src[i]]>>shift)&1023];
+			++cnt[(itemKey[src[i]]>>shift)&127];
 		}
-		for(i=0; i<1024; ++i)
+		for(i=0; i<128; ++i)
 		{
 			u32 c=cnt[i];
 			cnt[i]=sum;
@@ -751,7 +792,7 @@ static void sort_items(void)
 		for(i=0; i<nItems; ++i)
 		{
 			u16 k=src[i];
-			dst[cnt[(itemKey[k]>>shift)&1023]++]=k;
+			dst[cnt[(itemKey[k]>>shift)&127]++]=k;
 		}
 		t=src; src=dst; dst=t;
 	}
@@ -761,89 +802,72 @@ static void sort_items(void)
 	}
 }
 
-/* Is a chunk (bounding sphere) possibly in view? */
-static int chunk_in_frustum(int cx,int cy,int cz)
-{
-	int wx=(cx*CS+8)*256-g_cam.x,wy=(cy*CS+8)*256-g_cam.y,wz=(cz*CS+8)*256-g_cam.z;
-	int x=(wx*rot[0][0]+wy*rot[0][1]+wz*rot[0][2])>>14;
-	int y=(wx*rot[1][0]+wy*rot[1][1]+wz*rot[1][2])>>14;
-	int z=(wx*rot[2][0]+wy*rot[2][1]+wz*rot[2][2])>>14;
-	const int R=3548;   /* 16*sqrt(3)/2 blocks in units */
-	int hw=vw*8,hh=vh*8;   /* half viewport in 28.4 = w/2*16 */
-	int nlen;
-	if(z<-R)
-	{
-		return 0;
-	}
-	/* Side planes: focal16*x <= hw*z (+R*len) */
-	nlen=isqrt((u32)(focal16>>4)*(focal16>>4)+(u32)(hw>>4)*(hw>>4));
-	if(((focal16>>4)*x-(hw>>4)*z)>R*nlen) return 0;
-	if((-(focal16>>4)*x-(hw>>4)*z)>R*nlen) return 0;
-	nlen=isqrt((u32)(focal16>>4)*(focal16>>4)+(u32)(hh>>4)*(hh>>4));
-	if(((focal16>>4)*y-(hh>>4)*z)>R*nlen) return 0;
-	if((-(focal16>>4)*y-(hh>>4)*z)>R*nlen) return 0;
-	return 1;
-}
-
-/* Sphere (center p in camera space, radius r units) against the frustum */
-static int fpxC,hwpC,hhpC,nlxC,nlyC;
-static V3 ctrC;   /* Offset from a cell corner to its center */
-static inline int sphere_visible(int px,int py,int pz,int r)
-{
-	int zx,zy;
-	if(pz<-r)
-	{
-		return 0;
-	}
-	zx=hwpC*pz;
-	px*=fpxC;
-	if(px-zx>r*nlxC || -px-zx>r*nlxC)
-	{
-		return 0;
-	}
-	zy=hhpC*pz;
-	py*=fpxC;
-	if(py-zy>r*nlyC || -py-zy>r*nlyC)
-	{
-		return 0;
-	}
-	return 1;
-}
+/* Plane k of the center of the box spanning grid lines x..x1, y..y1, z..z1,
+   times two */
+#define PLANE2(k,x,x1,y,y1,z,z1) (PX[k][x]+PX[k][x1]+PY[k][y]+PY[k][y1]+PZ[k][z]+PZ[k][z1])
 
 static void collect(void)
 {
 	int R=g_viewDist,R2=R*R;
 	int ccx0=MAX(0,(camBX-R)>>4),ccx1=MIN(g_NC-1,(camBX+R)>>4);
 	int ccz0=MAX(0,(camBZ-R)>>4),ccz1=MIN(g_NC-1,(camBZ+R)>>4);
-	int cxi,czi,cyi,dir;
-	for(cxi=0; cxi<3; ++cxi)
+	int cxi,czi,cyi,dir,k;
+	/* Plane thresholds (times two, like PLANE2): chunk bounding sphere,
+	   model cell, and quads by the size term ex+ez+1 */
+	static int thrQ[NPLANES][34];
+	int thrC[NPLANES],thrM[NPLANES];
+	for(k=0; k<NPLANES; ++k)
 	{
-		ctrC.c[cxi]=AX16[8].c[cxi]+AY16[8].c[cxi]+AZ16[8].c[cxi];
+		int i;
+		thrC[k]=2*3548*planeLen[k];   /* 16*sqrt(3)/2 blocks in units */
+		thrM[k]=2*230*planeLen[k];
+		for(i=0; i<34; ++i)
+		{
+			thrQ[k][i]=2*128*i*planeLen[k];
+		}
 	}
 	nestX=(ABS(rot[2][0])>ABS(rot[2][2]));
-	fpxC=focal16>>4;
-	hwpC=vw/2;
-	hhpC=vh/2;
-	nlxC=isqrt((u32)(fpxC*fpxC+hwpC*hwpC));
-	nlyC=isqrt((u32)(fpxC*fpxC+hhpC*hhpC));
 	for(czi=ccz0; czi<=ccz1; ++czi)
 	{
 		for(cxi=ccx0; cxi<=ccx1; ++cxi)
 		{
-			/* Horizontal distance from camera to chunk rectangle */
-			int ddx=0,ddz=0;
-			if(camBX<cxi*CS) ddx=cxi*CS-camBX; else if(camBX>=cxi*CS+CS) ddx=camBX-(cxi*CS+CS-1);
-			if(camBZ<czi*CS) ddz=czi*CS-camBZ; else if(camBZ>=czi*CS+CS) ddz=camBZ-(czi*CS+CS-1);
+			/* Horizontal distance from camera to the nearest and farthest
+			   cells of the chunk column */
+			int x0=cxi*CS,z0=czi*CS,needDist;
+			int ddx=0,ddz=0,fdx,fdz;
+			if(camBX<x0) ddx=x0-camBX; else if(camBX>=x0+CS) ddx=camBX-(x0+CS-1);
+			if(camBZ<z0) ddz=z0-camBZ; else if(camBZ>=z0+CS) ddz=camBZ-(z0+CS-1);
 			if(ddx*ddx+ddz*ddz>R2)
 			{
 				continue;
 			}
+			fdx=MAX(ABS(camBX-x0),ABS(x0+CS-1-camBX));
+			fdz=MAX(ABS(camBZ-z0),ABS(z0+CS-1-camBZ));
+			needDist=(fdx*fdx+fdz*fdz>R2);
 			for(cyi=0; cyi<NCY; ++cyi)
 			{
 				Chunk *ch=&g_chunks[chunk_index(cxi,cyi,czi)];
 				const u32 *q,*end;
-				int x0=cxi*CS,y0=cyi*CS,z0=czi*CS;
-				if(0==ch->count || !chunk_in_frustum(cxi,cyi,czi))
+				int y0=cyi*CS,nTest=0,test[NPLANES];
+				if(0==ch->count)
+				{
+					continue;
+				}
+				/* Frustum: cull the chunk, or find the planes its quads
+				   still have to be tested against */
+				for(k=0; k<NPLANES; ++k)
+				{
+					int v=PLANE2(k,x0,x0+CS,y0,y0+CS,z0,z0+CS);
+					if(v>thrC[k])
+					{
+						break;
+					}
+					if(v>=-thrC[k])
+					{
+						test[nTest++]=k;
+					}
+				}
+				if(k<NPLANES)
 				{
 					continue;
 				}
@@ -858,43 +882,50 @@ static void collect(void)
 					{
 						u32 w0=q[0],w1=q[1];
 						int x=x0+MQ_LX(w0),y=y0+MQ_LY(w0),z=z0+MQ_LZ(w0);
-						int ex,ez,nx,nz,px,py,pz;
+						int ex,ez,i;
 						if(0==((visX[x]|visY[y]|visZ[z])&(1<<dir)))
 						{
 							break;
 						}
 						ex=(dir<=DIR_PX) ? 1 : MQ_W(w0);
 						ez=(dir<=DIR_PY) ? MQ_H(w0) : 1;
-						/* Nearest point of the quad's footprint for the distance limit */
-						nx=CLAMP(camBX,x,x+ex-1)-camBX;
-						nz=CLAMP(camBZ,z,z+ez-1)-camBZ;
-						if(sqTab[ABS(nx)]+sqTab[ABS(nz)]>R2)
+						if(needDist)
 						{
-							continue;
+							/* Nearest point of the quad's footprint for the distance limit */
+							int nx=CLAMP(camBX,x,x+ex-1)-camBX;
+							int nz=CLAMP(camBZ,z,z+ez-1)-camBZ;
+							if(sqTab[ABS(nx)]+sqTab[ABS(nz)]>R2)
+							{
+								continue;
+							}
 						}
 						/* Bounding sphere of the quad's cells */
-						px=(TX[x].c[0]+TX[x+ex].c[0]+TZ[z].c[0]+TZ[z+ez].c[0]+TY[y].c[0]+TY[y+1].c[0])>>1;
-						py=(TX[x].c[1]+TX[x+ex].c[1]+TZ[z].c[1]+TZ[z+ez].c[1]+TY[y].c[1]+TY[y+1].c[1])>>1;
-						pz=(TX[x].c[2]+TX[x+ex].c[2]+TZ[z].c[2]+TZ[z+ez].c[2]+TY[y].c[2]+TY[y+1].c[2])>>1;
-						if(!sphere_visible(px,py,pz,128*(ex+ez+1)))
+						for(i=0; i<nTest; ++i)
+						{
+							k=test[i];
+							if(PLANE2(k,x,x+ex,y,y+1,z,z+ez)>thrQ[k][ex+ez+1])
+							{
+								break;
+							}
+						}
+						if(i<nTest)
 						{
 							continue;
 						}
 						{
 							u32 a=(u32)x|((u32)z<<8)|((u32)y<<16)|((u32)dir<<22)|((u32)IK_QUAD<<25);
 							u32 b=w1&0xFFFF;
-							int i;
 							if(DIR_PY==dir || DIR_NY==dir)
 							{
 								/* End of slice */
-								add_item(ord_slice(y)<<20,a,b|((u32)(ex-1)<<16)|((u32)(ez-1)<<20));
+								add_item(ord_slice(y)<<14,a,b|((u32)(ex-1)<<16)|((u32)(ez-1)<<20));
 							}
 							else if(dir>=DIR_NZ)
 							{
 								if(!nestX)
 								{
 									/* Run along the row: end of row */
-									add_item((ord_slice(y)<<20)|(ord_axis(z,camBZ)<<10),a,b|((u32)(ex-1)<<16));
+									add_item((ord_slice(y)<<14)|(ord_axis(z,camBZ)<<7),a,b|((u32)(ex-1)<<16));
 								}
 								else
 								{
@@ -909,7 +940,7 @@ static void collect(void)
 							{
 								if(nestX)
 								{
-									add_item((ord_slice(y)<<20)|(ord_axis(x,camBX)<<10),a,b|((u32)(ez-1)<<20));
+									add_item((ord_slice(y)<<14)|(ord_axis(x,camBX)<<7),a,b|((u32)(ez-1)<<20));
 								}
 								else
 								{
@@ -929,15 +960,20 @@ static void collect(void)
 				{
 					u32 w0=q[0],w1=q[1];
 					int x=x0+MQ_LX(w0),y=y0+MQ_LY(w0),z=z0+MQ_LZ(w0);
-					int dx=x-camBX,dz=z-camBZ,px,py,pz;
-					if(sqTab[ABS(dx)]+sqTab[ABS(dz)]>R2)
+					int i;
+					if(needDist && sqTab[ABS(x-camBX)]+sqTab[ABS(z-camBZ)]>R2)
 					{
 						continue;
 					}
-					px=TX[x].c[0]+TY[y].c[0]+TZ[z].c[0]+ctrC.c[0];
-					py=TX[x].c[1]+TY[y].c[1]+TZ[z].c[1]+ctrC.c[1];
-					pz=TX[x].c[2]+TY[y].c[2]+TZ[z].c[2]+ctrC.c[2];
-					if(!sphere_visible(px,py,pz,230))
+					for(i=0; i<nTest; ++i)
+					{
+						k=test[i];
+						if(PLANE2(k,x,x+1,y,y+1,z,z+1)>thrM[k])
+						{
+							break;
+						}
+					}
+					if(i<nTest)
 					{
 						continue;
 					}
@@ -1064,7 +1100,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		   full-screen tint (which would cost ~10 cycles per pixel) */
 		skyDarkenCur=MIN(15,skyDarkenCur+5);
 	}
-	raster_set_target(fb,vw,vh,SCR_W,g_renderScale);
+	raster_set_target(fb,vw,vh,FB_PITCH,g_renderScale);
 	setup_camera();
 
 	nItems=0;
@@ -1119,6 +1155,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 	g_dbg[0]=nBoxes;
 	sort_items();
 
+	gfx_wait_flip();   /* First write to the frame buffer */
 	{u32 t=g_ticks;
 	draw_sky(env);
 	g_prof[1]+=g_ticks-t;}

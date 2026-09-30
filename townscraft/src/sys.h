@@ -4,6 +4,7 @@
 
 #define TICKS_PER_SEC 100
 extern volatile u32 g_ticks;
+extern volatile u32 g_vsyncCount;   /* Vertical syncs since start */
 
 void sys_init(void);
 

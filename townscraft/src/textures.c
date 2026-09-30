@@ -161,6 +161,28 @@ static void blob(int cx,int cy,int r2,int ramp,int base)
 		}
 	}
 }
+/* Flat base shade with sparse single-texel specks of two other shades
+   (few colors read better than per-texel noise at this resolution) */
+static void base_specks(int ramp,int base,int darkShade,int darkPct,int lightShade,int lightPct)
+{
+	int x,y;
+	for(y=0; y<16; ++y)
+	{
+		for(x=0; x<16; ++x)
+		{
+			int h=hn(x,y,1)%100,s=base;
+			if(h<darkPct)
+			{
+				s=darkShade;
+			}
+			else if(h<darkPct+lightPct)
+			{
+				s=lightShade;
+			}
+			px(x,y,P(ramp,s));
+		}
+	}
+}
 static void begin(int id)
 {
 	T=g_tex[id];
@@ -171,14 +193,24 @@ static void begin(int id)
 /* ---- block textures ---- */
 static void gen_stone(void)
 {
-	noisefill(R_GRAY,11,3);
-	speckle(R_GRAY,9,8,3);
+	int x,y;
+	base_specks(R_GRAY,11,10,14,12,8);
+	/* A few darker two-texel flecks */
+	for(y=0; y<16; ++y)
+	{
+		for(x=0; x<16; x+=2)
+		{
+			if(hn(x,y,3)%100<6)
+			{
+				px(x,y,P(R_GRAY,9));
+				px(x+1,y,P(R_GRAY,9));
+			}
+		}
+	}
 }
 static void gen_dirt(void)
 {
-	noisefill(R_DIRT,12,4);
-	speckle(R_DIRT,9,8,3);
-	speckle(R_DIRT,14,5,4);
+	base_specks(R_DIRT,12,10,16,14,6);
 }
 static void gen_cobble(void)
 {
@@ -222,7 +254,8 @@ static void gen_planks(int ramp,int dark)
 		int board=y/4,seam=(board*7+3)%16;
 		for(x=0; x<16; ++x)
 		{
-			int s=12-dark+((x*3+board*5+hn(x/3,board,3))%3)-1;
+			/* One shade per board, alternating, with dark seams */
+			int s=12-dark-(board&1);
 			if(3==(y&3))
 			{
 				s=8-dark;
@@ -240,15 +273,15 @@ static void gen_log_side(void)
 	int x,y;
 	for(x=0; x<16; ++x)
 	{
-		int col=hn(x,0,5)%3;
+		/* Vertical bark stripes: two shades and dark furrows */
+		int s=(x&2) ? 11 : 10;
+		if(1==x%5)
+		{
+			s=8;
+		}
 		for(y=0; y<16; ++y)
 		{
-			int s=10+col+(hn(x,y/3,6)%2);
-			if(0==hn(x,y,7)%9)
-			{
-				s=7;
-			}
-			px(x,y,P(R_BARK,s));
+			px(x,y,P(R_BARK,(8==s && 0==hn(x,y/4,6)%3) ? 10 : s));
 		}
 	}
 }
@@ -277,10 +310,11 @@ static void gen_grass_side(void)
 	gen_dirt();
 	for(x=0; x<16; ++x)
 	{
+		/* Flat grass band with a jagged, slightly darker lower edge */
 		int h=3+hn(x,0,9)%3,y;
 		for(y=0; y<h; ++y)
 		{
-			px(x,y,P(R_GRASS,11+hn(x,y,1)%3));
+			px(x,y,P(R_GRASS,(y==h-1) ? 11 : 12));
 		}
 	}
 }
@@ -653,15 +687,15 @@ void textures_init(void)
 {
 	int t;
 	begin(T_STONE); gen_stone();
-	begin(T_GRASS_TOP); noisefill(R_GRASS,12,4); speckle(R_GRASS,10,10,2);
+	begin(T_GRASS_TOP); base_specks(R_GRASS,12,11,22,13,6);
 	begin(T_GRASS_SIDE); gen_grass_side();
 	begin(T_DIRT); gen_dirt();
 	begin(T_COBBLE); gen_cobble();
 	begin(T_PLANKS); gen_planks(R_PLANK,0);
 	begin(T_LOG_SIDE); gen_log_side();
 	begin(T_LOG_TOP); gen_log_top();
-	begin(T_LEAVES); noisefill(R_LEAF,11,5); speckle(R_LEAF,6,14,2); speckle(R_LEAF,13,6,3);
-	begin(T_SAND); noisefill(R_SAND,13,3); speckle(R_SAND,11,6,2);
+	begin(T_LEAVES); base_specks(R_LEAF,11,8,22,13,10);
+	begin(T_SAND); base_specks(R_SAND,13,12,14,11,5);
 	begin(T_WATER); noisefill(R_WATER,11,2);
 	{
 		int y;
@@ -748,8 +782,9 @@ void textures_init(void)
 		line(2,3,7,8,P(R_GRAY,2)); line(7,8,13,6,P(R_GRAY,2)); line(7,8,6,14,P(R_GRAY,2)); line(10,7,12,12,P(R_GRAY,2));
 	}
 
-	/* Shaded copies of world textures, one atlas page per texture */
-	g_texAtlas=heap_alloc_low(NUM_SHADED_TEXTURES*4096);
+	/* Shaded copies of world textures, one atlas page per texture.  Pages
+	   are 4 KB aligned (the no-wrap loops in trap.S rely on it). */
+	g_texAtlas=(u8 *)(((u32)heap_alloc_low(NUM_SHADED_TEXTURES*4096+4095)+4095)&~4095u);
 	for(t=0; t<16; ++t)
 	{
 		int i;

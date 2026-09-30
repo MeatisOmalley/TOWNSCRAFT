@@ -4,6 +4,7 @@
 #include "gfx.h"
 
 volatile u32 g_ticks;
+volatile u32 g_vsyncCount;   /* Incremented by the VSYNC interrupt (isr.S) */
 volatile u8 g_keyDown[128];
 u32 g_ramMB;
 
@@ -26,7 +27,7 @@ static struct IdtEntry idt[64];
 extern void exc0(void),exc1(void),exc2(void),exc3(void),exc4(void),exc5(void),exc6(void),exc7(void),
 	exc8(void),exc9(void),exc10(void),exc11(void),exc12(void),exc13(void),exc14(void),exc15(void),
 	exc16(void),exc17(void),exc18(void),exc19(void);
-extern void irq_timer(void),irq_master_spurious(void),irq_slave_spurious(void);
+extern void irq_timer(void),irq_vsync(void),irq_master_spurious(void),irq_slave_spurious(void);
 
 static void set_gate(int n,void (*fn)(void))
 {
@@ -61,6 +62,7 @@ static void idt_init(void)
 		set_gate(0x28+i,irq_slave_spurious);
 	}
 	set_gate(0x20,irq_timer);
+	set_gate(0x28+3,irq_vsync);   /* IRQ 11 */
 	idtr.limit=sizeof(idt)-1;
 	idtr.base=(u32)idt;
 	__asm__ volatile("lidt %0"::"m"(idtr));
@@ -82,8 +84,8 @@ static void pic_init(void)
 	outb(0x12,0x28); io_delay();  /* Vector base 28h */
 	outb(0x12,0x07); io_delay();
 	outb(0x12,0x09); io_delay();
-	outb(0x02,0xFE);   /* Only IRQ0 (timer) */
-	outb(0x12,0xFF);
+	outb(0x02,0x7E);   /* IRQ0 (timer) and IR7 (secondary controller) */
+	outb(0x12,0xF7);   /* IRQ11 (VSYNC) */
 }
 
 static void pit_init(void)
@@ -284,7 +286,7 @@ void exception_handler(struct ExcFrame *f)
 		hexstr(buf,vals[i]);
 		gfx_text(g_fb,48,24+i*10,buf,0x0F);
 	}
-	gfx_present(g_fb);
+	gfx_present();
 	for(;;)
 	{
 		cli();
@@ -298,7 +300,7 @@ void fatal(const char *msg)
 	gfx_clear(g_fb,0x9F);
 	gfx_text(g_fb,8,8,"FATAL ERROR",0x0F);
 	gfx_text(g_fb,8,24,msg,0x0F);
-	gfx_present(g_fb);
+	gfx_present();
 	for(;;)
 	{
 		cli();

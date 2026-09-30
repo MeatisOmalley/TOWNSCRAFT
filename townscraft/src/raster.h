@@ -14,7 +14,10 @@ typedef struct
 void raster_set_target(u8 *buf,int w,int h,int pitch,int scale);
 int raster_width(void);
 int raster_height(void);
-void raster_poly(const RVert *v,int n,const u8 *tex,int transparent);
+/* raster_poly flags */
+#define RP_TRANSPARENT 1   /* texel 0 is not drawn */
+#define RP_WRAP        2   /* texture coordinates repeat (may leave 0..16) */
+void raster_poly(const RVert *v,int n,const u8 *tex,int flags);
 void raster_flat_poly(const RVert *v,int n,u8 color);
 void raster_pixel(int x,int y,u8 color);
 void raster_line(int x0,int y0,int x1,int y1,u8 color);

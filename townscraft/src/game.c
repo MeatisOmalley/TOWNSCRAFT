@@ -44,6 +44,13 @@ static u32 sleepStart;
 static int showDebug;
 static u32 cpuSpeedIndex;   /* Loop iterations in 100ms, measured at start */
 static u32 fpsFrames,fpsT0,fps10;
+#ifdef BENCH
+/* Benchmark build: after the world is generated the player stands still and
+   looks in 8 fixed directions for 3 seconds each.  g_benchFrames[i] counts
+   the frames drawn in direction i (read it from the emulator). */
+u32 g_benchFrames[8];
+static u32 benchStart;
+#endif
 
 void game_message(const char *msg)
 {
@@ -554,11 +561,12 @@ static void test_scene(void)
 
 static void gen_progress(int pct)
 {
+	gfx_wait_flip();
 	gfx_clear(g_fb,C_BLACK);
 	gfx_text_center(g_fb,100,"Generating world...",C_WHITE,C_BLACK);
 	gfx_frame(g_fb,80,120,160,10,C_GRAY);
 	gfx_rect(g_fb,82,122,156*pct/100,6,P(R_GRASS,12));
-	gfx_present(g_fb);
+	gfx_present();
 }
 
 static void new_game(u32 seed)
@@ -690,8 +698,7 @@ static void draw_hud(void)
 	char buf[64];
 	int x0=(SCR_W-9*20)/2;
 	ui_crosshair(g_fb);
-	ui_hotbar(g_fb,g_player.selected);
-	ui_hearts(g_fb,x0,SCR_H-32,g_player.health,g_player.hurtTimer>0 || g_player.health<=4);
+	ui_hud_bars(g_fb,g_player.selected,g_player.health,g_player.hurtTimer>0 || g_player.health<=4);
 	if(g_player.airTimer>0)
 	{
 		int n=MAX(0,10-g_player.airTimer/20);
@@ -1144,6 +1151,7 @@ static void play_key(int k)
 void kmain(void)
 {
 	u32 lastTick,tickAccum=0,padPrev=0;
+	int syncPages=0;
 	video_init();
 	gfx_init();
 	sys_init();
@@ -1226,11 +1234,29 @@ void kmain(void)
 
 		if(GS_TITLE==state)
 		{
+			gfx_wait_flip();
 			draw_title();
-			gfx_present(g_fb);
+			gfx_present();
 			continue;
 		}
 
+#ifdef BENCH
+		if(GS_PLAY==state)
+		{
+			u32 phase;
+			if(0==benchStart)
+			{
+				benchStart=g_ticks;
+			}
+			phase=(g_ticks-benchStart)/300;
+			if(phase<8)
+			{
+				g_player.yaw=phase*128;
+				g_player.pitch=-40;
+				++g_benchFrames[phase];
+			}
+		}
+#endif
 		/* Looking around is per frame for smoothness */
 		if(GS_PLAY==state && !g_player.dead)
 		{
@@ -1295,6 +1321,10 @@ void kmain(void)
 			   responsive on slow machines. */
 			static int menuFrozen;
 			int inMenu=(GS_INVENTORY==state || GS_CRAFT==state || GS_HELP==state);
+			if(inMenu && menuFrozen)
+			{
+				gfx_wait_flip();
+			}
 			if(!inMenu || !menuFrozen)
 			{
 				draw_world();
@@ -1307,6 +1337,7 @@ void kmain(void)
 					gfx_darken(g_fb,0,0,SCR_W,SCR_H);
 				}
 			}
+			syncPages=(inMenu && !menuFrozen);
 			menuFrozen=inMenu;
 		}
 		switch(state)
@@ -1344,7 +1375,12 @@ void kmain(void)
 			}
 			break;
 		}
-		gfx_present(g_fb);
+		gfx_present();
+		if(syncPages)
+		{
+			/* The frozen background now has to be on both pages */
+			gfx_sync_pages();
+		}
 
 		++fpsFrames;
 		if(g_ticks-fpsT0>=100)
