@@ -3,7 +3,7 @@
 
   One call draws all rows of a trapezoid (the part of a polygon between two
   vertex events).  Per row it computes the span ends from the left and
-  right edges, the texture gradient across the span (64-bit multiply by a
+  right edges, the texture gradient across the span (multiply by a
   reciprocal of the span width), a prestep when the span is clipped at the
   left screen edge, and then runs the texel loop.  Doing the row setup here
   instead of in C removes most of the per-scanline cost.
@@ -127,17 +127,22 @@
 	jle	14f
 	movl	$320,%ecx
 14:
-	movl	g_recip15(,%ecx,4),%ecx
+	movl	g_recip14(,%ecx,4),%ecx
 
+	/* Gradient = delta * (16384/width) with 32-bit multiplies: the delta
+	   (at most 256 texels) in 1/256 texels times the reciprocal fits in
+	   31 bits.  The truncated reciprocal only undershoots. */
 	movl	T_RU(%ebp),%eax
 	subl	T_LU(%ebp),%eax
-	imull	%ecx
-	shrdl	$15,%edx,%eax
+	sarl	$8,%eax
+	imull	%ecx,%eax
+	sarl	$6,%eax
 	movl	%eax,rowDU
 	movl	T_RV(%ebp),%eax
 	subl	T_LV(%ebp),%eax
-	imull	%ecx
-	shrdl	$15,%edx,%eax
+	sarl	$8,%eax
+	imull	%ecx,%eax
+	sarl	$6,%eax
 	movl	%eax,rowDV
 
 	movl	T_LU(%ebp),%ecx

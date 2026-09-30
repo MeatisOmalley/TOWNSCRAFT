@@ -43,7 +43,7 @@ static void (*const trapFunc[8])(Trap *)=
 
 static u8 *rbuf;
 static int rw,rh,rpitch,rscale;
-int g_recip15[SCR_MAX_W+1];   /* 32768/n, used by trap.S */
+int g_recip14[SCR_MAX_W+1];   /* 16384/n, used by trap.S */
 u32 g_statPixels;
 
 void raster_set_target(u8 *buf,int w,int h,int pitch,int scale)
@@ -54,11 +54,11 @@ void raster_set_target(u8 *buf,int w,int h,int pitch,int scale)
 	rh=h;
 	rpitch=pitch;
 	rscale=scale;
-	if(0==g_recip15[1])
+	if(0==g_recip14[1])
 	{
 		for(i=1; i<=SCR_MAX_W; ++i)
 		{
-			g_recip15[i]=32768/i;
+			g_recip14[i]=16384/i;
 		}
 	}
 }
