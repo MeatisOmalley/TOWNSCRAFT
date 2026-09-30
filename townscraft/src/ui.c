@@ -194,8 +194,7 @@ void ui_text_scaled(u8 *fb,int x,int y,const char *s,u8 color,int scale)
 
 void ui_panel(u8 *fb,int x,int y,int w,int h)
 {
-	gfx_darken(fb,x,y,w,h);
-	gfx_darken(fb,x,y,w,h);
+	gfx_rect(fb,x,y,w,h,P(R_GRAY,3));
 	gfx_frame(fb,x,y,w,h,P(R_GRAY,11));
 	gfx_frame(fb,x+1,y+1,w-2,h-2,P(R_GRAY,5));
 }

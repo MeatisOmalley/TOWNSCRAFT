@@ -383,7 +383,9 @@ static void mob_ai(Mob *m,int skyDarken)
 
 void mobs_tick(int skyDarken)
 {
+	static u32 tickCount;
 	int i;
+	++tickCount;
 	for(i=0; i<MAX_MOBS; ++i)
 	{
 		Mob *m=&g_mobs[i];
@@ -405,6 +407,14 @@ void mobs_tick(int skyDarken)
 				explode(x,y,z,4);
 			}
 			continue;
+		}
+		/* Mobs far from the player think and move at a quarter of the rate */
+		{
+			int dx=(g_player.body.x-m->body.x)>>12,dz=(g_player.body.z-m->body.z)>>12;
+			if(dx*dx+dz*dz>24*24 && ((tickCount+i)&3))
+			{
+				continue;
+			}
 		}
 		mob_ai(m,skyDarken);
 		if(MOB_NONE==m->type)

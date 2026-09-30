@@ -81,6 +81,17 @@ typedef struct
 	int x,y,z,u,v;
 } CVert;
 
+static int max_items_for_ram(void)
+{
+	return g_ramMB>=4 ? 8000 : 3000;
+}
+
+u32 render_mem_needed(int w)
+{
+	return (u32)max_items_for_ram()*(sizeof(Item)+4+2+2)
+	      +sizeof(V3)*(2*(w+2)+WH+2)+2*(w+2)+WH+2;
+}
+
 void render_init(void)
 {
 	int t,i;
@@ -90,7 +101,7 @@ void render_init(void)
 	visX=heap_alloc_low(g_W+2);
 	visZ=heap_alloc_low(g_W+2);
 	visY=heap_alloc_low(WH+2);
-	maxItems=(g_ramMB>=4 ? 12000 : 3000);
+	maxItems=max_items_for_ram();
 	for(i=0; i<256; ++i)
 	{
 		sqTab[i]=i*i;
@@ -1047,6 +1058,12 @@ void render_frame(u8 *fb,const RenderEnv *env)
 	cx16=vw*8;
 	cy16=vh*8;
 	skyDarkenCur=env->skyDarken;
+	if(env->underwater)
+	{
+		/* Murky: darker lighting and water-colored sky instead of a
+		   full-screen tint (which would cost ~10 cycles per pixel) */
+		skyDarkenCur=MIN(15,skyDarkenCur+5);
+	}
 	raster_set_target(fb,vw,vh,SCR_W,g_renderScale);
 	setup_camera();
 
@@ -1063,21 +1080,27 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		   inserted near to far, so the stable sort draws far parts first. */
 		static u16 idx[MAX_BOXES];
 		static int dist[MAX_BOXES];
-		int i,j;
+		int i,j,n=0,R=(g_viewDist+1)*256;
 		for(i=0; i<nBoxes; ++i)
 		{
 			const MBox *b=&boxes[i];
-			int px=b->ox+((b->px*16*fcos(b->yaw)+b->pz*16*fsin(b->yaw))>>14)-g_cam.x;
-			int py=b->oy+b->py*16-g_cam.y;
-			int pz=b->oz+((-b->px*16*fsin(b->yaw)+b->pz*16*fcos(b->yaw))>>14)-g_cam.z;
+			int px,py,pz;
+			if(ABS(b->ox-g_cam.x)>R || ABS(b->oz-g_cam.z)>R)
+			{
+				continue;
+			}
+			px=b->ox+((b->px*16*fcos(b->yaw)+b->pz*16*fsin(b->yaw))>>14)-g_cam.x;
+			py=b->oy+b->py*16-g_cam.y;
+			pz=b->oz+((-b->px*16*fsin(b->yaw)+b->pz*16*fcos(b->yaw))>>14)-g_cam.z;
 			dist[i]=(px>>4)*(px>>4)+(py>>4)*(py>>4)+(pz>>4)*(pz>>4);
-			for(j=i; j>0 && dist[idx[j-1]]>dist[i]; --j)
+			for(j=n; j>0 && dist[idx[j-1]]>dist[i]; --j)
 			{
 				idx[j]=idx[j-1];
 			}
 			idx[j]=i;
+			++n;
 		}
-		for(j=0; j<nBoxes; ++j)
+		for(j=0; j<n; ++j)
 		{
 			const MBox *b=&boxes[idx[j]];
 			int nx=CLAMP(g_cam.x,b->ox-b->hw,b->ox+b->hw)>>8;
@@ -1126,8 +1149,4 @@ void render_frame(u8 *fb,const RenderEnv *env)
 	{u32 t=g_ticks;
 	raster_finish();
 	g_prof[3]+=g_ticks-t;}
-	if(env->underwater)
-	{
-		gfx_darken(fb,0,0,SCR_W,SCR_H);
-	}
 }

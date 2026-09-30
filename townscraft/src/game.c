@@ -42,6 +42,7 @@ static u32 sleepStart;
 
 /* Settings */
 static int showDebug;
+static u32 cpuSpeedIndex;   /* Loop iterations in 100ms, measured at start */
 static u32 fpsFrames,fpsT0,fps10;
 
 void game_message(const char *msg)
@@ -674,6 +675,11 @@ static void draw_world(void)
 	env.targetValid=targetValid;
 	env.tx=tX; env.ty=tY; env.tz=tZ;
 	env.underwater=g_player.body.headInWater;
+	if(env.underwater)
+	{
+		env.skyColor=P(R_WATER,MAX(2,8-g_skyDarken/2));
+		env.fogColor=env.skyColor;
+	}
 	render_clear_boxes();
 	mobs_add_render_boxes(g_skyDarken);
 	render_frame(g_fb,&env);
@@ -723,6 +729,9 @@ static void draw_hud(void)
 		gfx_text_shadow(g_fb,106,y,itoa_dec(g_player.body.z>>12,buf),C_WHITE,C_BLACK); y+=10;
 		gfx_text_shadow(g_fb,2,y,"Faces",C_WHITE,C_BLACK);
 		gfx_text_shadow(g_fb,50,y,itoa_dec(g_statFaces,buf),C_WHITE,C_BLACK); y+=10;
+		gfx_text_shadow(g_fb,2,y,"Yaw",C_WHITE,C_BLACK);
+		gfx_text_shadow(g_fb,34,y,itoa_dec(g_player.yaw,buf),C_WHITE,C_BLACK);
+		gfx_text_shadow(g_fb,82,y,itoa_dec(g_player.pitch,buf),C_WHITE,C_BLACK); y+=10;
 		gfx_text_shadow(g_fb,2,y,"Time",C_WHITE,C_BLACK);
 		gfx_text_shadow(g_fb,42,y,itoa_dec(g_time,buf),C_WHITE,C_BLACK); y+=10;
 		gfx_text_shadow(g_fb,2,y,"View",C_WHITE,C_BLACK);
@@ -888,6 +897,10 @@ static void draw_craft(void)
 	{
 		gfx_text_shadow(g_fb,16,212,"Up/Down select  SPACE craft  ESC",P(R_GRAY,11),C_BLACK);
 	}
+	if(g_ticks<msgUntil)
+	{
+		gfx_text_shadow(g_fb,16,200,msgText,C_YELLOW,C_BLACK);
+	}
 }
 
 static void craft_key(int k)
@@ -950,6 +963,7 @@ static void draw_inventory(void)
 		gfx_text_shadow(g_fb,x0-4,y0+4*22+10,g_itemDef[g_inv[inv_slot_at(invCursor)].item].name,C_WHITE,C_BLACK);
 	}
 	gfx_text_shadow(g_fb,x0-4,y0+4*22+24,"SPACE move  Q discard",P(R_GRAY,11),C_BLACK);
+	ui_hotbar(g_fb,g_player.selected);
 }
 
 static void close_inventory(void)
@@ -1021,20 +1035,22 @@ static void auto_detect_quality(void)
 	{
 		++n;
 	}
-	if(n<350000)
+	cpuSpeedIndex=n;
+	/* Measured in Tsugaru: 386 16MHz ~120000, default profile ~290000 */
+	if(n<170000)
 	{
 		g_renderScale=2;
-		g_viewDist=14;
+		g_viewDist=10;
 	}
-	else if(n<800000)
+	else if(n<450000)
 	{
 		g_renderScale=2;
-		g_viewDist=20;
+		g_viewDist=16;
 	}
 	else
 	{
 		g_renderScale=1;
-		g_viewDist=20;
+		g_viewDist=18;
 	}
 	if(g_ramMB<4 && g_viewDist>20)
 	{
@@ -1066,6 +1082,16 @@ static void settings_key(int k)
 		break;
 	case KEY_PF4:
 		showDebug=!showDebug;
+		break;
+	case KEY_PF5:
+		{
+			/* Sampling profiler (dump g_profSamples from the emulator) */
+			extern int g_profEnable;
+			extern u32 g_profCount;
+			g_profEnable=!g_profEnable;
+			g_profCount=0;
+			game_message(g_profEnable ? "Profiler on" : "Profiler off");
+		}
 		break;
 	}
 }
@@ -1150,8 +1176,10 @@ void kmain(void)
 			case GS_TITLE:
 				if(KEY_SPACE==k || KEY_RETURN==k)
 				{
-#ifdef TEST_SCENE
+#if defined(TEST_SCENE)
 					new_game(12345);
+#elif defined(FIXED_SEED)
+					new_game(FIXED_SEED);
 #else
 					new_game(g_ticks*2654435761u+12345);
 #endif
@@ -1261,18 +1289,32 @@ void kmain(void)
 			world_update_dirty_chunks(1);
 		}
 
-		draw_world();
+		{
+			/* Menus pause the game.  Render the world once when a menu opens
+			   and keep it as a frozen, dimmed background, so menus stay
+			   responsive on slow machines. */
+			static int menuFrozen;
+			int inMenu=(GS_INVENTORY==state || GS_CRAFT==state || GS_HELP==state);
+			if(!inMenu || !menuFrozen)
+			{
+				draw_world();
+				if(GS_PLAY==state || inMenu)
+				{
+					draw_hud();
+				}
+				if(inMenu)
+				{
+					gfx_darken(g_fb,0,0,SCR_W,SCR_H);
+				}
+			}
+			menuFrozen=inMenu;
+		}
 		switch(state)
 		{
-		case GS_PLAY:
-			draw_hud();
-			break;
 		case GS_INVENTORY:
-			draw_hud();
 			draw_inventory();
 			break;
 		case GS_CRAFT:
-			draw_hud();
 			draw_craft();
 			break;
 		case GS_HELP:

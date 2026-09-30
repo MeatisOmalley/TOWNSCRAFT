@@ -3,22 +3,35 @@
    Screen coordinates are 28.4 fixed point.  Texture coordinates are 16.16
    texels, interpolated along the polygon edges and then linearly across each
    span, so every edge maps exactly.  Textures repeat every 16 texels (merged
-   quads cover several blocks).  Spans are drawn by the assembly loops in
-   span.S.
+   quads cover several blocks).  Textured polygons are split into
+   trapezoids (rows between vertex events), each drawn by one call to the
+   assembly loops in trap.S.
 
    In scale 2 mode each render pixel is written as two bytes into the frame
    buffer, and raster_finish() copies even rows to odd rows. */
 #include "raster.h"
 #include "fmath.h"
 
-void span_opaque1(u8 *dst,int count,const u8 *tile,u32 u,u32 v,int du,int dv);
-void span_opaque2(u8 *dst,int count,const u8 *tile,u32 u,u32 v,int du,int dv);
-void span_transp1(u8 *dst,int count,const u8 *tile,u32 u,u32 v,int du,int dv);
-void span_transp2(u8 *dst,int count,const u8 *tile,u32 u,u32 v,int du,int dv);
+/* Layout shared with trap.S */
+typedef struct
+{
+	u8 *row;
+	int stride,rows;
+	int lx,ldx,lu,ldu,lv,ldv;
+	int rx,rdx,ru,rdu,rv,rdv;
+	const u8 *tile;
+	int maxX;
+	u32 pixels;
+} Trap;
+
+void trap_opaque1(Trap *t);
+void trap_opaque2(Trap *t);
+void trap_transp1(Trap *t);
+void trap_transp2(Trap *t);
 
 static u8 *rbuf;
 static int rw,rh,rpitch,rscale;
-static int recip[SCR_MAX_W+1];
+int g_recip15[SCR_MAX_W+1];   /* 32768/n, used by trap.S */
 u32 g_statPixels;
 
 void raster_set_target(u8 *buf,int w,int h,int pitch,int scale)
@@ -29,11 +42,11 @@ void raster_set_target(u8 *buf,int w,int h,int pitch,int scale)
 	rh=h;
 	rpitch=pitch;
 	rscale=scale;
-	if(0==recip[1])
+	if(0==g_recip15[1])
 	{
 		for(i=1; i<=SCR_MAX_W; ++i)
 		{
-			recip[i]=32768/i;
+			g_recip15[i]=32768/i;
 		}
 	}
 }
@@ -158,69 +171,61 @@ static void poly_scan(const RVert *v,int n,const u8 *tile,int transparent,u8 fla
 		right=&eR;
 		left=&eL;
 	}
-	/* eL walks +1, eR walks -1 */
+	/* eL walks +1, eR walks -1.  Rows between vertex events form a
+	   trapezoid with fixed edges. */
 	{
-		int du=0,dv=0,grad=0;
 		int stride=rpitch*rscale;
-		u8 *row=rbuf+sTop*stride;
-		for(s=sTop; s<sBot; ++s,row+=stride)
+		void (*trap)(Trap *)=(1==rscale) ? (transparent ? trap_transp1 : trap_opaque1)
+		                                 : (transparent ? trap_transp2 : trap_opaque2);
+		s=sTop;
+		while(s<sBot)
 		{
-			int xl,xr,w;
+			int end;
 			if(!pedge_next(&eL,v,n,1,s,tex) || !pedge_next(&eR,v,n,-1,s,tex))
 			{
 				break;
 			}
-			xl=(left->x16+0x7FFF)>>16;
-			xr=(right->x16+0x7FFF)>>16;
-			if(xr>rw) xr=rw;
-			if(xl<0) xl=0;
-			w=xr-xl;
-			if(w>0)
+			end=MIN(MIN(eL.sEnd,eR.sEnd),sBot);
+			if(end<=s)
 			{
-				if(tex)
-				{
-					/* Texture gradients change slowly from row to row:
-					   recompute them every fourth row. */
-					if(0==grad)
-					{
-						int span=(right->x16-left->x16+0x8000)>>16,r;
-						if(span<1) span=1;
-						if(span>SCR_MAX_W) span=SCR_MAX_W;
-						r=recip[span];
-						du=mulshift(right->u-left->u,r,15);
-						dv=mulshift(right->v-left->v,r,15);
-						grad=4;
-					}
-					--grad;
-					g_statPixels+=w;
-					if(1==rscale)
-					{
-						if(transparent)
-							span_transp1(row+xl,w,tile,left->u,left->v,du,dv);
-						else
-							span_opaque1(row+xl,w,tile,left->u,left->v,du,dv);
-					}
-					else
-					{
-						if(transparent)
-							span_transp2(row+xl*2,w,tile,left->u,left->v,du,dv);
-						else
-							span_opaque2(row+xl*2,w,tile,left->u,left->v,du,dv);
-					}
-				}
-				else
-				{
-					memset(row+xl*rscale,flat,w*rscale);
-				}
+				break;
 			}
-			left->x16+=left->dx;
-			right->x16+=right->dx;
 			if(tex)
 			{
-				left->u+=left->du;
-				left->v+=left->dv;
-				right->u+=right->du;
-				right->v+=right->dv;
+				Trap t;
+				t.row=rbuf+s*stride;
+				t.stride=stride;
+				t.rows=end-s;
+				t.lx=left->x16;  t.ldx=left->dx;
+				t.lu=left->u;    t.ldu=left->du;
+				t.lv=left->v;    t.ldv=left->dv;
+				t.rx=right->x16; t.rdx=right->dx;
+				t.ru=right->u;   t.rdu=right->du;
+				t.rv=right->v;   t.rdv=right->dv;
+				t.tile=tile;
+				t.maxX=rw;
+				t.pixels=0;
+				trap(&t);
+				g_statPixels+=t.pixels;
+				left->x16=t.lx;  left->u=t.lu;  left->v=t.lv;
+				right->x16=t.rx; right->u=t.ru; right->v=t.rv;
+				s=end;
+			}
+			else
+			{
+				u8 *row=rbuf+s*stride;
+				for(; s<end; ++s,row+=stride)
+				{
+					int xl=(left->x16+0x7FFF)>>16,xr=(right->x16+0x7FFF)>>16;
+					if(xr>rw) xr=rw;
+					if(xl<0) xl=0;
+					if(xr>xl)
+					{
+						memset(row+xl*rscale,flat,(xr-xl)*rscale);
+					}
+					left->x16+=left->dx;
+					right->x16+=right->dx;
+				}
 			}
 		}
 	}

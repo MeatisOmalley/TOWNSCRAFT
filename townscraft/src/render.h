@@ -42,6 +42,7 @@ extern u32 g_prof[8];
 extern int g_flatLOD;
 
 void render_init(void);
+u32 render_mem_needed(int worldWidth);
 void render_frame(u8 *fb,const RenderEnv *env);
 MBox *render_add_box(void);
 void render_clear_boxes(void);

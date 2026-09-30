@@ -12,7 +12,7 @@ CFLAGS  = $(EXTRA) -g -m32 -march=i386 -mtune=i386 -O2 -ffreestanding -fno-pic -
 ASFLAGS = -m32
 
 SRCS    = $(wildcard src/*.c)
-OBJS    = $(BUILD)/crt0.o $(BUILD)/isr.o $(BUILD)/span.o $(BUILD)/tables.o $(patsubst src/%.c,$(BUILD)/%.o,$(SRCS))
+OBJS    = $(BUILD)/crt0.o $(BUILD)/isr.o $(BUILD)/trap.o $(BUILD)/tables.o $(patsubst src/%.c,$(BUILD)/%.o,$(SRCS))
 
 all: TOWNSCRAFT.ISO
 
@@ -60,5 +60,5 @@ $(BUILD)/tables.c: tools/gentables.py | $(BUILD)
 $(BUILD)/tables.o: $(BUILD)/tables.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/span.o: src/span.S | $(BUILD)
+$(BUILD)/trap.o: src/trap.S | $(BUILD)
 	$(CC) $(ASFLAGS) -c $< -o $@

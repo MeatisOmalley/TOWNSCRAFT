@@ -2,6 +2,7 @@
 #include "world.h"
 #include "sys.h"
 #include "fmath.h"
+#include "render.h"
 
 int g_W,g_NC;
 u8 *g_blocks,*g_light,*g_height;
@@ -43,16 +44,36 @@ static void init_hides_tab(void);
 static u32 *pq,*rq;
 
 
+/* Memory for a world of width w other than the block and light arrays.
+   These prefer conventional memory and spill above 1MB. */
+static u32 world_other_mem(int w)
+{
+	int nc=w/CS;
+	return (u32)w*w                        /* height map */
+	      +(u32)w*4                        /* z offsets */
+	      +(u32)nc*nc*NCY*sizeof(Chunk)
+	      +(u32)w*w*5/4*8                  /* mesh pool */
+	      +(PQ_LEN+RQ_LEN)*4
+	      +render_mem_needed(w)
+	      +16*1024;                        /* slack */
+}
+
 void world_alloc(void)
 {
-	u32 highFree=heap_high_free();
+	u32 highFree=heap_high_free(),lowFree=heap_low_free();
 	u32 cells;
 	int z;
-	/* Keep ~160KB of high memory for other large buffers. */
-	u32 budget=(highFree>160*1024 ? highFree-160*1024 : 0);
+	/* Largest world whose blocks and light fit above 1MB, with everything
+	   else fitting in what remains of both heaps. */
 	g_W=256;
-	while(g_W>64 && (u32)g_W*g_W*WH*2>budget)
+	while(g_W>64)
 	{
+		u32 big=(u32)g_W*g_W*WH*2,other=world_other_mem(g_W);
+		u32 spill=(other>lowFree ? other-lowFree : 0);
+		if(big+spill<=highFree)
+		{
+			break;
+		}
 		g_W-=16;
 	}
 	g_NC=g_W/CS;
