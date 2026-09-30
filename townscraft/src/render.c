@@ -31,12 +31,15 @@ int g_flatLOD=6*16;   /* 28.4: faces smaller than this are flat shaded */
 #define NEAR_Z 12       /* units (~0.05 block) */
 #define MAX_BOXES 160
 #define GUARD 48        /* pixels outside the viewport before 2D clipping */
+#define INV_NEAR 4096   /* Projection reciprocal table: see project() */
+#define INV_FAR  (INV_NEAR+4096*8)
 
 typedef struct { int c[3]; } V3;
 
 static V3 *TX,*TY,*TZ;           /* Camera-space of grid lines, per axis */
 static V3 AX16[17],AY16[17],AZ16[17];  /* Axis step of k/16 block */
 static u8 *visX,*visY,*visZ;
+static u32 *invTab;               /* See project() */
 /* Frustum planes as linear functions of camera space, tabulated per grid
    line like TX/TY/TZ: plane k of a point is PX[k][x]+PY[k][y]+PZ[k][z].
    A sphere of radius r is outside plane k when that exceeds r*planeLen[k].
@@ -97,7 +100,8 @@ u32 render_mem_needed(int w)
 {
 	return (u32)max_items_for_ram()*(sizeof(Item)+4+2+2)
 	      +sizeof(V3)*(2*(w+2)+WH+2)+2*(w+2)+WH+2
-	      +sizeof(int)*NPLANES*(2*(w+2)+WH+2);
+	      +sizeof(int)*NPLANES*(2*(w+2)+WH+2)
+	      +sizeof(u32)*(INV_NEAR+4096);
 }
 
 void render_init(void)
@@ -115,6 +119,7 @@ void render_init(void)
 		PZ[i]=heap_alloc_low(sizeof(int)*(g_W+2));
 		PY[i]=heap_alloc_low(sizeof(int)*(WH+2));
 	}
+	invTab=heap_alloc_low(sizeof(u32)*(INV_NEAR+4096));
 	maxItems=max_items_for_ram();
 	for(i=0; i<256; ++i)
 	{
@@ -224,9 +229,28 @@ static int clip_2d(const RVert *in,int n,RVert *out,int axis,int bound,int sign)
 	return m;
 }
 
+/* (focal16<<16)/z without a divide: exact for z < INV_NEAR, then in steps
+   of 8 up to INV_FAR (0.2% at most, and the same for every face sharing a
+   corner, so no cracks) */
+static int invFocal;
+
+static void build_inv_table(void)
+{
+	int i;
+	for(i=1; i<INV_NEAR; ++i)
+	{
+		invTab[i]=((u32)focal16<<16)/(u32)i;
+	}
+	for(i=0; i<4096; ++i)
+	{
+		invTab[INV_NEAR+i]=((u32)focal16<<16)/(u32)(INV_NEAR+i*8+4);
+	}
+	invFocal=focal16;
+}
+
 static inline void project(int x,int y,int z,int *sx,int *sy)
 {
-	int inv=(focal16<<16)/z;
+	int inv=(z<INV_NEAR) ? (int)invTab[z] : (z<INV_FAR ? (int)invTab[INV_NEAR+((z-INV_NEAR)>>3)] : (focal16<<16)/z);
 	*sx=cx16+mulshift(x,inv,16);
 	*sy=cy16-mulshift(y,inv,16);
 }
@@ -1146,6 +1170,10 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		skyDarkenCur=MIN(15,skyDarkenCur+5);
 	}
 	raster_set_target(fb,vw,vh,FB_PITCH,g_renderScale);
+	if(focal16!=invFocal)
+	{
+		build_inv_table();
+	}
 	setup_camera();
 
 	nItems=0;
