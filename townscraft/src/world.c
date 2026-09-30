@@ -10,6 +10,7 @@ int *g_zOff;
 Chunk *g_chunks;
 u32 *g_meshPool;
 u32 g_meshQuads;
+u32 g_meshVersion;   /* Incremented whenever a chunk mesh changes */
 static u32 poolSize,poolTop;
 static int strideZ;
 int g_spawnX,g_spawnY,g_spawnZ;
@@ -700,6 +701,7 @@ static void rebuild_chunk(int cx,int cy,int cz)
 		c->cap=cap;
 		poolTop+=cap;
 	}
+	++g_meshVersion;
 	g_meshQuads+=n;
 	g_meshQuads-=c->count;
 	memcpy(g_meshPool+c->off*2,sortedQuads,n*8);

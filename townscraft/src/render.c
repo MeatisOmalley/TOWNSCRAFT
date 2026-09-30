@@ -69,7 +69,10 @@ typedef struct
 static Item *items;
 static u32 *itemKey;
 static u16 *order,*order2;
-static int maxItems,nItems;
+static int maxItems,nItems,nStatic;
+static u32 entKey[MAX_BOXES];
+static u16 entBox[MAX_BOXES];
+static int nEnt;
 
 static MBox boxes[MAX_BOXES];
 static int sqTab[256];
@@ -693,7 +696,9 @@ static void setup_camera(void)
 {
 	int sy=fsin(g_cam.yaw),cy=fcos(g_cam.yaw),sp=fsin(g_cam.pitch),cp=fcos(g_cam.pitch);
 	int i,k,x0,x1,z0,z1,pv[NPLANES];
-	int fpx=focal16>>4,hwp=vw/2,hhp=vh/2;
+	/* The planes are 1/8 wider than the view so that a collected list stays
+	   valid while the camera turns a little (see render_frame) */
+	int fpx=focal16>>4,hwp=vw/2+vw/16,hhp=vh/2+vh/16;
 	/* right, up, forward */
 	rot[0][0]=cy;               rot[0][1]=0;   rot[0][2]=-sy;
 	rot[1][0]=-(sy*sp)>>14;     rot[1][1]=cp;  rot[1][2]=-(cy*sp)>>14;
@@ -854,11 +859,14 @@ static void collect(void)
 	for(k=0; k<NPLANES; ++k)
 	{
 		int i;
-		thrC[k]=2*3548*planeLen[k];   /* 16*sqrt(3)/2 blocks in units */
-		thrM[k]=2*230*planeLen[k];
+		/* Radii grow by the most the camera can move within its cell
+		   (443 units) so the list stays valid there */
+		int tm=2*443*planeLen[k];
+		thrC[k]=2*3548*planeLen[k]+tm;   /* 16*sqrt(3)/2 blocks in units */
+		thrM[k]=2*230*planeLen[k]+tm;
 		for(i=0; i<34; ++i)
 		{
-			thrQ[k][i]=2*128*i*planeLen[k];
+			thrQ[k][i]=2*128*i*planeLen[k]+tm;
 		}
 	}
 	nestX=(ABS(rot[2][0])>ABS(rot[2][2]));
@@ -1167,7 +1175,7 @@ static void draw_target_outline(const RenderEnv *env)
 
 void render_frame(u8 *fb,const RenderEnv *env)
 {
-	int key;
+	int key,ent;
 	vw=SCR_W/g_renderScale;
 	vh=VIEW_H/g_renderScale;
 	focal16=(172*16)/g_renderScale;
@@ -1187,11 +1195,36 @@ void render_frame(u8 *fb,const RenderEnv *env)
 	}
 	setup_camera();
 
-	nItems=0;
 	g_statFaces=0;
-	{u32 t=g_ticks;
-	collect();
-	g_prof[0]+=g_ticks-t;}
+	{
+		/* Frame coherence: the collected and sorted face list depends on
+		   the camera's cell (order, distance and back-face tests) and,
+		   through the frustum, on its orientation.  It is collected with
+		   margins (wider planes, radii grown by a cell), so it is reused
+		   while the camera stays in its cell, turns less than ~2.8 degrees
+		   and no chunk mesh changes. */
+		static int cBX=-1,cBY,cBZ,cYaw,cPitch,cScale,cView;
+		static u32 cMesh;
+		int dyaw=(g_cam.yaw-cYaw)&ANG_MASK;
+		if(dyaw>512)
+		{
+			dyaw=1024-dyaw;
+		}
+		if(camBX!=cBX || camBY!=cBY || camBZ!=cBZ || g_meshVersion!=cMesh || g_renderScale!=cScale ||
+		   g_viewDist!=cView || dyaw>8 || ABS(g_cam.pitch-cPitch)>8)
+		{
+			u32 t=g_ticks;
+			nItems=0;
+			collect();
+			sort_items();
+			nStatic=nItems;
+			cBX=camBX; cBY=camBY; cBZ=camBZ;
+			cYaw=g_cam.yaw; cPitch=g_cam.pitch;
+			cScale=g_renderScale; cView=g_viewDist; cMesh=g_meshVersion;
+			g_prof[0]+=g_ticks-t;
+		}
+	}
+	nEnt=0;
 	{
 		/* Entities span several cells.  Key each one by the cell holding
 		   the point of its bounding box nearest the camera: it is then
@@ -1232,27 +1265,42 @@ void render_frame(u8 *fb,const RenderEnv *env)
 				continue;
 			}
 			ny=CLAMP(ny,0,WH-1);
-			add_item(cell_key(nx,ny,nz),(u32)IK_BOX<<25,idx[j]);
+			{
+				/* Stable insertion by key (their own small sorted list) */
+				u32 k=cell_key(nx,ny,nz);
+				int m;
+				for(m=nEnt; m>0 && entKey[m-1]>k; --m)
+				{
+					entKey[m]=entKey[m-1];
+					entBox[m]=entBox[m-1];
+				}
+				entKey[m]=k;
+				entBox[m]=idx[j];
+				++nEnt;
+			}
 		}
 	}
-	g_statItems=nItems;
+	g_statItems=nStatic+nEnt;
 	g_dbg[0]=nBoxes;
-	sort_items();
 
 	gfx_wait_flip();   /* First write to the frame buffer */
 	{u32 t=g_ticks;
 	draw_sky(env);
 	g_prof[1]+=g_ticks-t;}
 	{u32 t=g_ticks;
-	for(key=nItems-1; key>=0; --key)
+	/* Far to near: merge the (cached) face list with the entity list.  On
+	   equal keys entities go first, as the stable sort used to order them. */
+	for(key=nStatic-1,ent=nEnt-1; key>=0 || ent>=0; )
 	{
-		const Item *it=&items[order[key]];
-		int kind=(it->a>>25)&3;
-		if(IK_BOX==kind)
+		const Item *it;
+		int kind;
+		if(ent>=0 && (key<0 || entKey[ent]>=itemKey[order[key]]))
 		{
-			draw_mbox(&boxes[it->b]);
+			draw_mbox(&boxes[entBox[ent--]]);
+			continue;
 		}
-		else
+		it=&items[order[key--]];
+		kind=(it->a>>25)&3;
 		{
 			int x=it->a&255,z=(it->a>>8)&255,y=(it->a>>16)&63;
 			if(IK_MODEL==kind)

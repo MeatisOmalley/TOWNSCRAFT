@@ -91,6 +91,7 @@ void world_set(int x,int y,int z,u8 b);   /* Updates light and meshes */
 int world_light_at(int x,int y,int z);    /* Raw light byte (sky<<4|block) */
 void world_update_dirty_chunks(int maxLightOnly);  /* Geometry changes always rebuild */
 extern u32 g_meshQuads;
+extern u32 g_meshVersion;   /* Changes whenever a chunk mesh is rebuilt */
 int world_surface_y(int x,int z);         /* y of first air above ground (spawn helper) */
 int world_is_solid(int x,int y,int z);
 
