@@ -12,6 +12,7 @@ u32 *g_meshPool;
 u32 g_meshQuads;
 u32 g_meshVersion;   /* Incremented whenever a chunk mesh changes */
 static u32 poolSize,poolTop;
+static int poolOverflow;       /* Set when rebuild_chunk had to trim a mesh */
 static int strideZ;
 int g_spawnX,g_spawnY,g_spawnZ;
 void (*g_genProgress)(int percent);
@@ -47,13 +48,16 @@ static u32 *pq,*rq;
 
 /* Memory for a world of width w other than the block and light arrays.
    These prefer conventional memory and spill above 1MB. */
+/* Mesh pool, in quads.  With streaming it only holds the chunks around
+   the camera, so it does not grow with the world. */
+#define POOL_QUADS 24000
 static u32 world_other_mem(int w)
 {
 	int nc=w/CS;
 	return (u32)w*w                        /* height map */
 	      +(u32)w*4                        /* z offsets */
 	      +(u32)nc*nc*NCY*sizeof(Chunk)
-	      +(u32)w*w*5/4*8                  /* mesh pool */
+	      +POOL_QUADS*8                    /* mesh pool */
 	      +(PQ_LEN+RQ_LEN)*4
 	      +render_mem_needed(w)
 	      +16*1024;                        /* slack */
@@ -91,7 +95,7 @@ void world_alloc(void)
 	}
 	g_chunks=heap_alloc_low(sizeof(Chunk)*g_NC*g_NC*NCY);
 	memset(g_chunks,0,sizeof(Chunk)*g_NC*g_NC*NCY);
-	poolSize=(u32)g_W*g_W*5/4;   /* quads; a generated world uses about 0.7 per column */
+	poolSize=POOL_QUADS;
 	g_meshPool=heap_alloc_low(poolSize*8);
 	poolTop=0;
 	pq=heap_alloc_low(PQ_LEN*4);
@@ -687,6 +691,7 @@ static void rebuild_chunk(int cx,int cy,int cz)
 			/* Out of pool space: keep what fits (trimming the group
 			   counts from the end so they still add up) */
 			int g,excess;
+			poolOverflow=1;
 			cap=(poolSize>poolTop ? poolSize-poolTop : 0);
 			n=MIN((u32)n,cap);
 			excess=nTmp-n;
@@ -707,6 +712,7 @@ static void rebuild_chunk(int cx,int cy,int cz)
 	memcpy(g_meshPool+c->off*2,sortedQuads,n*8);
 	c->count=n;
 	c->dirty=0;
+	c->meshed=1;
 	/* A bottom-layer chunk is sealed when nothing can be seen into it from
 	   above: its top cells are opaque wherever the cells above are not,
 	   and no water touches its sides (see collect in render.c) */
@@ -749,6 +755,131 @@ static void mark_dirty(int x,int y,int z)
 	}
 }
 
+/* ---------------- Mesh streaming ---------------- */
+
+static int streamX,streamZ;       /* Camera column of the last world_stream() */
+
+/* Squared horizontal distance from (x,z) to the nearest cell of a chunk column */
+static int column_dist2(int cx,int cz,int x,int z)
+{
+	int x0=cx*CS,z0=cz*CS,dx=0,dz=0;
+	if(x<x0) dx=x0-x; else if(x>=x0+CS) dx=x-(x0+CS-1);
+	if(z<z0) dz=z0-z; else if(z>=z0+CS) dz=z-(z0+CS-1);
+	return dx*dx+dz*dz;
+}
+
+static int column_meshed(int cx,int cz)
+{
+	int cy;
+	for(cy=0; cy<NCY; ++cy)
+	{
+		if(g_chunks[chunk_index(cx,cy,cz)].meshed)
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/* Drop the meshes of a chunk column; the pool space is reclaimed by the
+   next pool_compact() */
+static void unmesh_column(int cx,int cz)
+{
+	int cy;
+	for(cy=0; cy<NCY; ++cy)
+	{
+		Chunk *c=&g_chunks[chunk_index(cx,cy,cz)];
+		g_meshQuads-=c->count;
+		c->count=0;
+		c->cap=0;
+		c->meshed=0;
+		c->dirty=0;
+		memset(c->group,0,sizeof(c->group));
+	}
+	++g_meshVersion;
+}
+
+/* No meshes at all (new or loaded world) */
+static void mesh_reset(void)
+{
+	memset(g_chunks,0,sizeof(Chunk)*g_NC*g_NC*NCY);
+	poolTop=0;
+	g_meshQuads=0;
+	++g_meshVersion;
+}
+
+/* Mesh a chunk.  When the pool is full, free the column farthest from the
+   camera (if it is farther than this chunk) and try again. */
+static void build_chunk(int cx,int cy,int cz)
+{
+	int d=column_dist2(cx,cz,streamX,streamZ);
+	for(;;)
+	{
+		int x,z,fx=-1,fz=0,fd=d;
+		poolOverflow=0;
+		rebuild_chunk(cx,cy,cz);
+		if(!poolOverflow)
+		{
+			return;
+		}
+		for(z=0; z<g_NC; ++z)
+		{
+			for(x=0; x<g_NC; ++x)
+			{
+				int dd=column_dist2(x,z,streamX,streamZ);
+				if(dd>fd && column_meshed(x,z))
+				{
+					fx=x;
+					fz=z;
+					fd=dd;
+				}
+			}
+		}
+		if(fx<0)
+		{
+			return;       /* Nothing farther to free: keep the trimmed mesh */
+		}
+		unmesh_column(fx,fz);
+	}
+}
+
+void world_stream(int x,int z,int radius,int maxBuild)
+{
+	int r2=radius*radius;
+	streamX=x;
+	streamZ=z;
+	while(maxBuild-->0)
+	{
+		int cx,cz,cy,bestCx=-1,bestCz=0,bestCy=0,bd=r2+1;
+		for(cz=0; cz<g_NC; ++cz)
+		{
+			for(cx=0; cx<g_NC; ++cx)
+			{
+				int d=column_dist2(cx,cz,x,z);
+				if(d<bd)
+				{
+					for(cy=0; cy<NCY; ++cy)
+					{
+						if(!g_chunks[chunk_index(cx,cy,cz)].meshed)
+						{
+							bestCx=cx;
+							bestCz=cz;
+							bestCy=cy;
+							bd=d;
+							break;
+						}
+					}
+				}
+			}
+		}
+		if(bestCx<0)
+		{
+			return;
+		}
+		build_chunk(bestCx,bestCy,bestCz);
+	}
+}
+
 void world_update_dirty_chunks(int maxLightOnly)
 {
 	int cx,cy,cz;
@@ -758,14 +889,19 @@ void world_update_dirty_chunks(int maxLightOnly)
 		{
 			for(cy=0; cy<NCY; ++cy)
 			{
-				u8 d=g_chunks[chunk_index(cx,cy,cz)].dirty;
-				if(DIRTY_GEOMETRY==d || (DIRTY_LIGHT==d && maxLightOnly>0))
+				Chunk *c=&g_chunks[chunk_index(cx,cy,cz)];
+				u8 d=c->dirty;
+				if(!c->meshed)
+				{
+					c->dirty=0;    /* Meshed from scratch when it comes near */
+				}
+				else if(DIRTY_GEOMETRY==d || (DIRTY_LIGHT==d && maxLightOnly>0))
 				{
 					if(DIRTY_LIGHT==d)
 					{
 						--maxLightOnly;
 					}
-					rebuild_chunk(cx,cy,cz);
+					build_chunk(cx,cy,cz);
 				}
 			}
 		}
@@ -776,7 +912,7 @@ void world_update_dirty_chunks(int maxLightOnly)
    emitting block) and meshes, as at the end of world_generate() */
 void world_rebuild_after_load(void)
 {
-	int x,y,z,cx,cy,cz;
+	int x,y,z;
 	progress(10);
 	light_init();
 	progress(40);
@@ -797,18 +933,9 @@ void world_rebuild_after_load(void)
 			}
 		}
 	}
-	progress(60);
-	for(cz=0; cz<g_NC; ++cz)
-	{
-		for(cx=0; cx<g_NC; ++cx)
-		{
-			for(cy=0; cy<NCY; ++cy)
-			{
-				rebuild_chunk(cx,cy,cz);
-			}
-		}
-		progress(60+40*(cz+1)/g_NC);
-	}
+	/* Meshes are built by world_stream() around the player */
+	mesh_reset();
+	progress(100);
 	trackLightDirty=1;
 }
 
@@ -1273,19 +1400,7 @@ void world_generate(u32 seed)
 		g_spawnY=world_surface_y(g_spawnX,g_spawnZ);
 	}
 
-	{
-		int cx,cy,cz;
-		for(cz=0; cz<g_NC; ++cz)
-		{
-			for(cx=0; cx<g_NC; ++cx)
-			{
-				for(cy=0; cy<NCY; ++cy)
-				{
-					rebuild_chunk(cx,cy,cz);
-				}
-			}
-			progress(60+40*(cz+1)/g_NC);
-		}
-	}
+	/* Meshes are built by world_stream() around the player */
+	progress(100);
 	trackLightDirty=1;
 }

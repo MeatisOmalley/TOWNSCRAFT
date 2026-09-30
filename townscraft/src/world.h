@@ -39,6 +39,7 @@ typedef struct
 	                          z min|max<<4, y min|max<<4 (chunk local) */
 	u8 dirty;          /* DIRTY_GEOMETRY or DIRTY_LIGHT */
 	u8 sealed;         /* Bottom layer only: cannot be seen into from above */
+	u8 meshed;         /* Has a mesh (see world_stream) */
 } Chunk;
 
 enum
@@ -94,6 +95,11 @@ void world_update_dirty_chunks(int maxLightOnly);  /* Geometry changes always re
 extern u32 g_meshQuads;
 extern u32 g_meshVersion;
 void world_rebuild_after_load(void);   /* Changes whenever a chunk mesh is rebuilt */
+
+/* Mesh streaming: only chunks near the camera have meshes.  Builds up to
+   maxBuild missing meshes within radius blocks of (x,z), nearest first,
+   and frees the farthest meshes when the pool runs out. */
+void world_stream(int x,int z,int radius,int maxBuild);
 int world_surface_y(int x,int z);         /* y of first air above ground (spawn helper) */
 int world_is_solid(int x,int y,int z);
 

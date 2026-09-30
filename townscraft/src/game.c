@@ -623,6 +623,14 @@ static void gen_progress(int pct)
 	gfx_present();
 }
 
+/* Chunk meshes within the view distance plus a margin, so chunks are
+   ready before they come into view */
+#define STREAM_MARGIN 8
+static void stream_world(int maxBuild)
+{
+	world_stream(g_player.body.x/FU,g_player.body.z/FU,g_viewDist+STREAM_MARGIN,maxBuild);
+}
+
 /* Music and messages when a world starts (generated or loaded) */
 static void start_play(void)
 {
@@ -650,6 +658,7 @@ static void load_game(void)
 	progressText="Generating world...";
 	mobs_clear();
 	mobs_spawn_initial();
+	stream_world(100000);
 	start_play();
 	titleMsg=NULL;
 	state=GS_PLAY;
@@ -723,6 +732,7 @@ static void new_game(u32 seed)
 		g_time=6000;
 	}
 #endif
+	stream_world(100000);
 }
 
 /* ---------------- Weather ---------------- */
@@ -1676,6 +1686,8 @@ void kmain(void)
 			raycast();
 			/* Budgeted relighting of chunks whose light changed */
 			world_update_dirty_chunks(1);
+			/* Mesh chunks coming into range, one per frame */
+			stream_world(1);
 		}
 
 		{
