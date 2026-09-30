@@ -41,6 +41,11 @@ point of a fixed test world and looking in 8 directions (see Testing):
 | Model 2, 386DX 16 MHz, 2 MB | 10 | 10.7 fps, 9-14 fps |
 | Tsugaru default profile, 4 MB | 16 | 18.5 fps, 15-25 fps |
 
+The default profile runs the CPU at 25 MHz instead of 16.  Tsugaru counts
+80486 instruction timings for every machine type, so these numbers are
+for a 486 at the given clock; a real 386 needs noticeably more cycles for
+the same code, so a real Model 2 would be slower than measured here.
+
 ## Controls
 
 | Key | Action |
@@ -55,9 +60,11 @@ point of a fixed test world and looking in 8 directions (see Testing):
 | E | Inventory (SPACE picks up / places a stack, Q discards) |
 | C | Crafting by hand |
 | ESC / PF1 | Help |
-| PF2 | Toggle 320x240 / 160x120 rendering |
+| PF2 | Toggle 320x200 / 160x100 rendering |
 | PF3 | Cycle view distance |
 | PF4 | Debug overlay (frame rate, position, time) |
+| PF6 | Music on/off |
+| PF7 | Sound effects on/off |
 
 A game pad on port A also works: pad to move and turn, A to break/attack,
 B to use/place, RUN to jump, SELECT to change the hotbar slot.  The mouse
@@ -81,8 +88,13 @@ goes on port B.
 - Mobs: pigs and sheep (drop porkchops, wool and mutton), zombies (chase
   and attack, burn in daylight) and creepers (explode and destroy blocks).
 - Health, fall damage, drowning, eating, death and respawn.
+- Sound: effects for digging, breaking and placing (by material),
+  footsteps, doors, eating, crafting, damage, creeper and TNT fuses and
+  explosions, positioned by distance and direction; and a calm piano
+  piece on the FM chip (an original composition) on the title screen and
+  every few minutes in game.
 
-Not included: saving, sound, caves, flowing water, hunger, item drops on
+Not included: saving, caves, flowing water, hunger, item drops on
 the ground (broken blocks go straight to the inventory).
 
 ## How it works
@@ -91,7 +103,9 @@ the ground (broken blocks go straight to the inventory).
   to B000:0000 and calls it.  It reads the game through the ROM disk BIOS
   (`FFFB:0014`) into conventional memory and enters 32-bit protected mode.
 - `src/`: a freestanding C kernel (gcc `-m32 -march=i386`, no FPU, no C
-  library).  It programs the hardware directly: CRTC for 320x240 with 256
+  library).  Sound (`sound.c`): effects are synthesized at start into the
+  RF5c68 PCM wave RAM; the music is an FM electric piano on the YM2612
+  driven from the timer interrupt.  It programs the hardware directly: CRTC for 320x240 with 256
   colors, the interrupt controller, interval timer (100 Hz) and VSYNC
   interrupt, the keyboard, the game pad and the mouse.
 - Rendering (`render.c`, `raster.c`, `trap.S`): chunk meshes of greedily

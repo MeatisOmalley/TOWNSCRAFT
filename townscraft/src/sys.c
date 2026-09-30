@@ -1,6 +1,7 @@
 /* System setup: IDT, interrupt controller, interval timer, keyboard, pad,
    memory. */
 #include "sys.h"
+#include "sound.h"
 #include "gfx.h"
 
 volatile u32 g_ticks;
@@ -144,6 +145,7 @@ void timer_isr(u32 eip)
 		g_profSamples[g_profCount++]=eip;
 	}
 	kbd_poll();
+	sound_tick();      /* Music sequencer */
 	outb(0x00,0x20);   /* EOI */
 }
 

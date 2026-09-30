@@ -2,6 +2,7 @@
 #include "world.h"
 #include "fmath.h"
 #include "game.h"
+#include "sound.h"
 
 Player g_player;
 
@@ -50,6 +51,7 @@ void player_hurt(int dmg,int fromX,int fromZ)
 	}
 	g_player.health-=dmg;
 	g_player.hurtTimer=10;
+	sound_play(SFX_HURT,256,230,0);
 	d=isqrt((u32)((dx>>6)*(dx>>6)+(dz>>6)*(dz>>6)))<<6;
 	if(d>0)
 	{

@@ -13,6 +13,7 @@
 #include "inventory.h"
 #include "ui.h"
 #include "game.h"
+#include "sound.h"
 
 int g_time;
 int g_skyDarken;
@@ -32,7 +33,7 @@ static u32 itemNameUntil;
 /* Interaction */
 static int targetValid,tX,tY,tZ,tNX,tNY,tNZ,targetDist;
 static int mineX,mineY,mineZ,mineProgress;
-static int useRepeat,attackCooldown;
+static int useRepeat,attackCooldown,mineSoundTimer;
 
 /* Menus */
 static int craftStation,craftSel,craftScroll;
@@ -188,6 +189,19 @@ static void remove_wall_torches(int x,int y,int z)
 	}
 }
 
+/* The sound of a block: pickaxe blocks sound like stone, axe blocks like
+   wood, the rest like dirt */
+static void block_sfx(u8 b,int x,int y,int z,int vol,int pitch)
+{
+	int tool=g_blockDef[BLK_ID(b)].tool;
+	int id=(TOOL_PICK==tool) ? SFX_STONE : (TOOL_AXE==tool ? SFX_WOOD : SFX_CRUNCH);
+	if(B_GLASS==BLK_ID(b))
+	{
+		pitch=pitch*3/2;
+	}
+	sound_play_at(id,pitch,vol,x*FU+FU/2,y*FU+FU/2,z*FU+FU/2);
+}
+
 static void break_block(int x,int y,int z)
 {
 	u8 b=wget(x,y,z);
@@ -227,6 +241,7 @@ static void break_block(int x,int y,int z)
 		}
 		break;
 	}
+	block_sfx(b,x,y,z,255,256);
 	world_set(x,y,z,B_AIR);
 	remove_unsupported_above(x,y,z);
 	remove_wall_torches(x,y,z);
@@ -331,6 +346,7 @@ static int use_block(void)
 			u8 lo=wget(tX,ly,tZ),hi=wget(tX,ly+1,tZ);
 			int meta=BLK_META(lo)^4;
 			world_set(tX,ly,tZ,MKBLK(BLK_ID(lo),meta));
+			sound_play_at(SFX_WOOD,(meta&4) ? 200 : 170,230,tX*FU+FU/2,ly*FU+FU,tZ*FU+FU/2);
 			if(B_DOOR_UPPER==BLK_ID(hi))
 			{
 				world_set(tX,ly+1,tZ,MKBLK(B_DOOR_UPPER,meta));
@@ -376,6 +392,7 @@ static void place_block(void)
 			}
 			world_set(px,py,pz,MKBLK(B_DOOR_LOWER,side));
 			world_set(px,py+1,pz,MKBLK(B_DOOR_UPPER,side));
+			block_sfx(B_PLANKS,px,py,pz,220,200);
 		}
 		else
 		{
@@ -388,6 +405,7 @@ static void place_block(void)
 			}
 			world_set(px,py,pz,MKBLK(B_BED_FOOT,f));
 			world_set(hx,py,hz,MKBLK(B_BED_HEAD,f));
+			block_sfx(B_WOOL,px,py,pz,220,200);
 		}
 		consume_held();
 		return;
@@ -410,6 +428,7 @@ static void place_block(void)
 		else if(tNZ==1) meta=3;
 		else if(tNZ==-1) meta=4;
 		world_set(px,py,pz,MKBLK(B_TORCH,meta));
+		block_sfx(B_PLANKS,px,py,pz,160,300);
 		consume_held();
 		return;
 	}
@@ -422,6 +441,7 @@ static void place_block(void)
 		return;
 	}
 	world_set(px,py,pz,(u8)block);
+	block_sfx((u8)block,px,py,pz,220,200);
 	consume_held();
 }
 
@@ -437,6 +457,7 @@ static void try_eat(void)
 		}
 		g_player.health=MIN(MAX_HEALTH,g_player.health+g_itemDef[item].food);
 		consume_held();
+		sound_play(SFX_CRUNCH,420,220,0);
 		game_message("Yum!");
 	}
 }
@@ -571,6 +592,9 @@ static void gen_progress(int pct)
 
 static void new_game(u32 seed)
 {
+	music_stop();
+	music_set_gap(12000);    /* In game: 2-4 minutes of silence between plays */
+	music_schedule(1500);
 	g_genProgress=gen_progress;
 	gen_progress(0);
 	{
@@ -598,6 +622,25 @@ static void game_tick(const PlayerInput *in,int breakHeld)
 	g_time=(g_time+2)%24000;
 	g_skyDarken=game_sky_darken(g_time);
 	player_tick(in);
+	{
+		/* Footsteps about every 1.6 blocks walked on the ground */
+		static int lastX,lastZ,stepDist;
+		const Body *b=&g_player.body;
+		int d=ABS(b->x-lastX)+ABS(b->z-lastZ);
+		lastX=b->x;
+		lastZ=b->z;
+		if(b->onGround && !b->inWater && d<FU)
+		{
+			stepDist+=d;
+			if(stepDist>FU*8/5)
+			{
+				int bx=b->x>>12,by=(b->y>>12)-1,bz=b->z>>12;
+				int tool=g_blockDef[BLK_ID(wget(bx,by,bz))].tool;
+				stepDist=0;
+				sound_play(SFX_STEP,(TOOL_PICK==tool) ? 300 : (TOOL_AXE==tool ? 250 : 210),200,0);
+			}
+		}
+	}
 	mobs_tick(g_skyDarken);
 	{
 		static int spawnTimer;
@@ -625,6 +668,10 @@ static void game_tick(const PlayerInput *in,int breakHeld)
 		{
 			mineProgress+=mine_speed(BLK_ID(b));
 			g_player.swing=4;
+			if(0==(++mineSoundTimer&3))
+			{
+				block_sfx(b,tX,tY,tZ,110,330);   /* Hitting */
+			}
 			if(mineProgress>=hard)
 			{
 				break_block(tX,tY,tZ);
@@ -661,6 +708,7 @@ static void draw_world(void)
 	g_cam.z=FU_TO_RU(ez);
 	g_cam.yaw=g_player.yaw;
 	g_cam.pitch=g_player.pitch;
+	sound_set_listener(ex,ey,ez,g_player.yaw);
 	env.skyDarken=g_skyDarken;
 	env.sunAngle=g_time*1024/24000;
 	level=15-g_skyDarken;
@@ -824,8 +872,8 @@ static void draw_help(void)
 		"for more recipes.  Use a Bed at",
 		"night to sleep.",
 		"Mouse (port B): look, L/R buttons",
-		"PF2 Resolution  PF3 View distance",
-		"PF4 Debug info  ESC Back to game",
+		"PF2 Res.  PF3 View  PF4 Debug",
+		"PF6 Music  PF7 Sound  ESC Back",
 	};
 	int i;
 	ui_panel(g_fb,20,16,280,208);
@@ -918,6 +966,7 @@ static void craft_key(int k)
 			const Recipe *r=&g_recipes[list[craftSel]];
 			if(recipe_craft(r))
 			{
+				sound_play(SFX_CLICK,256,200,0);
 				game_message("Crafted!");
 			}
 			else
@@ -1066,7 +1115,15 @@ static void settings_key(int k)
 	{
 	case KEY_PF2:
 		g_renderScale=3-g_renderScale;
-		game_message(1==g_renderScale ? "Resolution: 320x240" : "Resolution: 160x120");
+		game_message(1==g_renderScale ? "Resolution: 320x200" : "Resolution: 160x100");
+		break;
+	case KEY_PF6:
+		g_musicOn=!g_musicOn;
+		game_message(g_musicOn ? "Music on" : "Music off");
+		break;
+	case KEY_PF7:
+		g_sfxOn=!g_sfxOn;
+		game_message(g_sfxOn ? "Sound effects on" : "Sound effects off");
 		break;
 	case KEY_PF3:
 		{
@@ -1156,6 +1213,9 @@ void kmain(void)
 	world_alloc();
 	render_init();
 	auto_detect_quality();
+	sound_init();
+	music_set_gap(800);      /* Title screen: play again after 8-16 s */
+	music_schedule(100);
 	lastTick=g_ticks;
 	fpsT0=g_ticks;
 	for(;;)

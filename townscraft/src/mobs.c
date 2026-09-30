@@ -9,6 +9,7 @@
 #include "textures.h"
 #include "game.h"
 #include "sys.h"
+#include "sound.h"
 
 Mob g_mobs[MAX_MOBS];
 
@@ -102,6 +103,7 @@ int mob_spawn(int type,int x,int y,int z)
 			{
 				m->fuse=60;
 				m->body.vy=800;
+				sound_play_at(SFX_HISS,256,255,x,y,z);
 			}
 			return i;
 		}
@@ -160,6 +162,11 @@ void mob_hurt(int i,int dmg,int fromX,int fromZ,int byPlayer)
 	}
 	m->health-=dmg;
 	m->hurtTimer=10;
+	{
+		/* Voices: pig and sheep high, zombie low */
+		static const u16 hurtPitch[]={256,420,480,170,300,256};
+		sound_play_at(SFX_HURT,hurtPitch[m->type<ARRAY_LEN(hurtPitch) ? m->type : 0],220,m->body.x,m->body.y+FU,m->body.z);
+	}
 	dx=m->body.x-fromX;
 	dz=m->body.z-fromZ;
 	d=isqrt(dx*(dx>>8)+dz*(dz>>8))<<4;
@@ -187,6 +194,7 @@ void explode(int x,int y,int z,int power)
 {
 	int bx=x>>12,by=y>>12,bz=z>>12,dx,dy,dz,i;
 	int r2=power*power;
+	sound_play_at(SFX_EXPLODE,256,255,x,y,z);
 	for(dy=-power; dy<=power; ++dy)
 	{
 		for(dz=-power; dz<=power; ++dz)
@@ -311,6 +319,10 @@ static void mob_ai(Mob *m,int skyDarken)
 			if(dist<3)
 			{
 				chase=0;
+				if(0==m->fuse)
+				{
+					sound_play_at(SFX_HISS,256,255,m->body.x,m->body.y+FU,m->body.z);
+				}
 				++m->fuse;
 				if(m->fuse>=30)
 				{
