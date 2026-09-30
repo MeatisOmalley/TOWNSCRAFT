@@ -811,7 +811,7 @@ static void collect(void)
 	int R=g_viewDist,R2=R*R;
 	int ccx0=MAX(0,(camBX-R)>>4),ccx1=MIN(g_NC-1,(camBX+R)>>4);
 	int ccz0=MAX(0,(camBZ-R)>>4),ccz1=MIN(g_NC-1,(camBZ+R)>>4);
-	int cxi,czi,cyi,dir,k;
+	int cxi,czi,cyi,dir,grp,k;
 	/* Plane thresholds (times two, like PLANE2): chunk bounding sphere,
 	   model cell, and quads by the size term ex+ez+1 */
 	static int thrQ[NPLANES][34];
@@ -872,12 +872,57 @@ static void collect(void)
 					continue;
 				}
 				q=g_meshPool+ch->off*2;
-				/* Faces, one direction group at a time.  Groups are sorted with
-				   the camera-facing planes first, so stop at the first
-				   back-facing one. */
-				for(dir=0; dir<6; ++dir)
+				/* Faces, one group (direction and quadrant) at a time.  Groups
+				   are sorted with the camera-facing planes first, so stop at
+				   the first back-facing one. */
+				for(grp=0; grp<NGROUPS; ++grp)
 				{
-					const u32 *gend=q+ch->group[dir]*2;
+					const u32 *gend=q+ch->group[grp]*2;
+					const u8 *box=ch->gbox[grp];
+					int gTest[NPLANES],nGTest=0;
+					int bx0,bx1,by0,by1,bz0,bz1,t,gNeedDist;
+					dir=grp/NSUB;
+					if(q==gend)
+					{
+						continue;
+					}
+					/* The group's box: distance limit, then the planes the
+					   chunk straddles */
+					bx0=x0+(box[0]&15); bx1=x0+(box[0]>>4)+1;
+					bz0=z0+(box[1]&15); bz1=z0+(box[1]>>4)+1;
+					by0=y0+(box[2]&15); by1=y0+(box[2]>>4)+1;
+					{
+						int nx=CLAMP(camBX,bx0,bx1-1)-camBX,nz=CLAMP(camBZ,bz0,bz1-1)-camBZ;
+						int fx=MAX(ABS(bx0-camBX),ABS(bx1-1-camBX)),fz=MAX(ABS(bz0-camBZ),ABS(bz1-1-camBZ));
+						if(sqTab[ABS(nx)]+sqTab[ABS(nz)]>R2)
+						{
+							q=gend;
+							continue;
+						}
+						/* Per quad distance tests only if the box crosses the limit */
+						gNeedDist=(needDist && sqTab[fx]+sqTab[fz]>R2);
+					}
+					for(t=0; t<nTest; ++t)
+					{
+						int mn,mx,a,b;
+						k=test[t];
+						a=PX[k][bx0]; b=PX[k][bx1]; mn=MIN(a,b); mx=MAX(a,b);
+						a=PY[k][by0]; b=PY[k][by1]; mn+=MIN(a,b); mx+=MAX(a,b);
+						a=PZ[k][bz0]; b=PZ[k][bz1]; mn+=MIN(a,b); mx+=MAX(a,b);
+						if(mn>0)
+						{
+							break;      /* Box wholly outside */
+						}
+						if(mx>0)
+						{
+							gTest[nGTest++]=k;   /* Straddles: test its quads */
+						}
+					}
+					if(t<nTest)
+					{
+						q=gend;
+						continue;
+					}
 					for(; q<gend; q+=2)
 					{
 						u32 w0=q[0],w1=q[1];
@@ -889,7 +934,7 @@ static void collect(void)
 						}
 						ex=(dir<=DIR_PX) ? 1 : MQ_W(w0);
 						ez=(dir<=DIR_PY) ? MQ_H(w0) : 1;
-						if(needDist)
+						if(gNeedDist)
 						{
 							/* Nearest point of the quad's footprint for the distance limit */
 							int nx=CLAMP(camBX,x,x+ex-1)-camBX;
@@ -900,15 +945,15 @@ static void collect(void)
 							}
 						}
 						/* Bounding sphere of the quad's cells */
-						for(i=0; i<nTest; ++i)
+						for(i=0; i<nGTest; ++i)
 						{
-							k=test[i];
+							k=gTest[i];
 							if(PLANE2(k,x,x+ex,y,y+1,z,z+ez)>thrQ[k][ex+ez+1])
 							{
 								break;
 							}
 						}
-						if(i<nTest)
+						if(i<nGTest)
 						{
 							continue;
 						}
@@ -955,7 +1000,7 @@ static void collect(void)
 					q=gend;
 				}
 				/* Model cells */
-				end=q+ch->group[6]*2;
+				end=q+ch->group[NGROUPS]*2;
 				for(; q<end; q+=2)
 				{
 					u32 w0=q[0],w1=q[1];
@@ -1089,7 +1134,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 {
 	int key;
 	vw=SCR_W/g_renderScale;
-	vh=SCR_H/g_renderScale;
+	vh=VIEW_H/g_renderScale;
 	focal16=(172*16)/g_renderScale;
 	cx16=vw*8;
 	cy16=vh*8;

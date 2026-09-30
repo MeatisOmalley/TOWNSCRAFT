@@ -606,42 +606,59 @@ static void rebuild_chunk(int cx,int cy,int cz)
 		if(used&(1<<DIR_NX)) runs1d_z(keyNX,ly,DIR_NX);
 		if(used&(1<<DIR_PX)) runs1d_z(keyPX,ly,DIR_PX);
 	}
-	/* Group by direction (models last); within a group order by plane
-	   coordinate so visible planes come first: ascending for +X/+Y/+Z
-	   (visible when the camera is above/after), descending for -X/-Y/-Z. */
+	/* Group by direction and quadrant (models last); within a group order
+	   by plane coordinate so visible planes come first: ascending for
+	   +X/+Y/+Z (visible when the camera is above/after), descending for
+	   -X/-Y/-Z.  Record the cells each group covers. */
 	{
-		static u16 cnt[7*16+1];
-		static u8 bkt[MAX_CHUNK_QUADS];
-		int i,g;
+		static u16 cnt[(NGROUPS+1)*16+1];
+		static u16 bkt[MAX_CHUNK_QUADS];
+		int i,g,x1[NGROUPS],z1[NGROUPS],y1[NGROUPS],xa[NGROUPS],za[NGROUPS],ya[NGROUPS];
 		memset(cnt,0,sizeof(cnt));
+		for(g=0; g<NGROUPS; ++g)
+		{
+			xa[g]=za[g]=ya[g]=15;
+			x1[g]=z1[g]=y1[g]=0;
+		}
 		for(i=0; i<nTmp; ++i)
 		{
 			u32 w0=tmpQuads[i*2];
 			int k;
 			if(w0&MQ_MODEL)
 			{
-				k=6*16;
+				k=NGROUPS*16;
 			}
 			else
 			{
-				int d=MQ_DIR(w0),p;
-				p=(d<=DIR_PX) ? MQ_LX(w0) : (d<=DIR_PY ? MQ_LY(w0) : MQ_LZ(w0));
+				int d=MQ_DIR(w0),p,lx=MQ_LX(w0),lz=MQ_LZ(w0),ly=MQ_LY(w0);
+				int ex=(d<=DIR_PX) ? 1 : MQ_W(w0),ez=(d<=DIR_PY) ? MQ_H(w0) : 1;
+				g=d*NSUB+(lx>=8)+((lz>=8)<<1);
+				p=(d<=DIR_PX) ? lx : (d<=DIR_PY ? ly : lz);
 				if(0==(d&1))
 				{
 					p=15-p;
 				}
-				k=d*16+p;
+				k=g*16+p;
+				xa[g]=MIN(xa[g],lx); x1[g]=MAX(x1[g],lx+ex-1);
+				za[g]=MIN(za[g],lz); z1[g]=MAX(z1[g],lz+ez-1);
+				ya[g]=MIN(ya[g],ly); y1[g]=MAX(y1[g],ly);
 			}
 			bkt[i]=k;
 			++cnt[k+1];
 		}
-		for(i=1; i<=7*16; ++i)
+		for(i=1; i<=(NGROUPS+1)*16; ++i)
 		{
 			cnt[i]+=cnt[i-1];
 		}
-		for(g=0; g<7; ++g)
+		for(g=0; g<=NGROUPS; ++g)
 		{
-			c->group[g]=(g<6 ? cnt[(g+1)*16] : nTmp)-cnt[g*16];
+			c->group[g]=(g<NGROUPS ? cnt[(g+1)*16] : nTmp)-cnt[g*16];
+		}
+		for(g=0; g<NGROUPS; ++g)
+		{
+			c->gbox[g][0]=xa[g]|(x1[g]<<4);
+			c->gbox[g][1]=za[g]|(z1[g]<<4);
+			c->gbox[g][2]=ya[g]|(y1[g]<<4);
 		}
 		for(i=0; i<nTmp; ++i)
 		{
@@ -666,9 +683,18 @@ static void rebuild_chunk(int cx,int cy,int cz)
 		}
 		if(poolTop+cap>poolSize)
 		{
-			/* Out of pool space: keep what fits */
+			/* Out of pool space: keep what fits (trimming the group
+			   counts from the end so they still add up) */
+			int g,excess;
 			cap=(poolSize>poolTop ? poolSize-poolTop : 0);
 			n=MIN((u32)n,cap);
+			excess=nTmp-n;
+			for(g=NGROUPS; g>=0 && excess>0; --g)
+			{
+				int t=MIN(excess,(int)c->group[g]);
+				c->group[g]-=t;
+				excess-=t;
+			}
 		}
 		c->off=poolTop;
 		c->cap=cap;

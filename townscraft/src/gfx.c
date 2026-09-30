@@ -49,6 +49,11 @@ void gfx_present(void)
 	flipPending=1;
 }
 
+int gfx_back_page(void)
+{
+	return backPage;
+}
+
 /* Wait until the previously shown page is off screen: a vertical sync
    has begun since the flip (at most 16.7 ms).  Usually the game logic
    after the flip has already taken that long.  The timeout guards against

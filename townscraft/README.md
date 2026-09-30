@@ -10,8 +10,12 @@ Features works in the emulator at interactive frame rates.
 ## Running
 
 ```
-Tsugaru_CUI <ROM directory> -CD TOWNSCRAFT.ISO -BOOTKEY CD
+Tsugaru_CUI <ROM directory> -CD TOWNSCRAFT.ISO -BOOTKEY CD -DIFFMOUSE
 ```
+
+`-DIFFMOUSE` passes relative mouse motion to the emulated mouse (the game
+reads the mouse directly, without the TOWNS OS mouse driver that Tsugaru's
+default mouse mode relies on).
 
 `TOWNSCRAFT.ISO` is prebuilt in this directory.  Machine settings:
 
@@ -28,25 +32,25 @@ high) and picks a render resolution and view
 distance from a quick CPU speed check at startup.  Both can be changed in
 game (PF2, PF3).
 
-Measured in Tsugaru with the automatically chosen settings (160x120
-rendering), standing at the spawn point of a fixed test world and looking
-in 8 directions (see Testing):
+Measured in Tsugaru with the automatically chosen settings (160x100
+rendering of a 320x200 view above the HUD strip), standing at the spawn
+point of a fixed test world and looking in 8 directions (see Testing):
 
 | Machine | View distance | Frame rate (average, range) |
 |---|---|---|
-| Model 2, 386DX 16 MHz, 2 MB | 10 | 8.8 fps, 7-11 fps |
-| Tsugaru default profile, 4 MB | 16 | 16 fps, 14-20 fps |
+| Model 2, 386DX 16 MHz, 2 MB | 10 | 10.7 fps, 9-14 fps |
+| Tsugaru default profile, 4 MB | 16 | 18.5 fps, 15-25 fps |
 
 ## Controls
 
 | Key | Action |
 |---|---|
 | W A S D | Move |
-| Arrow keys (or numeric keypad 8/4/6/2) | Look |
+| Arrow keys (or numeric keypad 8/4/6/2), mouse | Look |
 | SPACE | Jump / swim up |
 | CTRL | Sprint |
-| J (hold) | Break block / attack |
-| K | Use (door, bed, crafting table, furnace, TNT), place block, eat |
+| J (hold), left mouse button | Break block / attack |
+| K, right mouse button | Use (door, bed, crafting table, furnace, TNT), place block, eat |
 | 1-9, `,` `.` | Select hotbar slot |
 | E | Inventory (SPACE picks up / places a stack, Q discards) |
 | C | Crafting by hand |
@@ -56,7 +60,8 @@ in 8 directions (see Testing):
 | PF4 | Debug overlay (frame rate, position, time) |
 
 A game pad on port A also works: pad to move and turn, A to break/attack,
-B to use/place, RUN to jump, SELECT to change the hotbar slot.
+B to use/place, RUN to jump, SELECT to change the hotbar slot.  The mouse
+goes on port B.
 
 ## Features
 
@@ -87,13 +92,15 @@ the ground (broken blocks go straight to the inventory).
   (`FFFB:0014`) into conventional memory and enters 32-bit protected mode.
 - `src/`: a freestanding C kernel (gcc `-m32 -march=i386`, no FPU, no C
   library).  It programs the hardware directly: CRTC for 320x240 with 256
-  colors, the interrupt controller and interval timer (100 Hz), the
-  keyboard and the game port.
+  colors, the interrupt controller, interval timer (100 Hz) and VSYNC
+  interrupt, the keyboard, the game pad and the mouse.
 - Rendering (`render.c`, `raster.c`, `trap.S`): chunk meshes of greedily
   merged, lit face quads; a painter's algorithm without a depth buffer
   using a nested back-to-front order (y slices, then rows, then cells,
   with merged quads drawn at the end of their slice or row); fixed-point
-  projection and frustum tests from per-axis tables; a convex polygon
+  projection and frustum tests from per-axis tables, with each chunk's
+  faces grouped by direction and quadrant so hidden groups are skipped
+  whole; a convex polygon
   rasterizer with assembly texture loops.  Frames are drawn straight into
   one of two VRAM pages and shown by changing the display start address.
 - Palette: 16 color ramps of 16 shades with a constant brightness ratio,

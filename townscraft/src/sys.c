@@ -191,6 +191,41 @@ u32 pad_read(void)
 	return r;
 }
 
+/* The FM TOWNS mouse (MSX protocol) sends its motion as four nibbles, X
+   high, X low, Y high, Y low, stepped by toggling the COM line of its port
+   (0x4D6 bit 5 for port B; bits 2-3 are port B's trigger outputs and must
+   stay high to read the buttons).  The counts are the displacement since
+   the last read, positive for left and up.  Without a mouse the port reads
+   all ones, which decodes as (-1,-1): that is ignored. */
+static int mouse_nibble(u8 out)
+{
+	int i;
+	u8 d=0;
+	outb(0x4D6,out);
+	for(i=0; i<8; ++i)   /* Settle time (each read is about a microsecond) */
+	{
+		d=inb(0x4D2);
+	}
+	return d;
+}
+
+int mouse_read(int *dx,int *dy)
+{
+	int xh=mouse_nibble(0x2F),xl=mouse_nibble(0x0F);
+	int yh=mouse_nibble(0x2F),yl=mouse_nibble(0x0F);
+	int buttons=0;
+	*dx=0;
+	*dy=0;
+	if(0x0F!=(xh&xl&yh&yl&0x0F))
+	{
+		*dx=-(s8)(((xh&15)<<4)|(xl&15));
+		*dy=-(s8)(((yh&15)<<4)|(yl&15));
+	}
+	if(0==(xh&0x10)) buttons|=MOUSE_L;
+	if(0==(xh&0x20)) buttons|=MOUSE_R;
+	return buttons;
+}
+
 /* Heap */
 extern u8 __bss_end[];
 static u32 lowPtr,lowEnd,highPtr,highEnd;

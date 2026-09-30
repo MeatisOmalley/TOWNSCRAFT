@@ -22,13 +22,21 @@ extern const u8 g_lightOpacity[NUM_BLOCKS];
      w1: texture 0-7, light byte of the cell in front 8-15, block 16-23
    Top/bottom quads extend w along x and h along z.  Z-facing quads are runs
    (w) along x, X-facing quads are runs (h) along z. */
+/* Quads of a chunk are grouped by direction (DIR_*) and, within a
+   direction, by the 8x8 quadrant (lx>=8 | (lz>=8)<<1) the quad starts in,
+   so off-screen parts of a chunk can be skipped a group at a time. */
+#define NSUB 4
+#define NGROUPS (6*NSUB)
 typedef struct
 {
 	u32 off;           /* in quads */
 	u16 count,cap;
-	u16 group[7];      /* Quads per direction (DIR_*), then model cells.
-	                      Within a direction, quads are sorted so the ones
-	                      facing a camera on the near side come first. */
+	u16 group[NGROUPS+1];  /* Quads per group (dir*NSUB+quadrant), then
+	                          model cells.  Within a group, quads are sorted
+	                          so the ones facing a camera on the near side
+	                          come first. */
+	u8 gbox[NGROUPS][3];   /* Cells covered by each group: x min|max<<4,
+	                          z min|max<<4, y min|max<<4 (chunk local) */
 	u8 dirty;          /* DIRTY_GEOMETRY or DIRTY_LIGHT */
 } Chunk;
 

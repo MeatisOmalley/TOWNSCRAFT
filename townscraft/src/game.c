@@ -696,28 +696,23 @@ static void draw_world(void)
 static void draw_hud(void)
 {
 	char buf[64];
-	int x0=(SCR_W-9*20)/2;
 	ui_crosshair(g_fb);
-	ui_hud_bars(g_fb,g_player.selected,g_player.health,g_player.hurtTimer>0 || g_player.health<=4);
-	if(g_player.airTimer>0)
-	{
-		int n=MAX(0,10-g_player.airTimer/20);
-		ui_bubbles(g_fb,x0+100,SCR_H-32,n);
-	}
+	ui_hud_strip(g_fb,gfx_back_page(),g_player.selected,g_player.health,g_player.hurtTimer>0 || g_player.health<=4,
+	             g_player.airTimer>0 ? MAX(0,10-g_player.airTimer/20) : -1);
 	if(mineProgress>0 && mineX>=0)
 	{
 		int hard=g_blockDef[BLK_ID(wget(mineX,mineY,mineZ))].hardness;
 		int w=hard ? mineProgress*30/hard : 0;
-		gfx_rect(g_fb,SCR_W/2-15,SCR_H/2+10,30,3,P(R_GRAY,3));
-		gfx_rect(g_fb,SCR_W/2-15,SCR_H/2+10,MIN(30,w),3,C_WHITE);
+		gfx_rect(g_fb,SCR_W/2-15,VIEW_H/2+10,30,3,P(R_GRAY,3));
+		gfx_rect(g_fb,SCR_W/2-15,VIEW_H/2+10,MIN(30,w),3,C_WHITE);
 	}
 	if(g_ticks<itemNameUntil)
 	{
-		gfx_text_center(g_fb,SCR_H-44,itemNameText,C_WHITE,C_BLACK);
+		gfx_text_center(g_fb,VIEW_H-12,itemNameText,C_WHITE,C_BLACK);
 	}
 	if(g_ticks<msgUntil)
 	{
-		gfx_text_center(g_fb,SCR_H-56,msgText,C_YELLOW,C_BLACK);
+		gfx_text_center(g_fb,VIEW_H-24,msgText,C_YELLOW,C_BLACK);
 	}
 	if(showDebug)
 	{
@@ -828,7 +823,7 @@ static void draw_help(void)
 		"Use a Crafting Table or Furnace",
 		"for more recipes.  Use a Bed at",
 		"night to sleep.",
-		"",
+		"Mouse (port B): look, L/R buttons",
 		"PF2 Resolution  PF3 View distance",
 		"PF4 Debug info  ESC Back to game",
 	};
@@ -1151,7 +1146,7 @@ static void play_key(int k)
 void kmain(void)
 {
 	u32 lastTick,tickAccum=0,padPrev=0;
-	int syncPages=0;
+	int syncPages=0,mousePrev=0;
 	video_init();
 	gfx_init();
 	sys_init();
@@ -1168,9 +1163,12 @@ void kmain(void)
 		u32 now=g_ticks,elapsed=now-lastTick;
 		u32 pad=pad_read();
 		u32 padPressed=pad&~padPrev;
+		int mouseDX,mouseDY,mouse=mouse_read(&mouseDX,&mouseDY);
+		int mousePressed=mouse&~mousePrev;
 		int k;
 		lastTick=now;
 		padPrev=pad;
+		mousePrev=mouse;
 		if(elapsed>20)
 		{
 			elapsed=20;   /* After a hitch, don't fast-forward */
@@ -1222,11 +1220,11 @@ void kmain(void)
 			g_player.selected=(g_player.selected+1)%9;
 			show_item_name();
 		}
-		if(GS_PLAY==state && (padPressed&PAD_A) && 0==attackCooldown)
+		if(GS_PLAY==state && ((padPressed&PAD_A) || (mousePressed&MOUSE_L)) && 0==attackCooldown)
 		{
 			do_attack();
 		}
-		if(GS_PLAY==state && (padPressed&PAD_B))
+		if(GS_PLAY==state && ((padPressed&PAD_B) || (mousePressed&MOUSE_R)))
 		{
 			do_use();
 			useRepeat=5;
@@ -1265,6 +1263,9 @@ void kmain(void)
 			if(g_keyDown[KEY_RIGHT] || g_keyDown[KEY_NUM_6] || (pad&PAD_RIGHT)) g_player.yaw+=turn;
 			if(g_keyDown[KEY_UP] || g_keyDown[KEY_NUM_8]) g_player.pitch+=turn*2/3;
 			if(g_keyDown[KEY_DOWN] || g_keyDown[KEY_NUM_2]) g_player.pitch-=turn*2/3;
+			/* Mouse: one count turns 1/1024 of a circle */
+			g_player.yaw+=mouseDX;
+			g_player.pitch-=mouseDY;
 			g_player.yaw&=ANG_MASK;
 			g_player.pitch=CLAMP(g_player.pitch,-250,250);
 		}
@@ -1281,7 +1282,7 @@ void kmain(void)
 				in.strafe=(g_keyDown[KEY_D] ? 1 : 0)-(g_keyDown[KEY_A] ? 1 : 0);
 				in.jump=g_keyDown[KEY_SPACE] || (pad&PAD_RUN);
 				in.sprint=g_keyDown[KEY_CTRL];
-				breakHeld=g_keyDown[KEY_J] || (pad&PAD_A);
+				breakHeld=g_keyDown[KEY_J] || (pad&PAD_A) || (mouse&MOUSE_L);
 			}
 			tickAccum+=elapsed;
 			while(tickAccum>=5 && n<4)
@@ -1290,7 +1291,7 @@ void kmain(void)
 				++n;
 				raycast();
 				game_tick(&in,breakHeld);
-				if(GS_PLAY==state && (g_keyDown[KEY_K] || (pad&PAD_B)) && 0==useRepeat)
+				if(GS_PLAY==state && (g_keyDown[KEY_K] || (pad&PAD_B) || (mouse&MOUSE_R)) && 0==useRepeat)
 				{
 					do_use();
 					useRepeat=5;
@@ -1382,6 +1383,10 @@ void kmain(void)
 			gfx_sync_pages();
 		}
 
+		if(GS_PLAY!=state)
+		{
+			ui_hud_invalidate();   /* Menus and effects drew over the HUD strip */
+		}
 		++fpsFrames;
 		if(g_ticks-fpsT0>=100)
 		{

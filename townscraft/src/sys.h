@@ -20,6 +20,14 @@ enum
 };
 u32 pad_read(void);
 
+/* Mouse on game port B.  Returns MOUSE_L|MOUSE_R for the buttons held and
+   the motion since the last call (right and down positive). */
+enum
+{
+	MOUSE_L=1,MOUSE_R=2
+};
+int mouse_read(int *dx,int *dy);
+
 /* Memory */
 extern u32 g_ramMB;
 void *heap_alloc_low(u32 size);   /* Conventional memory (below 640KB+) */

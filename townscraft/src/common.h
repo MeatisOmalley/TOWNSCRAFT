@@ -14,6 +14,7 @@
 void *memset(void *d,int c,unsigned int n);
 void *memcpy(void *d,const void *s,unsigned int n);
 void *memmove(void *d,const void *s,unsigned int n);
+int memcmp(const void *a,const void *b,unsigned int n);
 int strlen(const char *s);
 char *itoa_dec(int v,char *buf);
 

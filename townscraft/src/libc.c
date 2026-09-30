@@ -48,6 +48,19 @@ void *memmove(void *d,const void *s,unsigned int n)
 	return d;
 }
 
+int memcmp(const void *a,const void *b,unsigned int n)
+{
+	const u8 *p=(const u8 *)a,*q=(const u8 *)b;
+	for(; n; --n,++p,++q)
+	{
+		if(*p!=*q)
+		{
+			return *p-*q;
+		}
+	}
+	return 0;
+}
+
 int strlen(const char *s)
 {
 	int n=0;

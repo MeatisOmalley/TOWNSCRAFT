@@ -97,12 +97,6 @@ void ui_slot(u8 *fb,int x,int y,const Slot *s,int highlight)
 	}
 }
 
-/* Heart pixels at offsets from the heart's corner.  Emits either into the
-   frame buffer or, with fb==NULL, into the HUD cache pixel list. */
-static int hudHeartN;
-static u32 hudHeartOfs[10*40];
-static u8 hudHeartCol[10*40];
-
 static void heart(u8 *fb,int x,int y,int fill)
 {
 	static const u8 shape[7]={0x36,0x7F,0x7F,0x7F,0x3E,0x1C,0x08};
@@ -122,15 +116,7 @@ static void heart(u8 *fb,int x,int y,int fill)
 				{
 					col=P(R_GRAY,3);
 				}
-				if(fb)
-				{
-					fb[(y+r)*FB_PITCH+x+c]=col;
-				}
-				else
-				{
-					hudHeartOfs[hudHeartN]=(y+r)*FB_PITCH+x+c;
-					hudHeartCol[hudHeartN++]=col;
-				}
+				fb[(y+r)*FB_PITCH+x+c]=col;
 			}
 		}
 	}
@@ -167,59 +153,50 @@ void ui_hotbar(u8 *fb,int selected)
 	}
 }
 
-/* Hotbar and hearts for the play screen.  They change rarely, so they are
-   drawn once into a cache (the hotbar as an image, the hearts as a pixel
-   list) and copied to the frame buffer every frame. */
-#define HUD_BAR_W (9*20)
-#define HUD_BAR_H 20
-static u8 hudBar[HUD_BAR_W*HUD_BAR_H];
-static struct
+/* HUD strip below the 3D view: hearts, air bubbles and the hotbar.  The
+   world is not drawn there, so each VRAM page keeps its strip and it is
+   redrawn only when its contents change. */
+typedef struct
 {
 	Slot slots[HOTBAR];
-	int selected,health,blink;
-} hudKey;
-static int hudValid;
+	int selected,health,blink,air;
+} HudKey;
+static HudKey hudKey[2];
+static int hudValid[2];
 
-void ui_hud_bars(u8 *fb,int selected,int health,int blink)
+void ui_hud_invalidate(void)
 {
-	int x0=(SCR_W-HUD_BAR_W)/2,y0=SCR_H-22,i,same;
-	same=(hudValid && hudKey.selected==selected && hudKey.health==health && hudKey.blink==blink);
-	for(i=0; i<HOTBAR && same; ++i)
+	hudValid[0]=hudValid[1]=0;
+}
+
+void ui_hud_strip(u8 *fb,int page,int selected,int health,int blink,int air)
+{
+	HudKey k;
+	int x0=(SCR_W-9*20)/2;
+	memset(&k,0,sizeof(k));
+	memcpy(k.slots,g_inv,sizeof(k.slots));
+	k.selected=selected;
+	k.health=health;
+	k.blink=blink;
+	k.air=air;
+	if(hudValid[page] && 0==memcmp(&k,&hudKey[page],sizeof(k)))
 	{
-		same=(hudKey.slots[i].item==g_inv[i].item && hudKey.slots[i].count==g_inv[i].count);
+		return;
 	}
-	if(!same)
+	gfx_rect(fb,0,VIEW_H,SCR_W,SCR_H-VIEW_H,P(R_GRAY,2));
+	ui_hearts(fb,x0,SCR_H-32,health,blink);
+	if(air>=0)
 	{
-		/* Changed: draw normally, then keep a copy */
-		ui_hotbar(fb,selected);
-		for(i=0; i<HUD_BAR_H; ++i)
-		{
-			memcpy(hudBar+i*HUD_BAR_W,fb+(y0+i)*FB_PITCH+x0,HUD_BAR_W);
-		}
-		hudHeartN=0;
-		ui_hearts(NULL,x0,SCR_H-32,health,blink);
-		memcpy(hudKey.slots,g_inv,sizeof(hudKey.slots));
-		hudKey.selected=selected;
-		hudKey.health=health;
-		hudKey.blink=blink;
-		hudValid=1;
+		ui_bubbles(fb,x0+100,SCR_H-32,air);
 	}
-	else
-	{
-		for(i=0; i<HUD_BAR_H; ++i)
-		{
-			memcpy(fb+(y0+i)*FB_PITCH+x0,hudBar+i*HUD_BAR_W,HUD_BAR_W);
-		}
-	}
-	for(i=0; i<hudHeartN; ++i)
-	{
-		fb[hudHeartOfs[i]]=hudHeartCol[i];
-	}
+	ui_hotbar(fb,selected);
+	hudKey[page]=k;
+	hudValid[page]=1;
 }
 
 void ui_crosshair(u8 *fb)
 {
-	int cx=SCR_W/2,cy=SCR_H/2,i;
+	int cx=SCR_W/2,cy=VIEW_H/2,i;
 	for(i=-4; i<=4; ++i)
 	{
 		u8 *p=&fb[cy*FB_PITCH+cx+i];
