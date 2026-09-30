@@ -482,6 +482,27 @@ static void gen_bed_side(int head)
 		px(x,10,P(R_PLANK,9));
 	}
 }
+static void gen_chest(int front)
+{
+	int x,y;
+	gen_planks(R_PLANK,1);
+	for(y=0; y<16; ++y)
+	{
+		for(x=0; x<16; ++x)
+		{
+			if(0==x || 15==x || 0==y || 15==y)
+			{
+				px(x,y,P(R_BARK,8));      /* Frame */
+			}
+		}
+	}
+	if(front)
+	{
+		rect(1,5,14,5,P(R_BARK,7));      /* Lid edge */
+		rect(7,4,8,7,P(R_GRAY,12));      /* Latch */
+		rect(7,7,8,7,P(R_GRAY,9));
+	}
+}
 static void gen_wool(void)
 {
 	int x,y;
@@ -729,6 +750,8 @@ void textures_init(void)
 	begin(T_STONEBRICK); gen_stonebrick();
 	begin(T_TNT_SIDE); gen_tnt(0);
 	begin(T_TNT_TOP); gen_tnt(1);
+	begin(T_CHEST_TOP); gen_chest(0);
+	begin(T_CHEST_FRONT); gen_chest(1);
 
 	begin(T_PIG_SKIN); noisefill(R_PINK,12,2);
 	begin(T_PIG_FACE); gen_pig_face();

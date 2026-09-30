@@ -225,6 +225,10 @@ void explode(int x,int y,int z,int power)
 				default:
 					if(in_world(bx+dx,by+dy,bz+dz))
 					{
+						if(B_CHEST==BLK_ID(b))
+						{
+							chest_remove(bx+dx,by+dy,bz+dz,0);   /* Contents are lost */
+						}
 						world_set(bx+dx,by+dy,bz+dz,B_AIR);
 					}
 					break;

@@ -21,7 +21,7 @@ int g_skyDarken;
 
 enum
 {
-	GS_TITLE,GS_PLAY,GS_INVENTORY,GS_CRAFT,GS_HELP,GS_DEAD,GS_SLEEP
+	GS_TITLE,GS_PLAY,GS_INVENTORY,GS_CRAFT,GS_HELP,GS_DEAD,GS_SLEEP,GS_CHEST
 };
 static int state=GS_TITLE;
 
@@ -40,6 +40,7 @@ static int useRepeat,attackCooldown,mineSoundTimer;
 static int craftStation,craftSel,craftScroll;
 static int invCursor;
 static Slot invHeld;
+static Chest *openChest;
 static u32 sleepStart;
 
 /* Settings */
@@ -255,6 +256,10 @@ static void break_block(int x,int y,int z)
 		break;
 	}
 	block_sfx(b,x,y,z,255,256);
+	if(B_CHEST==id && chest_remove(x,y,z,1))
+	{
+		game_message("Inventory full: some items were lost");
+	}
 	world_set(x,y,z,B_AIR);
 	remove_unsupported_above(x,y,z);
 	remove_wall_torches(x,y,z);
@@ -369,6 +374,17 @@ static int use_block(void)
 	case B_BED_FOOT:
 	case B_BED_HEAD:
 		try_sleep(tX,tY,tZ);
+		return 1;
+	case B_CHEST:
+		openChest=chest_at(tX,tY,tZ,1);
+		if(!openChest)
+		{
+			game_message("Too many chests");
+			return 1;
+		}
+		sound_play_at(SFX_WOOD,300,200,tX*FU+FU/2,tY*FU+FU/2,tZ*FU+FU/2);
+		invCursor=0;
+		state=GS_CHEST;
 		return 1;
 	case B_TNT:
 		world_set(tX,tY,tZ,B_AIR);
@@ -559,6 +575,7 @@ static void test_scene(void)
 	world_set(bx+1,gy+1,bz+1,MKBLK(B_TORCH,0));
 	world_set(bx-2,gy,bz-1,MKBLK(B_TORCH,0));
 	world_set(bx+6,gy,bz+1,B_TNT);
+	world_set(bx+2,gy,bz-4,B_CHEST);
 	mob_spawn(MOB_PIG,(bx-2)*FU,gy*FU,(bz-2)*FU);
 	mob_spawn(MOB_SHEEP,(bx+6)*FU,gy*FU,(bz-1)*FU);
 #ifndef TEST_NOHOSTILE
@@ -665,6 +682,7 @@ static void new_game(u32 seed)
 		g_profEnable=0;
 	}
 	inv_clear();
+	chests_clear();
 	mobs_clear();
 	player_init();
 	mobs_spawn_initial();
@@ -1058,6 +1076,85 @@ static int inv_slot_at(int cursor)
 	return row<3 ? 9+row*9+col : col;
 }
 
+static void close_inventory(void);
+
+/* Chest screen: rows 0-2 the chest, rows 3-6 the inventory (as on the
+   inventory screen) */
+static Slot *chest_slot(int cursor)
+{
+	return cursor<CHEST_SLOTS ? &openChest->slot[cursor] : &g_inv[inv_slot_at(cursor-CHEST_SLOTS)];
+}
+
+static void chest_key(int k)
+{
+	Slot *slot=chest_slot(invCursor);
+	switch(k)
+	{
+	case KEY_LEFT: case KEY_A: case KEY_NUM_4: if(invCursor%9) --invCursor; break;
+	case KEY_RIGHT: case KEY_D: case KEY_NUM_6: if(invCursor%9<8) ++invCursor; break;
+	case KEY_UP: case KEY_W: case KEY_NUM_8: if(invCursor>=9) invCursor-=9; break;
+	case KEY_DOWN: case KEY_S: case KEY_NUM_2: if(invCursor<54) invCursor+=9; break;
+	case KEY_SPACE: case KEY_RETURN: case KEY_K: case KEY_NUM_RETURN:
+		{
+			Slot t=*slot;
+			if(invHeld.item && t.item==invHeld.item)
+			{
+				int n=MIN(invHeld.count,g_itemDef[t.item].maxStack-t.count);
+				slot->count+=n;
+				invHeld.count-=n;
+				if(0==invHeld.count)
+				{
+					invHeld.item=0;
+				}
+			}
+			else
+			{
+				*slot=invHeld;
+				invHeld=t;
+			}
+			sound_play(SFX_CLICK,256,120,0);
+		}
+		break;
+	case KEY_Q:
+		if(invHeld.item)
+		{
+			invHeld.item=invHeld.count=0;
+		}
+		else
+		{
+			slot->item=slot->count=0;
+		}
+		break;
+	case KEY_ESC: case KEY_E:
+		close_inventory();
+		break;
+	}
+}
+
+static void draw_chest(void)
+{
+	int i,x0=(SCR_W-9*20)/2,y0=24;
+	const Slot *cur=chest_slot(invCursor);
+	ui_panel(g_fb,x0-12,6,9*20+24,228);
+	gfx_text_shadow(g_fb,x0-4,12,"CHEST",C_YELLOW,C_BLACK);
+	for(i=0; i<CHEST_SLOTS+36; ++i)
+	{
+		int row=i/9,col=i%9;
+		int y=y0+row*20+(row>=3 ? 16 : 0)+(row==6 ? 4 : 0);
+		ui_slot(g_fb,x0+col*20,y,chest_slot(i),i==invCursor);
+		if(i==invCursor && invHeld.item)
+		{
+			ui_icon(g_fb,x0+col*20+8,y+8,invHeld.item);
+		}
+	}
+	gfx_text_shadow(g_fb,x0-4,y0+60+3,"INVENTORY",C_YELLOW,C_BLACK);
+	if(invHeld.item || cur->item)
+	{
+		gfx_text_shadow(g_fb,x0-4,y0+7*20+22,g_itemDef[invHeld.item ? invHeld.item : cur->item].name,C_WHITE,C_BLACK);
+	}
+	gfx_text_shadow(g_fb,x0-4,y0+7*20+34,"SPACE move  Q discard  ESC",P(R_GRAY,11),C_BLACK);
+}
+
 static void draw_inventory(void)
 {
 	int i,x0=(SCR_W-9*20)/2,y0=50;
@@ -1333,6 +1430,7 @@ void kmain(void)
 				break;
 			case GS_PLAY: play_key(k); break;
 			case GS_INVENTORY: inventory_key(k); break;
+			case GS_CHEST: chest_key(k); break;
 			case GS_CRAFT: craft_key(k); break;
 			case GS_HELP:
 				if(KEY_ESC==k || KEY_PF1==k || KEY_SPACE==k)
@@ -1456,7 +1554,7 @@ void kmain(void)
 			   and keep it as a frozen, dimmed background, so menus stay
 			   responsive on slow machines. */
 			static int menuFrozen;
-			int inMenu=(GS_INVENTORY==state || GS_CRAFT==state || GS_HELP==state);
+			int inMenu=(GS_INVENTORY==state || GS_CRAFT==state || GS_HELP==state || GS_CHEST==state);
 			if(inMenu && menuFrozen)
 			{
 				gfx_wait_flip();
@@ -1480,6 +1578,9 @@ void kmain(void)
 		{
 		case GS_INVENTORY:
 			draw_inventory();
+			break;
+		case GS_CHEST:
+			draw_chest();
 			break;
 		case GS_CRAFT:
 			draw_craft();

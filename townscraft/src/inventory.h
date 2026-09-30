@@ -18,6 +18,19 @@ int inv_count(int item);
 void inv_remove(int item,int count);
 void inv_take_from_slot(int slot,int count);
 
+/* Chests: contents by position */
+#define MAX_CHESTS 64
+#define CHEST_SLOTS 27
+typedef struct
+{
+	u8 used,x,y,z;
+	Slot slot[CHEST_SLOTS];
+} Chest;
+extern Chest g_chests[MAX_CHESTS];
+void chests_clear(void);
+Chest *chest_at(int x,int y,int z,int create);   /* NULL if none (or all used) */
+int chest_remove(int x,int y,int z,int toPlayer); /* Items that did not fit */
+
 /* Crafting */
 enum
 {

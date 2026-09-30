@@ -91,6 +91,8 @@ goes on port B.
   coal, logs, planks or sticks as fuel).  Recipes include planks, sticks,
   crafting table, torches, furnace, tools, swords, doors, beds, glass,
   stone, stone bricks and TNT.
+- Chests (8 planks at a crafting table) holding 27 stacks each; breaking
+  a chest moves its contents to the inventory.
 - Houses: doors that open and close (and block mobs), beds for sleeping
   through the night and setting the respawn point, glass windows.
 - Torches (floor and wall) with flood-fill block light.

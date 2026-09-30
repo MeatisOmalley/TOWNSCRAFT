@@ -33,6 +33,7 @@ const BlockDef g_blockDef[NUM_BLOCKS]=
 	{"Tall Grass", BF_MODEL|BF_REPLACE,                0,  1,  TOOL_NONE,  0, 0,             {SIDES(T_TALLGRASS)}},
 	{"Stone Bricks",CUBEOPQ,                           0, 45,  TOOL_PICK,  1, B_STONEBRICK,  {SIDES(T_STONEBRICK)}},
 	{"TNT",        CUBEOPQ|BF_USABLE,                  0,  1,  TOOL_NONE,  0, B_TNT,         {T_TNT_SIDE,T_TNT_SIDE,T_TNT_TOP,T_TNT_TOP,T_TNT_SIDE,T_TNT_SIDE}},
+	{"Chest",      CUBEOPQ|BF_USABLE,                  0, 35,  TOOL_AXE,   0, B_CHEST,       {T_CHEST_FRONT,T_CHEST_FRONT,T_CHEST_TOP,T_CHEST_TOP,T_CHEST_FRONT,T_CHEST_FRONT}},
 };
 
 ItemDef g_itemDef[NUM_ITEMS];

@@ -106,6 +106,7 @@ const Recipe g_recipes[]=
 	R2(ST_TABLE,I_WOOD_SHOVEL,1,B_PLANKS,1,I_STICK,2),
 	R2(ST_TABLE,I_STONE_SHOVEL,1,B_COBBLE,1,I_STICK,2),
 	R1(ST_TABLE,I_DOOR,3,B_PLANKS,6),
+	R1(ST_TABLE,B_CHEST,1,B_PLANKS,8),
 	R2(ST_TABLE,I_BED,1,B_WOOL,3,B_PLANKS,3),
 	R1(ST_TABLE,B_STONEBRICK,4,B_STONE,4),
 	R2(ST_TABLE,B_TNT,1,I_GUNPOWDER,5,B_SAND,4),
@@ -206,4 +207,59 @@ int recipe_craft(const Recipe *r)
 	}
 	inv_add(r->out,r->outCount);
 	return 1;
+}
+
+/* ---------------- Chests ---------------- */
+
+Chest g_chests[MAX_CHESTS];
+
+void chests_clear(void)
+{
+	memset(g_chests,0,sizeof(g_chests));
+}
+
+Chest *chest_at(int x,int y,int z,int create)
+{
+	int i,freeIdx=-1;
+	for(i=0; i<MAX_CHESTS; ++i)
+	{
+		Chest *c=&g_chests[i];
+		if(c->used && c->x==x && c->y==y && c->z==z)
+		{
+			return c;
+		}
+		if(!c->used && freeIdx<0)
+		{
+			freeIdx=i;
+		}
+	}
+	if(!create || freeIdx<0)
+	{
+		return NULL;
+	}
+	memset(&g_chests[freeIdx],0,sizeof(Chest));
+	g_chests[freeIdx].used=1;
+	g_chests[freeIdx].x=x;
+	g_chests[freeIdx].y=y;
+	g_chests[freeIdx].z=z;
+	return &g_chests[freeIdx];
+}
+
+int chest_remove(int x,int y,int z,int toPlayer)
+{
+	Chest *c=chest_at(x,y,z,0);
+	int i,lost=0;
+	if(!c)
+	{
+		return 0;
+	}
+	for(i=0; i<CHEST_SLOTS && toPlayer; ++i)
+	{
+		if(c->slot[i].item)
+		{
+			lost+=inv_add(c->slot[i].item,c->slot[i].count);
+		}
+	}
+	c->used=0;
+	return lost;
 }

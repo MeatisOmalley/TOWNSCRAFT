@@ -22,7 +22,7 @@
 #define TRACK_BYTES (SECTOR_BYTES*SECTORS_PER_TRACK)
 #define NUM_TRACKS (77*2)
 #define SAVE_MAGIC 0x46435354    /* "TSCF" */
-#define SAVE_VERSION 1
+#define SAVE_VERSION 2           /* 2: chests after the blocks */
 
 static u8 *trackBuf;              /* DMA buffer (conventional memory) */
 static int curCyl=-1;
@@ -279,6 +279,29 @@ static void put_blocks(void)
 	}
 }
 
+static void put_chests(void)
+{
+	int i,k,n=0;
+	for(i=0; i<MAX_CHESTS; ++i)
+	{
+		n+=g_chests[i].used;
+	}
+	put8(n);
+	for(i=0; i<MAX_CHESTS; ++i)
+	{
+		const Chest *c=&g_chests[i];
+		if(c->used)
+		{
+			put8(c->x); put8(c->y); put8(c->z);
+			for(k=0; k<CHEST_SLOTS; ++k)
+			{
+				put8(c->slot[k].item);
+				put8(c->slot[k].count);
+			}
+		}
+	}
+}
+
 int save_world(void)
 {
 	u32 sum;
@@ -296,6 +319,7 @@ int save_world(void)
 	streamSum=0;
 	put_state();
 	put_blocks();
+	put_chests();
 	sum=streamSum;
 	stream_end_write();
 	ok=streamOk;
@@ -315,7 +339,7 @@ int save_world(void)
 
 int load_world(void)
 {
-	u32 sum,i,n;
+	u32 sum,i,n,version;
 	int k;
 	if(!fdc_start())
 	{
@@ -323,7 +347,7 @@ int load_world(void)
 		return SAVE_NO_DISK;
 	}
 	stream_begin(0);
-	if(!streamOk || SAVE_MAGIC!=get32() || SAVE_VERSION!=get32())
+	if(!streamOk || SAVE_MAGIC!=get32() || (version=get32())<1 || version>SAVE_VERSION)
 	{
 		fdc_stop();
 		return streamOk ? SAVE_NOT_A_SAVE : SAVE_DISK_ERROR;
@@ -359,6 +383,22 @@ int load_world(void)
 		}
 		memset(g_blocks+i,b,run);
 		i+=run;
+	}
+	chests_clear();
+	if(version>=2)
+	{
+		int nc=get8(),c;
+		for(c=0; c<nc && c<MAX_CHESTS && streamOk; ++c)
+		{
+			Chest *ch=&g_chests[c];
+			ch->used=1;
+			ch->x=get8(); ch->y=get8(); ch->z=get8();
+			for(k=0; k<CHEST_SLOTS; ++k)
+			{
+				ch->slot[k].item=get8();
+				ch->slot[k].count=get8();
+			}
+		}
 	}
 	fdc_stop();
 	if(!streamOk)

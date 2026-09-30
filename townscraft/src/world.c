@@ -32,8 +32,8 @@ const u8 g_lightOpacity[NUM_BLOCKS]=
 	15,2,0,15,15,15,15,15,
 	/* TORCH DOORL DOORU BEDF BEDH WOOL GRAVEL FLOWER */
 	0,0,0,0,0,15,15,0,
-	/* TALLGRASS STONEBRICK TNT */
-	0,15,15,
+	/* TALLGRASS STONEBRICK TNT CHEST */
+	0,15,15,15,
 };
 
 static void init_hides_tab(void);
