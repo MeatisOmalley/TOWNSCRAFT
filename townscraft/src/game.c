@@ -1133,6 +1133,10 @@ static void settings_key(int k)
 		g_sfxOn=!g_sfxOn;
 		game_message(g_sfxOn ? "Sound effects on" : "Sound effects off");
 		break;
+	case KEY_PF8:
+		g_interlace=!g_interlace;
+		game_message(g_interlace ? "Interlaced rendering on" : "Interlaced rendering off");
+		break;
 	case KEY_PF3:
 		{
 			static const char *const names[3]=

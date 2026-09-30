@@ -11,6 +11,7 @@ typedef struct
 	int u,v;   /* 16.16 texels */
 } RVert;
 
+extern int g_interlace;   /* Draw every other row per frame */
 void raster_set_target(u8 *buf,int w,int h,int pitch,int scale);
 int raster_width(void);
 int raster_height(void);

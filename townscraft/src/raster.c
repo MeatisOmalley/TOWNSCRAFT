@@ -8,6 +8,10 @@
    trapezoids (rows between vertex events), each drawn by one call to the
    assembly loops in trap.S.
 
+   Interlaced mode (g_interlace) draws every other row, alternating every
+   second frame so that each of the two VRAM pages gets both halves in
+   turn; the rows not drawn keep the image from two frames before.
+
    In scale 2 mode each render pixel is written as two bytes into the frame
    buffer, and raster_finish() copies even rows to odd rows. */
 #include "raster.h"
@@ -43,16 +47,22 @@ static void (*const trapFunc[8])(Trap *)=
 
 static u8 *rbuf;
 static int rw,rh,rpitch,rscale;
+static int rstep=1,rpar;     /* Row step (2 when interlaced) and row parity */
+int g_interlace;
 int g_recip14[SCR_MAX_W+1];   /* 16384/n, used by trap.S */
 u32 g_statPixels;
 
 void raster_set_target(u8 *buf,int w,int h,int pitch,int scale)
 {
 	int i;
+	static u32 frameNo;
 	rbuf=buf;
 	rw=w;
 	rh=h;
 	rpitch=pitch;
+	++frameNo;
+	rstep=g_interlace ? 2 : 1;
+	rpar=g_interlace ? (int)((frameNo>>1)&1) : 0;
 	rscale=scale;
 	if(0==g_recip14[1])
 	{
@@ -189,6 +199,10 @@ static void poly_scan(const RVert *v,int n,const u8 *tile,int flags,u8 flat)
 		int stride=rpitch*rscale;
 		void (*trap)(Trap *)=trapFunc[(rscale-1)|((flags&(RP_TRANSPARENT|RP_WRAP))<<1)];
 		s=sTop;
+		if(2==rstep && (s&1)!=rpar)
+		{
+			++s;     /* First row of this frame's parity */
+		}
 		while(s<sBot)
 		{
 			int end;
@@ -205,14 +219,14 @@ static void poly_scan(const RVert *v,int n,const u8 *tile,int flags,u8 flat)
 			{
 				Trap t;
 				t.row=rbuf+s*stride;
-				t.stride=stride;
-				t.rows=end-s;
-				t.lx=left->x16;  t.ldx=left->dx;
-				t.lu=left->u;    t.ldu=left->du;
-				t.lv=left->v;    t.ldv=left->dv;
-				t.rx=right->x16; t.rdx=right->dx;
-				t.ru=right->u;   t.rdu=right->du;
-				t.rv=right->v;   t.rdv=right->dv;
+				t.stride=stride*rstep;
+				t.rows=(end-s+rstep-1)/rstep;
+				t.lx=left->x16;  t.ldx=left->dx*rstep;
+				t.lu=left->u;    t.ldu=left->du*rstep;
+				t.lv=left->v;    t.ldv=left->dv*rstep;
+				t.rx=right->x16; t.rdx=right->dx*rstep;
+				t.ru=right->u;   t.rdu=right->du*rstep;
+				t.rv=right->v;   t.rdv=right->dv*rstep;
 				t.tile=tile;
 				t.maxX=rw;
 				t.pixels=0;
@@ -220,12 +234,12 @@ static void poly_scan(const RVert *v,int n,const u8 *tile,int flags,u8 flat)
 				g_statPixels+=t.pixels;
 				left->x16=t.lx;  left->u=t.lu;  left->v=t.lv;
 				right->x16=t.rx; right->u=t.ru; right->v=t.rv;
-				s=end;
+				s+=((end-s+rstep-1)/rstep)*rstep;   /* May pass end by one row */
 			}
 			else
 			{
 				u8 *row=rbuf+s*stride;
-				for(; s<end; ++s,row+=stride)
+				for(; s<end; s+=rstep,row+=stride*rstep)
 				{
 					int xl=(left->x16+0x7FFF)>>16,xr=(right->x16+0x7FFF)>>16;
 					if(xr>rw) xr=rw;
@@ -234,8 +248,8 @@ static void poly_scan(const RVert *v,int n,const u8 *tile,int flags,u8 flat)
 					{
 						memset(row+xl*rscale,flat,(xr-xl)*rscale);
 					}
-					left->x16+=left->dx;
-					right->x16+=right->dx;
+					left->x16+=left->dx*rstep;
+					right->x16+=right->dx*rstep;
 				}
 			}
 		}
@@ -301,6 +315,10 @@ void raster_fill_rows(int y0,int y1,u8 color)
 	int y;
 	for(y=MAX(0,y0); y<MIN(rh,y1); ++y)
 	{
+		if(2==rstep && (y&1)!=rpar)
+		{
+			continue;
+		}
 		if(1==rscale)
 		{
 			memset(rbuf+y*rpitch,color,rw);
@@ -317,7 +335,7 @@ void raster_finish(void)
 	int y;
 	if(2==rscale)
 	{
-		for(y=0; y<rh; ++y)
+		for(y=(2==rstep) ? rpar : 0; y<rh; y+=rstep)
 		{
 			memcpy(rbuf+(y*2+1)*rpitch,rbuf+y*2*rpitch,rw*2);
 		}

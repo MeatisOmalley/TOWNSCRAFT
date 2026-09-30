@@ -42,6 +42,7 @@ point of a fixed test world and looking in 8 directions (see Testing):
 |---|---|---|
 | Model 2, 386DX 16 MHz, 2 MB | 8 | 15.7 fps, 11-26 fps |
 | Tsugaru default profile, 4 MB | 10/12 | 25.1 fps, 20-30 fps |
+| Model 2, 16 MHz, 2 MB, interlaced (PF8) | 8 | 20.5 fps, 15-30 fps |
 
 The default profile runs the CPU at 25 MHz instead of 16.  Tsugaru counts
 80486 instruction timings for every machine type, so these numbers are
@@ -67,6 +68,7 @@ the same code, so a real Model 2 would be slower than measured here.
 | PF4 | Debug overlay (frame rate, position, time) |
 | PF6 | Music on/off |
 | PF7 | Sound effects on/off |
+| PF8 | Interlaced rendering on/off (every other row per frame: faster, combs while turning) |
 
 A game pad on port A also works: pad to move and turn, A to break/attack,
 B to use/place, RUN to jump, SELECT to change the hotbar slot.  The mouse
