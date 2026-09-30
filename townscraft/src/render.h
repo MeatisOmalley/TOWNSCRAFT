@@ -40,6 +40,7 @@ extern int g_renderScale;   /* 1 = 320x240, 2 = 160x120 doubled */
 extern u32 g_statFaces,g_statItems;
 extern u32 g_prof[8];
 extern int g_flatLOD;
+extern int g_flatDist;
 
 void render_init(void);
 u32 render_mem_needed(int worldWidth);

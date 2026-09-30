@@ -27,6 +27,7 @@ u32 g_statFaces,g_statItems;
 u32 g_prof[8];
 u32 g_dbg[4];
 int g_flatLOD=6*16;   /* 28.4: faces smaller than this are flat shaded */
+int g_flatDist;       /* Blocks: farther faces are flat shaded (0 = off) */
 
 #define NEAR_Z 12       /* units (~0.05 block) */
 #define MAX_BOXES 160
@@ -449,6 +450,16 @@ static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light)
 	int W=((dir<=DIR_PX) ? ez : ex)<<20,H=((dir==DIR_NY || dir==DIR_PY) ? ez<<20 : 16<<16);
 	int cu[4]={0x200,W-0x200,W-0x200,0x200},cvv[4]={0x200,0x200,H-0x200,H-0x200};
 	int flags=texTransparent[tex]|((ex>1 || ez>1) ? RP_WRAP : 0);
+	if(g_flatDist && (!texTransparent[tex] || T_LEAVES==tex))
+	{
+		/* Distant face: the texture's average color (leaves become solid) */
+		int nx=CLAMP(camBX,x,x+ex-1)-camBX,nz=CLAMP(camBZ,z,z+ez-1)-camBZ;
+		if(sqTab[ABS(nx)]+sqTab[ABS(nz)]>g_flatDist*g_flatDist)
+		{
+			tile=NULL;
+			flags=0;
+		}
+	}
 	CVert cv[4];
 	RVert sv[12];
 	int k,all=1;
