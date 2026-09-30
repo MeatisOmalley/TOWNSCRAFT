@@ -10,7 +10,7 @@ Features works in the emulator at interactive frame rates.
 ## Running
 
 ```
-Tsugaru_CUI <ROM directory> -CD TOWNSCRAFT.ISO -BOOTKEY CD -DIFFMOUSE
+Tsugaru_CUI <ROM directory> -CD TOWNSCRAFT.ISO -BOOTKEY CD -DIFFMOUSE -YESWAIT -AUTOSCALE
 ```
 
 Saving uses a 1232 KB floppy disk in drive A as a dedicated save disk (its
@@ -22,6 +22,21 @@ amount of RAM (the world size depends on it).
 `-DIFFMOUSE` passes relative mouse motion to the emulated mouse (the game
 reads the mouse directly, without the TOWNS OS mouse driver that Tsugaru's
 default mouse mode relies on).
+
+`-YESWAIT` keeps the emulator paced to real time.  Without it, the default
+unthrottled startup mode can persist with the test ROM, speeding up music
+and physics together.
+
+`-AUTOSCALE` resizes the game view to fit the emulator window, preserving
+its aspect ratio.  Add `-MAXIMIZE` to start maximized, or `-FULLSCREEN`
+to start full screen.  Without auto-scaling, enlarging the window leaves
+the game view at its original size.
+
+With the included test ROM (after `make stubrom`), omit the boot key:
+
+```
+Tsugaru_CUI build/STUBROM -CD TOWNSCRAFT.ISO -DIFFMOUSE -MEMSIZE 4 -YESWAIT -DONTAUTOSAVECMOS -AUTOSCALE -MAXIMIZE
+```
 
 `TOWNSCRAFT.ISO` is prebuilt in this directory.  Machine settings:
 
@@ -61,7 +76,7 @@ the same code, so a real Model 2 would be slower than measured here.
 |---|---|
 | W A S D | Move |
 | Arrow keys (or numeric keypad 8/4/6/2), mouse | Look |
-| SPACE | Jump / swim up |
+| SPACE | Jump once per press / hold to swim up |
 | CTRL | Sprint |
 | J (hold), left mouse button | Break block / attack |
 | K, right mouse button | Use (door, bed, crafting table, furnace, TNT), place block, eat |
@@ -114,20 +129,28 @@ the ground (broken blocks go straight to the inventory).
 
 ## Work in progress: caves and mesh streaming
 
-Caves, gold, diamonds and diamond tools are in the code, but caves do not
-render fully yet.  The mesh pool stores the faces of every chunk in the
-world, built once at generation and rebuilt only on edits.  It was sized
-for about 0.7 faces per block column (room for 1.25); with caves a world
-needs about 2.4 per column on a 2 MB machine and 1.8 on a 4 MB one, so the
-pool fills and the chunks built last get no faces.
+Caves, gold, diamonds and diamond tools are in the code.  Mesh streaming
+builds nearby chunks nearest first, within the view distance plus 8
+blocks.  After startup it builds at most one new chunk per frame; pool
+pressure can evict farther columns and retry a build.  The pool holds
+16000 quads on 2 MB machines and 24000 on larger machines.  Reserving
+24000 on a 2 MB machine reduced the world to 80x80; the smaller budget
+restores 96x96.  The world is always 48 blocks high, including air above
+the terrain.  Block and lighting data for the entire world still live in
+RAM; much larger explorable worlds would also need streaming of that data.
 
-Planned fix: mesh streaming.  Only chunks within the view distance (plus a
-margin) keep faces.  Chunks are meshed as the player approaches and their
-pool space is freed when they fall out of range, so the pool size depends
-on the view distance instead of the world size.  This also frees memory
-for bigger worlds.  To watch: building a chunk's faces costs time on a
-25 MHz machine, so building should be spread over frames to avoid
-stutters when crossing chunk borders.
+Streaming searches only nearby columns and skips the search once the
+neighborhood is complete, until the camera cell, radius or meshes change.
+Building faces can still cause stutters, and an unusually dense neighborhood
+can exceed the pool and have trimmed meshes.
+
+Regression measurement with seed 4242, Model 2, 16 MHz, 2 MB, view distance
+8, non-interlaced, using Zig 0.13's Clang for both builds: the streaming
+commit measured 10.75 fps at 80x80; the smaller pool and cached search
+measured 15.42 fps at 96x96.  The predecessor measured 20.75 fps, but its
+exhausted whole-world mesh pool omitted nearby geometry, so it is not an
+equal-rendering baseline.  These measurements use the eight-direction
+benchmark described below, not real hardware.
 
 ## How it works
 
@@ -168,6 +191,12 @@ one disk BIOS call the boot sector uses (via the emulated CD-ROM
 controller).  It lets the game run in `Tsugaru_Headless` for automated
 tests:
 
+The stub ROM also works with the windowed `Tsugaru_CUI`.  **Omit
+`-BOOTKEY CD` when using the stub ROM**: it boots from CD automatically,
+and the simulated boot key otherwise leaves the game stuck draining
+keyboard input at startup (a grey window).  The command in Running above
+is for a regular FM TOWNS ROM.
+
 ```
 make stubrom
 python3 tests/run_headless.py <path>/Tsugaru_Headless build/STUBROM TOWNSCRAFT.ISO out \
@@ -181,6 +210,26 @@ for 3 seconds each, and `g_benchFrames` (8 counters) holds the frames drawn
 per direction.  Building with `EXTRA="-DTEST_SCENE -DTEST_TIME=3000 -DTEST_DOOR_OPEN=0"`
 creates a debug image that places a house, mobs and items in front of the
 player.
+
+`tests/stream_test.c` compares streamed mesh contents against the original
+exhaustive nearest-first search across 3200 states, including movement,
+radius changes, eviction, resets and both pool budgets.  With a native
+32-bit C toolchain, run from this directory:
+
+```
+python3 tools/gentables.py build/tables.c
+gcc -m32 -O2 -ffreestanding -fno-builtin -Isrc tests/stream_test.c src/blocks.c src/fmath.c src/libc.c build/tables.c -o build/stream_test
+./build/stream_test
+```
+
+`tests/player_test.c` checks one jump per press, a one-block ledge, ceiling
+collisions and held-button swimming using the actual player and collision
+code.  The ground jump peaks at approximately 1.24 blocks:
+
+```
+gcc -m32 -O2 -ffreestanding -fno-builtin -Isrc tests/player_test.c src/player.c src/physics.c src/blocks.c src/fmath.c src/libc.c build/tables.c -o build/player_test
+./build/player_test
+```
 
 Because real ROMs were not available while developing, the boot sector was
 tested only with the stub ROM.  It follows the calling convention of the

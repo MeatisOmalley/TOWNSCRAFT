@@ -5,13 +5,17 @@
 #include "sound.h"
 
 Player g_player;
+static int jumpHeld;
 
 #define WALK_SPEED 860     /* FU per tick */
-#define JUMP_SPEED 1720
+/* Gravity and drag apply before movement: 1980 peaks at about 1.24 blocks,
+   leaving clearance to land on a one-block ledge. */
+#define JUMP_SPEED 1980
 
 void player_init(void)
 {
 	memset(&g_player,0,sizeof(g_player));
+	jumpHeld=0;
 	g_player.body.hw=1228;           /* 0.3 blocks */
 	g_player.body.h=7373;            /* 1.8 blocks */
 	g_player.spawnX=g_spawnX*FU+2048;
@@ -85,6 +89,8 @@ void player_tick(const PlayerInput *in)
 {
 	Body *b=&g_player.body;
 	int speed=WALK_SPEED,tvx,tvz,sy,cy,wasAir;
+	int jumpPressed=in->jump && !jumpHeld;
+	jumpHeld=(0!=in->jump);
 	if(g_player.dead)
 	{
 		return;
@@ -136,7 +142,7 @@ void player_tick(const PlayerInput *in)
 				b->vy=1300;
 			}
 		}
-		else if(b->onGround)
+		else if(b->onGround && jumpPressed)
 		{
 			b->vy=JUMP_SPEED;
 		}

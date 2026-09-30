@@ -48,16 +48,21 @@ static u32 *pq,*rq;
 
 /* Memory for a world of width w other than the block and light arrays.
    These prefer conventional memory and spill above 1MB. */
-/* Mesh pool, in quads.  With streaming it only holds the chunks around
-   the camera, so it does not grow with the world. */
-#define POOL_QUADS 24000
+/* Mesh pool, in quads.  Keep the 2 MB budget small enough for a 96x96
+   world.  Reserving 24000 there shrinks the world to 80x80, changing the
+   generated terrain and spawn (and nearly halving the fixed-seed FPS).
+   Both budgets stream nearby chunks rather than storing the whole world. */
+static u32 mesh_pool_quads(void)
+{
+	return g_ramMB<=2 ? 16000 : 24000;
+}
 static u32 world_other_mem(int w)
 {
 	int nc=w/CS;
 	return (u32)w*w                        /* height map */
 	      +(u32)w*4                        /* z offsets */
 	      +(u32)nc*nc*NCY*sizeof(Chunk)
-	      +POOL_QUADS*8                    /* mesh pool */
+	      +mesh_pool_quads()*8             /* mesh pool */
 	      +(PQ_LEN+RQ_LEN)*4
 	      +render_mem_needed(w)
 	      +16*1024;                        /* slack */
@@ -95,7 +100,7 @@ void world_alloc(void)
 	}
 	g_chunks=heap_alloc_low(sizeof(Chunk)*g_NC*g_NC*NCY);
 	memset(g_chunks,0,sizeof(Chunk)*g_NC*g_NC*NCY);
-	poolSize=POOL_QUADS;
+	poolSize=mesh_pool_quads();
 	g_meshPool=heap_alloc_low(poolSize*8);
 	poolTop=0;
 	pq=heap_alloc_low(PQ_LEN*4);
@@ -758,6 +763,8 @@ static void mark_dirty(int x,int y,int z)
 /* ---------------- Mesh streaming ---------------- */
 
 static int streamX,streamZ;       /* Camera column of the last world_stream() */
+static int streamReady,streamRadius;
+static u32 streamVersion;
 
 /* Squared horizontal distance from (x,z) to the nearest cell of a chunk column */
 static int column_dist2(int cx,int cz,int x,int z)
@@ -802,6 +809,7 @@ static void unmesh_column(int cx,int cz)
 /* No meshes at all (new or loaded world) */
 static void mesh_reset(void)
 {
+	streamReady=0;
 	memset(g_chunks,0,sizeof(Chunk)*g_NC*g_NC*NCY);
 	poolTop=0;
 	g_meshQuads=0;
@@ -846,14 +854,26 @@ static void build_chunk(int cx,int cy,int cz)
 void world_stream(int x,int z,int radius,int maxBuild)
 {
 	int r2=radius*radius;
+	int cx0=MAX(0,(x-radius)/CS),cx1=MIN(g_NC-1,(x+radius)/CS);
+	int cz0=MAX(0,(z-radius)/CS),cz1=MIN(g_NC-1,(z+radius)/CS);
+	/* Once the neighborhood is complete, standing still (or just turning)
+	   needs no search.  Mesh changes can evict columns, so invalidate on
+	   the mesh version as well as camera position and view distance. */
+	if(streamReady && x==streamX && z==streamZ && radius==streamRadius &&
+	   streamVersion==g_meshVersion)
+	{
+		return;
+	}
+	streamReady=0;
 	streamX=x;
 	streamZ=z;
+	streamRadius=radius;
 	while(maxBuild-->0)
 	{
 		int cx,cz,cy,bestCx=-1,bestCz=0,bestCy=0,bd=r2+1;
-		for(cz=0; cz<g_NC; ++cz)
+		for(cz=cz0; cz<=cz1; ++cz)
 		{
-			for(cx=0; cx<g_NC; ++cx)
+			for(cx=cx0; cx<=cx1; ++cx)
 			{
 				int d=column_dist2(cx,cz,x,z);
 				if(d<bd)
@@ -874,6 +894,8 @@ void world_stream(int x,int z,int radius,int maxBuild)
 		}
 		if(bestCx<0)
 		{
+			streamReady=1;
+			streamVersion=g_meshVersion;
 			return;
 		}
 		build_chunk(bestCx,bestCy,bestCz);
@@ -1264,9 +1286,7 @@ void world_generate(u32 seed)
 	rnd_seed(seed);
 	memset(lat,0,sizeof(lat));
 	memset(g_blocks,0,(u32)g_W*g_W*WH);
-	memset(g_chunks,0,sizeof(Chunk)*g_NC*g_NC*NCY);
-	poolTop=0;
-	g_meshQuads=0;
+	mesh_reset();
 	trackLightDirty=0;
 	for(z=0; z<g_W; ++z)
 	{
