@@ -585,7 +585,7 @@ static void test_scene(void)
 	g_player.body.x=(bx+2)*FU+2048;
 #ifdef TEST_NEAR
 	g_player.body.z=(bz-2)*FU+2048;
-	g_player.pitch=-60;
+	g_player.pitch=-150;
 #else
 	g_player.body.z=(bz-6)*FU;
 	g_player.pitch=-40;
@@ -706,14 +706,13 @@ static void new_game(u32 seed)
 				{
 					for(y=3; y<13 && !done; ++y)
 					{
-						if(B_AIR==wget(x,y,z) && B_AIR==wget(x,y+1,z) && world_is_solid(x,y-1,z))
+						if(B_AIR==wget(x,y,z) && B_AIR==wget(x,y+1,z) && world_is_solid(x,y-1,z) &&
+						   B_AIR==wget(x,y,z+1) && B_AIR==wget(x,y+1,z+1) && world_is_solid(x,y-1,z+1))
 						{
 							g_player.body.x=x*FU+FU/2;
 							g_player.body.y=y*FU;
 							g_player.body.z=z*FU+FU/2;
-							world_set(x,y,z+1,B_AIR);
-							world_set(x,y,z,MKBLK(B_TORCH,0));
-							g_player.body.z=z*FU-FU/2;
+							world_set(x,y,z+1,MKBLK(B_TORCH,0));
 							g_player.pitch=-60;
 							done=1;
 						}
@@ -928,6 +927,18 @@ static void draw_world(void)
 	env.targetValid=targetValid;
 	env.tx=tX; env.ty=tY; env.tz=tZ;
 	env.underwater=g_player.body.headInWater;
+	{
+		/* Underground: eye below sea level, under the column's top and
+		   with little sky light (a shaft open to the sky still shows it) */
+		int bx=ex/FU,by=ey/FU,bz=ez/FU;
+		if(in_world(bx,by,bz) && by<SEA_LEVEL && by<g_height[bz*g_W+bx]-1 &&
+		   (world_light_at(bx,by,bz)>>4)<=4)
+		{
+			env.underground=1;
+			env.skyColor=P(R_GRAY,1);
+			env.fogColor=env.skyColor;
+		}
+	}
 	if(env.underwater)
 	{
 		env.skyColor=P(R_WATER,MAX(2,8-g_skyDarken/2));

@@ -34,6 +34,7 @@ typedef struct
 	int starBrightness; /* 0..15 */
 	int cloudDrift;     /* Units the cloud layer has moved east */
 	u8 cloudColor;      /* 0: no clouds */
+	int underground;    /* Dark background, no sky bodies or clouds */
 } RenderEnv;
 
 extern Camera g_cam;

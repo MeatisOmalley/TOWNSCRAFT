@@ -1081,6 +1081,12 @@ static void draw_sky(const RenderEnv *env)
 	{
 		horizon=vh/2+(int)(((focal16>>4)*sp)/cp);
 	}
+	if(env->underground)
+	{
+		/* Beyond the view distance in a cave: darkness */
+		raster_fill_rows(0,vh,env->skyColor);
+		return;
+	}
 	raster_fill_rows(0,horizon-vh/10,env->skyColor);
 	raster_fill_rows(horizon-vh/10,horizon,(env->skyColor&0xF0)|MIN(15,(env->skyColor&15)+1));
 	raster_fill_rows(horizon,vh,env->fogColor);
@@ -1164,7 +1170,7 @@ static void cloud_point(CVert *cv,int wx,int wy,int wz)
 static void draw_clouds(const RenderEnv *env)
 {
 	int cell=CLOUD_CELL*256,ccx,ccz,i,j;
-	if(!env->cloudColor || env->underwater)
+	if(!env->cloudColor || env->underwater || env->underground)
 	{
 		return;
 	}
