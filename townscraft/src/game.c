@@ -14,6 +14,7 @@
 #include "ui.h"
 #include "game.h"
 #include "sound.h"
+#include "save.h"
 
 int g_time;
 int g_skyDarken;
@@ -592,14 +593,62 @@ static void test_scene(void)
 
 /* ---------------- Game ticks ---------------- */
 
+static const char *progressText="Generating world...";
+static const char *titleMsg;       /* Error shown on the title screen */
+
 static void gen_progress(int pct)
 {
 	gfx_wait_flip();
 	gfx_clear(g_fb,C_BLACK);
-	gfx_text_center(g_fb,100,"Generating world...",C_WHITE,C_BLACK);
+	gfx_text_center(g_fb,100,progressText,C_WHITE,C_BLACK);
 	gfx_frame(g_fb,80,120,160,10,C_GRAY);
 	gfx_rect(g_fb,82,122,156*pct/100,6,P(R_GRASS,12));
 	gfx_present();
+}
+
+/* Music and messages when a world starts (generated or loaded) */
+static void start_play(void)
+{
+	music_stop();
+	music_set_gap(12000);    /* In game: 2-4 minutes of silence between plays */
+	music_schedule(1500);
+	ui_hud_invalidate();
+}
+
+static void load_game(void)
+{
+	int err;
+	progressText="Loading world...";
+	g_genProgress=gen_progress;
+	gen_progress(0);
+	player_init();
+	err=load_world();
+	if(SAVE_OK!=err)
+	{
+		titleMsg=save_error_text(err);
+		progressText="Generating world...";
+		return;
+	}
+	world_rebuild_after_load();
+	progressText="Generating world...";
+	mobs_clear();
+	mobs_spawn_initial();
+	start_play();
+	titleMsg=NULL;
+	state=GS_PLAY;
+	game_message("World loaded");
+}
+
+static void save_game(void)
+{
+	int err;
+	progressText="Saving world...";
+	g_genProgress=gen_progress;
+	gen_progress(0);
+	err=save_world();
+	progressText="Generating world...";
+	ui_hud_invalidate();
+	game_message(SAVE_OK==err ? "World saved" : save_error_text(err));
 }
 
 static void new_game(u32 seed)
@@ -846,6 +895,8 @@ static void draw_title(void)
 		"A block building game for FM TOWNS",
 		"",
 		"SPACE  Start a new world",
+		"L      Load world (floppy A)",
+		"PF9    Save (in game)",
 		"PF1    Help / controls",
 	};
 	int i;
@@ -866,6 +917,10 @@ static void draw_title(void)
 	memcpy(buf+strlen(buf),"x",2);
 	itoa_dec(g_W,buf+strlen(buf));
 	gfx_text_center(g_fb,200,buf,C_WHITE,C_BLACK);
+	if(titleMsg)
+	{
+		gfx_text_center(g_fb,176,titleMsg,C_YELLOW,C_BLACK);
+	}
 }
 
 static void draw_help(void)
@@ -1133,6 +1188,12 @@ static void settings_key(int k)
 		g_sfxOn=!g_sfxOn;
 		game_message(g_sfxOn ? "Sound effects on" : "Sound effects off");
 		break;
+	case KEY_PF9:
+		if(GS_PLAY==state)
+		{
+			save_game();
+		}
+		break;
 	case KEY_PF8:
 		g_interlace=!g_interlace;
 		game_message(g_interlace ? "Interlaced rendering on" : "Interlaced rendering off");
@@ -1260,6 +1321,10 @@ void kmain(void)
 					new_game(g_ticks*2654435761u+12345);
 #endif
 					state=GS_PLAY;
+				}
+				else if(KEY_L==k)
+				{
+					load_game();
 				}
 				else if(KEY_PF1==k)
 				{

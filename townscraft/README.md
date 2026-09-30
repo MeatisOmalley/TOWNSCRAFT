@@ -13,6 +13,12 @@ Features works in the emulator at interactive frame rates.
 Tsugaru_CUI <ROM directory> -CD TOWNSCRAFT.ISO -BOOTKEY CD -DIFFMOUSE
 ```
 
+Saving uses a 1232 KB floppy disk in drive A as a dedicated save disk (its
+contents are overwritten).  In Tsugaru add `-FD0 SAVE.BIN`; a blank disk
+image can be made with `Tsugaru_CUI -GENFD SAVE.BIN 1232` or as a file of
+1261568 zero bytes.  A world can only be loaded on a machine with the same
+amount of RAM (the world size depends on it).
+
 `-DIFFMOUSE` passes relative mouse motion to the emulated mouse (the game
 reads the mouse directly, without the TOWNS OS mouse driver that Tsugaru's
 default mouse mode relies on).
@@ -68,6 +74,7 @@ the same code, so a real Model 2 would be slower than measured here.
 | PF4 | Debug overlay (frame rate, position, time) |
 | PF6 | Music on/off |
 | PF7 | Sound effects on/off |
+| PF9 | Save the world to the floppy disk in drive A (L on the title screen loads it) |
 | PF8 | Interlaced rendering on/off (every other row per frame: faster, combs while turning) |
 
 A game pad on port A also works: pad to move and turn, A to break/attack,
@@ -98,7 +105,7 @@ goes on port B.
   piece on the FM chip (an original composition) on the title screen and
   every few minutes in game.
 
-Not included: saving, caves, flowing water, hunger, item drops on
+Not included: caves, flowing water, hunger, item drops on
 the ground (broken blocks go straight to the inventory).
 
 ## How it works

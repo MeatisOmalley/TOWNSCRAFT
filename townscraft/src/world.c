@@ -740,6 +740,46 @@ void world_update_dirty_chunks(int maxLightOnly)
 	}
 }
 
+/* After g_blocks was loaded from a save: light (sky, then every light
+   emitting block) and meshes, as at the end of world_generate() */
+void world_rebuild_after_load(void)
+{
+	int x,y,z,cx,cy,cz;
+	progress(10);
+	light_init();
+	progress(40);
+	for(z=0; z<g_W; ++z)
+	{
+		for(x=0; x<g_W; ++x)
+		{
+			u32 base=widx(x,0,z);
+			for(y=0; y<WH; ++y)
+			{
+				int e=g_blockDef[BLK_ID(g_blocks[base+y])].lightEmit;
+				if(e)
+				{
+					lset(base+y,1,e);
+					pq_push(base+y);
+					propagate(1);
+				}
+			}
+		}
+	}
+	progress(60);
+	for(cz=0; cz<g_NC; ++cz)
+	{
+		for(cx=0; cx<g_NC; ++cx)
+		{
+			for(cy=0; cy<NCY; ++cy)
+			{
+				rebuild_chunk(cx,cy,cz);
+			}
+		}
+		progress(60+40*(cz+1)/g_NC);
+	}
+	trackLightDirty=1;
+}
+
 /* ---------------- Modification ---------------- */
 
 void world_set(int x,int y,int z,u8 b)
