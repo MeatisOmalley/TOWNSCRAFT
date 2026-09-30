@@ -32,8 +32,8 @@ const u8 g_lightOpacity[NUM_BLOCKS]=
 	15,2,0,15,15,15,15,15,
 	/* TORCH DOORL DOORU BEDF BEDH WOOL GRAVEL FLOWER */
 	0,0,0,0,0,15,15,0,
-	/* TALLGRASS STONEBRICK TNT CHEST */
-	0,15,15,15,
+	/* TALLGRASS STONEBRICK TNT CHEST GOLD DIAMOND */
+	0,15,15,15,15,15,
 };
 
 static void init_hides_tab(void);
@@ -707,6 +707,38 @@ static void rebuild_chunk(int cx,int cy,int cz)
 	memcpy(g_meshPool+c->off*2,sortedQuads,n*8);
 	c->count=n;
 	c->dirty=0;
+	/* A bottom-layer chunk is sealed when nothing can be seen into it from
+	   above: its top cells are opaque wherever the cells above are not,
+	   and no water touches its sides (see collect in render.c) */
+	c->sealed=0;
+	if(0==cy)
+	{
+		int sealed=1;
+		for(lz=0; lz<CS && sealed; ++lz)
+		{
+			for(lx=0; lx<CS && sealed; ++lx)
+			{
+				int x=x0+lx,z=z0+lz;
+				u32 i=widx(x,CS-1,z);
+				if(!(blk_flags(g_blocks[i])&BF_OPAQUE) && !(blk_flags(g_blocks[i+1])&BF_OPAQUE))
+				{
+					sealed=0;
+				}
+				else if(0==lx || 0==lz || CS-1==lx || CS-1==lz)
+				{
+					for(ly=0; ly<CS; ++ly)
+					{
+						if(B_WATER==BLK_ID(g_blocks[widx(x,ly,z)]))
+						{
+							sealed=0;
+							break;
+						}
+					}
+				}
+			}
+		}
+		c->sealed=sealed;
+	}
 }
 
 static void mark_dirty(int x,int y,int z)
@@ -992,6 +1024,112 @@ static void ore_cluster(u8 ore,int maxY,int size)
 	}
 }
 
+/* Caves and deep ores use their own random sequence, so the surface of a
+   world is the same with or without them */
+static u32 caveRng;
+static int crnd(int n)
+{
+	caveRng=caveRng*1103515245u+12345u;
+	return (int)((caveRng>>16)%(u32)n);
+}
+
+#define CAVE_TOP 14            /* Caves stay in the bottom chunk layer */
+
+/* Lowest surface around a column: caves keep 5 blocks of rock below it */
+static int min_height_around(int x,int z)
+{
+	int dx,dz,h=WH;
+	for(dz=-1; dz<=1; ++dz)
+	{
+		for(dx=-1; dx<=1; ++dx)
+		{
+			int xx=CLAMP(x+dx,0,g_W-1),zz=CLAMP(z+dz,0,g_W-1);
+			h=MIN(h,g_height[zz*g_W+xx]);
+		}
+	}
+	return h;
+}
+
+static void carve(int x,int y,int z)
+{
+	u32 i;
+	u8 b;
+	if(x<1 || z<1 || x>=g_W-1 || z>=g_W-1 || y<2 || y>CAVE_TOP)
+	{
+		return;
+	}
+	if(min_height_around(x,z)<y+5)
+	{
+		return;
+	}
+	i=widx(x,y,z);
+	b=g_blocks[i];
+	if(B_STONE==b || B_DIRT==b || B_GRAVEL==b || B_COAL_ORE==b || B_IRON_ORE==b)
+	{
+		g_blocks[i]=B_AIR;
+	}
+}
+
+/* Worm caves: a point wanders with a slowly turning heading and carves a
+   sphere of varying radius at every step (positions in 1/16 block) */
+static void carve_caves(void)
+{
+	int w,n=g_W*g_W/350;
+	for(w=0; w<n; ++w)
+	{
+		int px=crnd(g_W)*16,pz=crnd(g_W)*16,py=(3+crnd(CAVE_TOP-4))*16;
+		int yaw=crnd(1024),len=40+crnd(90),r=20+crnd(12),s;
+		for(s=0; s<len; ++s)
+		{
+			int x,y,z,rb=(r+15)/16;
+			px+=(fsin(yaw)*16)>>14;
+			pz+=(fcos(yaw)*16)>>14;
+			py+=(crnd(3)-1)*5;
+			py=CLAMP(py,3*16,(CAVE_TOP-1)*16);
+			yaw+=crnd(81)-40;
+			if(0==crnd(8))
+			{
+				r=CLAMP(r+crnd(13)-6,18,44);   /* Occasionally wider */
+			}
+			for(y=py/16-rb; y<=py/16+rb; ++y)
+			{
+				for(z=pz/16-rb; z<=pz/16+rb; ++z)
+				{
+					for(x=px/16-rb; x<=px/16+rb; ++x)
+					{
+						int dx=x*16+8-px,dy=y*16+8-py,dz=z*16+8-pz;
+						if(dx*dx+dy*dy+dz*dz<=r*r)
+						{
+							carve(x,y,z);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+static void deep_ore(u8 ore,int maxY,int size)
+{
+	int x=crnd(g_W),z=crnd(g_W),y=2+crnd(maxY-1),i;
+	for(i=0; i<size; ++i)
+	{
+		if(in_world(x,y,z) && B_STONE==g_blocks[widx(x,y,z)])
+		{
+			g_blocks[widx(x,y,z)]=ore;
+		}
+		switch(crnd(6))
+		{
+		case 0: ++x; break;
+		case 1: --x; break;
+		case 2: ++y; break;
+		case 3: --y; break;
+		case 4: ++z; break;
+		default:--z; break;
+		}
+	}
+}
+
 void world_generate(u32 seed)
 {
 	int x,z,y,i;
@@ -1089,6 +1227,21 @@ void world_generate(u32 seed)
 		}
 	}
 
+	/* Underground: caves, then deeper ores (gold, diamond, more iron) */
+	caveRng=seed^0x5EEDCAFE;
+	carve_caves();
+	for(i=0; i<g_W*g_W/200; ++i)
+	{
+		deep_ore(B_IRON_ORE,CAVE_TOP,4+crnd(4));
+	}
+	for(i=0; i<g_W*g_W/320; ++i)
+	{
+		deep_ore(B_GOLD_ORE,12,3+crnd(4));
+	}
+	for(i=0; i<g_W*g_W/700; ++i)
+	{
+		deep_ore(B_DIAMOND_ORE,8,2+crnd(4));
+	}
 	progress(40);
 	light_init();
 	progress(60);

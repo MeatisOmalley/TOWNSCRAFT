@@ -892,9 +892,9 @@ static void collect(void)
 				Chunk *ch=&g_chunks[chunk_index(cxi,cyi,czi)];
 				const u32 *q,*end;
 				int y0=cyi*CS,nTest=0,test[NPLANES];
-				if(0==ch->count)
+				if(0==ch->count || (ch->sealed && camBY>=CS))
 				{
-					continue;
+					continue;   /* Empty, or caves out of sight from above */
 				}
 				/* Frustum: cull the chunk, or find the planes its quads
 				   still have to be tested against */

@@ -38,6 +38,7 @@ typedef struct
 	u8 gbox[NGROUPS][3];   /* Cells covered by each group: x min|max<<4,
 	                          z min|max<<4, y min|max<<4 (chunk local) */
 	u8 dirty;          /* DIRTY_GEOMETRY or DIRTY_LIGHT */
+	u8 sealed;         /* Bottom layer only: cannot be seen into from above */
 } Chunk;
 
 enum

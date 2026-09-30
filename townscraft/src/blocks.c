@@ -34,6 +34,8 @@ const BlockDef g_blockDef[NUM_BLOCKS]=
 	{"Stone Bricks",CUBEOPQ,                           0, 45,  TOOL_PICK,  1, B_STONEBRICK,  {SIDES(T_STONEBRICK)}},
 	{"TNT",        CUBEOPQ|BF_USABLE,                  0,  1,  TOOL_NONE,  0, B_TNT,         {T_TNT_SIDE,T_TNT_SIDE,T_TNT_TOP,T_TNT_TOP,T_TNT_SIDE,T_TNT_SIDE}},
 	{"Chest",      CUBEOPQ|BF_USABLE,                  0, 35,  TOOL_AXE,   0, B_CHEST,       {T_CHEST_FRONT,T_CHEST_FRONT,T_CHEST_TOP,T_CHEST_TOP,T_CHEST_FRONT,T_CHEST_FRONT}},
+	{"Gold Ore",   CUBEOPQ,                            0, 55,  TOOL_PICK,  3, B_GOLD_ORE,    {SIDES(T_GOLD_ORE)}},
+	{"Diamond Ore",CUBEOPQ,                            0, 60,  TOOL_PICK,  3, I_DIAMOND,     {SIDES(T_DIAMOND_ORE)}},
 };
 
 ItemDef g_itemDef[NUM_ITEMS];
@@ -91,6 +93,11 @@ void items_init(void)
 	def_item(I_DOOR,        "Door",          T_I_DOOR,        TOOL_NONE,  0,1,0,16,0);
 	def_item(I_BED,         "Bed",           T_I_BED,         TOOL_NONE,  0,1,0,1,0);
 	def_item(I_APPLE,       "Apple",         T_I_APPLE,       TOOL_NONE,  0,1,4,64,0);
+	def_item(I_GOLD_INGOT,  "Gold Ingot",    T_I_GOLD,        TOOL_NONE,  0,1,0,64,0);
+	def_item(I_DIAMOND,     "Diamond",       T_I_DIAMOND,     TOOL_NONE,  0,1,0,64,0);
+	def_item(I_DIAMOND_PICK,"Diamond Pickaxe",T_I_DIAMOND_PICK,TOOL_PICK, 4,5,0,1,0);
+	def_item(I_DIAMOND_SWORD,"Diamond Sword",T_I_DIAMOND_SWORD,TOOL_SWORD,4,8,0,1,0);
+	def_item(I_GOLDEN_APPLE,"Golden Apple",  T_I_GOLDEN_APPLE,TOOL_NONE,  0,1,20,64,0);
 }
 
 /* Door geometry: meta bits 0-1 give the side of the cell the closed door

@@ -278,8 +278,8 @@ static int mine_speed(int blockId)
 	int item=held_item();
 	if(g_itemDef[item].tool==def->tool && TOOL_NONE!=def->tool)
 	{
-		static const u8 mult[4]={1,2,4,6};
-		return mult[g_itemDef[item].tier&3];
+		static const u8 mult[5]={1,2,4,6,9};
+		return mult[MIN(4,g_itemDef[item].tier)];
 	}
 	return 1;
 }
@@ -693,6 +693,36 @@ static void new_game(u32 seed)
 	game_message("PF1 = Help");
 #ifdef TEST_SCENE
 	test_scene();
+#endif
+#ifdef TEST_CAVE
+	{
+		/* Debug: stand in the nearest cave, with a torch */
+		int r,x,z,y,done=0;
+		for(r=0; r<g_W/2 && !done; ++r)
+		{
+			for(z=g_spawnZ-r; z<=g_spawnZ+r && !done; ++z)
+			{
+				for(x=g_spawnX-r; x<=g_spawnX+r && !done; ++x)
+				{
+					for(y=3; y<13 && !done; ++y)
+					{
+						if(B_AIR==wget(x,y,z) && B_AIR==wget(x,y+1,z) && world_is_solid(x,y-1,z))
+						{
+							g_player.body.x=x*FU+FU/2;
+							g_player.body.y=y*FU;
+							g_player.body.z=z*FU+FU/2;
+							world_set(x,y,z+1,B_AIR);
+							world_set(x,y,z,MKBLK(B_TORCH,0));
+							g_player.body.z=z*FU-FU/2;
+							g_player.pitch=-60;
+							done=1;
+						}
+					}
+				}
+			}
+		}
+		g_time=6000;
+	}
 #endif
 }
 

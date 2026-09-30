@@ -653,6 +653,7 @@ static void tool_color(int tier,int *ramp,int *shade)
 	{
 	case 1: *ramp=R_PLANK; *shade=12; break;
 	case 2: *ramp=R_GRAY;  *shade=10; break;
+	case 4: *ramp=R_CYAN;  *shade=13; break;
 	default:*ramp=R_GRAY;  *shade=14; break;
 	}
 }
@@ -729,6 +730,8 @@ void textures_init(void)
 	begin(T_BEDROCK); noisefill(R_GRAY,6,7);
 	begin(T_COAL_ORE); gen_ore(R_GRAY,2);
 	begin(T_IRON_ORE); gen_ore(R_PEACH,12);
+	begin(T_GOLD_ORE); gen_ore(R_FLAME,14);
+	begin(T_DIAMOND_ORE); gen_ore(R_CYAN,13);
 	begin(T_CRAFT_TOP); gen_craft_top();
 	begin(T_CRAFT_SIDE); gen_craft_side(0);
 	begin(T_CRAFT_FRONT); gen_craft_side(1);
@@ -799,6 +802,11 @@ void textures_init(void)
 	}
 	begin(T_I_BED); rect(1,7,14,10,P(R_RED,11)); rect(1,6,4,9,P(R_GRAY,14)); rect(1,11,14,11,P(R_PLANK,10)); rect(1,12,1,13,P(R_PLANK,9)); rect(14,12,14,13,P(R_PLANK,9));
 	begin(T_I_APPLE); blob(16,19,60,R_RED,12); line(8,2,8,5,P(R_BARK,9)); px(9,3,P(R_LEAF,11)); px(10,3,P(R_LEAF,11));
+	begin(T_I_GOLD); rect(3,6,12,10,P(R_FLAME,13)); rect(4,6,12,6,P(R_FLAME,15)); rect(3,10,12,10,P(R_FLAME,10));
+	begin(T_I_DIAMOND); disc(16,16,40,P(R_CYAN,13)); line(5,6,8,3,P(R_CYAN,15)); line(8,3,11,6,P(R_CYAN,15)); px(7,7,P(R_GRAY,15));
+	begin(T_I_DIAMOND_PICK); gen_pick(4);
+	begin(T_I_DIAMOND_SWORD); gen_sword(4);
+	begin(T_I_GOLDEN_APPLE); blob(16,19,60,R_FLAME,13); line(8,2,8,5,P(R_BARK,9)); px(9,3,P(R_LEAF,11)); px(10,3,P(R_LEAF,11));
 	begin(T_I_TORCH); rect(7,5,8,14,P(R_PLANK,10)); rect(7,2,8,4,P(R_FLAME,15)); px(6,3,P(R_FLAME,13)); px(9,3,P(R_FLAME,13));
 	begin(T_CRACK);
 	{
