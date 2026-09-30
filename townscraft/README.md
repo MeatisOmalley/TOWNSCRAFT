@@ -30,7 +30,9 @@ The game sizes the world to the available RAM (96x96 blocks with 2 MB,
 160x160 with 4 MB, 208x208 with 6 MB, 256x256 with 8 MB or more; 48 blocks
 high) and picks a render resolution and view
 distance from a quick CPU speed check at startup.  Both can be changed in
-game (PF2, PF3).
+game (PF2, PF3).  The view distance presets are 8 blocks (base spec),
+8/10 and 10/12, where faces between the first and second distance are
+drawn flat in their texture's average color.
 
 Measured in Tsugaru with the automatically chosen settings (160x100
 rendering of a 320x200 view above the HUD strip), standing at the spawn
@@ -38,8 +40,8 @@ point of a fixed test world and looking in 8 directions (see Testing):
 
 | Machine | View distance | Frame rate (average, range) |
 |---|---|---|
-| Model 2, 386DX 16 MHz, 2 MB | 8 | 15.6 fps, 11-25 fps |
-| Tsugaru default profile, 4 MB | 16 | 18.5 fps, 15-25 fps |
+| Model 2, 386DX 16 MHz, 2 MB | 8 | 15.7 fps, 11-26 fps |
+| Tsugaru default profile, 4 MB | 10/12 | 25.1 fps, 20-30 fps |
 
 The default profile runs the CPU at 25 MHz instead of 16.  Tsugaru counts
 80486 instruction timings for every machine type, so these numbers are
@@ -61,7 +63,7 @@ the same code, so a real Model 2 would be slower than measured here.
 | C | Crafting by hand |
 | ESC / PF1 | Help |
 | PF2 | Toggle 320x200 / 160x100 rendering |
-| PF3 | Cycle view distance |
+| PF3 | View distance: 8 blocks, 8/10 or 10/12 (textured / flat shaded beyond) |
 | PF4 | Debug overlay (frame rate, position, time) |
 | PF6 | Music on/off |
 | PF7 | Sound effects on/off |

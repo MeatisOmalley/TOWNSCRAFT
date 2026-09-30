@@ -44,6 +44,18 @@ static u32 sleepStart;
 /* Settings */
 static int showDebug;
 static u32 cpuSpeedIndex;   /* Loop iterations in 100ms, measured at start */
+
+/* View distance presets (PF3): textured distance, total distance (faces in
+   between are drawn flat) */
+static const u8 viewPreset[3][2]={{8,8},{8,10},{10,12}};
+static int viewPresetSel;
+
+static void apply_view_preset(int i)
+{
+	viewPresetSel=i;
+	g_viewDist=viewPreset[i][1];
+	g_flatDist=(viewPreset[i][0]<viewPreset[i][1]) ? viewPreset[i][0] : 0;
+}
 static u32 fpsFrames,fpsT0,fps10;
 #ifdef BENCH
 /* Benchmark build: after the world is generated the player stands still and
@@ -1091,21 +1103,17 @@ static void auto_detect_quality(void)
 	if(n<170000)
 	{
 		g_renderScale=2;
-		g_viewDist=8;
+		apply_view_preset(0);
 	}
 	else if(n<450000)
 	{
 		g_renderScale=2;
-		g_viewDist=16;
+		apply_view_preset(2);
 	}
 	else
 	{
 		g_renderScale=1;
-		g_viewDist=18;
-	}
-	if(g_ramMB<4 && g_viewDist>20)
-	{
-		g_viewDist=20;
+		apply_view_preset(2);
 	}
 }
 
@@ -1127,16 +1135,14 @@ static void settings_key(int k)
 		break;
 	case KEY_PF3:
 		{
-			static const u8 dists[]={8,10,14,20,28,40};
-			int i;
-			for(i=0; i<ARRAY_LEN(dists) && dists[i]<=g_viewDist; ++i);
-			g_viewDist=dists[i%ARRAY_LEN(dists)];
+			static const char *const names[3]=
 			{
-				char buf[32];
-				memcpy(buf,"View distance: ",16);
-				itoa_dec(g_viewDist,buf+15);
-				game_message(buf);
-			}
+				"View: 8 blocks",
+				"View: 8 textured, 10 flat",
+				"View: 10 textured, 12 flat",
+			};
+			apply_view_preset((viewPresetSel+1)%3);
+			game_message(names[viewPresetSel]);
 		}
 		break;
 	case KEY_PF4:
