@@ -1091,7 +1091,7 @@ static void auto_detect_quality(void)
 	if(n<170000)
 	{
 		g_renderScale=2;
-		g_viewDist=10;
+		g_viewDist=8;
 	}
 	else if(n<450000)
 	{
@@ -1127,7 +1127,7 @@ static void settings_key(int k)
 		break;
 	case KEY_PF3:
 		{
-			static const u8 dists[]={10,14,20,28,40};
+			static const u8 dists[]={8,10,14,20,28,40};
 			int i;
 			for(i=0; i<ARRAY_LEN(dists) && dists[i]<=g_viewDist; ++i);
 			g_viewDist=dists[i%ARRAY_LEN(dists)];

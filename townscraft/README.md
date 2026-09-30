@@ -38,7 +38,7 @@ point of a fixed test world and looking in 8 directions (see Testing):
 
 | Machine | View distance | Frame rate (average, range) |
 |---|---|---|
-| Model 2, 386DX 16 MHz, 2 MB | 10 | 10.7 fps, 9-14 fps |
+| Model 2, 386DX 16 MHz, 2 MB | 8 | 15.3 fps, 11-25 fps |
 | Tsugaru default profile, 4 MB | 16 | 18.5 fps, 15-25 fps |
 
 The default profile runs the CPU at 25 MHz instead of 16.  Tsugaru counts
