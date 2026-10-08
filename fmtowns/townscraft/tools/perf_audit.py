@@ -56,6 +56,31 @@ def build(a, out):
                     target.write_bytes(tar.extractfile(member).read())
     game = src / 'src/game.c'
     code = game.read_text()
+    if a.production:
+        compile_image(a, out, src)
+        return
+    if a.standard:
+        world = src / 'src/world.c'
+        wcode = world.read_text()
+        cached = 'cacheAllocated' in wcode
+        streaming = 'void world_stream(' in wcode
+        assert a.width >= 80 and a.width % 16 == 0
+        # Common finite extent; do not let code growth choose a different scene.
+        marker = 'g_NC=g_W/CS;'
+        assert wcode.count(marker) == 1
+        wcode = wcode.replace(marker, f'g_W={a.width}; ' + marker)
+        wcode = wcode.replace('void world_generate(u32 seed)', 'static void unused_world_generate(u32 seed)')
+        level = (ROOT / 'tests/standard_level.inc').read_text()
+        begin = 'if(cacheAllocated) generation_begin();' if cached else ''
+        if 'static u32 genSeed;' in wcode: begin += 'genSeed=seed;'
+        if 'static u32 genVersion;' in wcode: begin += 'genVersion=1;'
+        end = ('if(!generation_finish()) fatal("Standard level backing full");' if cached else
+               'light_init(); mesh_reset();' if streaming else
+               'light_init(); poolTop=0; g_meshQuads=0; '
+               'for(int cz=0;cz<g_NC;++cz) for(int cx=0;cx<g_NC;++cx) '
+               'for(int cy=0;cy<NCY;++cy) rebuild_chunk(cx,cy,cz);')
+        level = level.replace('STD_GENERATION_BEGIN', begin).replace('STD_GENERATION_END', end)
+        world.write_text(wcode + '\n' + level)
     if a.mesh_probe:
         world = src / 'src/world.c'
         wcode = world.read_text()
@@ -106,6 +131,12 @@ def build(a, out):
     probe = ((ROOT / 'tests/perf_probe.inc').read_text() if not a.mesh_probe else
              'u32 auditUpdate,auditRender;\nstatic void audit_tick(void) { '
              'if(GS_TITLE==state) { new_game(4242); audit_world_probe(); state=GS_PLAY; } }\n')
+    if a.standard:
+        probe = (ROOT / 'tests/standard_probe.inc').read_text()
+        values = dict(STD_SCALE=str(a.scale), STD_VIEW=str(a.view), STD_ONLY=str(a.phase), STD_MOBS=str(a.mobs),
+                      STD_INTERLACE='g_interlace=0' if 'g_interlace' in code else '(void)0',
+                      STD_IS_MESHED='c->meshed' if 'meshed;' in (src / 'src/world.h').read_text() else '1')
+        for key, value in values.items(): probe = probe.replace(key, value)
     probe = probe.replace('AUDIT_INTERLACE_OFF', 'g_interlace=0' if 'g_interlace' in code else '(void)0')
     probe = probe.replace('AUDIT_UNMESHED', '!c->meshed' if 'meshed;' in (src / 'src/world.h').read_text() else '0')
     assert code.count('void kmain(void)') == 1
@@ -119,13 +150,18 @@ def build(a, out):
     pos = code.index(marker)
     line = code.rfind('\n', 0, pos)
     # Include the declaration "int meshWorked=" when present.
-    code = code[:line] + '\n\t\t\tu32 auditU0=g_ticks;' + code[line:]
+    clock = 'std_us()' if a.standard else 'g_ticks'
+    code = code[:line] + '\n\t\t\tu32 auditU0=' + clock + ';' + code[line:]
     pos = code.index(marker)
     end = code.index('\n\t\t}', pos)
-    code = code[:end] + '\n\t\t\tauditUpdate=g_ticks-auditU0;' + code[end:]
+    code = code[:end] + '\n\t\t\tauditUpdate=' + clock + '-auditU0;' + code[end:]
     assert code.count('draw_world();') == 1
-    code = code.replace('draw_world();', 'u32 auditR0=g_ticks; draw_world(); auditRender=g_ticks-auditR0;')
+    code = code.replace('draw_world();', 'u32 auditR0='+clock+'; draw_world(); auditRender='+clock+'-auditR0;')
     game.write_text(code)
+    compile_image(a, out, src)
+
+
+def compile_image(a, out, src):
     tables = out / 'tables.c'
     checked([sys.executable, src / 'tools/gentables.py', tables])
     zig = Path(a.zig).resolve()
@@ -178,7 +214,7 @@ def measure(a, out):
     rom = ROOT / 'build/play/STUBROM'
     log = (out / 'run.log').open('w')
     p = subprocess.Popen([str(exe), str(rom), '-CD', str(out / 'audit.ISO'),
-                          '-TOWNSTYPE', 'MODEL2', '-FREQ', '16', '-MEMSIZE', str(a.ram),
+                          '-TOWNSTYPE', 'MODEL2', '-FREQ', str(a.freq), '-MEMSIZE', str(a.ram),
                           '-DONTAUTOSAVECMOS', '-NOWAITBOOT'], stdin=subprocess.PIPE,
                          stdout=log, stderr=subprocess.STDOUT, text=True)
     def cmd(s):
@@ -200,10 +236,40 @@ def measure(a, out):
             if not dump.exists() or dump.stat().st_size != 0x100000:
                 continue
             b = dump.read_bytes()
-            if word(b, 'auditMeshDone' if a.mesh_probe else 'auditDone') == 1:
+            if word(b, 'stdDone' if a.standard else 'auditMeshDone' if a.mesh_probe else 'auditDone') == 1:
                 break
         else:
             raise RuntimeError('Benchmark did not complete; inspect ' + str(out / 'run.log'))
+        if a.standard:
+            phases = ['look','walk','down','up','break','mixed']
+            info = struct.unpack_from('<8I', b, syms['stdInfo'])
+            result = dict(ref=a.ref, name=a.name, ram=a.ram, freq=a.freq,
+                          level_version=info[0], width=info[1], terrain_hash=info[2],
+                          scale=info[3], view=info[4], mobs=info[5], phases={},
+                          iso_sha256=hashlib.sha256((out / 'audit.ISO').read_bytes()).hexdigest())
+            for i, label in enumerate(phases):
+                s = struct.unpack_from('<12I', b, syms['stdStats']+i*48)
+                if not s[0]: continue
+                hist = struct.unpack_from('<256I', b, syms['stdHist']+i*1024)
+                def percentile(frac):
+                    target = int(s[0]*frac + .999999); count = 0
+                    for j, n in enumerate(hist):
+                        count += n
+                        if count >= target: return j*2
+                result['phases'][label] = dict(frames=s[0], fps=s[0]*1e6/s[1],
+                    median_ms_lower_bound=percentile(.5), p95_ms_lower_bound=percentile(.95),
+                    max_ms=s[2]/1000, update_mean_ms=s[3]/s[0]/1000,
+                    update_max_ms=s[4]/1000, render_mean_ms=s[5]/s[0]/1000,
+                    average_faces=s[6]/s[0], average_items=s[7]/s[0],
+                    over_66ms=s[8], over_100ms=s[9], edits=s[10])
+            n = word(b, 'stdEditCount')
+            assert n <= 32
+            result['edits'] = [struct.unpack_from('<7I', b, syms['stdEdits']+i*28) for i in range(n)]
+            assert result['width'] == a.width and result['phases']
+            (out / 'result.json').write_text(json.dumps(result, indent=2)+'\n')
+            cmd('SS '+str(out / 'end.png'))
+            print(json.dumps(result), flush=True)
+            return
         if a.mesh_probe:
             n = word(b, 'auditMeshCount')
             assert n == 30, n
@@ -249,6 +315,7 @@ def main():
     ap.add_argument('--name', required=True)
     ap.add_argument('--ref', default='WORKTREE')
     ap.add_argument('--ram', type=int, default=2)
+    ap.add_argument('--freq', type=int, default=16)
     ap.add_argument('--zig', default=str(ROOT / 'build/tools/zig-windows-x86_64-0.13.0/zig.exe'))
     ap.add_argument('--timeout', type=float, default=240)
     ap.add_argument('--define', action='append', default=[])
@@ -258,7 +325,19 @@ def main():
     ap.add_argument('--sync-mesh', action='store_true', help='Test-only synchronous local dirty rebuilds')
     ap.add_argument('--linear-test', action='store_true', help='Test-only local mesher with 80-wide linear storage')
     ap.add_argument('--full-mesh', action='store_true', help='Test-only master full rather than layer rebuilds')
+    ap.add_argument('--standard', action='store_true', help='Standard level and individual motion/edit phases')
+    ap.add_argument('--width', type=int, default=80)
+    ap.add_argument('--scale', type=int, choices=[1,2], default=2)
+    ap.add_argument('--view', type=int, default=8)
+    ap.add_argument('--mobs', type=int, choices=range(25), default=0, help='Frozen controlled pigs, 0 isolates terrain')
+    ap.add_argument('--phase', type=int, choices=range(-1,6), default=-1, help='-1 all; 0 look, 1 walk, 2 down, 3 up, 4 break, 5 mixed')
+    ap.add_argument('--step', choices=['all','look','walk','down','up','break','mixed'], help='Named alias for --phase')
+    ap.add_argument('--production', action='store_true', help='Build untouched snapshot, without instrumentation')
     a = ap.parse_args()
+    if a.step: a.phase = ['all','look','walk','down','up','break','mixed'].index(a.step)-1
+    if a.production and (not a.build_only or a.standard or a.mesh_probe):
+        ap.error('--production requires --build-only and no instrumentation')
+    if a.standard and a.mesh_probe: ap.error('select either --standard or --mesh-probe')
     if (a.sync_mesh or a.linear_test or a.full_mesh) and not a.mesh_probe:
         ap.error('--sync-mesh, --linear-test and --full-mesh require --mesh-probe')
     if not a.name.replace('-', '').replace('_', '').isalnum():
