@@ -1,0 +1,70 @@
+{
+  "source": "9c11b1c1",
+  "tests": [
+    {
+      "test": "caves",
+      "exit_code": 0,
+      "output": "PASS W=96 seed=1: 453 reachable cave floor cells\nPASS W=96 seed=42: 1338 reachable cave floor cells\nPASS W=96 seed=4242: 1574 reachable cave floor cells\nPASS W=96 seed=123456789: 1390 reachable cave floor cells\nPASS W=160 seed=1: 3574 reachable cave floor cells\nPASS W=160 seed=42: 3646 reachable cave floor cells\nPASS W=160 seed=4242: 5732 reachable cave floor cells\nPASS W=160 seed=123456789: 5143 reachable cave floor cells\nPASS W=208 seed=1: 12466 reachable cave floor cells\nPASS W=208 seed=42: 10594 reachable cave floor cells\nPASS W=208 seed=4242: 7694 reachable cave floor cells\nPASS W=208 seed=123456789: 10859 reachable cave floor cells\nPASS W=256 seed=1: 16553 reachable cave floor cells\nPASS W=256 seed=42: 16686 reachable cave floor cells\nPASS W=256 seed=4242: 14445 reachable cave floor cells\nPASS W=256 seed=123456789: 17850 reachable cave floor cells\n"
+    },
+    {
+      "test": "column_cache",
+      "exit_code": 0,
+      "output": "PASS 2 MB: bounded seam rebuilds, reference terrain/light, repeated travel, edits/torch, column serialization and failed eviction; backing 124970 bytes\nPASS 4 MB: bounded seam rebuilds, reference terrain/light, repeated travel, edits/torch, column serialization and failed eviction; backing 324300 bytes\nPASS: incremental skylight and torch seams match full-world reference\n"
+    },
+    {
+      "test": "column_save",
+      "exit_code": 0,
+      "output": "PASS: four paging requests across two tracks use two physical reads\nPASS: actual floppy paging, exact terrain/light/mobs, bounded baseline RAM, interrupted writes and corrupt-bank recovery\n"
+    },
+    {
+      "test": "edit",
+      "exit_code": 0,
+      "output": "PASS: 1932 edits, partial rebuilds match full rebuilds after 300 steps\n"
+    },
+    {
+      "test": "stream",
+      "exit_code": 0,
+      "output": "PASS RAM=2 width=80: 400 streaming states match exhaustive search\nPASS RAM=2 width=96: 400 streaming states match exhaustive search\nPASS RAM=2 width=176: 400 streaming states match exhaustive search\nPASS RAM=2 width=256: 400 streaming states match exhaustive search\nPASS RAM=4 width=80: 400 streaming states match exhaustive search\nPASS RAM=4 width=96: 400 streaming states match exhaustive search\nPASS RAM=4 width=176: 400 streaming states match exhaustive search\nPASS RAM=4 width=256: 400 streaming states match exhaustive search\n"
+    },
+    {
+      "test": "mobs",
+      "exit_code": 0,
+      "output": "PASS: spawn reserves, night/day, torches and cave floors\n"
+    },
+    {
+      "test": "mob_regions",
+      "exit_code": 0,
+      "output": "PASS: mob ownership, exact freezing, repeated regions, slot pressure, deaths, fuses and persistence\n"
+    },
+    {
+      "test": "save_regions",
+      "exit_code": 0,
+      "output": "PASS: actual floppy save/load preserves active/dormant mobs, empty regions, terrain and chests; legacy and checksum checks\n"
+    },
+    {
+      "test": "edit_cache_2",
+      "exit_code": 0,
+      "output": "PASS: 1328 edits, partial rebuilds match full rebuilds after 300 steps\n"
+    },
+    {
+      "test": "edit_cache_4",
+      "exit_code": 0,
+      "output": "PASS: 462 edits, partial rebuilds match full rebuilds after 300 steps\n"
+    },
+    {
+      "test": "player",
+      "exit_code": 0,
+      "output": "PASS: jump peak 1.244 blocks; single press, ledge, ceiling and swimming checks\n"
+    },
+    {
+      "test": "keyboard",
+      "exit_code": 0,
+      "output": "PASS: sustained walking, repeats, simultaneous keys and real releases\n"
+    },
+    {
+      "test": "render_occlusion",
+      "exit_code": 0,
+      "output": "PASS: 960 views match uncullled pixels; opaque floors, cliffs, cave openings, transparent tiles, mesh readiness and entities\n"
+    }
+  ]
+}

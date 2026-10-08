@@ -28,8 +28,10 @@ tests adapt only assembly symbol names/ELF stack metadata in an ignored
 build copy, retaining the real scan loops. Raw integration edit measurements
 are in `tests/results/integrated-layer-edits-2026-10-08.json`.
 
-Historical and standardized frame-performance evaluation follows this
-integration. The sections below record the pre-integration decision.
+Historical and standardized frame-performance results are recorded in
+`PERFORMANCE_RESULTS.md`. The sections below are the historical,
+pre-integration audit; references there to "current" source/tests describe
+the old selective merge, not the now-integrated implementation above.
 
 ## Decision
 

@@ -1,0 +1,180 @@
+{
+  "profile": "minimum",
+  "repeats": 2,
+  "controls": [
+    1,
+    80,
+    605049051,
+    2,
+    16,
+    2,
+    8,
+    12
+  ],
+  "summary": {
+    "ea931665": {
+      "look": {
+        "frames": 346,
+        "fps": 21.63787524035303,
+        "median_ms_lower_bound": 44,
+        "p95_ms_lower_bound": 54,
+        "max_ms": 58.9885,
+        "update_mean_ms": 0.015609826589595376,
+        "update_max_ms": 0.019,
+        "render_mean_ms": 45.96731936416185,
+        "average_faces": 37.39739884393063,
+        "average_items": 91.06791907514452,
+        "over_66ms": 0,
+        "over_100ms": 0,
+        "edits": 0,
+        "fps_min": 21.637091076957443,
+        "fps_max": 21.638659403748616
+      }
+    },
+    "e86b3e6f": {
+      "look": {
+        "frames": 352,
+        "fps": 21.96556417331164,
+        "median_ms_lower_bound": 44,
+        "p95_ms_lower_bound": 54,
+        "max_ms": 59.8965,
+        "update_mean_ms": 0.015607954545454546,
+        "update_max_ms": 0.0245,
+        "render_mean_ms": 45.278008522727276,
+        "average_faces": 37.29971590909091,
+        "average_items": 91.13068181818181,
+        "over_66ms": 0,
+        "over_100ms": 0,
+        "edits": 0,
+        "fps_min": 21.96551277210325,
+        "fps_max": 21.965615574520037
+      }
+    }
+  },
+  "runs": [
+    {
+      "ref": "ea931665",
+      "name": "suite-minimum-look-w80-m12-0-1",
+      "ram": 2,
+      "freq": 16,
+      "level_version": 1,
+      "width": 80,
+      "terrain_hash": 605049051,
+      "scale": 2,
+      "view": 8,
+      "mobs": 12,
+      "phases": {
+        "look": {
+          "frames": 346,
+          "fps": 21.637091076957443,
+          "median_ms_lower_bound": 44,
+          "p95_ms_lower_bound": 54,
+          "max_ms": 58.988,
+          "update_mean_ms": 0.015606936416184972,
+          "update_max_ms": 0.022,
+          "render_mean_ms": 45.96911560693641,
+          "average_faces": 37.410404624277454,
+          "average_items": 91.09248554913295,
+          "over_66ms": 0,
+          "over_100ms": 0,
+          "edits": 0
+        }
+      },
+      "iso_sha256": "3e80f99bbc479ee52e79d47150e5c916aef87ed62b8dee3a65349e52666e6bc5",
+      "edits": []
+    },
+    {
+      "ref": "ea931665",
+      "name": "suite-minimum-look-w80-m12-0-2",
+      "ram": 2,
+      "freq": 16,
+      "level_version": 1,
+      "width": 80,
+      "terrain_hash": 605049051,
+      "scale": 2,
+      "view": 8,
+      "mobs": 12,
+      "phases": {
+        "look": {
+          "frames": 346,
+          "fps": 21.638659403748616,
+          "median_ms_lower_bound": 44,
+          "p95_ms_lower_bound": 54,
+          "max_ms": 58.989,
+          "update_mean_ms": 0.01561271676300578,
+          "update_max_ms": 0.016,
+          "render_mean_ms": 45.965523121387285,
+          "average_faces": 37.384393063583815,
+          "average_items": 91.04335260115607,
+          "over_66ms": 0,
+          "over_100ms": 0,
+          "edits": 0
+        }
+      },
+      "iso_sha256": "3e80f99bbc479ee52e79d47150e5c916aef87ed62b8dee3a65349e52666e6bc5",
+      "edits": []
+    },
+    {
+      "ref": "e86b3e6f",
+      "name": "suite-minimum-look-w80-m12-1-1",
+      "ram": 2,
+      "freq": 16,
+      "level_version": 1,
+      "width": 80,
+      "terrain_hash": 605049051,
+      "scale": 2,
+      "view": 8,
+      "mobs": 12,
+      "phases": {
+        "look": {
+          "frames": 352,
+          "fps": 21.96551277210325,
+          "median_ms_lower_bound": 44,
+          "p95_ms_lower_bound": 54,
+          "max_ms": 57.942,
+          "update_mean_ms": 0.015610795454545455,
+          "update_max_ms": 0.027,
+          "render_mean_ms": 45.27812215909091,
+          "average_faces": 37.32670454545455,
+          "average_items": 91.125,
+          "over_66ms": 0,
+          "over_100ms": 0,
+          "edits": 0
+        }
+      },
+      "iso_sha256": "4d17c5f99496c4c059d5decfa7be6f4515951780ffebefa04b029a7eeb3ab189",
+      "edits": []
+    },
+    {
+      "ref": "e86b3e6f",
+      "name": "suite-minimum-look-w80-m12-1-2",
+      "ram": 2,
+      "freq": 16,
+      "level_version": 1,
+      "width": 80,
+      "terrain_hash": 605049051,
+      "scale": 2,
+      "view": 8,
+      "mobs": 12,
+      "phases": {
+        "look": {
+          "frames": 352,
+          "fps": 21.965615574520037,
+          "median_ms_lower_bound": 44,
+          "p95_ms_lower_bound": 54,
+          "max_ms": 61.851,
+          "update_mean_ms": 0.015605113636363637,
+          "update_max_ms": 0.022,
+          "render_mean_ms": 45.27789488636364,
+          "average_faces": 37.27272727272727,
+          "average_items": 91.13636363636364,
+          "over_66ms": 0,
+          "over_100ms": 0,
+          "edits": 0
+        }
+      },
+      "iso_sha256": "4d17c5f99496c4c059d5decfa7be6f4515951780ffebefa04b029a7eeb3ab189",
+      "edits": []
+    }
+  ]
+}

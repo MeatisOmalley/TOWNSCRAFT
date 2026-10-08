@@ -9,6 +9,13 @@ Features works in the emulator at interactive frame rates.
 
 ## Running
 
+The current integrated production build is `TOWNSCRAFT.ISO` in this
+directory. Historical numbered builds remain under `iso/`; do not assume
+folder 17's older "merged_final" label means the latest source.
+See [PERFORMANCE_RESULTS.md](PERFORMANCE_RESULTS.md) for the integration
+decision and per-step measurements, and [BENCHMARKING.md](BENCHMARKING.md)
+for the standardized level, minimum-spec priority and individual tests.
+
 ```
 Tsugaru_CUI <ROM directory> -CD TOWNSCRAFT.ISO -BOOTKEY CD -DIFFMOUSE -YESWAIT -AUTOSCALE
 ```
@@ -160,8 +167,9 @@ pressure can evict farther columns and retry a build.  The pool holds
 16000 quads on 2 MB machines and 24000 on larger machines.  Reserving
 24000 on a 2 MB machine reduced the world to 80x80; the smaller budget
 restores 96x96.  The world is always 48 blocks high, including air above
-the terrain.  Block and lighting data for the entire world still live in
-RAM; much larger explorable worlds would also need streaming of that data.
+the terrain. Nearby block/light data now live in the 25-column cache;
+the rest use compressed RAM backing or the mounted save disk. Whole-world
+generation still happens at startup; this is not unlimited world generation.
 
 Streaming searches only nearby columns and skips the search once the
 neighborhood is complete, until the camera cell, radius or meshes change.
