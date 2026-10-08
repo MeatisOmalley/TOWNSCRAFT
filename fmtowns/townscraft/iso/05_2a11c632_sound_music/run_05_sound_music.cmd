@@ -1,9 +1,9 @@
 @echo off
 setlocal
-set "ROOT=%~dp0.."
+set "ROOT=%~dp0..\.."
 set "EMU=%ROOT%\build\emulator\main_cui\Release\Tsugaru_CUI.exe"
 set "ROM=%ROOT%\build\play\STUBROM"
-set "ISO=%~dp0TOWNSCRAFT_LOCAL.ISO"
+set "ISO=%~dp0TOWNSCRAFT_05_sound_music.ISO"
 if not exist "%EMU%" goto missing
 if not exist "%ROM%" goto missing
 if not exist "%ISO%" goto missing
