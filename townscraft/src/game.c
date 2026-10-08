@@ -1674,6 +1674,12 @@ void kmain(void)
 				breakHeld=g_keyDown[KEY_J] || (pad&PAD_A) || (mouse&MOUSE_L);
 			}
 			tickAccum+=elapsed;
+#ifdef BENCH_EDIT
+			if(g_benchFreeze)
+			{
+				tickAccum=0;
+			}
+#endif
 			while(tickAccum>=5 && n<4)
 			{
 				tickAccum-=5;

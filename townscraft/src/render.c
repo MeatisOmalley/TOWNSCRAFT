@@ -275,12 +275,14 @@ static void draw_spoly(RVert *sv,int n,const u8 *tex,int flags,u8 flat)
 	}
 	if(maxx<0 || maxy<0 || minx>=vw*16 || miny>=vh*16)
 	{
+		BENCH_HOOK(++g_benchCnt[S_OFFSCREEN]);
 		return;
 	}
 	++g_statFaces;
 	/* Tiny face: one pixel */
 	if(maxx-minx<20 && maxy-miny<20)
 	{
+		BENCH_HOOK(++g_benchCnt[S_TINY]);
 		if(!(flags&RP_TRANSPARENT))
 		{
 			raster_pixel((minx+maxx)>>5,(miny+maxy)>>5,flat);
@@ -295,6 +297,7 @@ static void draw_spoly(RVert *sv,int n,const u8 *tex,int flags,u8 flat)
 	m=n;
 	if(minx<-GUARD*16 || maxx>(vw+GUARD)*16 || miny<-GUARD*16 || maxy>(vh+GUARD)*16)
 	{
+		BENCH_HOOK(++g_benchCnt[S_GUARD]);
 		m=clip_2d(sv,m,tmp,0,-GUARD*16,1);
 		m=clip_2d(tmp,m,sv,0,(vw+GUARD)*16,-1);
 		m=clip_2d(sv,m,tmp,1,-GUARD*16,1);
@@ -324,6 +327,7 @@ static void draw_cpoly(const CVert *cv,int n,const u8 *tex,int flags,u8 flat)
 	{
 		if(cv[i].z<NEAR_Z)
 		{
+			BENCH_HOOK(++g_benchCnt[S_NEARCLIP]);
 			n=clip_near(cv,n,clipped);
 			if(n<3)
 			{
@@ -424,25 +428,86 @@ static int light_level_at(int x,int y,int z,int dir)
 	return face_light_level(world_light_at(x,y,z),dir,skyDarkenCur);
 }
 
+/* Is the box between grid lines xa..xb, ya..yb, za..zb wholly behind the
+   near plane or outside one side of the (slightly widened) view?  The
+   smallest value of a plane over the box is the sum of the smallest
+   values per axis.  Exact rejection (nothing it rejects would draw a
+   pixel), without projecting anything. */
+static int box_outside(int xa,int xb,int ya,int yb,int za,int zb)
+{
+	int k;
+	for(k=0; k<NPLANES; ++k)
+	{
+		int v=MIN(PX[k][xa],PX[k][xb])+MIN(PY[k][ya],PY[k][yb])+MIN(PZ[k][za],PZ[k][zb]);
+		if(v>(0==k ? -NEAR_Z : 0))
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light);
+
+/* Draw a piece of a quad near the camera (see draw_quad), ex by ez cells */
+static void draw_quad_split(int x,int y,int z,int dir,int ex,int ez,int tex,int light)
+{
+	int dx=(camBX<x) ? x-camBX : (camBX>=x+ex ? camBX-(x+ex-1) : 0);
+	int dz=(camBZ<z) ? z-camBZ : (camBZ>=z+ez ? camBZ-(z+ez-1) : 0);
+	int dist=MAX(dx,dz);
+	if(ex>=ez && ex>1 && ex>=dist)
+	{
+		draw_quad_split(x,y,z,dir,ex/2,ez,tex,light);
+		draw_quad_split(x+ex/2,y,z,dir,ex-ex/2,ez,tex,light);
+	}
+	else if(ez>1 && ez>=dist)
+	{
+		draw_quad_split(x,y,z,dir,ex,ez/2,tex,light);
+		draw_quad_split(x,y,z+ez/2,dir,ex,ez-ez/2,tex,light);
+	}
+	else if(ex>1 && ex>=dist)
+	{
+		draw_quad_split(x,y,z,dir,ex/2,ez,tex,light);
+		draw_quad_split(x+ex/2,y,z,dir,ex-ex/2,ez,tex,light);
+	}
+	else
+	{
+		/* Pieces are drawn without further splitting: (w,h) as draw_quad
+		   takes them for this direction */
+		draw_quad(x,y,z,dir|8,ex,ez,tex,light);
+	}
+}
+
 /* A mesh quad: extends w cells along x and h cells along z (top/bottom),
    or w cells along x (Z-facing), and repeats the texture per cell. */
 static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light)
 {
-	int ex=(dir<=DIR_PX) ? 1 : w;
-	int ez=(dir<=DIR_PY) ? h : 1;
-	/* Near the camera, affine texturing of a big quad visibly warps: draw it
-	   cell by cell instead.  Painter's order is unaffected (same plane). */
-	if((ex>1 || ez>1) && ABS(x+ex/2-camBX)<=ex/2+2 && ABS(z+ez/2-camBZ)<=ez/2+2 && ABS(y-camBY)<=3)
+	int split=!(dir&8),ex,ez;
+	dir&=7;
+	ex=(dir<=DIR_PX) ? 1 : w;
+	ez=(dir<=DIR_PY) ? h : 1;
+	BENCH_HOOK(++g_benchCnt[S_QUADS]);
+	/* Near the camera, affine texturing of a big quad visibly warps.  A
+	   quad reaching within 2 cells of the camera is halved along its
+	   longer side until each piece is shorter than its distance from the
+	   camera (in cells), so the cells within 2 are drawn one by one.  The
+	   texture repeats per cell, so the pieces map it the same way, and
+	   painter's order is unaffected (same plane). */
+	if(split && (ex>1 || ez>1) && ABS(y-camBY)<=3 &&
+	   x<=camBX+2 && x+ex>camBX-2 && z<=camBZ+2 && z+ez>camBZ-2)
 	{
-		int i,j;
-		for(j=0; j<ez; ++j)
-		{
-			for(i=0; i<ex; ++i)
-			{
-				draw_quad(x+i,y,z+j,dir,1,1,tex,light);
-			}
-		}
+		draw_quad_split(x,y,z,dir,ex,ez,tex,light);
 		return;
+	}
+	{
+		/* The face's corners: opposite corners TL and BR give both grid
+		   lines of each axis it spans (one for the axis it faces) */
+		const u8 *a=faceCorner[dir][0],*b=faceCorner[dir][2];
+		if(box_outside(x+(a[0] ? ex : 0),x+(b[0] ? ex : 0),y+a[1],y+b[1],z+(a[2] ? ez : 0),z+(b[2] ? ez : 0)))
+		{
+			BENCH_HOOK(++g_benchCnt[S_EARLY]);
+			return;
+		}
 	}
 	int L=face_light_level(light,dir,skyDarkenCur);
 	const u8 *tile=TEX_TILE(tex,L);
@@ -539,8 +604,14 @@ static void draw_cross(int bx,int by,int bz,int texId,int L)
 
 static void draw_model(int bx,int by,int bz,u8 b)
 {
-	int id=BLK_ID(b),meta=BLK_META(b);
-	int L=light_level_at(bx,by,bz,DIR_PY);
+	int id=BLK_ID(b),meta=BLK_META(b),L;
+	/* Models stay inside their cell */
+	if(box_outside(bx,bx+1,by,by+1,bz,bz+1))
+	{
+		BENCH_HOOK(++g_benchCnt[S_EARLY]);
+		return;
+	}
+	L=light_level_at(bx,by,bz,DIR_PY);
 	switch(id)
 	{
 	case B_TORCH:
@@ -1381,6 +1452,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		int kind;
 		if(ent>=0 && (key<0 || entKey[ent]>=itemKey[order[key]]))
 		{
+			BENCH_HOOK(++g_benchCnt[S_BOXES]);
 			draw_mbox(&boxes[entBox[ent--]]);
 			continue;
 		}
@@ -1390,6 +1462,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 			int x=it->a&255,z=(it->a>>8)&255,y=(it->a>>16)&63;
 			if(IK_MODEL==kind)
 			{
+				BENCH_HOOK(++g_benchCnt[S_MODELS]);
 				draw_model(x,y,z,(u8)it->b);
 			}
 			else

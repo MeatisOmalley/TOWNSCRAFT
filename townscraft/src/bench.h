@@ -29,7 +29,8 @@ enum
 	BO_EDIT_COLLECT=48,  /* Longest face list collect+sort after each edit */
 	BO_PHASE_COUNTS=64,  /* BO_COMPACTS..BO_LAYERS: 4 each at the end of
 	                        generation, of the edits and of the walk */
-	BO_COUNT=76
+	BO_SHOT=76,          /* BENCH_SHOTS builds: pose shown (1-based) */
+	BO_COUNT=77
 };
 
 /* Frame sections timed in the look and walk phases (g_benchSec[phase][]) */
@@ -49,13 +50,23 @@ enum
 	S_PIXELS,    /* Texels written by the span loops */
 	S_FACES,     /* Polygons passed to the rasterizer */
 	S_ITEMS,     /* Draw list items */
-	S_N=16
+	S_OFFSCREEN, /* Polygons rejected after projection: off screen */
+	S_TINY,      /* ... drawn as one pixel */
+	S_NEARCLIP,  /* Polygons clipped at the near plane */
+	S_QUADS,     /* draw_quad calls (including split cells) */
+	S_MODELS,    /* Model items */
+	S_BOXES,     /* Entity boxes drawn */
+	S_GUARD,     /* Polygons clipped at the guard band */
+	S_EARLY,     /* Quads and models rejected before projection */
+	S_N=24
 };
 
 #ifdef BENCH_EDIT
 extern u32 g_benchOut[BO_COUNT];
 extern u32 g_benchSec[2][S_N];
+extern u32 g_benchCnt[S_N];
 void bench_mark(int section);
+extern int g_benchFreeze;    /* No game ticks (screenshot poses) */
 u32 bench_us(void);
 void bench_gen_begin(void);
 void bench_gen_end(void);

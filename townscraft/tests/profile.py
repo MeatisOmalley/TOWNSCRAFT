@@ -38,10 +38,10 @@ if len(sys.argv) > 3:
     hi = min([a for a, n in syms if a > lo] + [1 << 32])
     inside = [s for s in samples if lo <= s < hi]
     addrs = Counter(inside)
-    out = subprocess.run(["addr2line", "-e", elf] + ["%x" % a for a in addrs], capture_output=True, text=True).stdout.split()
+    out = subprocess.run(["addr2line", "-e", elf] + ["%x" % a for a in addrs], capture_output=True, text=True).stdout.splitlines()
     lc = Counter()
     for (a, k), l in zip(addrs.items(), out):
-        lc[l.split("/")[-1]] += k
+        lc[l.split("/")[-1].split(" ")[0]] += k
     print("--- %s" % fn)
     for l, k in lc.most_common(20):
         print("%5d %s" % (k, l))

@@ -13,11 +13,36 @@
 #include "player.h"
 #include "fmath.h"
 #include "bench.h"
+#include "mobs.h"
+#include "game.h"
 
 #ifdef BENCH_EDIT
 
 u32 g_benchOut[BO_COUNT];
 u32 g_benchSec[2][S_N];
+u32 g_benchCnt[S_N];
+int g_benchFreeze;
+
+#ifdef BENCH_SHOTS
+/* Screenshot build (-DBENCH_SHOTS): fixed camera poses with the game
+   frozen (no ticks, no mobs, noon), each held 4 seconds, for comparing
+   renderer changes pixel by pixel (tests/bench_shots.py).  Offsets from
+   the spawn point in 1/16 blocks, yaw and pitch. */
+static const s16 shotPose[][4]=
+{
+	{0,0,0,-60},
+	{0,0,300,-20},
+	{85,43,600,0},
+	{-120,66,900,-35},
+	{163,-138,150,-80},
+	{8,200,512,30},
+	{-192,-192,700,-10},
+	{40,-24,128,-40},
+	{-60,180,256,-50},
+	{230,20,800,-25},
+};
+#define NSHOTS ((int)(sizeof(shotPose)/sizeof(shotPose[0])))
+#endif
 static int secPhase=-1;
 static u32 secMark;
 
@@ -167,6 +192,15 @@ void bench_frame(void)
 		g_benchSec[secPhase][S_ITEMS]+=g_statItems;
 	}
 	g_statPixels=0;
+	if(secPhase>=0)
+	{
+		int i;
+		for(i=S_OFFSCREEN; i<S_N; ++i)
+		{
+			g_benchSec[secPhase][i]+=g_benchCnt[i];
+		}
+	}
+	memset(g_benchCnt,0,sizeof(g_benchCnt));
 	now=bench_us();
 	ft=now-lastFrame;
 	lastFrame=now;
@@ -192,6 +226,30 @@ void bench_frame(void)
 		plan_edits();
 		return;
 	}
+#ifdef BENCH_SHOTS
+	{
+		u32 t=now-phaseStart;
+		int k=(int)(t/4000000u);
+		g_benchFreeze=1;
+		mobs_clear();
+		g_time=6000;
+		g_skyDarken=0;
+		if(k>=NSHOTS)
+		{
+			g_benchOut[BO_DONE]=1;
+			return;
+		}
+		g_player.body.x=(sx*16+8+shotPose[k][0])*256;
+		g_player.body.z=(sz*16+8+shotPose[k][1])*256;
+		g_player.body.y=world_surface_y(g_player.body.x>>12,g_player.body.z>>12)*FU;
+		g_player.body.vx=g_player.body.vy=g_player.body.vz=0;
+		g_player.yaw=shotPose[k][2]&ANG_MASK;
+		g_player.pitch=shotPose[k][3];
+		g_player.health=MAX_HEALTH;
+		g_benchOut[BO_SHOT]=(t%4000000u>=1500000u) ? k+1 : 0;
+		return;
+	}
+#endif
 	switch(phase)
 	{
 	case PH_SETTLE:

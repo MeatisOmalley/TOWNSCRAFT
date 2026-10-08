@@ -19,7 +19,7 @@ import time
 
 BO = dict(DONE=0, GEN_MS=1, IDLE_FRAMES=2, IDLE_SUM=3, WALK_FRAMES=4, WALK_SUM=5, WALK_MAX=6,
           WALK_OVER66=7, WALK_OVER100=8, WALK_UPD_MAX=9, EDIT=16, EDIT_UPD=32)
-NWORDS = 76
+NWORDS = 77
 
 
 def main():
@@ -58,7 +58,7 @@ def main():
     def dump():
         with lock:
             del lines[:]
-        p.stdin.write("!MD PHYS:%X 16 %d 1 0\n" % (addr, NWORDS * 4 // 16))
+        p.stdin.write("!MD PHYS:%X 16 %d 1 0\n" % (addr, (NWORDS * 4 + 15) // 16))
         p.stdin.flush()
         time.sleep(1.0)
         data = bytearray()
@@ -90,7 +90,7 @@ def main():
         if saddr:
             with lock:
                 del lines[:]
-            p.stdin.write("!MD PHYS:%X 16 8 1 0\n" % saddr)
+            p.stdin.write("!MD PHYS:%X 16 12 1 0\n" % saddr)
             p.stdin.flush()
             time.sleep(1.0)
             data = bytearray()
@@ -100,8 +100,8 @@ def main():
                 m = re.match(r"^([0-9A-F]{8})\s+((?:[0-9A-F]{2}\s?){16})", l)
                 if m:
                     data += bytes(int(b, 16) for b in m.group(2).split())
-            if len(data) >= 128:
-                sec = [int.from_bytes(data[i * 4:i * 4 + 4], "little") for i in range(32)]
+            if len(data) >= 192:
+                sec = [int.from_bytes(data[i * 4:i * 4 + 4], "little") for i in range(48)]
     if out and a.prof:
         paddr = None
         for line in subprocess.run(["nm", a.elf], capture_output=True, text=True).stdout.splitlines():
@@ -145,13 +145,15 @@ def main():
     print("look frame avg     : %8.1f ms  (%.1f fps)" % (look / 1000, 1e6 / max(1, look)))
     if sec:
         names = ["game", "update", "collect", "entsort", "wait", "sky", "draw", "finish", "hud", "present"]
-        for ph, row in (("look", sec[0:16]), ("walk", sec[16:32])):
+        for ph, row in (("look", sec[0:24]), ("walk", sec[24:48])):
             fr = max(1, row[10])
             tot = sum(row[0:10])
             print("%s: %d frames, %.1f ms/frame: " % (ph, row[10], tot / fr / 1000) +
                   " ".join("%s %.1f" % (n, row[i] / fr / 1000) for i, n in enumerate(names)))
             print("      per frame: %d texels (%.2fx of 160x100), %d polys, %d items" %
                   (row[11] / fr, row[11] / fr / 16000.0, row[12] / fr, row[13] / fr))
+            print("      per frame: %.1f quads (incl. split cells), %.1f models, %.1f mob boxes; %.1f rejected early; polys: %.1f off screen, %.1f tiny, %.1f near clipped, %.1f guard clipped" %
+                  tuple(row[i] / fr for i in (17, 18, 19, 21, 14, 15, 16, 20)))
     if a.prof:
         import os
         print(subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "profile.py"),
