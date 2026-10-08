@@ -13,6 +13,7 @@
    Camera-space positions of grid corners are sums of per-axis tables
    (TX[x]+TY[y]+TZ[z]), so transforming a face costs additions only. */
 #include "render.h"
+#include "bench.h"
 #include "raster.h"
 #include "fmath.h"
 #include "world.h"
@@ -56,6 +57,7 @@ static int planeLen[NPLANES];
 static int rot[3][3];            /* Rows: right, up, forward (2.14) */
 static int camBX,camBY,camBZ;
 static int floorOcclusion;      /* Proven opaque plane across the whole view */
+static int tabX0,tabX1,tabZ0,tabZ1;  /* Grid lines with valid TX/TZ/PX/PZ */
 static int vw,vh,focal16,cx16,cy16;
 static int skyDarkenCur;
 static u8 texTransparent[NUM_TEXTURES];
@@ -283,6 +285,7 @@ static void draw_spoly(RVert *sv,int n,const u8 *tex,int flags,u8 flat,int nearD
 	}
 	if(maxx<0 || maxy<0 || minx>=vw*16 || miny>=vh*16)
 	{
+		BENCH_HOOK(++g_benchCnt[S_OFFSCREEN]);
 		return;
 	}
 	if(occQuery && raster_occluded(minx,maxx,miny,maxy,nearDepth,occCurrentKey))
@@ -295,6 +298,7 @@ static void draw_spoly(RVert *sv,int n,const u8 *tex,int flags,u8 flat,int nearD
 	if(maxx-minx<20 && maxy-miny<20)
 	{
 		if(occCapture) return;
+		BENCH_HOOK(++g_benchCnt[S_TINY]);
 		if(!(flags&RP_TRANSPARENT))
 		{
 			raster_pixel((minx+maxx)>>5,(miny+maxy)>>5,flat);
@@ -315,6 +319,7 @@ static void draw_spoly(RVert *sv,int n,const u8 *tex,int flags,u8 flat,int nearD
 	m=n;
 	if(minx<-GUARD*16 || maxx>(vw+GUARD)*16 || miny<-GUARD*16 || maxy>(vh+GUARD)*16)
 	{
+		BENCH_HOOK(++g_benchCnt[S_GUARD]);
 		m=clip_2d(sv,m,tmp,0,-GUARD*16,1);
 		m=clip_2d(tmp,m,sv,0,(vw+GUARD)*16,-1);
 		m=clip_2d(sv,m,tmp,1,-GUARD*16,1);
@@ -349,6 +354,7 @@ static void draw_cpoly(const CVert *cv,int n,const u8 *tex,int flags,u8 flat)
 	{
 		if(cv[i].z<NEAR_Z)
 		{
+			BENCH_HOOK(++g_benchCnt[S_NEARCLIP]);
 			n=clip_near(cv,n,clipped);
 			if(n<3)
 			{
@@ -478,12 +484,65 @@ static int quad_in_frustum(int x,int y,int z,int dir,int ex,int ez)
 	return 1;
 }
 
+/* Is the box between grid lines xa..xb, ya..yb, za..zb wholly behind the
+   near plane or outside one side of the (slightly widened) view?  The
+   smallest value of a plane over the box is the sum of the smallest
+   values per axis.  Exact rejection (nothing it rejects would draw a
+   pixel), without projecting anything. */
+static int box_outside(int xa,int xb,int ya,int yb,int za,int zb)
+{
+	int k;
+	for(k=0; k<NPLANES; ++k)
+	{
+		int v=MIN(PX[k][xa],PX[k][xb])+MIN(PY[k][ya],PY[k][yb])+MIN(PZ[k][za],PZ[k][zb]);
+		if(v>(0==k ? -NEAR_Z : 0))
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light);
+
+/* Draw a piece of a quad near the camera (see draw_quad), ex by ez cells */
+static void draw_quad_split(int x,int y,int z,int dir,int ex,int ez,int tex,int light)
+{
+	int dx=(camBX<x) ? x-camBX : (camBX>=x+ex ? camBX-(x+ex-1) : 0);
+	int dz=(camBZ<z) ? z-camBZ : (camBZ>=z+ez ? camBZ-(z+ez-1) : 0);
+	int dist=MAX(dx,dz);
+	if(ex>=ez && ex>1 && ex>=dist)
+	{
+		draw_quad_split(x,y,z,dir,ex/2,ez,tex,light);
+		draw_quad_split(x+ex/2,y,z,dir,ex-ex/2,ez,tex,light);
+	}
+	else if(ez>1 && ez>=dist)
+	{
+		draw_quad_split(x,y,z,dir,ex,ez/2,tex,light);
+		draw_quad_split(x,y,z+ez/2,dir,ex,ez-ez/2,tex,light);
+	}
+	else if(ex>1 && ex>=dist)
+	{
+		draw_quad_split(x,y,z,dir,ex/2,ez,tex,light);
+		draw_quad_split(x+ex/2,y,z,dir,ex-ex/2,ez,tex,light);
+	}
+	else
+	{
+		/* Pieces are drawn without further splitting: (w,h) as draw_quad
+		   takes them for this direction */
+		draw_quad(x,y,z,dir|8,ex,ez,tex,light);
+	}
+}
+
 /* A mesh quad: extends w cells along x and h cells along z (top/bottom),
    or w cells along x (Z-facing), and repeats the texture per cell. */
 static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light)
 {
-	int ex=(dir<=DIR_PX) ? 1 : w;
-	int ez=(dir<=DIR_PY) ? h : 1;
+	int split=!(dir&8),ex,ez;
+	dir&=7;
+	ex=(dir<=DIR_PX) ? 1 : w;
+	ez=(dir<=DIR_PY) ? h : 1;
+	BENCH_HOOK(++g_benchCnt[S_QUADS]);
 	if(occCapture)
 	{
 		int nx=CLAMP(camBX,x,x+ex-1)-camBX,nz=CLAMP(camBZ,z,z+ez-1)-camBZ;
@@ -492,17 +551,21 @@ static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light)
 	if((g_distanceMode || occCapture) && !quad_in_frustum(x,y,z,dir,ex,ez)) return;
 	/* Near the camera, affine texturing of a big quad visibly warps: draw it
 	   cell by cell instead.  Painter's order is unaffected (same plane). */
-	if((ex>1 || ez>1) && ABS(x+ex/2-camBX)<=ex/2+2 && ABS(z+ez/2-camBZ)<=ez/2+2 && ABS(y-camBY)<=3)
+	if(split && (ex>1 || ez>1) && ABS(y-camBY)<=3 &&
+	   x<=camBX+2 && x+ex>camBX-2 && z<=camBZ+2 && z+ez>camBZ-2)
 	{
-		int i,j;
-		for(j=0; j<ez; ++j)
-		{
-			for(i=0; i<ex; ++i)
-			{
-				draw_quad(x+i,y,z+j,dir,1,1,tex,light);
-			}
-		}
+		draw_quad_split(x,y,z,dir,ex,ez,tex,light);
 		return;
+	}
+	{
+		/* The face's corners: opposite corners TL and BR give both grid
+		   lines of each axis it spans (one for the axis it faces) */
+		const u8 *a=faceCorner[dir][0],*b=faceCorner[dir][2];
+		if(box_outside(x+(a[0] ? ex : 0),x+(b[0] ? ex : 0),y+a[1],y+b[1],z+(a[2] ? ez : 0),z+(b[2] ? ez : 0)))
+		{
+			BENCH_HOOK(++g_benchCnt[S_EARLY]);
+			return;
+		}
 	}
 	int L=face_light_level(light,dir,skyDarkenCur);
 	const u8 *tile=TEX_TILE(tex,L);
@@ -608,8 +671,14 @@ static void draw_cross(int bx,int by,int bz,int texId,int L)
 
 static void draw_model(int bx,int by,int bz,u8 b)
 {
-	int id=BLK_ID(b),meta=BLK_META(b);
-	int L=light_level_at(bx,by,bz,DIR_PY);
+	int id=BLK_ID(b),meta=BLK_META(b),L;
+	/* Models stay inside their cell */
+	if(box_outside(bx,bx+1,by,by+1,bz,bz+1))
+	{
+		BENCH_HOOK(++g_benchCnt[S_EARLY]);
+		return;
+	}
+	L=light_level_at(bx,by,bz,DIR_PY);
 	switch(id)
 	{
 	case B_TORCH:
@@ -678,6 +747,24 @@ static void draw_model(int bx,int by,int bz,u8 b)
 
 static void draw_mbox(const MBox *mb)
 {
+	{
+		/* Whole box out of view?  With m the largest local coordinate and
+		   p the largest pivot coordinate (1/16 block), a corner is at most
+		   sqrt(3)*(m+p) from the pivot and the pivot sqrt(3)*p from the
+		   entity origin, so the cube of half size 2*(m+2p) holds the box.
+		   Test the grid cells around that cube. */
+		int m=MAX(MAX(ABS(mb->x0),ABS(mb->x1)),MAX(MAX(ABS(mb->y0),ABS(mb->y1)),MAX(ABS(mb->z0),ABS(mb->z1))));
+		int r=(m+2*MAX(ABS(mb->px),MAX(ABS(mb->py),ABS(mb->pz))))*2*16;   /* units */
+		int xa=(mb->ox-r)>>8,xb=((mb->ox+r)>>8)+1;
+		int ya=(mb->oy-r)>>8,yb=((mb->oy+r)>>8)+1;
+		int za=(mb->oz-r)>>8,zb=((mb->oz+r)>>8)+1;
+		if(xa>=tabX0 && xb<=tabX1 && za>=tabZ0 && zb<=tabZ1 && ya>=0 && yb<=WH &&
+		   box_outside(xa,xb,ya,yb,za,zb))
+		{
+			BENCH_HOOK(++g_benchCnt[S_EARLY]);
+			return;
+		}
+	}
 	++g_dbg[1];
 	int sy=fsin(mb->yaw),cy=fcos(mb->yaw),sp=fsin(mb->pitch),cp=fcos(mb->pitch);
 	int ew[3][3],ec[3][3];   /* Local axes in world, then in camera space (2.14) */
@@ -752,20 +839,57 @@ static void draw_mbox(const MBox *mb)
 
 /* ---------- Frame ---------- */
 
-static inline void plane_values(int *out,const V3 *v,int fpx,int hwp,int hhp)
+/* Camera-space vectors (T), visibility bits and plane values (P) of the
+   grid lines i0..i1 of one axis.  col selects the rotation column of the
+   axis.  Everything is linear in the line position, so it is computed with
+   running sums: the rotated coordinate (d*rot)>>14 by accumulating d*rot
+   exactly, and the products in the plane values by adding the multiplier
+   times the coordinate's step (which is q or q+1).  The results equal the
+   direct formulas. */
+static void axis_tables(V3 *T,u8 *vis,int **P,int i0,int i1,int cam,int col,u8 visPos,u8 visNeg,int fpx,int hwp,int hhp)
 {
-	int x=v->c[0],y=v->c[1],z=v->c[2];
-	out[0]=-z;
-	out[1]=fpx*x-hwp*z;
-	out[2]=-fpx*x-hwp*z;
-	out[3]=fpx*y-hhp*z;
-	out[4]=-fpx*y-hhp*z;
+	int i=i0,k,d=i0*256-cam;
+	int acc[3],step[3],q[3],cur[3];
+	int fx,fy,wz,hz,fxq[2],fyq[2],wzq[2],hzq[2];
+	for(k=0; k<3; ++k)
+	{
+		acc[k]=d*rot[k][col];
+		step[k]=256*rot[k][col];
+		q[k]=step[k]>>14;
+		cur[k]=acc[k]>>14;
+	}
+	fx=fpx*cur[0]; fy=fpx*cur[1]; wz=hwp*cur[2]; hz=hhp*cur[2];
+	fxq[0]=fpx*q[0]; fxq[1]=fxq[0]+fpx;
+	fyq[0]=fpx*q[1]; fyq[1]=fyq[0]+fpx;
+	wzq[0]=hwp*q[2]; wzq[1]=wzq[0]+hwp;
+	hzq[0]=hhp*q[2]; hzq[1]=hzq[0]+hhp;
+	for(;;)
+	{
+		int n;
+		T[i].c[0]=cur[0];
+		T[i].c[1]=cur[1];
+		T[i].c[2]=cur[2];
+		vis[i]=(d>0 ? visPos : 0)|((d+256)<0 ? visNeg : 0);
+		P[0][i]=-cur[2];
+		P[1][i]=fx-wz;
+		P[2][i]=-fx-wz;
+		P[3][i]=fy-hz;
+		P[4][i]=-fy-hz;
+		if(++i>i1)
+		{
+			break;
+		}
+		d+=256;
+		acc[0]+=step[0]; n=acc[0]>>14; fx+=fxq[n-cur[0]-q[0]]; cur[0]=n;
+		acc[1]+=step[1]; n=acc[1]>>14; fy+=fyq[n-cur[1]-q[1]]; cur[1]=n;
+		acc[2]+=step[2]; n=acc[2]>>14; k=n-cur[2]-q[2]; wz+=wzq[k]; hz+=hzq[k]; cur[2]=n;
+	}
 }
 
 static void setup_camera(void)
 {
 	int sy=fsin(g_cam.yaw),cy=fcos(g_cam.yaw),sp=fsin(g_cam.pitch),cp=fcos(g_cam.pitch);
-	int i,k,x0,x1,z0,z1,pv[NPLANES];
+	int i,k,x0,x1,z0,z1;
 	/* The planes are 1/8 wider than the view so that a collected list stays
 	   valid while the camera turns a little (see render_frame) */
 	int fpx=focal16>>4,hwp=vw/2+vw/16,hhp=vh/2+vh/16;
@@ -781,48 +905,10 @@ static void setup_camera(void)
 	/* Merged quads can reach 16 cells past the view distance */
 	x0=MAX(0,camBX-g_viewDist-18); x1=MIN(g_W,camBX+g_viewDist+18);
 	z0=MAX(0,camBZ-g_viewDist-18); z1=MIN(g_W,camBZ+g_viewDist+18);
-	for(i=x0; i<=x1; ++i)
-	{
-		int d=i*256-g_cam.x;
-		for(k=0; k<3; ++k)
-		{
-			TX[i].c[k]=(d*rot[k][0])>>14;
-		}
-		visX[i]=(d>0 ? 1 : 0)|((d+256)<0 ? 2 : 0);
-		plane_values(pv,&TX[i],fpx,hwp,hhp);
-		for(k=0; k<NPLANES; ++k)
-		{
-			PX[k][i]=pv[k];
-		}
-	}
-	for(i=z0; i<=z1; ++i)
-	{
-		int d=i*256-g_cam.z;
-		for(k=0; k<3; ++k)
-		{
-			TZ[i].c[k]=(d*rot[k][2])>>14;
-		}
-		visZ[i]=(d>0 ? 16 : 0)|((d+256)<0 ? 32 : 0);
-		plane_values(pv,&TZ[i],fpx,hwp,hhp);
-		for(k=0; k<NPLANES; ++k)
-		{
-			PZ[k][i]=pv[k];
-		}
-	}
-	for(i=0; i<=WH; ++i)
-	{
-		int d=i*256-g_cam.y;
-		for(k=0; k<3; ++k)
-		{
-			TY[i].c[k]=(d*rot[k][1])>>14;
-		}
-		visY[i]=(d>0 ? 4 : 0)|((d+256)<0 ? 8 : 0);
-		plane_values(pv,&TY[i],fpx,hwp,hhp);
-		for(k=0; k<NPLANES; ++k)
-		{
-			PY[k][i]=pv[k];
-		}
-	}
+	tabX0=x0; tabX1=x1; tabZ0=z0; tabZ1=z1;
+	axis_tables(TX,visX,PX,x0,x1,g_cam.x,0,1,2,fpx,hwp,hhp);
+	axis_tables(TZ,visZ,PZ,z0,z1,g_cam.z,2,16,32,fpx,hwp,hhp);
+	axis_tables(TY,visY,PY,0,WH,g_cam.y,1,4,8,fpx,hwp,hhp);
 	planeLen[0]=1;
 	planeLen[1]=planeLen[2]=isqrt((u32)(fpx*fpx+hwp*hwp));
 	planeLen[3]=planeLen[4]=isqrt((u32)(fpx*fpx+hhp*hhp));
@@ -1313,19 +1399,16 @@ static void draw_sky(const RenderEnv *env)
 #define CLOUD_CELL 16
 #define CLOUD_Y    60          /* Blocks */
 #define CLOUD_R    3           /* Cells around the camera */
-static void cloud_point(CVert *cv,int wx,int wy,int wz)
-{
-	int dx=wx-g_cam.x,dy=wy-g_cam.y,dz=wz-g_cam.z,k;
-	for(k=0; k<3; ++k)
-	{
-		(&cv->x)[k]=(dx*rot[k][0]+dy*rot[k][1]+dz*rot[k][2])>>14;
-	}
-	cv->u=cv->v=0;
-}
-
 static void draw_clouds(const RenderEnv *env)
 {
-	int cell=CLOUD_CELL*256,ccx,ccz,i,j;
+	/* Which cells around the camera's cell hold clouds: hashed only when
+	   the camera enters another cloud cell */
+	static int cachedX=0x7FFFFFFF,cachedZ;
+	static u8 cloudy[2*CLOUD_R+1][2*CLOUD_R+2];
+	/* Rotated offsets of the cloud grid lines, not yet shifted, so a
+	   corner is (px+py+pz)>>14: the rotation of its offset from the camera */
+	int px[2*CLOUD_R+2][3],pz[2*CLOUD_R+2][3],py[3];
+	int cell=CLOUD_CELL*256,ccx,ccz,i,j,k;
 	if(!env->cloudColor || env->underwater || env->underground)
 	{
 		return;
@@ -1334,30 +1417,61 @@ static void draw_clouds(const RenderEnv *env)
 	ccx=g_cam.x-env->cloudDrift;
 	ccx=(ccx>=0) ? ccx/cell : -((cell-1-ccx)/cell);   /* Floor division */
 	ccz=g_cam.z/cell;
-	for(j=-CLOUD_R; j<=CLOUD_R; ++j)
+	if(ccx!=cachedX || ccz!=cachedZ)
 	{
-		for(i=-CLOUD_R; i<=CLOUD_R; )
+		cachedX=ccx;
+		cachedZ=ccz;
+		for(j=-CLOUD_R; j<=CLOUD_R; ++j)
+		{
+			for(i=-CLOUD_R; i<=CLOUD_R; ++i)
+			{
+				cloudy[j+CLOUD_R][i+CLOUD_R]=(hash3(ccx+i,0,ccz+j,0xC10D)%100<35);
+			}
+			cloudy[j+CLOUD_R][2*CLOUD_R+1]=0;
+		}
+	}
+	for(i=0; i<2*CLOUD_R+2; ++i)
+	{
+		int dx=(ccx-CLOUD_R+i)*cell+env->cloudDrift-g_cam.x;
+		int dz=(ccz-CLOUD_R+i)*cell-g_cam.z;
+		for(k=0; k<3; ++k)
+		{
+			px[i][k]=dx*rot[k][0];
+			pz[i][k]=dz*rot[k][2];
+		}
+	}
+	for(k=0; k<3; ++k)
+	{
+		py[k]=(CLOUD_Y*256-g_cam.y)*rot[k][1];
+	}
+	for(j=0; j<2*CLOUD_R+1; ++j)
+	{
+		for(i=0; i<2*CLOUD_R+1; )
 		{
 			int i0;
-			if(hash3(ccx+i,0,ccz+j,0xC10D)%100>=35)
+			if(!cloudy[j][i])
 			{
 				++i;
 				continue;
 			}
 			i0=i;
-			while(i<=CLOUD_R && hash3(ccx+i,0,ccz+j,0xC10D)%100<35)
+			while(cloudy[j][i])
 			{
 				++i;
 			}
 			{
 				CVert cv[4];
-				int x0=(ccx+i0)*cell+env->cloudDrift,x1=(ccx+i)*cell+env->cloudDrift;
-				int z0=(ccz+j)*cell,z1=z0+cell,y=CLOUD_Y*256;
-				int k,behind=0,left=0,right=0,above=0;
-				cloud_point(&cv[0],x0,y,z0);
-				cloud_point(&cv[1],x1,y,z0);
-				cloud_point(&cv[2],x1,y,z1);
-				cloud_point(&cv[3],x0,y,z1);
+				int behind=0,left=0,right=0,above=0;
+				/* Corners (i0,j) (i,j) (i,j+1) (i0,j+1) of the run */
+				static const u8 cx[4]={0,1,1,0},cz[4]={0,0,1,1};
+				for(k=0; k<4; ++k)
+				{
+					const int *ax=px[cx[k] ? i : i0],*az=pz[j+cz[k]];
+					cv[k].x=(ax[0]+py[0]+az[0])>>14;
+					cv[k].y=(ax[1]+py[1]+az[1])>>14;
+					cv[k].z=(ax[2]+py[2]+az[2])>>14;
+					cv[k].u=cv[k].v=0;
+				}
 				/* Cheap rejection before projecting and clipping: all
 				   corners behind the camera, off one side or above the top */
 				for(k=0; k<4; ++k)
@@ -1460,9 +1574,11 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		   g_viewDist!=cView || floorOcclusion!=cFloor || dyaw>8 || ABS(g_cam.pitch-cPitch)>8)
 		{
 			u32 t=g_ticks;
+			BENCH_HOOK(u32 bt=bench_us());
 			nItems=0;
 			collect();
 			sort_items();
+			BENCH_HOOK(bench_collect(bench_us()-bt));
 			nStatic=nItems;
 			cBX=camBX; cBY=camBY; cBZ=camBZ;
 			cYaw=g_cam.yaw; cPitch=g_cam.pitch;
@@ -1472,6 +1588,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		}
 	}
 	build_occlusion();
+	BENCH_HOOK(bench_mark(S_COLLECT));
 	nEnt=0;
 	{
 		/* Entities span several cells.  Key each one by the cell holding
@@ -1540,11 +1657,14 @@ void render_frame(u8 *fb,const RenderEnv *env)
 	g_statItems=nStatic+nEnt;
 	g_dbg[0]=nBoxes;
 
+	BENCH_HOOK(bench_mark(S_ENT));
 	gfx_wait_flip();   /* First write to the frame buffer */
+	BENCH_HOOK(bench_mark(S_WAIT));
 	{u32 t=g_ticks;
 	draw_sky(env);
 	draw_clouds(env);
 	g_prof[1]+=g_ticks-t;}
+	BENCH_HOOK(bench_mark(S_SKY));
 	{u32 t=g_ticks;
 	/* Far to near: merge the (cached) face list with the entity list.  On
 	   equal keys entities go first, as the stable sort used to order them. */
@@ -1557,6 +1677,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		if(ent>=0 && (key<0 || entKey[ent]>=itemKey[order[key]]))
 		{
 			occCurrentKey=entKey[ent];
+			BENCH_HOOK(++g_benchCnt[S_BOXES]);
 			draw_mbox(&boxes[entBox[ent--]]);
 			continue;
 		}
@@ -1575,6 +1696,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 			int x=it->a&255,z=(it->a>>8)&255,y=(it->a>>16)&63;
 			if(IK_MODEL==kind)
 			{
+				BENCH_HOOK(++g_benchCnt[S_MODELS]);
 				draw_model(x,y,z,(u8)it->b);
 			}
 			else
@@ -1591,8 +1713,29 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		}
 	}
 	g_prof[2]+=g_ticks-t;}
+	BENCH_HOOK(bench_mark(S_DRAW));
+#ifdef BENCH_OVERDRAW
+	{
+		/* View pixels that still show the sky (top, horizon or fog color),
+		   for the overdraw estimate in tests/bench_edit.py */
+		int x,y,n=0;
+		u8 c0=env->skyColor,c1=(env->skyColor&0xF0)|MIN(15,(env->skyColor&15)+1),c2=env->fogColor;
+		for(y=0; y<vh; ++y)
+		{
+			const u8 *row=fb+y*g_renderScale*FB_PITCH;
+			for(x=0; x<vw; ++x)
+			{
+				u8 c=row[x*g_renderScale];
+				n+=(c==c0 || c==c1 || c==c2);
+			}
+		}
+		g_benchCnt[S_COVERED]+=vw*vh-n;
+		bench_mark(S_SCAN);   /* Not counted as drawing */
+	}
+#endif
 	draw_target_outline(env);
 	{u32 t=g_ticks;
 	raster_finish();
 	g_prof[3]+=g_ticks-t;}
+	BENCH_HOOK(bench_mark(S_FINISH));
 }

@@ -15,6 +15,7 @@
 #include "game.h"
 #include "sound.h"
 #include "save.h"
+#include "bench.h"
 
 int g_time;
 int g_skyDarken;
@@ -696,6 +697,7 @@ static void new_game(u32 seed)
 	{
 		extern int g_profEnable;
 		g_profEnable=1;
+		BENCH_HOOK(bench_gen_begin());
 		world_generate(seed);
 		g_profEnable=0;
 	}
@@ -742,6 +744,7 @@ static void new_game(u32 seed)
 	}
 #endif
 	stream_world(100000);
+	BENCH_HOOK(bench_gen_end());
 }
 
 /* ---------------- Weather ---------------- */
@@ -1533,6 +1536,9 @@ void kmain(void)
 	world_set_column_needed(mobs_column_needed);
 	render_init();
 	auto_detect_quality();
+#ifdef BENCH_FLAT
+	g_flatDist=BENCH_FLAT;     /* Benchmark: textured distance override */
+#endif
 	sound_init();
 	music_set_gap(800);      /* Title screen: play again after 8-16 s */
 	music_schedule(100);
@@ -1616,6 +1622,17 @@ void kmain(void)
 			useRepeat=5;
 		}
 
+#ifdef BENCH_EDIT
+		if(GS_TITLE==state)
+		{
+			new_game(FIXED_SEED);
+			state=GS_PLAY;
+		}
+		if(GS_PLAY==state)
+		{
+			bench_frame();
+		}
+#endif
 		if(GS_TITLE==state)
 		{
 			gfx_wait_flip();
@@ -1671,6 +1688,12 @@ void kmain(void)
 				breakHeld=g_keyDown[KEY_J] || (pad&PAD_A) || (mouse&MOUSE_L);
 			}
 			tickAccum+=elapsed;
+#ifdef BENCH_EDIT
+			if(g_benchFreeze)
+			{
+				tickAccum=0;
+			}
+#endif
 			while(tickAccum>=5 && n<4)
 			{
 				tickAccum-=5;
@@ -1698,10 +1721,14 @@ void kmain(void)
 				tickAccum=0;
 			}
 			raycast();
-			/* Relighting and new terrain share one background mesh budget. */
+			BENCH_HOOK(bench_mark(S_GAME));
+			BENCH_HOOK(bench_update_begin());
+			/* The column-backed world shares one small mesh budget with
+			   relighting, so incoming terrain cannot hitch gameplay. */
 			int meshWorked=world_update_dirty_chunks(1);
-			/* Column I/O and lighting still advance when a mesh used the budget. */
 			stream_world(meshWorked ? 0 : 1);
+			BENCH_HOOK(bench_update_end());
+			BENCH_HOOK(bench_mark(S_UPDATE));
 		}
 
 		{
@@ -1726,6 +1753,7 @@ void kmain(void)
 				{
 					gfx_darken(g_fb,0,0,SCR_W,SCR_H);
 				}
+				BENCH_HOOK(bench_mark(S_HUD));
 			}
 			syncPages=(inMenu && !menuFrozen);
 			menuFrozen=inMenu;
