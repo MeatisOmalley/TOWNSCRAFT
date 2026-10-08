@@ -12,6 +12,8 @@ Features works in the emulator at interactive frame rates.
 The current integrated production build is `TOWNSCRAFT.ISO` in this
 directory. Historical numbered builds remain under `iso/`; do not assume
 folder 17's older "merged_final" label means the latest source.
+The latest numbered launcher is
+[run_18_layer_merged.cmd](iso/18_9c11b1c1_layer_merged/run_18_layer_merged.cmd).
 See [PERFORMANCE_RESULTS.md](PERFORMANCE_RESULTS.md) for the integration
 decision and per-step measurements, and [BENCHMARKING.md](BENCHMARKING.md)
 for the standardized level, minimum-spec priority and individual tests.

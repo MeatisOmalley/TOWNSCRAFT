@@ -1,0 +1,8 @@
+{
+  "gameplay": true,
+  "width": 96,
+  "ticks": 2805,
+  "mesh_quads": 7454,
+  "frames_advancing": true,
+  "iso_sha256": "ce0185e3434761210a63e6c230d95a9289831c8f461e150f995efc16af8d1b8f"
+}
