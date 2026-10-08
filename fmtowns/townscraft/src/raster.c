@@ -13,6 +13,7 @@
 #include "raster.h"
 #include "fmath.h"
 #include "gfx.h"
+#include "bench.h"
 
 /* Layout shared with trap.S */
 typedef struct
@@ -291,6 +292,7 @@ static void poly_scan(const RVert *v,int n,const u8 *tile,int flags,u8 flat)
 					if(xl<0) xl=0;
 					if(xr>xl)
 					{
+						BENCH_HOOK(g_benchCnt[S_FLATPX]+=xr-xl);
 						memset(row+xl*rscale,flat,(xr-xl)*rscale);
 					}
 					left->x16+=left->dx;
