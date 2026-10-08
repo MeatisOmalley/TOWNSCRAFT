@@ -73,7 +73,8 @@ def build(a, out):
             'AUDIT_READY': 'world_column_ready(x/CS,z/CS)' if cached else '1',
             'AUDIT_HINDEX': 'height_index(x,z)' if cached else 'z*g_W+x',
             'AUDIT_FULL': 'build_chunk(cx,cy,cz)' if cached else 'rebuild_chunk(cx,cy,cz,0xffff)',
-            'AUDIT_LAYERS': '16' if cached else '__builtin_popcount((unsigned)c->dirtyLayers)',
+            'AUDIT_LAYERS': ('__builtin_popcount((unsigned)c->dirtyLayers)' if
+                             'dirtyLayers;' in (src / 'src/world.h').read_text() else '16'),
             'AUDIT_BUDGET': '1' if cached else '48',
             'AUDIT_LINEAR': ('cacheAllocated=0; g_columnMap=NULL; g_columnReady=NULL; '
                              'g_W=80; g_NC=5; strideZ=g_W*WH; g_allocChunkCount=75; '

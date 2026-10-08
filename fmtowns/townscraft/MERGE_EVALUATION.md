@@ -1,5 +1,36 @@
 # Local/master evaluation — 2026-10-08
 
+## Integration completed after approval
+
+Master's masked mesher, dirty layers and mesh-pool accounting now operate
+with cached terrain. Player geometry is processed before background work,
+including while a streaming-light job is pending. New meshes and full seam
+refreshes still have bounded four-layer preparation; ordinary edits do not.
+Outgoing cached-column seams now invalidate retained neighboring meshes.
+Pool compaction packs first and grows reservations backward to avoid
+overwriting unread source meshes. Bottom-chunk water sealing is refreshed
+for geometry changes, not only top-layer changes.
+
+The minimum-spec controlled removal takes 7.28 ms of mesh work in one
+update versus 57.80 ms over four updates before integration. A corner
+removal takes 9.44 ms in one update versus 173.72 ms over twelve updates.
+Ordered mesh hashes match the original master and full-rebuild references.
+Torch placement's lighting component is about 172 ms versus 159 ms before,
+but its total lighting plus mesh work drops from about 477 to 209 ms.
+Do not mistake the lighting component for an independently proven gain.
+
+Validation: 1,932 randomized linear edits; 1,328 cached 2 MB edits; 462
+cached 4 MB edits, each across 300 states; 3,200 exhaustive-stream search
+states; cache/pool invariants; floppy paging and interrupted-save recovery;
+active/dormant mob persistence; movement and keyboard tests; cave access;
+and 960 downward-view pixel-equivalence cases. Native Windows rendering
+tests adapt only assembly symbol names/ELF stack metadata in an ignored
+build copy, retaining the real scan loops. Raw integration edit measurements
+are in `tests/results/integrated-layer-edits-2026-10-08.json`.
+
+Historical and standardized frame-performance evaluation follows this
+integration. The sections below record the pre-integration decision.
+
 ## Decision
 
 Do not retain local's entire `world.c` just because it is newer. Master has

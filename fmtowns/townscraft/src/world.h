@@ -45,6 +45,8 @@ typedef struct
 	u8 dirty;          /* Immediate edits, or deferred light/stream rebuilds */
 	u8 sealed;         /* Bottom layer only: cannot be seen into from above */
 	u8 meshed;         /* Has a mesh (see world_stream) */
+	u16 dirtyLayers;   /* Changed Y layers; geometry publishes synchronously */
+	u8 waterSide,trimmed;
 } Chunk;
 
 enum

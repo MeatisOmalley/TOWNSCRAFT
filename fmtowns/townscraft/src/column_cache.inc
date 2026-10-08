@@ -15,7 +15,7 @@ static void cache_dirty_seam(int cx,int cz)
 		Chunk *c=&g_chunks[chunk_index(cx,cy,cz)];
 		/* Arriving terrain changes border visibility. Rebuild it within the
 		   travel budget; player edits retain their immediate priority. */
-		if(c->meshed && c->dirty!=DIRTY_GEOMETRY) c->dirty=DIRTY_STREAM;
+		if(c->meshed) dirty_layers(c,0xFFFF,DIRTY_STREAM);
 	}
 	if(meshJobCx==cx && meshJobCz==cz) mesh_cancel();
 }
@@ -215,6 +215,10 @@ static int cache_load(int cx,int cz,int slot)
 		if(residentDirty[slot] && !column_capture(ox,oz)) { streamError=2; return 0; }
 		unmesh_column(ox,oz);
 		g_columnMap[oz*g_NC+ox]=-1;
+		/* The outgoing terrain becomes solid/missing to its retained
+		   neighbors. Invalidate those faces as well as incoming seams. */
+		cache_dirty_seam(ox-1,oz); cache_dirty_seam(ox+1,oz);
+		cache_dirty_seam(ox,oz-1); cache_dirty_seam(ox,oz+1);
 	}
 	column_restore_valid(cx,cz,g_blocks+slot*COLUMN_CELLS);
 	g_columnCoords[slot*2]=cx; g_columnCoords[slot*2+1]=cz;

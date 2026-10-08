@@ -44,6 +44,33 @@ static void compare_resident(int px,int pz)
 }
 
 static u32 serialized[300000],serialPos;
+static u32 pool_digest(void)
+{
+	u32 hash=2166136261u;
+	for(int i=0;i<g_allocChunkCount;++i)
+	{
+		Chunk *c=&g_chunks[i];
+		hash=(hash^c->count)*16777619u;
+		for(int j=0;j<c->count*2;++j) hash=(hash^g_meshPool[c->off*2+j])*16777619u;
+	}
+	return hash;
+}
+static void check_pool(void)
+{
+	u32 quads=0,used=0;
+	for(int i=0;i<g_allocChunkCount;++i)
+	{
+		Chunk *c=&g_chunks[i]; quads+=c->count; used+=c->cap;
+		check(c->count<=c->cap && c->off+c->cap<=poolSize,"pool reservations are bounded");
+		for(int j=0;j<i;++j)
+		{
+			Chunk *p=&g_chunks[j];
+			check(!p->cap || !c->cap || p->off+p->cap<=c->off || c->off+c->cap<=p->off,
+			      "pool reservations never overlap");
+		}
+	}
+	check(quads==g_meshQuads && used==poolUsed,"pool counts match live ownership");
+}
 static void put_word(u32 value) { serialized[serialPos++]=value; }
 static u32 get_word(void) { return serialized[serialPos++]; }
 static int require_far(int *cx,int *cz)
@@ -66,9 +93,15 @@ int main(void)
 		compare_resident(g_spawnX,g_spawnZ);
 		/* A streamed seam must not turn into a frame-wide geometry burst. */
 		world_stream(48,48,20,100000);
+		check_pool();
+		/* Compaction must not overwrite later sources when reservations grow. */
+		u32 beforeCompact=pool_digest(); poolUsed=0;
+		for(int i=0;i<g_allocChunkCount;++i) { g_chunks[i].cap=g_chunks[i].count; poolUsed+=g_chunks[i].cap; }
+		pool_compact(); check_pool();
+		check(pool_digest()==beforeCompact,"growing compacted reservations preserves every mesh");
 		int deferred=0;
 		for(int i=0; i<g_allocChunkCount; ++i)
-			if(g_chunks[i].meshed) { g_chunks[i].dirty=DIRTY_STREAM; ++deferred; }
+			if(g_chunks[i].meshed) { dirty_layers(&g_chunks[i],0xFFFF,DIRTY_STREAM); ++deferred; }
 		check(deferred>1,"budget fixture has multiple resident meshes");
 		world_update_dirty_chunks(1);
 		int remaining=0;
@@ -80,13 +113,13 @@ int main(void)
 		check(remaining==deferred-1,"four steps publish one complete deferred mesh");
 		while(remaining-->0) for(int step=0; step<4; ++step) world_update_dirty_chunks(1);
 		Chunk *edited=&g_chunks[chunk_index(3,2,3)];
-		edited->dirty=DIRTY_GEOMETRY;
+		dirty_layers(edited,0xFFFF,DIRTY_GEOMETRY);
 		world_update_dirty_chunks(0);
 		check(!edited->dirty,"player geometry edits keep immediate rebuilds");
 		Chunk *progressive=&g_chunks[chunk_index(3,1,3)],expected=*progressive;
 		u32 *expectedQuads=calloc(expected.count,8);
 		memcpy(expectedQuads,g_meshPool+expected.off*2,expected.count*8);
-		progressive->dirty=DIRTY_STREAM;
+		dirty_layers(progressive,0xFFFF,DIRTY_STREAM);
 		for(int step=0; step<3; ++step)
 		{
 			check(world_update_dirty_chunks(1),"partial mesh work consumes the shared frame budget");
@@ -96,7 +129,7 @@ int main(void)
 		check(progressive->count==expected.count && !memcmp(g_meshPool+progressive->off*2,expectedQuads,expected.count*8) &&
 		      !memcmp(progressive->group,expected.group,sizeof(expected.group)) && !memcmp(progressive->gbox,expected.gbox,sizeof(expected.gbox)),
 		      "incremental mesh exactly matches synchronous geometry and bounds");
-		progressive->dirty=DIRTY_STREAM; world_update_dirty_chunks(1);
+		dirty_layers(progressive,0xFFFF,DIRTY_STREAM); world_update_dirty_chunks(1);
 		check(meshJobCx>=0,"edit fixture starts with an unfinished mesh");
 		world_set(49,40,49,B_GLASS);
 		check(meshJobCx<0,"block edit cancels stale partial geometry");
@@ -111,6 +144,7 @@ int main(void)
 			world_stream(x,z,20,100000);
 			compare_resident(x,z);
 			check(g_meshQuads<=poolSize,"travel stays within mesh pool");
+			check_pool();
 		}
 		/* Motion prepares the entering strip before the actual crossing. */
 		world_stream(32,48,20,100000);
@@ -119,7 +153,7 @@ int main(void)
 		check(cacheLightSlot>=0 && cacheSkyCell==64 && !residentReady[cacheLightSlot],"incoming sky initialization is limited to 64 stacks");
 		Chunk *waiting=&g_chunks[chunk_index(2,2,3)];
 		check(waiting->meshed,"pending-light mesh fixture is present");
-		waiting->dirty=DIRTY_LIGHT;
+		dirty_layers(waiting,0xFFFF,DIRTY_LIGHT);
 		u32 version=g_meshVersion;
 		world_update_dirty_chunks(1);
 		check(waiting->dirty==DIRTY_LIGHT && g_meshVersion==version,"meshes wait for settled streaming light");
@@ -141,7 +175,11 @@ int main(void)
 		cache_stream(g_W-8,g_W-8,1);
 		int editing=cacheLightSlot>=0 ? cacheLightSlot : g_columnMap[0];
 		world_set(g_columnCoords[editing*2]*CS+2,40,g_columnCoords[editing*2+1]*CS+2,B_GLASS);
-		check(cacheLightSlot==-1,"edit settles pending streaming light");
+		/* Edits queue their relight without stealing the stream job's channel.
+		   Geometry still publishes immediately, before that light job settles. */
+		world_update_dirty_chunks(0);
+		check(!g_chunks[chunk_index(g_columnCoords[editing*2],40/CS,g_columnCoords[editing*2+1])].dirty,
+		      "edit geometry publishes during pending streaming light");
 		world_stream(8,8,20,100000);
 		check(world_light_at(10,40,8)%16==13,"pending sky never becomes block light");
 		serialPos=0; check(world_save_columns(put_word,NULL),"column stream exports");

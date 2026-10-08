@@ -12,10 +12,16 @@ extern void exit(int);
 extern void qsort(void *,unsigned int,unsigned int,int (*)(const void *,const void *));
 
 u32 heap_high_free(void) { return 1024*1024; }
-u32 g_ramMB=4;
+#ifndef EDIT_RAM
+#define EDIT_RAM 4
+#endif
+u32 g_ramMB=EDIT_RAM;
 u32 heap_low_free(void) { return 200000; }
 void *heap_alloc_low(u32 n) { return calloc(1,n); }
 void *heap_alloc_high(u32 n) { return calloc(1,n); }
+u32 heap_high_mark(void) { return 0; }
+void heap_high_rewind(u32 mark) { (void)mark; }
+void fatal(const char *message) { printf("FATAL: %s\n",message); exit(1); }
 u32 render_mem_needed(int w) { (void)w; return 0; }
 
 typedef struct { u32 w0,w1; } Q;
@@ -35,13 +41,17 @@ typedef struct
 	Q *q;
 } Snap;
 static Snap *snap;
+static Chunk *test_chunk(int i)
+{
+	return &g_chunks[chunk_index((i/NCY)%g_NC,i%NCY,i/(g_NC*NCY))];
+}
 
 static void take(Snap *s)
 {
 	int i,n=g_NC*g_NC*NCY;
 	for(i=0;i<n;++i)
 	{
-		Chunk *c=&g_chunks[i];
+		Chunk *c=test_chunk(i);
 		int g,o=0;
 		free(s[i].q);
 		s[i].q=calloc(c->count+1,sizeof(Q));
@@ -66,7 +76,7 @@ static int check_order(void)
 	int i,n=g_NC*g_NC*NCY;
 	for(i=0;i<n;++i)
 	{
-		Chunk *c=&g_chunks[i];
+		Chunk *c=test_chunk(i);
 		const u32 *q=g_meshPool+c->off*2;
 		int g;
 		for(g=0;g<NGROUPS;++g)
@@ -127,6 +137,12 @@ int main(void)
 {
 	static const u8 palette[]={B_AIR,B_AIR,B_AIR,B_STONE,B_GLASS,B_LEAVES,B_PLANKS,B_TORCH,B_FLOWER,B_DIRT};
 	int width=96,step,edits=0;
+#ifdef EDIT_CACHED
+	world_alloc(); width=g_W;
+	/* Isolate partial-mesh equivalence from eviction order; real-budget
+	   pool ownership/pressure is covered by column_cache_test. */
+	poolSize=200000; g_meshPool=calloc(poolSize,8);
+#else
 	g_W=width; g_NC=width/CS; strideZ=width*WH;
 	g_blocks=calloc(width*width*WH,1); g_light=calloc(width*width*WH,1);
 	g_height=calloc(width*width,1); g_zOff=calloc(width,4);
@@ -134,12 +150,16 @@ int main(void)
 	g_chunks=calloc(g_NC*g_NC*NCY,sizeof(Chunk));
 	poolSize=200000; g_meshPool=calloc(poolSize,8);
 	pq=calloc(PQ_LEN,4); rq=calloc(RQ_LEN,4); init_hides_tab();
+#endif
 	snap=calloc(g_NC*g_NC*NCY,sizeof(Snap));
 	Snap *full=calloc(g_NC*g_NC*NCY,sizeof(Snap));
 	world_generate(4242);
 	world_stream(g_W/2,g_W/2,200,100000);
 	for(step=0;step<300;++step)
 	{
+#ifdef EDIT_CACHED
+		if(step%20==0) world_stream(8+(step*7)%(g_W-16),8+(step*11)%(g_W-16),20,100000);
+#endif
 		int k,m=1+rn(12);
 		for(k=0;k<m;++k)
 		{
@@ -150,6 +170,7 @@ int main(void)
 			x=CLAMP(x,0,g_W-1); z=CLAMP(z,0,g_W-1);
 			y=rn(4)==0 ? rn(WH) : world_surface_y(x,z)-1+rn(3);
 			if(!in_world(x,y,z)) continue;
+			if(!world_column_ready(x/CS,z/CS)) continue;
 			world_set(x,y,z,palette[rn(sizeof(palette))]);
 			++edits;
 			if(rn(4)==0)
@@ -164,7 +185,7 @@ int main(void)
 		/* Full rebuild of everything for reference */
 		for(int i=0;i<g_NC*g_NC*NCY;++i)
 		{
-			if(g_chunks[i].meshed)
+			if(test_chunk(i)->meshed)
 				rebuild_chunk((i/NCY)%g_NC,i%NCY,i/(NCY*g_NC),0xFFFF);
 		}
 		take(full);
