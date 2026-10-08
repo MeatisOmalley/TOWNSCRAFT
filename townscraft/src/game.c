@@ -15,6 +15,7 @@
 #include "game.h"
 #include "sound.h"
 #include "save.h"
+#include "bench.h"
 
 int g_time;
 int g_skyDarken;
@@ -687,6 +688,7 @@ static void new_game(u32 seed)
 	{
 		extern int g_profEnable;
 		g_profEnable=1;
+		BENCH_HOOK(bench_gen_begin());
 		world_generate(seed);
 		g_profEnable=0;
 	}
@@ -733,6 +735,7 @@ static void new_game(u32 seed)
 	}
 #endif
 	stream_world(100000);
+	BENCH_HOOK(bench_gen_end());
 }
 
 /* ---------------- Weather ---------------- */
@@ -1602,6 +1605,17 @@ void kmain(void)
 			useRepeat=5;
 		}
 
+#ifdef BENCH_EDIT
+		if(GS_TITLE==state)
+		{
+			new_game(FIXED_SEED);
+			state=GS_PLAY;
+		}
+		if(GS_PLAY==state)
+		{
+			bench_frame();
+		}
+#endif
 		if(GS_TITLE==state)
 		{
 			gfx_wait_flip();
@@ -1685,9 +1699,11 @@ void kmain(void)
 			}
 			raycast();
 			/* Budgeted relighting of chunks whose light changed */
+			BENCH_HOOK(bench_update_begin());
 			world_update_dirty_chunks(1);
 			/* Mesh chunks coming into range, one per frame */
 			stream_world(1);
+			BENCH_HOOK(bench_update_end());
 		}
 
 		{

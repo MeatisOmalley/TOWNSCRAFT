@@ -13,6 +13,7 @@
    Camera-space positions of grid corners are sums of per-axis tables
    (TX[x]+TY[y]+TZ[z]), so transforming a face costs additions only. */
 #include "render.h"
+#include "bench.h"
 #include "raster.h"
 #include "fmath.h"
 #include "world.h"
@@ -1291,9 +1292,11 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		   g_viewDist!=cView || dyaw>8 || ABS(g_cam.pitch-cPitch)>8)
 		{
 			u32 t=g_ticks;
+			BENCH_HOOK(u32 bt=bench_us());
 			nItems=0;
 			collect();
 			sort_items();
+			BENCH_HOOK(bench_collect(bench_us()-bt));
 			nStatic=nItems;
 			cBX=camBX; cBY=camBY; cBZ=camBZ;
 			cYaw=g_cam.yaw; cPitch=g_cam.pitch;
