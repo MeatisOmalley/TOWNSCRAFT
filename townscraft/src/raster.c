@@ -8,14 +8,15 @@
    trapezoids (rows between vertex events), each drawn by one call to the
    assembly loops in trap.S.
 
-   Interlaced mode (g_interlace) draws every other row, alternating every
-   second frame so that each of the two VRAM pages gets both halves in
-   turn; the rows not drawn keep the image from two frames before.
+   Interlaced mode (g_interlace) draws every other row, alternating on
+   each VRAM page so that every page gets both halves in turn; the rows
+   not drawn keep the image from three frames before.
 
    In scale 2 mode each render pixel is written as two bytes into the frame
    buffer, and raster_finish() copies even rows to odd rows. */
 #include "raster.h"
 #include "fmath.h"
+#include "gfx.h"
 
 /* Layout shared with trap.S */
 typedef struct
@@ -55,14 +56,15 @@ u32 g_statPixels;
 void raster_set_target(u8 *buf,int w,int h,int pitch,int scale)
 {
 	int i;
-	static u32 frameNo;
+	static u8 pageFrames[3];
+	int page=gfx_back_page();
 	rbuf=buf;
 	rw=w;
 	rh=h;
 	rpitch=pitch;
-	++frameNo;
+	++pageFrames[page];
 	rstep=g_interlace ? 2 : 1;
-	rpar=g_interlace ? (int)((frameNo>>1)&1) : 0;
+	rpar=g_interlace ? (pageFrames[page]&1) : 0;
 	rscale=scale;
 	if(0==g_recip14[1])
 	{

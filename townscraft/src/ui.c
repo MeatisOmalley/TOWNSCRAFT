@@ -161,12 +161,12 @@ typedef struct
 	Slot slots[HOTBAR];
 	int selected,health,blink,air;
 } HudKey;
-static HudKey hudKey[2];
-static int hudValid[2];
+static HudKey hudKey[3];
+static int hudValid[3];
 
 void ui_hud_invalidate(void)
 {
-	hudValid[0]=hudValid[1]=0;
+	hudValid[0]=hudValid[1]=hudValid[2]=0;
 }
 
 void ui_hud_strip(u8 *fb,int page,int selected,int health,int blink,int air)
