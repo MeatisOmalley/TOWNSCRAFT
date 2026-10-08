@@ -18,6 +18,8 @@ enum
 	BO_WALK_OVER66=7,    /* Frames longer than 66ms */
 	BO_WALK_OVER100=8,
 	BO_WALK_UPD_MAX=9,   /* Longest world update (meshes) in one frame */
+	BO_LOOK_FRAMES=14,   /* Standing, looking in 8 directions */
+	BO_LOOK_SUM=15,
 	BO_COMPACTS=10,      /* Mesh pool compactions (whole run) */
 	BO_EVICTS=11,        /* Columns evicted from the mesh pool */
 	BO_REBUILDS=12,      /* Chunk mesh rebuilds (partial or whole) */
@@ -30,8 +32,30 @@ enum
 	BO_COUNT=76
 };
 
+/* Frame sections timed in the look and walk phases (g_benchSec[phase][]) */
+enum
+{
+	S_GAME,      /* Input, game ticks */
+	S_UPDATE,    /* Mesh updates and streaming */
+	S_COLLECT,   /* Camera setup, mob boxes, face list collect and sort */
+	S_ENT,       /* Entity sorting */
+	S_WAIT,      /* Waiting for the page flip */
+	S_SKY,       /* Sky and clouds */
+	S_DRAW,      /* Faces, models and entities */
+	S_FINISH,    /* Target outline, row doubling */
+	S_HUD,       /* Rain, HUD, menus */
+	S_PRESENT,   /* Flip and the rest of the loop */
+	S_FRAMES=10,
+	S_PIXELS,    /* Texels written by the span loops */
+	S_FACES,     /* Polygons passed to the rasterizer */
+	S_ITEMS,     /* Draw list items */
+	S_N=16
+};
+
 #ifdef BENCH_EDIT
 extern u32 g_benchOut[BO_COUNT];
+extern u32 g_benchSec[2][S_N];
+void bench_mark(int section);
 u32 bench_us(void);
 void bench_gen_begin(void);
 void bench_gen_end(void);

@@ -80,6 +80,28 @@ def main():
         if v and v[0] == 1:
             out = v
             break
+    sec = None
+    if out:
+        saddr = None
+        for line in subprocess.run(["nm", a.elf], capture_output=True, text=True).stdout.splitlines():
+            q = line.split()
+            if len(q) == 3 and q[2] == "g_benchSec":
+                saddr = int(q[0], 16)
+        if saddr:
+            with lock:
+                del lines[:]
+            p.stdin.write("!MD PHYS:%X 16 8 1 0\n" % saddr)
+            p.stdin.flush()
+            time.sleep(1.0)
+            data = bytearray()
+            with lock:
+                ls = list(lines)
+            for l in ls:
+                m = re.match(r"^([0-9A-F]{8})\s+((?:[0-9A-F]{2}\s?){16})", l)
+                if m:
+                    data += bytes(int(b, 16) for b in m.group(2).split())
+            if len(data) >= 128:
+                sec = [int.from_bytes(data[i * 4:i * 4 + 4], "little") for i in range(32)]
     if out and a.prof:
         paddr = None
         for line in subprocess.run(["nm", a.elf], capture_output=True, text=True).stdout.splitlines():
@@ -119,6 +141,17 @@ def main():
     for name, k in (("start", 0), ("edits", 1), ("walk", 2)):
         d = [pc[k * 4 + i] - (pc[(k - 1) * 4 + i] if k else 0) for i in range(4)]
         print("%-6s pool compactions %d, evictions %d, rebuilds %d (%d layers)" % ((name,) + tuple(d)))
+    look = out[15] / max(1, out[14])
+    print("look frame avg     : %8.1f ms  (%.1f fps)" % (look / 1000, 1e6 / max(1, look)))
+    if sec:
+        names = ["game", "update", "collect", "entsort", "wait", "sky", "draw", "finish", "hud", "present"]
+        for ph, row in (("look", sec[0:16]), ("walk", sec[16:32])):
+            fr = max(1, row[10])
+            tot = sum(row[0:10])
+            print("%s: %d frames, %.1f ms/frame: " % (ph, row[10], tot / fr / 1000) +
+                  " ".join("%s %.1f" % (n, row[i] / fr / 1000) for i, n in enumerate(names)))
+            print("      per frame: %d texels (%.2fx of 160x100), %d polys, %d items" %
+                  (row[11] / fr, row[11] / fr / 16000.0, row[12] / fr, row[13] / fr))
     if a.prof:
         import os
         print(subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "profile.py"),

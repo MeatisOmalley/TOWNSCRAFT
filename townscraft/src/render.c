@@ -1304,6 +1304,7 @@ void render_frame(u8 *fb,const RenderEnv *env)
 			g_prof[0]+=g_ticks-t;
 		}
 	}
+	BENCH_HOOK(bench_mark(S_COLLECT));
 	nEnt=0;
 	{
 		/* Entities span several cells.  Key each one by the cell holding
@@ -1363,11 +1364,14 @@ void render_frame(u8 *fb,const RenderEnv *env)
 	g_statItems=nStatic+nEnt;
 	g_dbg[0]=nBoxes;
 
+	BENCH_HOOK(bench_mark(S_ENT));
 	gfx_wait_flip();   /* First write to the frame buffer */
+	BENCH_HOOK(bench_mark(S_WAIT));
 	{u32 t=g_ticks;
 	draw_sky(env);
 	draw_clouds(env);
 	g_prof[1]+=g_ticks-t;}
+	BENCH_HOOK(bench_mark(S_SKY));
 	{u32 t=g_ticks;
 	/* Far to near: merge the (cached) face list with the entity list.  On
 	   equal keys entities go first, as the stable sort used to order them. */
@@ -1395,8 +1399,10 @@ void render_frame(u8 *fb,const RenderEnv *env)
 		}
 	}
 	g_prof[2]+=g_ticks-t;}
+	BENCH_HOOK(bench_mark(S_DRAW));
 	draw_target_outline(env);
 	{u32 t=g_ticks;
 	raster_finish();
 	g_prof[3]+=g_ticks-t;}
+	BENCH_HOOK(bench_mark(S_FINISH));
 }

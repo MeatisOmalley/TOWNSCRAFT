@@ -1523,6 +1523,9 @@ void kmain(void)
 	world_alloc();
 	render_init();
 	auto_detect_quality();
+#ifdef BENCH_FLAT
+	g_flatDist=BENCH_FLAT;     /* Benchmark: textured distance override */
+#endif
 	sound_init();
 	music_set_gap(800);      /* Title screen: play again after 8-16 s */
 	music_schedule(100);
@@ -1701,11 +1704,13 @@ void kmain(void)
 			/* Rebuild the layers of chunk meshes that edits changed.  Light
 			   changes spreading into other chunks are budgeted (in layers of
 			   16x16 cells) so a torch cannot stall a frame. */
+			BENCH_HOOK(bench_mark(S_GAME));
 			BENCH_HOOK(bench_update_begin());
 			world_update_dirty_chunks(48);
 			/* Mesh chunks coming into range, one per frame */
 			stream_world(1);
 			BENCH_HOOK(bench_update_end());
+			BENCH_HOOK(bench_mark(S_UPDATE));
 		}
 
 		{
@@ -1730,6 +1735,7 @@ void kmain(void)
 				{
 					gfx_darken(g_fb,0,0,SCR_W,SCR_H);
 				}
+				BENCH_HOOK(bench_mark(S_HUD));
 			}
 			syncPages=(inMenu && !menuFrozen);
 			menuFrozen=inMenu;

@@ -17,6 +17,9 @@
 #ifdef BENCH_EDIT
 
 u32 g_benchOut[BO_COUNT];
+u32 g_benchSec[2][S_N];
+static int secPhase=-1;
+static u32 secMark;
 
 /* Microseconds from the 16-bit 1MHz free running counter (I/O 26h), with
    the 100Hz tick count resolving its wraparound */
@@ -47,8 +50,19 @@ void bench_gen_end(void)
 
 enum
 {
-	PH_SETTLE,PH_EDIT,PH_WALK,PH_DONE
+	PH_SETTLE,PH_LOOK,PH_EDIT,PH_WALK,PH_DONE
 };
+
+/* Time since the previous mark goes to a frame section */
+void bench_mark(int section)
+{
+	u32 t=bench_us();
+	if(secPhase>=0)
+	{
+		g_benchSec[secPhase][section]+=t-secMark;
+	}
+	secMark=t;
+}
 /* Profile builds repeat the edit sequence for more samples */
 #ifndef BENCH_REPS
 #define BENCH_REPS 1
@@ -99,7 +113,8 @@ static void do_edit(int i)
 
 /* BENCH_PROF selects what the sampling profiler records: 1 world
    generation (the game's default), 2 world updates after edits, 3 world
-   updates while walking, 4 whole frames after edits, 5 whole walk frames */
+   updates while walking, 4 whole frames after edits, 5 whole walk frames,
+   6 whole frames while looking around */
 #ifndef BENCH_PROF
 #define BENCH_PROF 1
 #endif
@@ -140,8 +155,20 @@ void bench_collect(u32 us)
 /* Called once per frame, before input and game ticks */
 void bench_frame(void)
 {
-	u32 now=bench_us(),ft=now-lastFrame,upd=frameUpd,col=frameCollect;
+	u32 now,ft,upd=frameUpd,col=frameCollect;
 	int first=(0==lastFrame);
+	extern u32 g_statPixels,g_statFaces,g_statItems;
+	bench_mark(S_PRESENT);
+	if(secPhase>=0)
+	{
+		++g_benchSec[secPhase][S_FRAMES];
+		g_benchSec[secPhase][S_PIXELS]+=g_statPixels;
+		g_benchSec[secPhase][S_FACES]+=g_statFaces;
+		g_benchSec[secPhase][S_ITEMS]+=g_statItems;
+	}
+	g_statPixels=0;
+	now=bench_us();
+	ft=now-lastFrame;
 	lastFrame=now;
 	frameUpd=0;
 	frameCollect=0;
@@ -152,6 +179,10 @@ void bench_frame(void)
 	if(5==BENCH_PROF)
 	{
 		g_profEnable=(PH_WALK==phase);
+	}
+	if(6==BENCH_PROF)
+	{
+		g_profEnable=(PH_LOOK==phase);
 	}
 	if(first)
 	{
@@ -168,7 +199,35 @@ void bench_frame(void)
 		g_player.pitch=-60;
 		if(now-phaseStart>=2000000)
 		{
-			if(BENCH_PROF>1)
+			phase=PH_LOOK;
+			phaseStart=now;
+			secPhase=0;
+			if(6==BENCH_PROF)
+			{
+				extern u32 g_profSamples[];
+				g_profCount=0;
+				memset(g_profSamples,0,4096*4);
+			}
+		}
+		break;
+	case PH_LOOK:
+		/* 8 directions, 2 seconds each (as the BENCH build) */
+		if(now-phaseStart<16000000)
+		{
+			g_player.yaw=((now-phaseStart)/2000000)*128;
+			g_player.pitch=-40;
+			if(now-phaseStart>=100000)
+			{
+				g_benchOut[BO_LOOK_SUM]+=ft;
+				++g_benchOut[BO_LOOK_FRAMES];
+			}
+		}
+		else
+		{
+			secPhase=-1;
+			g_player.yaw=0;
+			g_player.pitch=-60;
+			if(BENCH_PROF>1 && 6!=BENCH_PROF)
 			{
 				extern u32 g_profSamples[];
 				g_profCount=0;
@@ -212,6 +271,7 @@ void bench_frame(void)
 				phase=PH_WALK;
 				phase_counts(1);
 				phaseStart=now;
+				secPhase=1;
 				walkCX=g_W/2;
 				walkCZ=g_W/2;
 				walkR=28;
@@ -231,6 +291,7 @@ void bench_frame(void)
 			if(t>BENCH_WALK_SEC*1000000u)
 			{
 				phase=PH_DONE;
+				secPhase=-1;
 				phase_counts(2);
 				g_benchOut[BO_DONE]=1;
 				break;
