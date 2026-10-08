@@ -754,20 +754,57 @@ static void draw_mbox(const MBox *mb)
 
 /* ---------- Frame ---------- */
 
-static inline void plane_values(int *out,const V3 *v,int fpx,int hwp,int hhp)
+/* Camera-space vectors (T), visibility bits and plane values (P) of the
+   grid lines i0..i1 of one axis.  col selects the rotation column of the
+   axis.  Everything is linear in the line position, so it is computed with
+   running sums: the rotated coordinate (d*rot)>>14 by accumulating d*rot
+   exactly, and the products in the plane values by adding the multiplier
+   times the coordinate's step (which is q or q+1).  The results equal the
+   direct formulas. */
+static void axis_tables(V3 *T,u8 *vis,int **P,int i0,int i1,int cam,int col,u8 visPos,u8 visNeg,int fpx,int hwp,int hhp)
 {
-	int x=v->c[0],y=v->c[1],z=v->c[2];
-	out[0]=-z;
-	out[1]=fpx*x-hwp*z;
-	out[2]=-fpx*x-hwp*z;
-	out[3]=fpx*y-hhp*z;
-	out[4]=-fpx*y-hhp*z;
+	int i=i0,k,d=i0*256-cam;
+	int acc[3],step[3],q[3],cur[3];
+	int fx,fy,wz,hz,fxq[2],fyq[2],wzq[2],hzq[2];
+	for(k=0; k<3; ++k)
+	{
+		acc[k]=d*rot[k][col];
+		step[k]=256*rot[k][col];
+		q[k]=step[k]>>14;
+		cur[k]=acc[k]>>14;
+	}
+	fx=fpx*cur[0]; fy=fpx*cur[1]; wz=hwp*cur[2]; hz=hhp*cur[2];
+	fxq[0]=fpx*q[0]; fxq[1]=fxq[0]+fpx;
+	fyq[0]=fpx*q[1]; fyq[1]=fyq[0]+fpx;
+	wzq[0]=hwp*q[2]; wzq[1]=wzq[0]+hwp;
+	hzq[0]=hhp*q[2]; hzq[1]=hzq[0]+hhp;
+	for(;;)
+	{
+		int n;
+		T[i].c[0]=cur[0];
+		T[i].c[1]=cur[1];
+		T[i].c[2]=cur[2];
+		vis[i]=(d>0 ? visPos : 0)|((d+256)<0 ? visNeg : 0);
+		P[0][i]=-cur[2];
+		P[1][i]=fx-wz;
+		P[2][i]=-fx-wz;
+		P[3][i]=fy-hz;
+		P[4][i]=-fy-hz;
+		if(++i>i1)
+		{
+			break;
+		}
+		d+=256;
+		acc[0]+=step[0]; n=acc[0]>>14; fx+=fxq[n-cur[0]-q[0]]; cur[0]=n;
+		acc[1]+=step[1]; n=acc[1]>>14; fy+=fyq[n-cur[1]-q[1]]; cur[1]=n;
+		acc[2]+=step[2]; n=acc[2]>>14; k=n-cur[2]-q[2]; wz+=wzq[k]; hz+=hzq[k]; cur[2]=n;
+	}
 }
 
 static void setup_camera(void)
 {
 	int sy=fsin(g_cam.yaw),cy=fcos(g_cam.yaw),sp=fsin(g_cam.pitch),cp=fcos(g_cam.pitch);
-	int i,k,x0,x1,z0,z1,pv[NPLANES];
+	int i,k,x0,x1,z0,z1;
 	/* The planes are 1/8 wider than the view so that a collected list stays
 	   valid while the camera turns a little (see render_frame) */
 	int fpx=focal16>>4,hwp=vw/2+vw/16,hhp=vh/2+vh/16;
@@ -783,48 +820,9 @@ static void setup_camera(void)
 	/* Merged quads can reach 16 cells past the view distance */
 	x0=MAX(0,camBX-g_viewDist-18); x1=MIN(g_W,camBX+g_viewDist+18);
 	z0=MAX(0,camBZ-g_viewDist-18); z1=MIN(g_W,camBZ+g_viewDist+18);
-	for(i=x0; i<=x1; ++i)
-	{
-		int d=i*256-g_cam.x;
-		for(k=0; k<3; ++k)
-		{
-			TX[i].c[k]=(d*rot[k][0])>>14;
-		}
-		visX[i]=(d>0 ? 1 : 0)|((d+256)<0 ? 2 : 0);
-		plane_values(pv,&TX[i],fpx,hwp,hhp);
-		for(k=0; k<NPLANES; ++k)
-		{
-			PX[k][i]=pv[k];
-		}
-	}
-	for(i=z0; i<=z1; ++i)
-	{
-		int d=i*256-g_cam.z;
-		for(k=0; k<3; ++k)
-		{
-			TZ[i].c[k]=(d*rot[k][2])>>14;
-		}
-		visZ[i]=(d>0 ? 16 : 0)|((d+256)<0 ? 32 : 0);
-		plane_values(pv,&TZ[i],fpx,hwp,hhp);
-		for(k=0; k<NPLANES; ++k)
-		{
-			PZ[k][i]=pv[k];
-		}
-	}
-	for(i=0; i<=WH; ++i)
-	{
-		int d=i*256-g_cam.y;
-		for(k=0; k<3; ++k)
-		{
-			TY[i].c[k]=(d*rot[k][1])>>14;
-		}
-		visY[i]=(d>0 ? 4 : 0)|((d+256)<0 ? 8 : 0);
-		plane_values(pv,&TY[i],fpx,hwp,hhp);
-		for(k=0; k<NPLANES; ++k)
-		{
-			PY[k][i]=pv[k];
-		}
-	}
+	axis_tables(TX,visX,PX,x0,x1,g_cam.x,0,1,2,fpx,hwp,hhp);
+	axis_tables(TZ,visZ,PZ,z0,z1,g_cam.z,2,16,32,fpx,hwp,hhp);
+	axis_tables(TY,visY,PY,0,WH,g_cam.y,1,4,8,fpx,hwp,hhp);
 	planeLen[0]=1;
 	planeLen[1]=planeLen[2]=isqrt((u32)(fpx*fpx+hwp*hwp));
 	planeLen[3]=planeLen[4]=isqrt((u32)(fpx*fpx+hhp*hhp));
@@ -1229,19 +1227,16 @@ static void draw_sky(const RenderEnv *env)
 #define CLOUD_CELL 16
 #define CLOUD_Y    60          /* Blocks */
 #define CLOUD_R    3           /* Cells around the camera */
-static void cloud_point(CVert *cv,int wx,int wy,int wz)
-{
-	int dx=wx-g_cam.x,dy=wy-g_cam.y,dz=wz-g_cam.z,k;
-	for(k=0; k<3; ++k)
-	{
-		(&cv->x)[k]=(dx*rot[k][0]+dy*rot[k][1]+dz*rot[k][2])>>14;
-	}
-	cv->u=cv->v=0;
-}
-
 static void draw_clouds(const RenderEnv *env)
 {
-	int cell=CLOUD_CELL*256,ccx,ccz,i,j;
+	/* Which cells around the camera's cell hold clouds: hashed only when
+	   the camera enters another cloud cell */
+	static int cachedX=0x7FFFFFFF,cachedZ;
+	static u8 cloudy[2*CLOUD_R+1][2*CLOUD_R+2];
+	/* Rotated offsets of the cloud grid lines, not yet shifted, so a
+	   corner is (px+py+pz)>>14: the rotation of its offset from the camera */
+	int px[2*CLOUD_R+2][3],pz[2*CLOUD_R+2][3],py[3];
+	int cell=CLOUD_CELL*256,ccx,ccz,i,j,k;
 	if(!env->cloudColor || env->underwater || env->underground)
 	{
 		return;
@@ -1250,30 +1245,61 @@ static void draw_clouds(const RenderEnv *env)
 	ccx=g_cam.x-env->cloudDrift;
 	ccx=(ccx>=0) ? ccx/cell : -((cell-1-ccx)/cell);   /* Floor division */
 	ccz=g_cam.z/cell;
-	for(j=-CLOUD_R; j<=CLOUD_R; ++j)
+	if(ccx!=cachedX || ccz!=cachedZ)
 	{
-		for(i=-CLOUD_R; i<=CLOUD_R; )
+		cachedX=ccx;
+		cachedZ=ccz;
+		for(j=-CLOUD_R; j<=CLOUD_R; ++j)
+		{
+			for(i=-CLOUD_R; i<=CLOUD_R; ++i)
+			{
+				cloudy[j+CLOUD_R][i+CLOUD_R]=(hash3(ccx+i,0,ccz+j,0xC10D)%100<35);
+			}
+			cloudy[j+CLOUD_R][2*CLOUD_R+1]=0;
+		}
+	}
+	for(i=0; i<2*CLOUD_R+2; ++i)
+	{
+		int dx=(ccx-CLOUD_R+i)*cell+env->cloudDrift-g_cam.x;
+		int dz=(ccz-CLOUD_R+i)*cell-g_cam.z;
+		for(k=0; k<3; ++k)
+		{
+			px[i][k]=dx*rot[k][0];
+			pz[i][k]=dz*rot[k][2];
+		}
+	}
+	for(k=0; k<3; ++k)
+	{
+		py[k]=(CLOUD_Y*256-g_cam.y)*rot[k][1];
+	}
+	for(j=0; j<2*CLOUD_R+1; ++j)
+	{
+		for(i=0; i<2*CLOUD_R+1; )
 		{
 			int i0;
-			if(hash3(ccx+i,0,ccz+j,0xC10D)%100>=35)
+			if(!cloudy[j][i])
 			{
 				++i;
 				continue;
 			}
 			i0=i;
-			while(i<=CLOUD_R && hash3(ccx+i,0,ccz+j,0xC10D)%100<35)
+			while(cloudy[j][i])
 			{
 				++i;
 			}
 			{
 				CVert cv[4];
-				int x0=(ccx+i0)*cell+env->cloudDrift,x1=(ccx+i)*cell+env->cloudDrift;
-				int z0=(ccz+j)*cell,z1=z0+cell,y=CLOUD_Y*256;
-				int k,behind=0,left=0,right=0,above=0;
-				cloud_point(&cv[0],x0,y,z0);
-				cloud_point(&cv[1],x1,y,z0);
-				cloud_point(&cv[2],x1,y,z1);
-				cloud_point(&cv[3],x0,y,z1);
+				int behind=0,left=0,right=0,above=0;
+				/* Corners (i0,j) (i,j) (i,j+1) (i0,j+1) of the run */
+				static const u8 cx[4]={0,1,1,0},cz[4]={0,0,1,1};
+				for(k=0; k<4; ++k)
+				{
+					const int *ax=px[cx[k] ? i : i0],*az=pz[j+cz[k]];
+					cv[k].x=(ax[0]+py[0]+az[0])>>14;
+					cv[k].y=(ax[1]+py[1]+az[1])>>14;
+					cv[k].z=(ax[2]+py[2]+az[2])>>14;
+					cv[k].u=cv[k].v=0;
+				}
 				/* Cheap rejection before projecting and clipping: all
 				   corners behind the camera, off one side or above the top */
 				for(k=0; k<4; ++k)
