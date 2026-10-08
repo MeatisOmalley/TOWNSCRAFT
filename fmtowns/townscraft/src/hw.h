@@ -18,6 +18,6 @@ static inline void sti(void){__asm__ volatile("sti");}
 static inline void hlt(void){__asm__ volatile("hlt");}
 
 #define VRAM ((volatile u8 *)0x80100000)  /* Single-page linear VRAM view */
-#define VRAM_PITCH 1024
+#define VRAM_PITCH 512
 
 #endif

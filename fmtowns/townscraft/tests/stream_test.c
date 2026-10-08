@@ -41,7 +41,7 @@ static void reference_stream(int x,int z,int radius,int budget)
 			}
 		}
 		if(bx<0) return;
-		build_chunk(bx,by,bz);
+		rebuild_chunk(bx,by,bz,0xFFFF);
 	}
 }
 

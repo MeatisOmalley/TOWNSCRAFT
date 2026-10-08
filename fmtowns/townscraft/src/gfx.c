@@ -6,16 +6,21 @@ extern const u8 g_font8x8[95][8];
 u8 *g_fb;
 u8 g_darkenLUT[256];
 
-/* Two display pages in VRAM, 256 KB apart */
-#define PAGE_BYTES 0x40000
+/* Three display pages in VRAM, 128 KB apart (240 lines of 512 bytes).
+   One is on screen, one may be waiting for the vertical sync to be shown
+   and the third is drawn into, so drawing never waits for a flip. */
+#define PAGE_BYTES 0x20000
 static int backPage;        /* Page drawn into (g_fb) */
-static u32 flipVsync;
+static int shownPage;       /* Page on screen, as far as is known */
+static int presentedPage;   /* Page last passed to the CRTC */
+static u32 flipVsync;       /* g_vsyncCount when it was */
 static int flipPending;
 
 void gfx_init(void)
 {
 	int i;
 	backPage=1;
+	shownPage=presentedPage=0;   /* video_init shows page 0 */
 	g_fb=(u8 *)VRAM+PAGE_BYTES;
 	for(i=0; i<256; ++i)
 	{
@@ -33,17 +38,24 @@ void gfx_clear(u8 *fb,u8 c)
 	}
 }
 
-/* Show the page just drawn and make the other one the frame buffer.  The
-   display start address (FA0, in 8 byte units in 256-color mode) may only
-   take effect at the next vertical sync, so the new back page must not be
-   drawn into until one has passed: see gfx_wait_flip(). */
+/* Show the page just drawn and draw into the page that is neither on
+   screen nor just presented.  The display start address (FA0, in 8 byte
+   units in 256-color mode) may only take effect at the next vertical sync:
+   if one has passed since the previous flip, that page is on screen now.
+   FA0 is written before the check, so a sync in between can only make the
+   chosen page safer (the page shown before both flips). */
 void gfx_present(void)
 {
-	u32 fa0=backPage ? PAGE_BYTES/8 : 0;
+	u32 fa0=backPage*(PAGE_BYTES/8);
 	outb(0x440,0x11);   /* FA0 */
 	outb(0x442,fa0&0xFF);
 	outb(0x443,fa0>>8);
-	backPage^=1;
+	if(flipPending && g_vsyncCount!=flipVsync)
+	{
+		shownPage=presentedPage;
+	}
+	presentedPage=backPage;
+	backPage=3-shownPage-presentedPage;
 	g_fb=(u8 *)VRAM+backPage*PAGE_BYTES;
 	flipVsync=g_vsyncCount;
 	flipPending=1;
@@ -54,31 +66,47 @@ int gfx_back_page(void)
 	return backPage;
 }
 
-/* Wait until the previously shown page is off screen: a vertical sync
-   has begun since the flip (at most 16.7 ms).  Usually the game logic
-   after the flip has already taken that long.  The timeout guards against
-   a machine that does not deliver the VSYNC interrupt. */
+/* With three pages the back page is never on screen, so drawing can start
+   at once.  Kept for callers that used to wait for the flip. */
 void gfx_wait_flip(void)
+{
+}
+
+/* Wait until the page last presented is on screen: a vertical sync has
+   begun since the flip (at most 16.7 ms).  The timeout guards against a
+   machine that does not deliver the VSYNC interrupt. */
+static void wait_shown(void)
 {
 	if(flipPending)
 	{
 		u32 t=g_ticks;
 		while(g_vsyncCount==flipVsync && g_ticks-t<3);
 		flipPending=0;
+		shownPage=presentedPage;
 	}
 }
 
-/* Copy the shown page into the back page (for screens that are only
-   partly redrawn each frame). */
+/* Copy the page just presented into the other two (for screens that are
+   only partly redrawn each frame) */
 void gfx_sync_pages(void)
 {
-	int y;
-	const u8 *src=(const u8 *)VRAM+(backPage^1)*PAGE_BYTES;
-	gfx_wait_flip();
-	for(y=0; y<SCR_H; ++y)
+	int y,p;
+	const u8 *src=(const u8 *)VRAM+presentedPage*PAGE_BYTES;
+	wait_shown();
+	for(p=0; p<3; ++p)
 	{
-		memcpy(g_fb+y*FB_PITCH,src+y*FB_PITCH,SCR_W);
+		u8 *dst=(u8 *)VRAM+p*PAGE_BYTES;
+		if(p==presentedPage)
+		{
+			continue;
+		}
+		for(y=0; y<SCR_H; ++y)
+		{
+			memcpy(dst+y*FB_PITCH,src+y*FB_PITCH,SCR_W);
+		}
 	}
+	backPage=(shownPage+1)%3;     /* Any page but the one on screen */
+	g_fb=(u8 *)VRAM+backPage*PAGE_BYTES;
 }
 
 void gfx_rect(u8 *fb,int x,int y,int w,int h,u8 c)
