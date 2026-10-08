@@ -37,9 +37,12 @@ typedef struct
 	                          come first. */
 	u8 gbox[NGROUPS][3];   /* Cells covered by each group: x min|max<<4,
 	                          z min|max<<4, y min|max<<4 (chunk local) */
+	u16 dirtyLayers;   /* Layers (ly bits) whose faces need rebuilding */
 	u8 dirty;          /* DIRTY_GEOMETRY or DIRTY_LIGHT */
 	u8 sealed;         /* Bottom layer only: cannot be seen into from above */
+	u8 waterSide;      /* Bottom layer only: water touches a side */
 	u8 meshed;         /* Has a mesh (see world_stream) */
+	u8 trimmed;        /* The mesh did not fit the pool and lacks quads */
 } Chunk;
 
 enum
@@ -91,7 +94,10 @@ void world_alloc(void);
 void world_generate(u32 seed);
 void world_set(int x,int y,int z,u8 b);   /* Updates light and meshes */
 int world_light_at(int x,int y,int z);    /* Raw light byte (sky<<4|block) */
-void world_update_dirty_chunks(int maxLightOnly);  /* Geometry changes always rebuild */
+/* Rebuilds the changed layers of chunk meshes.  Geometry changes always
+   rebuild; chunks whose light alone changed only up to maxLightLayers
+   layers per call. */
+void world_update_dirty_chunks(int maxLightLayers);
 extern u32 g_meshQuads;
 extern u32 g_meshVersion;
 void world_rebuild_after_load(void);   /* Changes whenever a chunk mesh is rebuilt */

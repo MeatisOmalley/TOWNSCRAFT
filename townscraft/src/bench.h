@@ -18,10 +18,16 @@ enum
 	BO_WALK_OVER66=7,    /* Frames longer than 66ms */
 	BO_WALK_OVER100=8,
 	BO_WALK_UPD_MAX=9,   /* Longest world update (meshes) in one frame */
+	BO_COMPACTS=10,      /* Mesh pool compactions (whole run) */
+	BO_EVICTS=11,        /* Columns evicted from the mesh pool */
+	BO_REBUILDS=12,      /* Chunk mesh rebuilds (partial or whole) */
+	BO_LAYERS=13,        /* Layers meshed by those rebuilds */
 	BO_EDIT=16,          /* Longest of the 3 frames after each edit */
 	BO_EDIT_UPD=32,      /* Longest world update after each edit */
 	BO_EDIT_COLLECT=48,  /* Longest face list collect+sort after each edit */
-	BO_COUNT=64
+	BO_PHASE_COUNTS=64,  /* BO_COMPACTS..BO_LAYERS: 4 each at the end of
+	                        generation, of the edits and of the walk */
+	BO_COUNT=76
 };
 
 #ifdef BENCH_EDIT

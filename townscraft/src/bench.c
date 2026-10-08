@@ -49,6 +49,10 @@ enum
 {
 	PH_SETTLE,PH_EDIT,PH_WALK,PH_DONE
 };
+/* Profile builds repeat the edit sequence for more samples */
+#ifndef BENCH_REPS
+#define BENCH_REPS 1
+#endif
 static int phase=PH_SETTLE,edit,editFrames;
 static u32 phaseStart,lastFrame,updStart,frameUpd;
 static int sx,sz,walkCX,walkCZ,walkR;
@@ -118,6 +122,15 @@ void bench_update_end(void)
 	}
 }
 
+static void phase_counts(int k)
+{
+	int i;
+	for(i=0; i<4; ++i)
+	{
+		g_benchOut[BO_PHASE_COUNTS+k*4+i]=g_benchOut[BO_COMPACTS+i];
+	}
+}
+
 static u32 frameCollect;
 void bench_collect(u32 us)
 {
@@ -162,6 +175,7 @@ void bench_frame(void)
 				memset(g_profSamples,0,4096*4);
 			}
 			phase=PH_EDIT;
+			phase_counts(0);
 			edit=-1;
 			editFrames=99;
 		}
@@ -171,17 +185,18 @@ void bench_frame(void)
 		   one of the 3 frames following it */
 		if(edit>=0 && editFrames<3)
 		{
-			if(ft>g_benchOut[BO_EDIT+edit])
+			int e=edit%BENCH_EDITS;
+			if(ft>g_benchOut[BO_EDIT+e])
 			{
-				g_benchOut[BO_EDIT+edit]=ft;
+				g_benchOut[BO_EDIT+e]=ft;
 			}
-			if(upd>g_benchOut[BO_EDIT_UPD+edit])
+			if(upd>g_benchOut[BO_EDIT_UPD+e])
 			{
-				g_benchOut[BO_EDIT_UPD+edit]=upd;
+				g_benchOut[BO_EDIT_UPD+e]=upd;
 			}
-			if(col>g_benchOut[BO_EDIT_COLLECT+edit])
+			if(col>g_benchOut[BO_EDIT_COLLECT+e])
 			{
-				g_benchOut[BO_EDIT_COLLECT+edit]=col;
+				g_benchOut[BO_EDIT_COLLECT+e]=col;
 			}
 		}
 		else if(edit>=0)
@@ -192,16 +207,17 @@ void bench_frame(void)
 		++editFrames;
 		if(editFrames>=8)
 		{
-			if(++edit>=BENCH_EDITS)
+			if(++edit>=BENCH_EDITS*BENCH_REPS)
 			{
 				phase=PH_WALK;
+				phase_counts(1);
 				phaseStart=now;
 				walkCX=g_W/2;
 				walkCZ=g_W/2;
 				walkR=28;
 				break;
 			}
-			do_edit(edit);
+			do_edit(edit%BENCH_EDITS);
 			editFrames=0;
 		}
 		break;
@@ -215,6 +231,7 @@ void bench_frame(void)
 			if(t>BENCH_WALK_SEC*1000000u)
 			{
 				phase=PH_DONE;
+				phase_counts(2);
 				g_benchOut[BO_DONE]=1;
 				break;
 			}

@@ -19,7 +19,7 @@ import time
 
 BO = dict(DONE=0, GEN_MS=1, IDLE_FRAMES=2, IDLE_SUM=3, WALK_FRAMES=4, WALK_SUM=5, WALK_MAX=6,
           WALK_OVER66=7, WALK_OVER100=8, WALK_UPD_MAX=9, EDIT=16, EDIT_UPD=32)
-NWORDS = 64
+NWORDS = 76
 
 
 def main():
@@ -115,6 +115,10 @@ def main():
     print("edit worst / mean  : %8.1f / %.1f ms" % (max(edits) / 1000, sum(edits) / len(edits) / 1000))
     print("walk frame avg     : %8.1f ms  (%.1f fps), max %.0f ms, >66ms: %d, >100ms: %d, upd max %.0f ms"
           % (walk / 1000, 1e6 / max(1, walk), out[6] / 1000, out[7], out[8], out[9] / 1000))
+    pc = out[64:76]
+    for name, k in (("start", 0), ("edits", 1), ("walk", 2)):
+        d = [pc[k * 4 + i] - (pc[(k - 1) * 4 + i] if k else 0) for i in range(4)]
+        print("%-6s pool compactions %d, evictions %d, rebuilds %d (%d layers)" % ((name,) + tuple(d)))
     if a.prof:
         import os
         print(subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "profile.py"),

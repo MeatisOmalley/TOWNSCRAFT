@@ -3,6 +3,7 @@
 #include "sys.h"
 #include "fmath.h"
 #include "render.h"
+#include "bench.h"
 
 int g_W,g_NC;
 u8 *g_blocks,*g_light,*g_height;
@@ -12,7 +13,6 @@ u32 *g_meshPool;
 u32 g_meshQuads;
 u32 g_meshVersion;   /* Incremented whenever a chunk mesh changes */
 static u32 poolSize,poolTop;
-static int poolOverflow;       /* Set when rebuild_chunk had to trim a mesh */
 static int strideZ;
 int g_spawnX,g_spawnY,g_spawnZ;
 void (*g_genProgress)(int percent);
@@ -130,18 +130,57 @@ static inline void rq_push(u32 i,u32 lvl)
 	}
 }
 
-static inline void light_dirty(int x,int y,int z)
+static int anyDirty;     /* Some chunk may be dirty */
+
+static inline void dirty_layers(Chunk *c,u32 bits,int type)
+{
+	anyDirty=1;
+	c->dirtyLayers|=bits;
+	if(c->dirty<type)
+	{
+		c->dirty=type;
+	}
+}
+
+/* The block or light of cell (x,y,z) changed: the faces that need
+   rebuilding are those of the cell and of its 6 neighbors (they face it
+   and take its light).  That is layers ly-1..ly+1 of its chunk, the facing
+   layer of the chunk above or below, and layer ly of a horizontally
+   adjacent chunk. */
+static void mark_cell(int x,int y,int z,int type)
 {
 	int cx=x>>4,cy=y>>4,cz=z>>4,lx=x&15,ly=y&15,lz=z&15;
 	Chunk *c=&g_chunks[chunk_index(cx,cy,cz)];
-	if(!c->dirty) c->dirty=DIRTY_LIGHT;
-	/* Faces lit by this cell may belong to the neighboring chunk */
-	if(0==lx && cx>0) { c=&g_chunks[chunk_index(cx-1,cy,cz)]; if(!c->dirty) c->dirty=DIRTY_LIGHT; }
-	if(15==lx && cx<g_NC-1) { c=&g_chunks[chunk_index(cx+1,cy,cz)]; if(!c->dirty) c->dirty=DIRTY_LIGHT; }
-	if(0==ly && cy>0) { c=&g_chunks[chunk_index(cx,cy-1,cz)]; if(!c->dirty) c->dirty=DIRTY_LIGHT; }
-	if(15==ly && cy<NCY-1) { c=&g_chunks[chunk_index(cx,cy+1,cz)]; if(!c->dirty) c->dirty=DIRTY_LIGHT; }
-	if(0==lz && cz>0) { c=&g_chunks[chunk_index(cx,cy,cz-1)]; if(!c->dirty) c->dirty=DIRTY_LIGHT; }
-	if(15==lz && cz<g_NC-1) { c=&g_chunks[chunk_index(cx,cy,cz+1)]; if(!c->dirty) c->dirty=DIRTY_LIGHT; }
+	dirty_layers(c,((7u<<ly)>>1)&0xFFFF,type);
+	if(0==ly && cy>0) dirty_layers(c-1,0x8000,type);
+	if(15==ly && cy<NCY-1) dirty_layers(c+1,1,type);
+	if(0==lx && cx>0) dirty_layers(c-NCY,1u<<ly,type);
+	if(15==lx && cx<g_NC-1) dirty_layers(c+NCY,1u<<ly,type);
+	if(0==lz && cz>0) dirty_layers(c-g_NC*NCY,1u<<ly,type);
+	if(15==lz && cz<g_NC-1) dirty_layers(c+g_NC*NCY,1u<<ly,type);
+}
+
+/* faceTab[n]: block n is drawn with mesh faces, so its faces take the
+   light of the cells next to them (models read light when drawn) */
+static u8 faceTab[256];
+
+static inline void mark_layer(int x,int y,int z)
+{
+	dirty_layers(&g_chunks[chunk_index(x>>4,y>>4,z>>4)],1u<<(y&15),DIRTY_LIGHT);
+}
+
+/* The light of cell (x,y,z) changed: only the faces of neighboring cubes
+   facing it are affected (light changing in open air or empty caves
+   rebuilds nothing) */
+static void light_dirty(int x,int y,int z)
+{
+	u32 i=widx(x,y,z);
+	if(x>0 && faceTab[g_blocks[i-WH]]) mark_layer(x-1,y,z);
+	if(x<g_W-1 && faceTab[g_blocks[i+WH]]) mark_layer(x+1,y,z);
+	if(y>0 && faceTab[g_blocks[i-1]]) mark_layer(x,y-1,z);
+	if(y<WH-1 && faceTab[g_blocks[i+1]]) mark_layer(x,y+1,z);
+	if(z>0 && faceTab[g_blocks[i-strideZ]]) mark_layer(x,y,z-1);
+	if(z<g_W-1 && faceTab[g_blocks[i+strideZ]]) mark_layer(x,y,z+1);
 }
 
 static int trackLightDirty;
@@ -367,6 +406,7 @@ static void init_hides_tab(void)
 	for(n=0; n<256; ++n)
 	{
 		hidesTab[n]=(0!=(blk_flags(n)&BF_OPAQUE)) || B_WATER==BLK_ID(n);
+		faceTab[n]=(B_AIR!=n && 0==(blk_flags(n)&BF_MODEL));
 	}
 }
 
@@ -391,11 +431,11 @@ static inline int face_visible(u8 b,u8 n)
 #define MAX_CHUNK_QUADS 2048
 static u32 tmpQuads[MAX_CHUNK_QUADS*2];
 static u32 sortedQuads[MAX_CHUNK_QUADS*2];
-static int nTmp;
+static int nTmp,emitMax;
 
 static inline void emit(int lx,int ly,int lz,int dir,int w,int h,u32 w1,int model)
 {
-	if(nTmp<MAX_CHUNK_QUADS)
+	if(nTmp<emitMax)
 	{
 		tmpQuads[nTmp*2]=lx|(lz<<4)|(ly<<8)|(dir<<12)|(model ? MQ_MODEL : 0)|((w-1)<<16)|((h-1)<<20);
 		tmpQuads[nTmp*2+1]=w1;
@@ -403,364 +443,103 @@ static inline void emit(int lx,int ly,int lz,int dir,int w,int h,u32 w1,int mode
 	}
 }
 
-/* Greedy rectangles over a 16x16 key grid (index lz*16+lx).  Key 0 = no face. */
-static void greedy2d(u16 *key,int ly,int dir)
+/* The face keys of one layer are 16x16 grids (index lz*16+lx) with a
+   bitmask per row (bit lx of m[lz]) or, for X-facing faces, per column
+   (bit lz of m[lx]) telling which cells have a face.  Keys are only valid
+   where the bit is set, so the grids never need clearing; the merging
+   functions clear the bits they consume. */
+static inline int lowest_bit(u32 v)
 {
-	int lz,lx;
+	return __builtin_ctz(v);
+}
+
+/* Greedy rectangles (top and bottom faces) */
+static void greedy2d(const u16 *key,u16 *m,int ly,int dir)
+{
+	int lz;
 	for(lz=0; lz<16; ++lz)
 	{
-		for(lx=0; lx<16; ++lx)
+		while(m[lz])
 		{
+			u32 bits=m[lz],span;
+			int lx=lowest_bit(bits),w=1,h,i;
 			u16 k=key[lz*16+lx];
-			int w,h,i,ok;
-			if(!k)
+			while(lx+w<16 && ((bits>>(lx+w))&1) && key[lz*16+lx+w]==k)
 			{
-				continue;
+				++w;
 			}
-			for(w=1; lx+w<16 && key[lz*16+lx+w]==k; ++w);
+			span=((1u<<w)-1)<<lx;
+			m[lz]&=~span;
 			for(h=1; lz+h<16; ++h)
 			{
-				ok=1;
-				for(i=0; i<w; ++i)
-				{
-					if(key[(lz+h)*16+lx+i]!=k)
-					{
-						ok=0;
-						break;
-					}
-				}
-				if(!ok)
+				const u16 *row=key+(lz+h)*16+lx;
+				if((m[lz+h]&span)!=span)
 				{
 					break;
 				}
-			}
-			for(i=0; i<h; ++i)
-			{
-				memset(&key[(lz+i)*16+lx],0,w*2);
+				for(i=0; i<w && row[i]==k; ++i);
+				if(i<w)
+				{
+					break;
+				}
+				m[lz+h]&=~span;
 			}
 			emit(lx,ly,lz,dir,w,h,(k-1)&0xFFFF,0);
 		}
 	}
 }
 
-/* Runs along z for each column lx (X-facing faces) */
-static void runs1d_z(u16 *key,int ly,int dir)
+/* Runs along z for each column lx (X-facing faces, column masks) */
+static void runs1d_z(const u16 *key,u16 *m,int ly,int dir)
 {
-	int lz,lx;
+	int lx;
 	for(lx=0; lx<16; ++lx)
 	{
-		for(lz=0; lz<16; ++lz)
+		u32 bits=m[lx];
+		while(bits)
 		{
+			int lz=lowest_bit(bits),h=1;
 			u16 k=key[lz*16+lx];
-			int h;
-			if(!k)
+			while(lz+h<16 && ((bits>>(lz+h))&1) && key[(lz+h)*16+lx]==k)
 			{
-				continue;
+				++h;
 			}
-			key[lz*16+lx]=0;
-			for(h=1; lz+h<16 && key[(lz+h)*16+lx]==k; ++h)
-			{
-				key[(lz+h)*16+lx]=0;
-			}
+			bits&=~(((1u<<h)-1)<<lz);
 			emit(lx,ly,lz,dir,1,h,(k-1)&0xFFFF,0);
 		}
+		m[lx]=0;
 	}
 }
 
-/* Runs along x for each row lz */
-static void runs1d(u16 *key,int ly,int dir)
+/* Runs along x for each row lz (Z-facing faces) */
+static void runs1d(const u16 *key,u16 *m,int ly,int dir)
 {
-	int lz,lx;
+	int lz;
 	for(lz=0; lz<16; ++lz)
 	{
-		for(lx=0; lx<16; ++lx)
+		u32 bits=m[lz];
+		while(bits)
 		{
+			int lx=lowest_bit(bits),w=1;
 			u16 k=key[lz*16+lx];
-			int w;
-			if(!k)
+			while(lx+w<16 && ((bits>>(lx+w))&1) && key[lz*16+lx+w]==k)
 			{
-				continue;
+				++w;
 			}
-			key[lz*16+lx]=0;
-			for(w=1; lx+w<16 && key[lz*16+lx+w]==k; ++w)
-			{
-				key[lz*16+lx+w]=0;
-			}
+			bits&=~(((1u<<w)-1)<<lx);
 			emit(lx,ly,lz,dir,w,1,(k-1)&0xFFFF,0);
 		}
+		m[lz]=0;
 	}
 }
 
-static void pool_compact(void)
-{
-	int n=g_NC*g_NC*NCY,i,j;
-	static u16 order[16*16*NCY];
-	u32 w=0;
-	for(i=0; i<n; ++i)
-	{
-		order[i]=i;
-	}
-	for(i=1; i<n; ++i)
-	{
-		u16 k=order[i];
-		j=i-1;
-		while(j>=0 && g_chunks[order[j]].off>g_chunks[k].off)
-		{
-			order[j+1]=order[j];
-			--j;
-		}
-		order[j+1]=k;
-	}
-	for(i=0; i<n; ++i)
-	{
-		Chunk *c=&g_chunks[order[i]];
-		if(0==c->cap)
-		{
-			c->off=w;
-			continue;
-		}
-		memmove(g_meshPool+w*2,g_meshPool+c->off*2,c->count*8);
-		c->off=w;
-		c->cap=c->count;
-		w+=c->count;
-	}
-	poolTop=w;
-}
+/* ---------------- Mesh pool ---------------- */
 
-static void rebuild_chunk(int cx,int cy,int cz)
-{
-	static u16 keyTop[256],keyBot[256],keyNZ[256],keyPZ[256],keyNX[256],keyPX[256];
-	Chunk *c=&g_chunks[chunk_index(cx,cy,cz)];
-	int n,lx,ly,lz;
-	int x0=cx*CS,y0=cy*CS,z0=cz*CS;
-	nTmp=0;
-	for(ly=0; ly<CS; ++ly)
-	{
-		int y=y0+ly,used=0;
-		for(lz=0; lz<CS; ++lz)
-		{
-			int z=z0+lz;
-			for(lx=0; lx<CS; ++lx)
-			{
-				int x=x0+lx,d;
-				u32 i=widx(x,y,z);
-				u8 b=g_blocks[i],f;
-				const BlockDef *def;
-				if(B_AIR==b)
-				{
-					continue;
-				}
-				f=blk_flags(b);
-				if(f&BF_MODEL)
-				{
-					emit(lx,ly,lz,0,1,1,(u32)b<<16,1);
-					continue;
-				}
-				/* Enclosed cell (the common case underground): nothing to emit */
-				if(x>0 && x<g_W-1 && y>0 && y<WH-1 && z>0 && z<g_W-1 &&
-				   hidesTab[g_blocks[i-1]] && hidesTab[g_blocks[i+1]] &&
-				   hidesTab[g_blocks[i-WH]] && hidesTab[g_blocks[i+WH]] &&
-				   hidesTab[g_blocks[i-strideZ]] && hidesTab[g_blocks[i+strideZ]])
-				{
-					continue;
-				}
-				def=&g_blockDef[BLK_ID(b)];
-				for(d=0; d<6; ++d)
-				{
-					u8 nb;
-					u16 k;
-					u32 ni;
-					int L;
-					/* World edges and bottom are hidden; the sky above is lit */
-					switch(d)
-					{
-					case DIR_NX: if(0==x) continue; ni=i-WH; break;
-					case DIR_PX: if(g_W-1==x) continue; ni=i+WH; break;
-					case DIR_NY: if(0==y) continue; ni=i-1; break;
-					case DIR_PY: if(WH-1==y) { ni=0; break; } ni=i+1; break;
-					case DIR_NZ: if(0==z) continue; ni=i-strideZ; break;
-					default:     if(g_W-1==z) continue; ni=i+strideZ; break;
-					}
-					if(DIR_PY==d && WH-1==y)
-					{
-						nb=B_AIR;
-						L=0xF0;
-					}
-					else
-					{
-						nb=g_blocks[ni];
-						if(hidesTab[nb] || ((f&BF_SAMEHIDE) && BLK_ID(nb)==BLK_ID(b)))
-						{
-							continue;
-						}
-						L=g_light[ni];
-					}
-					k=(u16)((def->tex[d]|(L<<8))+1);
-					used|=1<<d;
-					switch(d)
-					{
-					case DIR_NX: keyNX[lz*16+lx]=k; break;
-					case DIR_PX: keyPX[lz*16+lx]=k; break;
-					case DIR_NY: keyBot[lz*16+lx]=k; break;
-					case DIR_PY: keyTop[lz*16+lx]=k; break;
-					case DIR_NZ: keyNZ[lz*16+lx]=k; break;
-					default:     keyPZ[lz*16+lx]=k; break;
-					}
-				}
-			}
-		}
-		if(used&(1<<DIR_PY)) greedy2d(keyTop,ly,DIR_PY);
-		if(used&(1<<DIR_NY)) greedy2d(keyBot,ly,DIR_NY);
-		if(used&(1<<DIR_NZ)) runs1d(keyNZ,ly,DIR_NZ);
-		if(used&(1<<DIR_PZ)) runs1d(keyPZ,ly,DIR_PZ);
-		if(used&(1<<DIR_NX)) runs1d_z(keyNX,ly,DIR_NX);
-		if(used&(1<<DIR_PX)) runs1d_z(keyPX,ly,DIR_PX);
-	}
-	/* Group by direction and quadrant (models last); within a group order
-	   by plane coordinate so visible planes come first: ascending for
-	   +X/+Y/+Z (visible when the camera is above/after), descending for
-	   -X/-Y/-Z.  Record the cells each group covers. */
-	{
-		static u16 cnt[(NGROUPS+1)*16+1];
-		static u16 bkt[MAX_CHUNK_QUADS];
-		int i,g,x1[NGROUPS],z1[NGROUPS],y1[NGROUPS],xa[NGROUPS],za[NGROUPS],ya[NGROUPS];
-		memset(cnt,0,sizeof(cnt));
-		for(g=0; g<NGROUPS; ++g)
-		{
-			xa[g]=za[g]=ya[g]=15;
-			x1[g]=z1[g]=y1[g]=0;
-		}
-		for(i=0; i<nTmp; ++i)
-		{
-			u32 w0=tmpQuads[i*2];
-			int k;
-			if(w0&MQ_MODEL)
-			{
-				k=NGROUPS*16;
-			}
-			else
-			{
-				int d=MQ_DIR(w0),p,lx=MQ_LX(w0),lz=MQ_LZ(w0),ly=MQ_LY(w0);
-				int ex=(d<=DIR_PX) ? 1 : MQ_W(w0),ez=(d<=DIR_PY) ? MQ_H(w0) : 1;
-				g=d*NSUB+(lx>=8)+((lz>=8)<<1);
-				p=(d<=DIR_PX) ? lx : (d<=DIR_PY ? ly : lz);
-				if(0==(d&1))
-				{
-					p=15-p;
-				}
-				k=g*16+p;
-				xa[g]=MIN(xa[g],lx); x1[g]=MAX(x1[g],lx+ex-1);
-				za[g]=MIN(za[g],lz); z1[g]=MAX(z1[g],lz+ez-1);
-				ya[g]=MIN(ya[g],ly); y1[g]=MAX(y1[g],ly);
-			}
-			bkt[i]=k;
-			++cnt[k+1];
-		}
-		for(i=1; i<=(NGROUPS+1)*16; ++i)
-		{
-			cnt[i]+=cnt[i-1];
-		}
-		for(g=0; g<=NGROUPS; ++g)
-		{
-			c->group[g]=(g<NGROUPS ? cnt[(g+1)*16] : nTmp)-cnt[g*16];
-		}
-		for(g=0; g<NGROUPS; ++g)
-		{
-			c->gbox[g][0]=xa[g]|(x1[g]<<4);
-			c->gbox[g][1]=za[g]|(z1[g]<<4);
-			c->gbox[g][2]=ya[g]|(y1[g]<<4);
-		}
-		for(i=0; i<nTmp; ++i)
-		{
-			u16 d=cnt[bkt[i]]++;
-			sortedQuads[d*2]=tmpQuads[i*2];
-			sortedQuads[d*2+1]=tmpQuads[i*2+1];
-		}
-		n=nTmp;
-	}
-	if(n>c->cap)
-	{
-		u32 cap=n+16;
-		if(poolTop+cap>poolSize)
-		{
-			c->cap=0;
-			c->count=0;
-			pool_compact();
-		}
-		if(poolTop+cap>poolSize)
-		{
-			cap=n;
-		}
-		if(poolTop+cap>poolSize)
-		{
-			/* Out of pool space: keep what fits (trimming the group
-			   counts from the end so they still add up) */
-			int g,excess;
-			poolOverflow=1;
-			cap=(poolSize>poolTop ? poolSize-poolTop : 0);
-			n=MIN((u32)n,cap);
-			excess=nTmp-n;
-			for(g=NGROUPS; g>=0 && excess>0; --g)
-			{
-				int t=MIN(excess,(int)c->group[g]);
-				c->group[g]-=t;
-				excess-=t;
-			}
-		}
-		c->off=poolTop;
-		c->cap=cap;
-		poolTop+=cap;
-	}
-	++g_meshVersion;
-	g_meshQuads+=n;
-	g_meshQuads-=c->count;
-	memcpy(g_meshPool+c->off*2,sortedQuads,n*8);
-	c->count=n;
-	c->dirty=0;
-	c->meshed=1;
-	/* A bottom-layer chunk is sealed when nothing can be seen into it from
-	   above: its top cells are opaque wherever the cells above are not,
-	   and no water touches its sides (see collect in render.c) */
-	c->sealed=0;
-	if(0==cy)
-	{
-		int sealed=1;
-		for(lz=0; lz<CS && sealed; ++lz)
-		{
-			for(lx=0; lx<CS && sealed; ++lx)
-			{
-				int x=x0+lx,z=z0+lz;
-				u32 i=widx(x,CS-1,z);
-				if(!(blk_flags(g_blocks[i])&BF_OPAQUE) && !(blk_flags(g_blocks[i+1])&BF_OPAQUE))
-				{
-					sealed=0;
-				}
-				else if(0==lx || 0==lz || CS-1==lx || CS-1==lz)
-				{
-					for(ly=0; ly<CS; ++ly)
-					{
-						if(B_WATER==BLK_ID(g_blocks[widx(x,ly,z)]))
-						{
-							sealed=0;
-							break;
-						}
-					}
-				}
-			}
-		}
-		c->sealed=sealed;
-	}
-}
-
-static void mark_dirty(int x,int y,int z)
-{
-	if(in_world(x,y,z))
-	{
-		g_chunks[chunk_index(x/CS,y/CS,z/CS)].dirty=DIRTY_GEOMETRY;
-	}
-}
-
-/* ---------------- Mesh streaming ---------------- */
+/* Chunk meshes live in one pool.  Each chunk owns [off,off+cap); poolUsed
+   is the sum of the caps.  Space freed by a chunk is reclaimed by
+   pool_compact(), which runs only when an allocation does not fit at the
+   top. */
+static u32 poolUsed;
 
 static int streamX,streamZ;       /* Camera column of the last world_stream() */
 static int streamReady,streamRadius;
@@ -797,13 +576,497 @@ static void unmesh_column(int cx,int cz)
 	{
 		Chunk *c=&g_chunks[chunk_index(cx,cy,cz)];
 		g_meshQuads-=c->count;
+		poolUsed-=c->cap;
 		c->count=0;
 		c->cap=0;
 		c->meshed=0;
 		c->dirty=0;
+		c->dirtyLayers=0;
+		c->trimmed=0;
 		memset(c->group,0,sizeof(c->group));
 	}
 	++g_meshVersion;
+}
+
+/* Free the meshed column farthest from the camera, if it is farther than
+   minDist2.  Returns 0 if there is none. */
+static int evict_farthest(int minDist2)
+{
+	int x,z,fx=-1,fz=0,fd=minDist2;
+	for(z=0; z<g_NC; ++z)
+	{
+		for(x=0; x<g_NC; ++x)
+		{
+			int dd=column_dist2(x,z,streamX,streamZ);
+			if(dd>fd && column_meshed(x,z))
+			{
+				fx=x;
+				fz=z;
+				fd=dd;
+			}
+		}
+	}
+	if(fx<0)
+	{
+		return 0;
+	}
+	unmesh_column(fx,fz);
+	BENCH_HOOK(++g_benchOut[BO_EVICTS]);
+	return 1;
+}
+
+/* Move all meshes to the bottom of the pool, giving each a little room to
+   grow (up to 16 quads) when there is space for it */
+static void pool_compact(void)
+{
+	int n=g_NC*g_NC*NCY,i,j,nMeshed=0;
+	static u16 order[16*16*NCY];
+	u32 w=0,total=0,slack;
+	for(i=0; i<n; ++i)
+	{
+		order[i]=i;
+		if(g_chunks[i].cap)
+		{
+			total+=g_chunks[i].count;
+			++nMeshed;
+		}
+	}
+	BENCH_HOOK(++g_benchOut[BO_COMPACTS]);
+	slack=(poolSize>total ? (poolSize-total)/(nMeshed+1) : 0);
+	slack=MIN(slack,16);
+	for(i=1; i<n; ++i)
+	{
+		u16 k=order[i];
+		j=i-1;
+		while(j>=0 && g_chunks[order[j]].off>g_chunks[k].off)
+		{
+			order[j+1]=order[j];
+			--j;
+		}
+		order[j+1]=k;
+	}
+	for(i=0; i<n; ++i)
+	{
+		Chunk *c=&g_chunks[order[i]];
+		if(0==c->cap)
+		{
+			c->off=w;
+			continue;
+		}
+		if(c->off!=w)
+		{
+			memmove(g_meshPool+w*2,g_meshPool+c->off*2,c->count*8);
+		}
+		c->off=w;
+		c->cap=c->count+slack;
+		w+=c->cap;
+	}
+	poolTop=w;
+	poolUsed=w;
+}
+
+/* Room for n quads for chunk c (in column cx,cz).  Its old space is given
+   up first.  When the pool is full, columns farther from the camera than
+   this one are evicted.  Returns how many quads fit (less than n only if
+   nothing more can be evicted). */
+static u32 mesh_alloc(Chunk *c,int cx,int cz,u32 n)
+{
+	u32 need=n+16;
+	if(n<=c->cap)
+	{
+		return n;
+	}
+	poolUsed-=c->cap;
+	c->cap=0;
+	if(poolTop+need>poolSize)
+	{
+		int d=column_dist2(cx,cz,streamX,streamZ);
+		while(poolUsed+need>poolSize && evict_farthest(d))
+		{
+		}
+		pool_compact();
+		if(poolTop+need>poolSize)
+		{
+			need=n;
+		}
+		if(poolTop+need>poolSize)
+		{
+			need=(poolSize>poolTop ? poolSize-poolTop : 0);
+		}
+	}
+	c->off=poolTop;
+	c->cap=need;
+	poolTop+=need;
+	poolUsed+=need;
+	return MIN(n,need);
+}
+
+/* ---------------- Chunk meshing ---------------- */
+
+static int popcount16(u32 v)
+{
+	v=v-((v>>1)&0x5555);
+	v=(v&0x3333)+((v>>2)&0x3333);
+	v=(v+(v>>4))&0x0F0F;
+	return (v+(v>>8))&31;
+}
+
+/* Mesh the given layers (ly bits) of a chunk; quads of the other layers
+   are kept from its current mesh.  An unmeshed or trimmed chunk is always
+   meshed whole. */
+static void rebuild_chunk(int cx,int cy,int cz,u32 layers)
+{
+	static u16 key[6][256],mask[6][16];
+	static u16 cnt[(NGROUPS+1)*16+1];
+	static u16 bkt[MAX_CHUNK_QUADS];
+	Chunk *c=&g_chunks[chunk_index(cx,cy,cz)];
+	int n,lx,ly,lz,g,i,nNew;
+	int x0=cx*CS,y0=cy*CS,z0=cz*CS;
+	u16 group[NGROUPS+1],gstart[NGROUPS+2];
+	int x1[NGROUPS],z1[NGROUPS],y1[NGROUPS],xa[NGROUPS],za[NGROUPS],ya[NGROUPS];
+	u32 *out;
+	layers&=0xFFFF;
+	if(!c->meshed || c->trimmed || popcount16(layers)>=12)
+	{
+		layers=0xFFFF;
+	}
+	nTmp=0;
+	emitMax=MAX_CHUNK_QUADS;
+	for(ly=0; ly<CS; ++ly)
+	{
+		int y=y0+ly,used=0;
+		if(0==((layers>>ly)&1))
+		{
+			continue;
+		}
+		for(lz=0; lz<CS; ++lz)
+		{
+			int z=z0+lz;
+			u32 i=widx(x0,y,z)-WH;
+			/* Row away from the world's bottom, top and z edges */
+			int inner=(y>0 && y<WH-1 && z>0 && z<g_W-1);
+			for(lx=0; lx<CS; ++lx)
+			{
+				int x=x0+lx,d;
+				u8 b,f;
+				const BlockDef *def;
+				i+=WH;
+				b=g_blocks[i];
+				if(B_AIR==b)
+				{
+					continue;
+				}
+				f=blk_flags(b);
+				if(f&BF_MODEL)
+				{
+					emit(lx,ly,lz,0,1,1,(u32)b<<16,1);
+					continue;
+				}
+				def=&g_blockDef[BLK_ID(b)];
+				if(inner && x>0 && x<g_W-1)
+				{
+					/* Away from the world's edges: all 6 neighbors exist.
+					   Skip enclosed cells (the common case underground),
+					   then add the exposed faces, unrolled per direction. */
+					int same=(f&BF_SAMEHIDE),id=BLK_ID(b);
+					if(hidesTab[g_blocks[i+1]] && hidesTab[g_blocks[i-1]] &&
+					   hidesTab[g_blocks[i-WH]] && hidesTab[g_blocks[i+WH]] &&
+					   hidesTab[g_blocks[i-strideZ]] && hidesTab[g_blocks[i+strideZ]])
+					{
+						continue;
+					}
+#define FACE(D,OFF) \
+					{ \
+						u8 nb=g_blocks[i+(OFF)]; \
+						if(!hidesTab[nb] && !(same && BLK_ID(nb)==id)) \
+						{ \
+							key[D][lz*16+lx]=(u16)((def->tex[D]|(g_light[i+(OFF)]<<8))+1); \
+							if(D<=DIR_PX) mask[D][lx]|=1<<lz; else mask[D][lz]|=1<<lx; \
+							used|=1<<(D); \
+						} \
+					}
+					FACE(DIR_PY,1)
+					FACE(DIR_NY,-1)
+					FACE(DIR_NX,-WH)
+					FACE(DIR_PX,WH)
+					FACE(DIR_NZ,-(int)strideZ)
+					FACE(DIR_PZ,strideZ)
+#undef FACE
+					continue;
+				}
+				for(d=0; d<6; ++d)
+				{
+					u8 nb;
+					u32 ni;
+					int L;
+					/* World edges and bottom are hidden; the sky above is lit */
+					switch(d)
+					{
+					case DIR_NX: if(0==x) continue; ni=i-WH; break;
+					case DIR_PX: if(g_W-1==x) continue; ni=i+WH; break;
+					case DIR_NY: if(0==y) continue; ni=i-1; break;
+					case DIR_PY: if(WH-1==y) { ni=0; break; } ni=i+1; break;
+					case DIR_NZ: if(0==z) continue; ni=i-strideZ; break;
+					default:     if(g_W-1==z) continue; ni=i+strideZ; break;
+					}
+					if(DIR_PY==d && WH-1==y)
+					{
+						nb=B_AIR;
+						L=0xF0;
+					}
+					else
+					{
+						nb=g_blocks[ni];
+						if(hidesTab[nb] || ((f&BF_SAMEHIDE) && BLK_ID(nb)==BLK_ID(b)))
+						{
+							continue;
+						}
+						L=g_light[ni];
+					}
+					used|=1<<d;
+					key[d][lz*16+lx]=(u16)((def->tex[d]|(L<<8))+1);
+					if(d<=DIR_PX)
+					{
+						mask[d][lx]|=1<<lz;
+					}
+					else
+					{
+						mask[d][lz]|=1<<lx;
+					}
+				}
+			}
+		}
+		if(used&(1<<DIR_PY)) greedy2d(key[DIR_PY],mask[DIR_PY],ly,DIR_PY);
+		if(used&(1<<DIR_NY)) greedy2d(key[DIR_NY],mask[DIR_NY],ly,DIR_NY);
+		if(used&(1<<DIR_NZ)) runs1d(key[DIR_NZ],mask[DIR_NZ],ly,DIR_NZ);
+		if(used&(1<<DIR_PZ)) runs1d(key[DIR_PZ],mask[DIR_PZ],ly,DIR_PZ);
+		if(used&(1<<DIR_NX)) runs1d_z(key[DIR_NX],mask[DIR_NX],ly,DIR_NX);
+		if(used&(1<<DIR_PX)) runs1d_z(key[DIR_PX],mask[DIR_PX],ly,DIR_PX);
+	}
+	nNew=nTmp;
+	BENCH_HOOK(++g_benchOut[BO_REBUILDS]);
+	BENCH_HOOK(g_benchOut[BO_LAYERS]+=popcount16(layers));
+	if(0xFFFF!=layers && nNew+c->count>MAX_CHUNK_QUADS)
+	{
+		/* The kept and new quads might not fit the buffers together */
+		rebuild_chunk(cx,cy,cz,0xFFFF);
+		return;
+	}
+
+	/* Sort the new quads by group (direction and quadrant, models last)
+	   and, within a group, by plane coordinate so visible planes come
+	   first: ascending for +X/+Y/+Z (visible when the camera is
+	   above/after), descending for -X/-Y/-Z.  Grow the boxes of the cells
+	   each group covers (exact for a whole mesh; for a partial rebuild the
+	   old boxes grown by the new quads, which may be loose and only make
+	   culling less tight). */
+	for(g=0; g<NGROUPS; ++g)
+	{
+		if(0xFFFF==layers)
+		{
+			xa[g]=za[g]=ya[g]=15;
+			x1[g]=z1[g]=y1[g]=0;
+		}
+		else
+		{
+			xa[g]=c->gbox[g][0]&15; x1[g]=c->gbox[g][0]>>4;
+			za[g]=c->gbox[g][1]&15; z1[g]=c->gbox[g][1]>>4;
+			ya[g]=c->gbox[g][2]&15; y1[g]=c->gbox[g][2]>>4;
+		}
+	}
+	memset(cnt,0,sizeof(cnt));
+	for(i=0; i<nNew; ++i)
+	{
+		u32 w0=tmpQuads[i*2];
+		int k;
+		if(w0&MQ_MODEL)
+		{
+			k=NGROUPS*16;
+		}
+		else
+		{
+			int d=MQ_DIR(w0),p,lx=MQ_LX(w0),lz=MQ_LZ(w0),ly=MQ_LY(w0);
+			int ex=(d<=DIR_PX) ? 1 : MQ_W(w0),ez=(d<=DIR_PY) ? MQ_H(w0) : 1;
+			g=d*NSUB+(lx>=8)+((lz>=8)<<1);
+			p=(d<=DIR_PX) ? lx : (d<=DIR_PY ? ly : lz);
+			if(0==(d&1))
+			{
+				p=15-p;
+			}
+			k=g*16+p;
+			xa[g]=MIN(xa[g],lx); x1[g]=MAX(x1[g],lx+ex-1);
+			za[g]=MIN(za[g],lz); z1[g]=MAX(z1[g],lz+ez-1);
+			ya[g]=MIN(ya[g],ly); y1[g]=MAX(y1[g],ly);
+		}
+		bkt[i]=k;
+		++cnt[k+1];
+	}
+	for(i=1; i<=(NGROUPS+1)*16; ++i)
+	{
+		cnt[i]+=cnt[i-1];
+	}
+	for(g=0; g<=NGROUPS; ++g)
+	{
+		gstart[g]=cnt[g*16];
+	}
+	gstart[NGROUPS+1]=nNew;
+	for(i=0; i<nNew; ++i)
+	{
+		u16 d=cnt[bkt[i]]++;
+		sortedQuads[d*2]=tmpQuads[i*2];
+		sortedQuads[d*2+1]=tmpQuads[i*2+1];
+	}
+	if(0xFFFF==layers)
+	{
+		out=sortedQuads;
+		for(g=0; g<=NGROUPS; ++g)
+		{
+			group[g]=gstart[g+1]-gstart[g];
+		}
+	}
+	else
+	{
+		/* Merge each group's kept quads (already in order) with its new
+		   ones.  Groups whose box has no rebuilt layer and that get no new
+		   quads are copied whole. */
+		const u32 *q=g_meshPool+c->off*2;
+		u32 *o=tmpQuads;
+		out=tmpQuads;
+		for(g=0; g<=NGROUPS; ++g)
+		{
+			int cntOld=c->group[g],ns=gstart[g],ne=gstart[g+1];
+			u32 *o0=o;
+			if(g<NGROUPS && ns==ne)
+			{
+				int ylo=c->gbox[g][2]&15,yhi=c->gbox[g][2]>>4;
+				if(0==cntOld)
+				{
+					group[g]=0;
+					continue;
+				}
+				if(0==((layers>>ylo)&((2u<<(yhi-ylo))-1)))
+				{
+					memcpy(o,q,cntOld*8);
+					o+=cntOld*2;
+					q+=cntOld*2;
+					group[g]=cntOld;
+					continue;
+				}
+			}
+			if(g<NGROUPS)
+			{
+				int d=g/NSUB,sh=(d<=DIR_PX ? 0 : (d<=DIR_PY ? 8 : 4)),flip=(0==(d&1) ? 15 : 0);
+				for(i=cntOld; i>0; --i,q+=2)
+				{
+					u32 w0=q[0];
+					int pk;
+					if((layers>>MQ_LY(w0))&1)
+					{
+						continue;
+					}
+					pk=((w0>>sh)&15)^flip;
+					while(ns<ne && (int)(((sortedQuads[ns*2]>>sh)&15)^flip)<pk)
+					{
+						o[0]=sortedQuads[ns*2];
+						o[1]=sortedQuads[ns*2+1];
+						o+=2;
+						++ns;
+					}
+					o[0]=w0;
+					o[1]=q[1];
+					o+=2;
+				}
+			}
+			else
+			{
+				/* Model cells: kept, then new */
+				for(i=cntOld; i>0; --i,q+=2)
+				{
+					if(0==((layers>>MQ_LY(q[0]))&1))
+					{
+						o[0]=q[0];
+						o[1]=q[1];
+						o+=2;
+					}
+				}
+			}
+			for(; ns<ne; ++ns)
+			{
+				o[0]=sortedQuads[ns*2];
+				o[1]=sortedQuads[ns*2+1];
+				o+=2;
+			}
+			group[g]=(o-o0)/2;
+		}
+		nTmp=(o-tmpQuads)/2;
+	}
+	for(g=0; g<NGROUPS; ++g)
+	{
+		c->gbox[g][0]=xa[g]|(x1[g]<<4);
+		c->gbox[g][1]=za[g]|(z1[g]<<4);
+		c->gbox[g][2]=ya[g]|(y1[g]<<4);
+	}
+	g_meshQuads-=c->count;
+	c->count=0;
+	n=mesh_alloc(c,cx,cz,nTmp);
+	c->trimmed=0;
+	if(n<nTmp)
+	{
+		/* Out of pool space: keep what fits (trimming the group counts
+		   from the end so they still add up) */
+		int excess=nTmp-n;
+		c->trimmed=1;
+		for(g=NGROUPS; g>=0 && excess>0; --g)
+		{
+			int t=MIN(excess,(int)group[g]);
+			group[g]-=t;
+			excess-=t;
+		}
+	}
+	memcpy(c->group,group,sizeof(group));
+	++g_meshVersion;
+	g_meshQuads+=n;
+	memcpy(g_meshPool+c->off*2,out,n*8);
+	c->count=n;
+	c->dirty=0;
+	c->dirtyLayers=0;
+	c->meshed=1;
+	/* A bottom-layer chunk is sealed when nothing can be seen into it from
+	   above: its top cells are opaque wherever the cells above are not,
+	   and no water touches its sides (see collect in render.c).  Only the
+	   top layer can change whether it is sealed. */
+	if(0==cy && (layers&0x8000))
+	{
+		int sealed=1,water=0;
+		for(lz=0; lz<CS; ++lz)
+		{
+			for(lx=0; lx<CS; ++lx)
+			{
+				int x=x0+lx,z=z0+lz;
+				u32 i=widx(x,CS-1,z);
+				if(sealed && !(blk_flags(g_blocks[i])&BF_OPAQUE) && !(blk_flags(g_blocks[i+1])&BF_OPAQUE))
+				{
+					sealed=0;
+				}
+				if(0xFFFF==layers && !water && (0==lx || 0==lz || CS-1==lx || CS-1==lz))
+				{
+					for(ly=0; ly<CS; ++ly)
+					{
+						if(B_WATER==BLK_ID(g_blocks[widx(x,ly,z)]))
+						{
+							water=1;
+							break;
+						}
+					}
+				}
+			}
+		}
+		if(0xFFFF==layers)
+		{
+			c->waterSide=water;
+		}
+		c->sealed=sealed && !c->waterSide;
+	}
 }
 
 /* No meshes at all (new or loaded world) */
@@ -812,44 +1075,13 @@ static void mesh_reset(void)
 	streamReady=0;
 	memset(g_chunks,0,sizeof(Chunk)*g_NC*g_NC*NCY);
 	poolTop=0;
+	poolUsed=0;
+	anyDirty=0;
 	g_meshQuads=0;
 	++g_meshVersion;
 }
 
-/* Mesh a chunk.  When the pool is full, free the column farthest from the
-   camera (if it is farther than this chunk) and try again. */
-static void build_chunk(int cx,int cy,int cz)
-{
-	int d=column_dist2(cx,cz,streamX,streamZ);
-	for(;;)
-	{
-		int x,z,fx=-1,fz=0,fd=d;
-		poolOverflow=0;
-		rebuild_chunk(cx,cy,cz);
-		if(!poolOverflow)
-		{
-			return;
-		}
-		for(z=0; z<g_NC; ++z)
-		{
-			for(x=0; x<g_NC; ++x)
-			{
-				int dd=column_dist2(x,z,streamX,streamZ);
-				if(dd>fd && column_meshed(x,z))
-				{
-					fx=x;
-					fz=z;
-					fd=dd;
-				}
-			}
-		}
-		if(fx<0)
-		{
-			return;       /* Nothing farther to free: keep the trimmed mesh */
-		}
-		unmesh_column(fx,fz);
-	}
-}
+/* ---------------- Mesh streaming ---------------- */
 
 void world_stream(int x,int z,int radius,int maxBuild)
 {
@@ -898,36 +1130,48 @@ void world_stream(int x,int z,int radius,int maxBuild)
 			streamVersion=g_meshVersion;
 			return;
 		}
-		build_chunk(bestCx,bestCy,bestCz);
+		rebuild_chunk(bestCx,bestCy,bestCz,0xFFFF);
 	}
 }
 
-void world_update_dirty_chunks(int maxLightOnly)
+/* Rebuild the dirty layers of meshed chunks.  Geometry changes are always
+   rebuilt; light-only changes up to maxLightLayers layers per call. */
+void world_update_dirty_chunks(int maxLightLayers)
 {
-	int cx,cy,cz;
-	for(cz=0; cz<g_NC; ++cz)
+	int i,n=g_NC*g_NC*NCY,left=0;
+	if(!anyDirty)
 	{
-		for(cx=0; cx<g_NC; ++cx)
+		return;
+	}
+	for(i=0; i<n; ++i)
+	{
+		Chunk *c=&g_chunks[i];
+		u8 d=c->dirty;
+		if(!d)
 		{
-			for(cy=0; cy<NCY; ++cy)
+			continue;
+		}
+		if(DIRTY_LIGHT==d && maxLightLayers<=0)
+		{
+			left=1;    /* Over budget: next call */
+			continue;
+		}
+		if(!c->meshed)
+		{
+			c->dirty=0;    /* Meshed from scratch when it comes near */
+			c->dirtyLayers=0;
+		}
+		else
+		{
+			int cy=i%NCY,cx=(i/NCY)%g_NC,cz=i/(NCY*g_NC);
+			if(DIRTY_LIGHT==d)
 			{
-				Chunk *c=&g_chunks[chunk_index(cx,cy,cz)];
-				u8 d=c->dirty;
-				if(!c->meshed)
-				{
-					c->dirty=0;    /* Meshed from scratch when it comes near */
-				}
-				else if(DIRTY_GEOMETRY==d || (DIRTY_LIGHT==d && maxLightOnly>0))
-				{
-					if(DIRTY_LIGHT==d)
-					{
-						--maxLightOnly;
-					}
-					build_chunk(cx,cy,cz);
-				}
+				maxLightLayers-=popcount16(c->dirtyLayers);
 			}
+			rebuild_chunk(cx,cy,cz,c->dirtyLayers);
 		}
 	}
+	anyDirty=left;
 }
 
 /* After g_blocks was loaded from a save: light (sky, then every light
@@ -1005,13 +1249,7 @@ void world_set(int x,int y,int z,u8 b)
 		}
 		propagate(ch);
 	}
-	mark_dirty(x,y,z);
-	mark_dirty(x-1,y,z);
-	mark_dirty(x+1,y,z);
-	mark_dirty(x,y-1,z);
-	mark_dirty(x,y+1,z);
-	mark_dirty(x,y,z-1);
-	mark_dirty(x,y,z+1);
+	mark_cell(x,y,z,DIRTY_GEOMETRY);
 }
 
 int world_is_solid(int x,int y,int z)

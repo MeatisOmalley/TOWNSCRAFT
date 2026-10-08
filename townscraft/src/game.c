@@ -1698,9 +1698,11 @@ void kmain(void)
 				tickAccum=0;
 			}
 			raycast();
-			/* Budgeted relighting of chunks whose light changed */
+			/* Rebuild the layers of chunk meshes that edits changed.  Light
+			   changes spreading into other chunks are budgeted (in layers of
+			   16x16 cells) so a torch cannot stall a frame. */
 			BENCH_HOOK(bench_update_begin());
-			world_update_dirty_chunks(1);
+			world_update_dirty_chunks(48);
 			/* Mesh chunks coming into range, one per frame */
 			stream_world(1);
 			BENCH_HOOK(bench_update_end());
