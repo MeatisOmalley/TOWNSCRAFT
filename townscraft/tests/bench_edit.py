@@ -90,7 +90,7 @@ def main():
         if saddr:
             with lock:
                 del lines[:]
-            p.stdin.write("!MD PHYS:%X 16 12 1 0\n" % saddr)
+            p.stdin.write("!MD PHYS:%X 16 13 1 0\n" % saddr)
             p.stdin.flush()
             time.sleep(1.0)
             data = bytearray()
@@ -100,8 +100,8 @@ def main():
                 m = re.match(r"^([0-9A-F]{8})\s+((?:[0-9A-F]{2}\s?){16})", l)
                 if m:
                     data += bytes(int(b, 16) for b in m.group(2).split())
-            if len(data) >= 192:
-                sec = [int.from_bytes(data[i * 4:i * 4 + 4], "little") for i in range(48)]
+            if len(data) >= 208:
+                sec = [int.from_bytes(data[i * 4:i * 4 + 4], "little") for i in range(52)]
     if out and a.prof:
         paddr = None
         for line in subprocess.run(["nm", a.elf], capture_output=True, text=True).stdout.splitlines():
@@ -145,7 +145,7 @@ def main():
     print("look frame avg     : %8.1f ms  (%.1f fps)" % (look / 1000, 1e6 / max(1, look)))
     if sec:
         names = ["game", "update", "collect", "entsort", "wait", "sky", "draw", "finish", "hud", "present"]
-        for ph, row in (("look", sec[0:24]), ("walk", sec[24:48])):
+        for ph, row in (("look", sec[0:26]), ("walk", sec[26:52])):
             fr = max(1, row[10])
             tot = sum(row[0:10])
             print("%s: %d frames, %.1f ms/frame: " % (ph, row[10], tot / fr / 1000) +
@@ -154,6 +154,8 @@ def main():
                   (row[11] / fr, row[11] / fr / 16000.0, row[12] / fr, row[13] / fr))
             print("      per frame: %.1f quads (incl. split cells), %.1f models, %.1f mob boxes; %.1f rejected early; polys: %.1f off screen, %.1f tiny, %.1f near clipped, %.1f guard clipped" %
                   tuple(row[i] / fr for i in (17, 18, 19, 21, 14, 15, 16, 20)))
+            cov = row[23] / fr
+            print("      per frame: %d flat pixels, %d covered pixels -> overdraw %.2fx" % (row[22] / fr, cov, (row[11] + row[22]) / fr / max(1, cov)))
     if a.prof:
         import os
         print(subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "profile.py"),

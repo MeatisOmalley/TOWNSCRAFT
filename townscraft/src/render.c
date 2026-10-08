@@ -51,6 +51,7 @@ static int *PX[NPLANES],*PY[NPLANES],*PZ[NPLANES];
 static int planeLen[NPLANES];
 static int rot[3][3];            /* Rows: right, up, forward (2.14) */
 static int camBX,camBY,camBZ;
+static int tabX0,tabX1,tabZ0,tabZ1;  /* Grid lines with valid TX/TZ/PX/PZ */
 static int vw,vh,focal16,cx16,cy16;
 static int skyDarkenCur;
 static u8 texTransparent[NUM_TEXTURES];
@@ -680,6 +681,24 @@ static void draw_model(int bx,int by,int bz,u8 b)
 
 static void draw_mbox(const MBox *mb)
 {
+	{
+		/* Whole box out of view?  With m the largest local coordinate and
+		   p the largest pivot coordinate (1/16 block), a corner is at most
+		   sqrt(3)*(m+p) from the pivot and the pivot sqrt(3)*p from the
+		   entity origin, so the cube of half size 2*(m+2p) holds the box.
+		   Test the grid cells around that cube. */
+		int m=MAX(MAX(ABS(mb->x0),ABS(mb->x1)),MAX(MAX(ABS(mb->y0),ABS(mb->y1)),MAX(ABS(mb->z0),ABS(mb->z1))));
+		int r=(m+2*MAX(ABS(mb->px),MAX(ABS(mb->py),ABS(mb->pz))))*2*16;   /* units */
+		int xa=(mb->ox-r)>>8,xb=((mb->ox+r)>>8)+1;
+		int ya=(mb->oy-r)>>8,yb=((mb->oy+r)>>8)+1;
+		int za=(mb->oz-r)>>8,zb=((mb->oz+r)>>8)+1;
+		if(xa>=tabX0 && xb<=tabX1 && za>=tabZ0 && zb<=tabZ1 && ya>=0 && yb<=WH &&
+		   box_outside(xa,xb,ya,yb,za,zb))
+		{
+			BENCH_HOOK(++g_benchCnt[S_EARLY]);
+			return;
+		}
+	}
 	++g_dbg[1];
 	int sy=fsin(mb->yaw),cy=fcos(mb->yaw),sp=fsin(mb->pitch),cp=fcos(mb->pitch);
 	int ew[3][3],ec[3][3];   /* Local axes in world, then in camera space (2.14) */
@@ -820,6 +839,7 @@ static void setup_camera(void)
 	/* Merged quads can reach 16 cells past the view distance */
 	x0=MAX(0,camBX-g_viewDist-18); x1=MIN(g_W,camBX+g_viewDist+18);
 	z0=MAX(0,camBZ-g_viewDist-18); z1=MIN(g_W,camBZ+g_viewDist+18);
+	tabX0=x0; tabX1=x1; tabZ0=z0; tabZ1=z1;
 	axis_tables(TX,visX,PX,x0,x1,g_cam.x,0,1,2,fpx,hwp,hhp);
 	axis_tables(TZ,visZ,PZ,z0,z1,g_cam.z,2,16,32,fpx,hwp,hhp);
 	axis_tables(TY,visY,PY,0,WH,g_cam.y,1,4,8,fpx,hwp,hhp);
@@ -1499,6 +1519,25 @@ void render_frame(u8 *fb,const RenderEnv *env)
 	}
 	g_prof[2]+=g_ticks-t;}
 	BENCH_HOOK(bench_mark(S_DRAW));
+#ifdef BENCH_OVERDRAW
+	{
+		/* View pixels that still show the sky (top, horizon or fog color),
+		   for the overdraw estimate in tests/bench_edit.py */
+		int x,y,n=0;
+		u8 c0=env->skyColor,c1=(env->skyColor&0xF0)|MIN(15,(env->skyColor&15)+1),c2=env->fogColor;
+		for(y=0; y<vh; ++y)
+		{
+			const u8 *row=fb+y*g_renderScale*FB_PITCH;
+			for(x=0; x<vw; ++x)
+			{
+				u8 c=row[x*g_renderScale];
+				n+=(c==c0 || c==c1 || c==c2);
+			}
+		}
+		g_benchCnt[S_COVERED]+=vw*vh-n;
+		bench_mark(S_SCAN);   /* Not counted as drawing */
+	}
+#endif
 	draw_target_outline(env);
 	{u32 t=g_ticks;
 	raster_finish();

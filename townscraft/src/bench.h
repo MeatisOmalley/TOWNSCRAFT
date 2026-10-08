@@ -58,7 +58,10 @@ enum
 	S_BOXES,     /* Entity boxes drawn */
 	S_GUARD,     /* Polygons clipped at the guard band */
 	S_EARLY,     /* Quads and models rejected before projection */
-	S_N=24
+	S_FLATPX,    /* Pixels written by flat (untextured) spans */
+	S_COVERED,   /* View pixels not showing the sky at the end of the frame */
+	S_SCAN,      /* Time spent counting them */
+	S_N=26
 };
 
 #ifdef BENCH_EDIT
