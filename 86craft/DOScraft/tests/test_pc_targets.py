@@ -6,7 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
-from build_pc import TARGETS, argument_parser, compiler_flags
+from build_pc import TARGETS, argument_parser, compiler_flags, guest_startup
 from fetch_roms import PATHS
 
 
@@ -17,6 +17,18 @@ def profile(target):
 
 
 class TargetTests(unittest.TestCase):
+    def test_display_hold_is_explicit_and_diagnostic_only(self):
+        self.assertFalse(argument_parser().parse_args([]).hold_display)
+        automatic = guest_startup('display')
+        self.assertIn(b'DISPLAY.EXE /AUTO\r\n', automatic)
+        self.assertIn(b'Display test finished. See C:\\DISPLAY.TXT.', automatic)
+        held = guest_startup('display', True)
+        self.assertIn(b'DISPLAY.EXE\r\n', held)
+        self.assertNotIn(b'/AUTO', held)
+        self.assertIn(b'PLATFORM.EXE /AUTO', guest_startup('platform'))
+        with self.assertRaises(ValueError):
+            guest_startup('platform', True)
+
     def test_default_is_native_486_with_x87(self):
         self.assertEqual(argument_parser().parse_args([]).target, '486dx25')
         self.assertEqual(TARGETS['486dx25']['role'], 'primary')

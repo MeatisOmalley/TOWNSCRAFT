@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-09",
+  "phase": "A: direct port infrastructure, not a playable game",
+  "emulator": "86Box 6.0 build 9001",
+  "emulator_source_commit": "4fef696a4eead1d55a28d6ac0e5bd2864e5454da",
+  "hardware": {
+    "machine": "isa486",
+    "cpu": "i486dx",
+    "cpu_hz": 25000000,
+    "fpu": "internal, softfloat enabled",
+    "ram_kib": 16384,
+    "vga": "ET4000AX ISA, 1024 KiB, v8_06 BIOS",
+    "sound": "sb (Sound Blaster 1.0); audio not tested",
+    "disk": "WD1007V-SE1 ESDI, 615/4/17, private scratch FAT16",
+    "disk_timing": "1989_3500rpm generic proxy; NOT final Wren V",
+    "boot_order": "A:, C:"
+  },
+  "platform": {
+    "vm": "platform-486dx25-xecixfz2",
+    "exe_sha256": "f3a654e2beaf07b6679fea0508ca1e6060c00c83e071904421fd88564b5b8e4a",
+    "raw_report_sha256": "1d97156a1f8b2f11ce253212e4cb792fb5902f20a583f9a62370fc1b78ca4369",
+    "CPU_DPMI": 4,
+    "MINIMUM_CPU": 4,
+    "FPU_CONTROL": "037f",
+    "FREE_BLOCK_BYTES": 15007744,
+    "PHYSICAL_PAGES": 3840,
+    "SWAP_PAGES": 0,
+    "HEAP_8M": "PASS",
+    "DISK_32K": "PASS",
+    "VGA_UPLOADS": 16,
+    "VGA_TICKS": 485432,
+    "TIMER_HZ": 1193180,
+    "RESULT": "PASS",
+    "verification": "User reported success; assistant independently read C:/PLATFORM.TXT and observed the DOS result screen."
+  },
+  "display": {
+    "vm": "display-486dx25-tywrh__2",
+    "exe_sha256": "dffde54ad94f0b0db0a585a56bb5733e4fb18e0552830c6fad3d7b2940ea37a7",
+    "raw_report_sha256": "696574bc599c8b73339309d105def50066ff54c639013e4f616fd4a8e57e783b",
+    "WIDTH": 320,
+    "HEIGHT": 240,
+    "SOURCE_PITCH": 512,
+    "VRAM_PLANES": "PASS",
+    "RESULT": "PASS",
+    "verification": "Assistant read C:/DISPLAY.TXT and observed automatic return to DOS text mode.",
+    "visual_vm": "display-486dx25-5cem2bex",
+    "visual_check": "Held pattern observed: full 4:3 image, four borders including distinct last row, expected diagonal palette pattern; no obvious plane-interleaving or cropping.",
+    "keyboard_exit": "Automated Escape delivery not confirmed; physical keyboard confirmation pending."
+  },
+  "limitations": [
+    "Diagnostics only: no gameplay, renderer FPS, audio, mouse, save/cache adapter or full parity validation.",
+    "Single diagnostic runs, not repeatable performance benchmarks or a Mode X vs Mode 13h comparison.",
+    "VGA_TICKS times 16 Mode 13h uploads, not Mode X packing, whole frames or game FPS.",
+    "Inherited firmware and motherboard proxies remain unauthenticated as exact 1989 retail hardware.",
+    "Runtime images and ROMs are intentionally not tracked; only small result summaries and source are committed."
+  ]
+}

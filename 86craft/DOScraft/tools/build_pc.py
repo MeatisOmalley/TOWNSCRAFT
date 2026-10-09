@@ -21,6 +21,8 @@ def argument_parser():
     parser.add_argument('--prepare-vm', action='store_true')
     parser.add_argument('--probe', choices=('platform', 'display'), default='platform',
                         help='standalone platform gate or direct-port 320x240 display gate')
+    parser.add_argument('--hold-display', action='store_true',
+                        help='display probe only: hold the test pattern until Escape for visual inspection')
     return parser
 
 
@@ -30,8 +32,22 @@ def compiler_flags(target):
             f'-DDOSCRAFT_MINIMUM_CPU={spec["minimum_cpu"]}', '-O2', '-Wall', '-Wextra', '-std=gnu99']
 
 
+def guest_startup(probe, hold_display=False):
+    if hold_display and probe != 'display':
+        raise ValueError('--hold-display requires --probe display')
+    text = (ROOT / 'guest/AUTOEXEC.BAT').read_text().replace('PLATFORM', probe.upper())
+    text = text.replace('isolated platform test', f'isolated {probe} test')
+    text = text.replace('Platform test finished', f'{probe.capitalize()} test finished')
+    if hold_display:
+        text = text.replace('DISPLAY.EXE /AUTO', 'DISPLAY.EXE')
+    return text.replace('\n', '\r\n').encode('ascii')
+
+
 def main():
-    args = argument_parser().parse_args()
+    parser = argument_parser()
+    args = parser.parse_args()
+    if args.hold_display and args.probe != 'display':
+        parser.error('--hold-display requires --probe display')
     target = TARGETS[args.target]
     deps = ROOT / 'build/deps'
     compiler = deps / 'djgpp/djgpp/bin/i586-pc-msdosdjgpp-gcc.exe'
@@ -47,6 +63,7 @@ def main():
     subprocess.run(command, check=True)
     profile = ROOT / 'profiles' / f'{args.target}-platform.cfg'
     manifest = {'stage': f'M1 {args.probe} probe; not the game', 'probe': args.probe,
+                'hold_display': args.hold_display,
                 'target': args.target,
                 **target, 'profile_sha256': hashlib.sha256(profile.read_bytes()).hexdigest(),
                 'compiler_command': command,
@@ -67,10 +84,10 @@ def main():
                  ('CWSDPMI.EXE', (deps / 'cwsdpmi/bin/CWSDPMI.EXE').read_bytes()),
                  (f'{probe_name}.EXE', exe.read_bytes())]
         for name in ('FDCONFIG.SYS', 'AUTOEXEC.BAT'):
-            text = (ROOT / 'guest' / name).read_text()
             if name == 'AUTOEXEC.BAT':
-                text = text.replace('PLATFORM', probe_name)
-            text = text.replace('\n', '\r\n').encode('ascii')
+                text = guest_startup(args.probe, args.hold_display)
+            else:
+                text = (ROOT / 'guest' / name).read_text().replace('\n', '\r\n').encode('ascii')
             files.append((name, text))
         floppy = populate(source.data[:512], files)
         with (vm / 'boot.img').open('xb') as f:
