@@ -19,6 +19,8 @@ def argument_parser():
     parser.add_argument('--target', choices=TARGETS, default='486dx25',
                         help='default: 486 primary; 386 is only a retained diagnostic scaffold')
     parser.add_argument('--prepare-vm', action='store_true')
+    parser.add_argument('--probe', choices=('platform', 'display'), default='platform',
+                        help='standalone platform gate or direct-port 320x240 display gate')
     return parser
 
 
@@ -35,29 +37,40 @@ def main():
     compiler = deps / 'djgpp/djgpp/bin/i586-pc-msdosdjgpp-gcc.exe'
     out = ROOT / 'build/pc' / args.target
     out.mkdir(parents=True, exist_ok=True)
-    exe = out / 'PLATFORM.EXE'
+    probe_name = args.probe.upper()
+    exe = out / f'{probe_name}.EXE'
+    sources = [ROOT / 'src/platform/dos/probe.c'] if args.probe == 'platform' else [
+        ROOT / 'src/platform/dos/display_probe.c', ROOT / 'src/platform/dos/video.c',
+        ROOT / 'src/platform/dos/vga_pack.c']
     command = [str(compiler), *compiler_flags(args.target),
-               str(ROOT / 'src/platform/dos/probe.c'), '-o', str(exe)]
+               *(str(source) for source in sources), '-o', str(exe)]
     subprocess.run(command, check=True)
     profile = ROOT / 'profiles' / f'{args.target}-platform.cfg'
-    manifest = {'stage': 'M1 platform probe; not the game', 'target': args.target,
+    manifest = {'stage': f'M1 {args.probe} probe; not the game', 'probe': args.probe,
+                'target': args.target,
                 **target, 'profile_sha256': hashlib.sha256(profile.read_bytes()).hexdigest(),
                 'compiler_command': command,
-                'exe_sha256': hashlib.sha256(exe.read_bytes()).hexdigest()}
+                'exe_sha256': hashlib.sha256(exe.read_bytes()).hexdigest(),
+                'source_sha256': {str(source.relative_to(ROOT)): hashlib.sha256(source.read_bytes()).hexdigest()
+                                  for source in sources},
+                'disk_timing_note': '86Box v6 diagnostic uses generic 1989_3500rpm; not final Wren V timing.'}
     if args.target == '386dx33':
         manifest['fpu_note'] = 'Actual emulator model is Intel 387, not Cyrix FasMath. 386 game port is deferred.'
     if args.prepare_vm:
         runtime = ROOT / 'runtime'
         runtime.mkdir(exist_ok=True)
         # A new private directory for every run: never overwrite an old HDD.
-        vm = Path(tempfile.mkdtemp(prefix=f'platform-{args.target}-', dir=runtime))
+        vm = Path(tempfile.mkdtemp(prefix=f'{args.probe}-{args.target}-', dir=runtime))
         source = FatImage((deps / 'freedos/144m/x86BOOT.img').read_bytes())
         files = [('KERNEL.SYS', source.read('KERNEL.SYS')),
                  ('COMMAND.COM', source.read('FREEDOS/BIN/COMMAND.COM')),
                  ('CWSDPMI.EXE', (deps / 'cwsdpmi/bin/CWSDPMI.EXE').read_bytes()),
-                 ('PLATFORM.EXE', exe.read_bytes())]
+                 (f'{probe_name}.EXE', exe.read_bytes())]
         for name in ('FDCONFIG.SYS', 'AUTOEXEC.BAT'):
-            text = (ROOT / 'guest' / name).read_text().replace('\n', '\r\n').encode('ascii')
+            text = (ROOT / 'guest' / name).read_text()
+            if name == 'AUTOEXEC.BAT':
+                text = text.replace('PLATFORM', probe_name)
+            text = text.replace('\n', '\r\n').encode('ascii')
             files.append((name, text))
         floppy = populate(source.data[:512], files)
         with (vm / 'boot.img').open('xb') as f:

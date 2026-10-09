@@ -51,6 +51,9 @@ class TargetTests(unittest.TestCase):
         self.assertEqual(primary['Machine']['mem_size'], legacy['Machine']['mem_size'])
         self.assertEqual(primary['Video']['gfxcard'], 'et4000ax')
         self.assertEqual(primary['Tseng Labs ET4000AX (ISA)'].getint('memory'), 1024)
+        # v6.0 b9001 does not recognize the newer CDC94186383 preset; an
+        # unknown name silently becomes RAM Disk. Explicit diagnostic proxy.
+        self.assertEqual(primary['Hard disks']['hdd_01_speed'], '1989_3500rpm')
 
     def test_required_roms_are_pinned(self):
         for name in ('machines/isa486/ISA-486.BIN', 'machines/asus386/ASUS_ISA-386C_BIOS.bin',
