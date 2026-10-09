@@ -46,6 +46,8 @@ extern int g_flatLOD;
 extern int g_flatDist;
 extern int g_distanceMode; /* Early face culling and fast flat spans */
 extern int g_occlusion;    /* Optional conservative terrain occlusion */
+enum { SUBDIV_ADAPTIVE, SUBDIV_FULL, SUBDIV_OFF, SUBDIV_COUNT };
+extern int g_textureSubdivision; /* Near affine texture quality/work tradeoff */
 extern u32 g_statOccluded,g_statOccluders;
 
 void render_init(void);

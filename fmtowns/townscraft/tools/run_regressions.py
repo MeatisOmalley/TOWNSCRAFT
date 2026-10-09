@@ -3,6 +3,7 @@ Only generated test binaries/assembly are written, under ignored build/.
 """
 import concurrent.futures
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -22,6 +23,7 @@ def main():
     trap=out/'trap-native.S'; trap.write_text(assembly)
     tests=[(n,n,[],[]) for n in ('caves','column_cache','column_save','edit','stream','mobs','mob_regions','save_regions')]
     tests += [('edit_cache_2','edit',['-DEDIT_CACHED','-DEDIT_RAM=2'],[]),
+              *[(f'deferred_light_{ram}','deferred_light',[f'-DEDIT_RAM={ram}'],[]) for ram in (2,4,8)],
               ('terrain_hdd','terrain_hdd',[],[]),
               ('terrain_floppy','terrain_floppy',[],[]),
               ('hdd','hdd',[],[]),
@@ -29,14 +31,20 @@ def main():
               ('edit_cache_8','edit',['-DEDIT_CACHED','-DEDIT_RAM=8'],[]),
               ('player','player',[],['src/player.c','src/physics.c']),
               ('keyboard','keyboard',[],['src/player.c','src/physics.c']),
-              ('render_occlusion','render_occlusion',[],['src/raster.c',str(trap)])]
+              *[(f'{test}_{mode}',test,[f'-DTEST_SUBDIVISION={mode}'],['src/raster.c',str(trap)])
+                for test in ('render_occlusion','render_general_occlusion','render_distance') for mode in (0,1,2)],
+              ('render_subdivision','render_subdivision',[],['src/raster.c',str(trap)])]
     def run(spec):
         name,test,flags,extra=spec
         exe=out/(name+'.exe')
         args=[str(zig),'cc','-target','x86-windows-gnu','-O2','-fno-builtin','-Isrc',*flags,
               'tests/'+test+'_test.c',*extra,*([] if test in ('terrain_hdd','terrain_floppy','hdd') else ['tests/no_hdd.c']),
               'src/blocks.c','src/fmath.c','src/libc.c',str(tables),'-o',str(exe)]
-        compiled=subprocess.run(args,cwd=ROOT,text=True,capture_output=True)
+        # Concurrent Zig links can race over shared cached objects on Windows.
+        # Keep each configuration's compiler scratch under ignored build/.
+        env=os.environ.copy()
+        env['ZIG_GLOBAL_CACHE_DIR']=str(out/'zig-cache'/name)
+        compiled=subprocess.run(args,cwd=ROOT,env=env,text=True,capture_output=True)
         result=compiled if compiled.returncode else subprocess.run([str(exe)],cwd=ROOT,text=True,capture_output=True)
         log=compiled.stdout+compiled.stderr
         if result is not compiled: log+=result.stdout+result.stderr

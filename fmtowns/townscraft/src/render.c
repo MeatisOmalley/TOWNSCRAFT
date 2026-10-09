@@ -31,6 +31,7 @@ int g_flatLOD=6*16;   /* 28.4: faces smaller than this are flat shaded */
 int g_flatDist;       /* Blocks: farther faces are flat shaded (0 = off) */
 int g_distanceMode;
 int g_occlusion;
+int g_textureSubdivision=SUBDIV_ADAPTIVE;
 u32 g_statOccluded,g_statOccluders;
 static int occCapture,occQuery,occBudget;
 static u32 occCurrentKey;
@@ -549,12 +550,19 @@ static void draw_quad(int x,int y,int z,int dir,int w,int h,int tex,int light)
 		if(!occBudget || texTransparent[tex] || ABS(y-camBY)>6 || nx*nx+nz*nz>36) return;
 	}
 	if((g_distanceMode || occCapture) && !quad_in_frustum(x,y,z,dir,ex,ez)) return;
-	/* Near the camera, affine texturing of a big quad visibly warps: draw it
-	   cell by cell instead.  Painter's order is unaffected (same plane). */
-	if(split && (ex>1 || ez>1) && ABS(y-camBY)<=3 &&
+	/* Near affine textures: adaptive is the existing default, full uses
+	   one cell per piece, off draws merged quads with more texture warping.
+	   Painter's order is unaffected (all pieces are on the same plane). */
+	if(split && g_textureSubdivision!=SUBDIV_OFF && (ex>1 || ez>1) && ABS(y-camBY)<=3 &&
 	   x<=camBX+2 && x+ex>camBX-2 && z<=camBZ+2 && z+ez>camBZ-2)
 	{
-		draw_quad_split(x,y,z,dir,ex,ez,tex,light);
+		if(g_textureSubdivision==SUBDIV_FULL)
+		{
+			int ix,iz;
+			for(iz=0;iz<ez;++iz) for(ix=0;ix<ex;++ix)
+				draw_quad(x+ix,y,z+iz,dir|8,1,1,tex,light);
+		}
+		else draw_quad_split(x,y,z,dir,ex,ez,tex,light);
 		return;
 	}
 	{
@@ -1283,7 +1291,7 @@ static void collect(void)
    At most 16 sufficiently large nearby opaque patches enter the prepass. */
 static void build_occlusion(void)
 {
-	static int valid,x,y,z,yaw,pitch,scale,view,floor;
+	static int valid,x,y,z,yaw,pitch,scale,view,floor,subdivision;
 	static u32 mesh;
 	int i;
 	if(!g_occlusion)
@@ -1292,7 +1300,8 @@ static void build_occlusion(void)
 		return;
 	}
 	if(valid && x==g_cam.x && y==g_cam.y && z==g_cam.z && yaw==g_cam.yaw && pitch==g_cam.pitch &&
-	   scale==g_renderScale && view==g_viewDist && floor==floorOcclusion && mesh==g_meshVersion) return;
+	   scale==g_renderScale && view==g_viewDist && floor==floorOcclusion &&
+	   subdivision==g_textureSubdivision && mesh==g_meshVersion) return;
 	raster_occlusion_reset(); g_statOccluders=0;
 	for(i=0; i<nStatic; ++i)
 	{
@@ -1312,6 +1321,7 @@ static void build_occlusion(void)
 	occCapture=0;
 	x=g_cam.x; y=g_cam.y; z=g_cam.z; yaw=g_cam.yaw; pitch=g_cam.pitch;
 	scale=g_renderScale; view=g_viewDist; floor=floorOcclusion; mesh=g_meshVersion; valid=1;
+	subdivision=g_textureSubdivision;
 }
 
 static void draw_sky(const RenderEnv *env)

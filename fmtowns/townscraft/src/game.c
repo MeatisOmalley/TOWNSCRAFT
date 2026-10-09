@@ -1104,12 +1104,12 @@ static void draw_help(void)
 		"1-9  , .    Select hotbar slot",
 		"TAB         Inventory",
 		"C           Craft (by hand)",
-		"Use a Crafting Table or Furnace",
-		"for more recipes.  Use a Bed at",
-		"night to sleep.",
+		"Tables/Furnaces: more recipes.",
+		"Use a Bed at night to sleep.",
 		"Mouse (port B): look, L/R buttons",
 		"PF2 Res.  PF3 View  PF4 Debug",
 		"PF6 Music  PF7 Sound  ESC Back",
+		"PF10 Near texture quality",
 	};
 	int i;
 	ui_panel(g_fb,20,16,280,208);
@@ -1462,6 +1462,17 @@ static void settings_key(int k)
 	case KEY_PF8:
 		g_occlusion=!g_occlusion;
 		game_message(g_occlusion ? "Occlusion culling: on" : "Occlusion culling: off");
+		break;
+	case KEY_PF10:
+		{
+			static const char *const names[SUBDIV_COUNT]={
+				"Near textures: adaptive",
+				"Near textures: full subdivision",
+				"Near textures: fast / no split"
+			};
+			g_textureSubdivision=(g_textureSubdivision+1)%SUBDIV_COUNT;
+			game_message(names[g_textureSubdivision]);
+		}
 		break;
 	case KEY_PF5:
 		{

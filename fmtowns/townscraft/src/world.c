@@ -1285,6 +1285,7 @@ static void apply_pending_light_edits(void);
 static void relight_edit(int x,int y,int z,u8 b)
 {
 	u32 i=widx(x,y,z);
+	u8 oldLight=g_light[i];
 	int ch,d;
 	for(ch=0; ch<2; ++ch)
 	{
@@ -1315,6 +1316,11 @@ static void relight_edit(int x,int y,int z,u8 b)
 		}
 		propagate(ch);
 	}
+	/* Propagation marks changed neighbors, but removal/emission can change
+	   the source itself without visiting any neighbor (e.g. a closed recess).
+	   Deferred edits already published their geometry with the old light.
+	   Refresh faces sampling this cell once its final light is available. */
+	if(g_light[i]!=oldLight) light_dirty(i,x,y,z);
 }
 
 static int pending_light_edit_can_queue(int x,int y,int z)

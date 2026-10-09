@@ -37,6 +37,9 @@ static void terrain(int opening)
 
 int main(void)
 {
+#ifdef TEST_SUBDIVISION
+    g_textureSubdivision=TEST_SUBDIVISION;
+#endif
     cacheAllocated=0; g_columnMap=NULL; g_W=64; g_NC=4; strideZ=g_W*WH;
     g_allocChunkCount=g_NC*g_NC*NCY;
     g_blocks=calloc(g_W*g_W*WH,1); g_light=calloc(g_W*g_W*WH,1);

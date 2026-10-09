@@ -19,6 +19,7 @@ def main():
     ap.add_argument('directory',type=Path,help='Production build containing audit.ISO and kernel.elf')
     ap.add_argument('--ram',type=int,choices=[2,4,6,8],default=2)
     ap.add_argument('--hdd',type=Path,help='Dedicated, already marked terrain scratch image')
+    ap.add_argument('--check-subdivision',action='store_true',help='Cycle PF10 through real keyboard events and verify each mode')
     a=ap.parse_args(); out=a.directory.resolve()
     prefix='smoke' if a.ram==2 and not a.hdd else f'smoke-{a.ram}mb-'+('hdd' if a.hdd else 'ram')
     with (out/'kernel.elf').open('rb') as f:
@@ -35,6 +36,7 @@ def main():
         def command(c): p.stdin.write('!'+c+'\n'); p.stdin.flush()
         def word(data,name): return struct.unpack_from('<I',data,syms[name])[0]
         started=False; first=None; deadline=time.monotonic()+180
+        modes=[]; mode_pending=False; mode_deadline=0
         try:
             while time.monotonic()<deadline:
                 if p.poll() is not None: raise RuntimeError('Emulator exited before gameplay')
@@ -53,9 +55,24 @@ def main():
                     values=[word(data,n) for n in ('g_ticks','fpsFrames','g_meshVersion')]
                     if first is None: first=values
                     elif values[0]>first[0]+100 and values[1]!=first[1]:
+                        if a.check_subdivision and len(modes)<4:
+                            mode=word(data,'g_textureSubdivision')
+                            expected_mode=(0,1,2,0)[len(modes)]
+                            if mode==expected_mode:
+                                modes.append(mode); mode_pending=False
+                                if len(modes)<4:
+                                    command('LOADEVT '+str(ROOT/'tests/pf10.evt'))
+                                    command('PLAYEVT'); mode_pending=True
+                                    mode_deadline=time.monotonic()+10
+                                    continue
+                            elif mode_pending and time.monotonic()<mode_deadline:
+                                continue
+                            else:
+                                raise RuntimeError(f'PF10 mode {mode}, expected {expected_mode}; sequence={modes}')
                         result=dict(gameplay=True,width=word(data,'g_W'),ticks=values[0],
                                     mesh_quads=word(data,'g_meshQuads'),frames_advancing=True,
                                     iso_sha256=hashlib.sha256(iso.read_bytes()).hexdigest())
+                        if a.check_subdivision: result['subdivision_modes']=modes
                         if a.hdd:
                             assert word(data,'terrainActive')==1, 'HDD terrain backend did not activate'
                             counters=list(struct.unpack_from('<4I',data,syms['g_terrainDiskStats']))
