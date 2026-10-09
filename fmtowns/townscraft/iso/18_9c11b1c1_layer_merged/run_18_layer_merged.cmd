@@ -9,7 +9,7 @@ if not exist "%ROM%" goto missing
 if not exist "%ISO%" goto missing
 pushd "%ROOT%"
 if errorlevel 1 goto missing
-"%EMU%" "%ROM%" -CD "%ISO%" -TOWNSTYPE MODEL2 -FREQ 16 -MEMSIZE 2 -DIFFMOUSE -DONTAUTOSAVECMOS -YESWAIT -AUTOSCALE -MAXIMIZE
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\run_1989.ps1" -IsoPath "%ISO%" %*
 set "EXITCODE=%ERRORLEVEL%"
 popd
 if not "%EXITCODE%"=="0" pause

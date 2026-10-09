@@ -33,8 +33,11 @@ not aliases for this build.
 
 Double-click `run_18_layer_merged.cmd`. It resolves the emulator, ROM and ISO
 relative to its own location, irrespective of the caller's working directory,
-and runs MODEL2 / 16 MHz / 2 MB with real-time pacing and the original flags.
-The launcher does not attach or overwrite a save floppy.
+and now uses the shared late-1989 2H-class / 16 MHz / 8 MB / 80387 profile
+with single-speed CD and a separate 200 MB SCSI image. See
+`../HARDWARE_1989.md`. This changes launch hardware only, not the ISO above
+or the original build/test provenance below. The launcher does not attach
+or overwrite a save floppy.
 
 Validation: all thirteen native regression configurations passed. A real
 2 MB / 16 MHz emulator boot, using Return through the keyboard, reached

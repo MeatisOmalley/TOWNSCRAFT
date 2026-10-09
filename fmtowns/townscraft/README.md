@@ -49,14 +49,32 @@ With the included test ROM (after `make stubrom`), omit the boot key:
 Tsugaru_CUI build/STUBROM -CD TOWNSCRAFT.ISO -DIFFMOUSE -MEMSIZE 4 -YESWAIT -DONTAUTOSAVECMOS -AUTOSCALE -MAXIMIZE
 ```
 
-`TOWNSCRAFT.ISO` is prebuilt in this directory.  Machine settings:
+`TOWNSCRAFT.ISO` is prebuilt in this directory. All numbered `.cmd` launchers
+now use the expanded **late-1989 minimum target**, rather than the old
+2 MB Model 2 baseline:
 
-| Setting | Minimum (base spec) | Recommended |
-|---|---|---|
-| Machine | `-TOWNSTYPE MODEL2` (386DX) | Tsugaru default or `-TOWNSTYPE MX` |
-| CPU clock | `-FREQ 16` | default (faster) |
-| RAM | `-MEMSIZE 2` | 4 MB or more |
-| FPU | not needed (the game is integer only) | |
+| Setting | New launcher minimum |
+|---|---|
+| Machine | Late-1989 2H class, selected as `-TOWNSTYPE 2F` in Tsugaru |
+| CPU clock | 386DX, `-FREQ 16` |
+| RAM | `-MEMSIZE 8` |
+| FPU | Optional 80387 fitted: `-USEFPU` |
+| Hard disk | Dedicated 200 MB raw SCSI image per ISO, `-HD0` |
+| CD-ROM | Internal single-speed CD, `-CDSPEED 1` |
+| Timing | `-NORMALSCSI -NORMALFD -YESWAIT` |
+
+The shared launcher creates a missing HDD under that ISO's `runtime_1989/`
+folder and never overwrites an existing disk. These writable images are
+ignored by Git; launchers and the hardware profile are tracked. See
+[iso/HARDWARE_1989.md](iso/HARDWARE_1989.md) for sources and limitations.
+The HDD is attached but the game still saves through its floppy driver;
+the FPU is enabled but the game remains integer-only. Neither capability
+is implemented in gameplay by this launcher change. Existing save floppies
+are not mounted, modified or migrated automatically.
+
+The earlier command examples and 2 MB/4 MB/6 MB benchmark results describe
+legacy configurations. Benchmark version 1 remains unchanged for historical
+comparisons; its `minimum` label still means the old 2 MB profile.
 
 The logical map keeps the existing hardware-profile defaults (96x96 blocks with 2 MB,
 160x160 with 4 MB, 208x208 with 6 MB, 256x256 with 8 MB or more; 48 blocks

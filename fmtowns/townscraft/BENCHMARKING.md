@@ -1,5 +1,11 @@
 # Standard benchmark, version 1
 
+The numbered `.cmd` launchers now use the late-1989 8 MB / 16 MHz / 80387 /
+200 MB SCSI profile documented in [iso/HARDWARE_1989.md](iso/HARDWARE_1989.md).
+This version-1 benchmark and its existing `minimum`/`high` profile names are
+retained unchanged for comparable historical measurements. They do not
+describe the new launcher minimum; do not relabel their results as 8 MB tests.
+
 Minimum spec is the priority: MODEL2, 16 MHz, 2 MB, 160x100 rendering,
 8-block textured view. Report the higher profile separately: MODEL2,
 25 MHz, 4 MB, 320x200 rendering, 12-block textured view. Higher settings
