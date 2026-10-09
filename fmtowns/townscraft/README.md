@@ -13,7 +13,10 @@ The current integrated production build is `TOWNSCRAFT.ISO` in this
 directory. Historical numbered builds remain under `iso/`; do not assume
 folder 17's older "merged_final" label means the latest source.
 The latest numbered launcher is
-[run_18_layer_merged.cmd](iso/18_9c11b1c1_layer_merged/run_18_layer_merged.cmd).
+[run_20_texture_quality_lighting.cmd](iso/20_7e7fa1bd_texture_quality_lighting/run_20_texture_quality_lighting.cmd).
+This adds PF10 near texture quality modes and fixes deferred edit lighting;
+see [OPTIMIZATION_AUDIT.md](OPTIMIZATION_AUDIT.md) for the master retention
+audit from September 30 onward. Older numbered images remain unchanged.
 See [PERFORMANCE_RESULTS.md](PERFORMANCE_RESULTS.md) for the integration
 decision and per-step measurements, and [BENCHMARKING.md](BENCHMARKING.md)
 for the standardized level, minimum-spec priority and individual tests.
@@ -145,6 +148,14 @@ the same code, so a real Model 2 would be slower than measured here.
 | PF7 | Sound effects on/off |
 | PF8 | Occlusion culling on/off (starts off) |
 | PF9 | Save the world to the floppy disk in drive A (L on the title screen loads it) |
+| PF10 | Cycle near texture subdivision: Adaptive (default), Full, Fast/no split |
+
+Full subdivides nearby merged surfaces into individual cells to reduce affine
+texture warping, at a higher rendering cost. Adaptive keeps the current
+distance-dependent compromise. Fast/no split draws the merged surfaces directly:
+it reduces polygon work but can visibly distort nearby textures. This affects
+rendering only; terrain, meshes, lighting and saves are unchanged. Like the other
+graphics settings, the choice lasts for the current session.
 
 A game pad on port A also works: pad to move and turn, A to break/attack,
 B to use/place, RUN to jump, SELECT to change the hotbar slot.  The mouse

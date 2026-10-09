@@ -4,7 +4,7 @@ Production source: `9c11b1c1bf8d2c0542d93ded4597bf609846d734`.
 Game integration commit: `39cf283e`.
 Build date: 2026-10-08.
 
-This is the latest integrated game code, with local terrain/save/input work,
+This was the latest integrated game code when published, with local terrain/save/input work,
 master renderer optimizations, and master's fast layer mesher adapted to
 cached columns. Player geometry no longer uses the ordinary four-step
 background path. See `../../MERGE_EVALUATION.md` and
@@ -26,8 +26,9 @@ Kernel: 185,420 bytes / 91 CD sectors.
 ISO SHA-256:
 `ce0185e3434761210a63e6c230d95a9289831c8f461e150f995efc16af8d1b8f`
 
-`TOWNSCRAFT_18_layer_merged.ISO` and `../../TOWNSCRAFT.ISO` are byte-identical.
-The latter restores the original root-directory launch command. Build 17
+At publication, `TOWNSCRAFT_18_layer_merged.ISO` and `../../TOWNSCRAFT.ISO` were
+byte-identical. The root image now follows build 20's lighting/texture-option source;
+this numbered ISO remains unchanged for comparison. Build 17
 and its compatibility launcher intentionally remain historical; they are
 not aliases for this build.
 
