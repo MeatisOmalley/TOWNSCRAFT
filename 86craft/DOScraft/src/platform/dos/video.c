@@ -15,6 +15,9 @@
 #include "video_backend.h"
 
 static int old_mode = -1;
+static unsigned int shown_page;
+#define VGA_PAGES 3
+typedef char pages_fit_vga_window[(VGA_PAGES * DOS_VGA_PLANE_BYTES <= 65536) ? 1 : -1];
 static unsigned char packed[DOS_VGA_PLANE_BYTES];
 static unsigned char readback[DOS_VGA_PLANE_BYTES];
 
@@ -48,6 +51,7 @@ void video_init(void)
     r.h.ah = 0x0f;
     __dpmi_int(0x10, &r);
     old_mode = r.h.al;
+    shown_page = 0;
     atexit(dos_video_restore);
     bios_mode(0x13);
     outportw(0x3c4, 0x0604); /* No chain-4, extended memory. */
@@ -65,7 +69,8 @@ void video_init(void)
     outportw(0x3ce, 0xff08); /* All bits writable. */
     memset(packed, 0, sizeof(packed));
     outportw(0x3c4, 0x0f02);
-    dosmemput(packed, sizeof(packed), 0xa0000);
+    for (i = 0; i < VGA_PAGES; ++i)
+        dosmemput(packed, sizeof(packed), 0xa0000 + i * DOS_VGA_PLANE_BYTES);
 }
 
 void video_set_palette(int index, int red, int green, int blue)
@@ -93,6 +98,9 @@ void video_wait_vsync(void)
 void dos_video_present(const unsigned char *source, unsigned int pitch)
 {
     unsigned int plane;
+    unsigned int next_page = (shown_page + 1) % VGA_PAGES;
+    unsigned int offset = next_page * DOS_VGA_PLANE_BYTES;
+    uclock_t start;
     for (plane = 0; plane < 4; ++plane) {
         if (dos_vga_pack_plane(source, pitch, packed, sizeof(packed), plane)) {
             dos_video_restore();
@@ -100,18 +108,35 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
             exit(1);
         }
         outportw(0x3c4, ((1 << plane) << 8) | 2);
-        dosmemput(packed, sizeof(packed), 0xa0000);
+        dosmemput(packed, sizeof(packed), 0xa0000 + offset);
     }
     outportw(0x3c4, 0x0f02);
+    /* Preserve hidden-page presentation, not four planes fading onto the
+     * visible page. Mode X CRTC start addresses are bytes per plane. Leave
+     * the current retrace before programming the next start, then wait for
+     * the retrace that latches it. Both waits are bounded on broken hardware. */
+    start = uclock();
+    while (video_in_vsync() && uclock() - start < UCLOCKS_PER_SEC / 10) {}
+    outportw(0x3d4, (offset & 0xff00) | 0x0c);
+    outportw(0x3d4, ((offset & 0xff) << 8) | 0x0d);
+    while (!video_in_vsync() && uclock() - start < UCLOCKS_PER_SEC / 10) {}
+    shown_page = next_page;
 }
 
 int dos_video_verify(const unsigned char *source, unsigned int pitch)
 {
     unsigned int plane;
+    unsigned int offset = shown_page * DOS_VGA_PLANE_BYTES;
+    unsigned int display_start;
+    outportb(0x3d4, 0x0c);
+    display_start = inportb(0x3d5) << 8;
+    outportb(0x3d4, 0x0d);
+    display_start |= inportb(0x3d5);
+    if (display_start != offset) return -1;
     for (plane = 0; plane < 4; ++plane) {
         if (dos_vga_pack_plane(source, pitch, packed, sizeof(packed), plane)) return -1;
         outportw(0x3ce, (plane << 8) | 4);
-        dosmemget(0xa0000, sizeof(readback), readback);
+        dosmemget(0xa0000 + offset, sizeof(readback), readback);
         if (memcmp(packed, readback, sizeof(packed))) return -1;
     }
     outportw(0x3ce, 0x0004);

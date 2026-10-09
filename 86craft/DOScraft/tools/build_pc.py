@@ -19,8 +19,8 @@ def argument_parser():
     parser.add_argument('--target', choices=TARGETS, default='486dx25',
                         help='default: 486 primary; 386 is only a retained diagnostic scaffold')
     parser.add_argument('--prepare-vm', action='store_true')
-    parser.add_argument('--probe', choices=('platform', 'display'), default='platform',
-                        help='standalone platform gate or direct-port 320x240 display gate')
+    parser.add_argument('--probe', choices=('platform', 'display', 'adapter'), default='platform',
+                        help='standalone platform, 320x240 display, or game-facing adapter gate')
     parser.add_argument('--hold-display', action='store_true',
                         help='display probe only: hold the test pattern until Escape for visual inspection')
     return parser
@@ -55,10 +55,24 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     probe_name = args.probe.upper()
     exe = out / f'{probe_name}.EXE'
-    sources = [ROOT / 'src/platform/dos/probe.c'] if args.probe == 'platform' else [
-        ROOT / 'src/platform/dos/display_probe.c', ROOT / 'src/platform/dos/video.c',
-        ROOT / 'src/platform/dos/vga_pack.c']
-    command = [str(compiler), *compiler_flags(args.target),
+    adapter_record = None
+    include_flags = []
+    if args.probe == 'platform':
+        sources = [ROOT / 'src/platform/dos/probe.c']
+    elif args.probe == 'display':
+        sources = [ROOT / 'src/platform/dos/display_probe.c', ROOT / 'src/platform/dos/video.c',
+                   ROOT / 'src/platform/dos/vga_pack.c']
+    else:
+        if args.target != '486dx25':
+            parser.error('Game-facing adapters are only a primary 486 diagnostic')
+        from build_adapters import stage
+        adapter_dir = out / 'adapter-probe'
+        adapter_record = stage(adapter_dir)
+        include_flags = ['-I', str(adapter_dir / 'src')]
+        sources = [*(ROOT / 'src/platform/dos' / name for name in
+                     ('adapter_probe.c', 'gfx.c', 'heap.c', 'video.c', 'vga_pack.c')),
+                   adapter_dir / 'src/font.c']
+    command = [str(compiler), *compiler_flags(args.target), *include_flags,
                *(str(source) for source in sources), '-o', str(exe)]
     subprocess.run(command, check=True)
     profile = ROOT / 'profiles' / f'{args.target}-platform.cfg'
@@ -71,6 +85,9 @@ def main():
                 'source_sha256': {str(source.relative_to(ROOT)): hashlib.sha256(source.read_bytes()).hexdigest()
                                   for source in sources},
                 'disk_timing_note': '86Box v6 diagnostic uses generic 1989_3500rpm; not final Wren V timing.'}
+    if adapter_record is not None:
+        manifest['imported_drawing'] = adapter_record['gfx_selection']
+        manifest['imported_font_sha256'] = hashlib.sha256(sources[-1].read_bytes()).hexdigest()
     if args.target == '386dx33':
         manifest['fpu_note'] = 'Actual emulator model is Intel 387, not Cyrix FasMath. 386 game port is deferred.'
     if args.prepare_vm:

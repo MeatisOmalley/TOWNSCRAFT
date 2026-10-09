@@ -47,6 +47,26 @@
     "visual_check": "Held pattern observed: full 4:3 image, four borders including distinct last row, expected diagonal palette pattern; no obvious plane-interleaving or cropping.",
     "keyboard_exit": "Physical Escape completed the held probe; assistant independently read its C:/DISPLAY.TXT with RESULT=PASS. Automated key injection remains unverified."
   },
+  "page_flipping": {
+    "vm": "display-486dx25-i57t85hj",
+    "exe_sha256": "4f873897e033072234c95d98d4f91969c95adce4594266bd6f7e584a6dfe804f",
+    "raw_report_sha256": "fc41011a8948314aecae726b9018268286a07383abf9be0013eaf188dc4efbe2",
+    "PRESENTATIONS": 3,
+    "VRAM_PLANES": "PASS",
+    "RESULT": "PASS",
+    "verification": "Read C:/DISPLAY.TXT from isolated guest disk; verifies three presentation pages, CRTC start registers and complete plane readback."
+  },
+  "game_facing_adapters": {
+    "vm": "adapter-486dx25-z2p3ebbd",
+    "exe_sha256": "90fcad26d0d227a0deb2c7818511b56f6fe2f4edec6522c9af08107984e29e30",
+    "raw_report_sha256": "dd835736a29818f24fbbd2bd0817ed3ab213199aa62fe3487956ade08e97601a",
+    "GFX_PRESENTATIONS": 12,
+    "GFX_TRANSFER": "PASS",
+    "GFX_PAGE_STATE": "PASS",
+    "HEAP_REWIND": "PASS",
+    "RESULT": "PASS",
+    "verification": "Read C:/ADAPTER.TXT from isolated guest disk. Pattern uses original pinned fonts/drawing bodies. Keyboard hardware and interactive gameplay are not tested by this probe; visual font diagnostic inspection remains pending."
+  },
   "limitations": [
     "Diagnostics only: no gameplay, renderer FPS, audio, mouse, save/cache adapter or full parity validation.",
     "Single diagnostic runs, not repeatable performance benchmarks or a Mode X vs Mode 13h comparison.",

@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def validate_vm(vm):
     vm = Path(vm).resolve(strict=True)
     record = json.loads((vm / 'build.json').read_text())
-    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display'):
+    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter'):
         raise ValueError('Only prepared primary-target diagnostic VMs are supported')
     if Path(record['vm_directory']).resolve() != vm:
         raise ValueError('Manifest names a different VM directory')

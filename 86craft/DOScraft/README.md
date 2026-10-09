@@ -12,6 +12,8 @@ The emulator checkout at `../86Box` is an independent Git repository. Game work 
 
 The standalone DOS heap adapter is now implemented under `src/platform/dos/heap.*`. Native tests compare 80,000 allocation/rewind trace steps with the checksum-verified pinned Towns allocator, including alignment, low-to-high fallback and fatal behavior. A DJGPP harness also compiles/links against the imported declarations. The adapter borrows caller-supplied arenas; startup memory sizing and integration into the game are still pending. Logical high-heap marks preserve the existing API rather than exposing relocated DOS pointers. No allocator optimization or world-memory policy change is implied.
 
+The game-facing framebuffer adapter now preserves three RAM-page identities and the original drawing/font bodies. Mode X uploads into hidden VGA pages and changes the display start at retrace; this replaces Towns page-presentation hardware, not its renderer. Native tests cover cached HUD/page contents, drawing bounds, row padding and page synchronization. Guest `ADAPTER.EXE` has passed twelve full-plane transfers, page retention/synchronization and heap rewind; this diagnostic is still not the game. AT keyboard translation is separately tested, including all keys used by the pinned game and the original 32-slot/drop-new queue behavior. IRQ1 installation/locking and interrupt guards, timer/startup, mouse, audio and storage adapters remain to be integrated before gameplay is possible.
+
 ## Build the initial platform probe
 
 From this directory, with Python 3.10 or newer:
@@ -23,8 +25,10 @@ python -m unittest discover -s tests -p "test_*.py"
 python tools/build_pc.py --prepare-vm
 python tools/build_pc.py --probe display --prepare-vm
 python tools/build_pc.py --probe display --hold-display --prepare-vm
+python tools/build_pc.py --probe adapter --prepare-vm
 python tools/import_towns.py --verify
 python tools/build_imported.py
+python tools/build_adapters.py
 ```
 
 The default target is `486dx25`: compiler flags include `-march=i486 -mtune=i486 -m80387 -mfpmath=387`, with no fast-math option. This permits native 486/x87 code; it does not rewrite the integer renderer or establish a speedup. Builds are isolated under `build/pc/486dx25`, whose `build.json` records the compiler command, CPU floor, profile hash, executable hash and VM path.
@@ -38,6 +42,8 @@ Launch an exact prepared diagnostic directory with `python tools/run_vm.py --vm 
 Select BIOS defaults, then Standard CMOS: drive A **1.44 MB 3.5-inch**, drive B absent, first HDD **Type 2 only when shown as 615 cylinders / 4 heads / 17 sectors**, second HDD absent, VGA display and keyboard installed. In Advanced CMOS set **System Boot Up Sequence to `A:, C:`**. Save with Write to CMOS and Exit. The temporary HDD deliberately has no bootloader; `C:, A:` can hang at the system summary because its MBR has a signature but no executable boot code. Do not use Hard Disk Utility or format anything.
 
 The ordinary display probe holds its pattern for three guest seconds and writes `C:\DISPLAY.TXT`; `--hold-display` creates separate test media that waits for Escape for visual inspection. It does not change the game's UI or renderer. A fresh VM may reuse a known-good same-machine `nvr/isa486.nvr` copy without sharing disk images. Leave working VMs and their reports intact. Keyboard Requires Capture can remain unchecked; if checked, capture the guest before typing. A serial mouse and DOS driver will be required later, not for these probes.
+
+Windows automation finding: explicit window activation and viewport focus are possible, but are not proof that a guest key arrived. The pinned emulator's default low-level keyboard hook requires its window to be foreground **at event delivery** and consumes hardware scan codes. It does not generally reject injected events; a zero scan code follows a multimedia-only path instead of an ordinary Escape fallback. Raw Input is an alternative selected with `--nohook`, not our current launcher path. Focus races and synthetic event fields are unresolved causes of the failed automated Escape. Physical Escape is verified. No emulator or Windows settings were changed to bypass this. [Pinned hook implementation](https://github.com/86Box/86Box/blob/4fef696a4eead1d55a28d6ac0e5bd2864e5454da/src/qt/qt_main.cpp#L218-L234).
 
 Mode X is VGA presentation, not a new 3D rendering engine. The current display backend transports the existing 320x240 indexed image, including its HUD, without changing the painter renderer. Latest user guidance allows an evidence-based choice of resolution; 320x240 display with the existing doubled 160x100 3D option is the initial candidate, not an immutable resolution requirement. Compare full-resolution rendering and transfer costs after the playable port exists.
 

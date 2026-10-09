@@ -10,7 +10,7 @@
 static unsigned char framebuffer[512 * DOS_VGA_HEIGHT];
 int main(int argc, char **argv)
 {
-    unsigned int x, y;
+    unsigned int x, y, page;
     int matched, automatic = argc > 1 && !strcmp(argv[1], "/AUTO");
     FILE *report;
     uclock_t start;
@@ -29,8 +29,11 @@ int main(int argc, char **argv)
     }
     video_init();
     for (x = 0; x < 256; ++x) video_set_palette(x, x, 255 - x, x ^ 128);
-    dos_video_present(framebuffer, 512);
-    matched = dos_video_verify(framebuffer, 512) == 0;
+    matched = 1;
+    for (page = 0; page < 3; ++page) {
+        dos_video_present(framebuffer, 512);
+        if (dos_video_verify(framebuffer, 512)) matched = 0;
+    }
     start = uclock();
     do {
         if (kbhit() && getch() == 27) break;
@@ -39,7 +42,7 @@ int main(int argc, char **argv)
     report = fopen("C:\\DISPLAY.TXT", "wb");
     if (!report) report = fopen("A:\\DISPLAY.TXT", "wb");
     if (!report) return 1;
-    fprintf(report, "DOScraft direct-port display gate\r\nWIDTH=320\r\nHEIGHT=240\r\nSOURCE_PITCH=512\r\nVRAM_PLANES=%s\r\nRESULT=%s\r\n",
+    fprintf(report, "DOScraft direct-port display gate\r\nWIDTH=320\r\nHEIGHT=240\r\nSOURCE_PITCH=512\r\nPRESENTATIONS=3\r\nVRAM_PLANES=%s\r\nRESULT=%s\r\n",
             matched ? "PASS" : "FAIL", matched ? "PASS" : "FAIL");
     fclose(report);
     printf("320x240 DOS display: %s (requires visual border/aspect verification too)\n", matched ? "PASS" : "FAIL");

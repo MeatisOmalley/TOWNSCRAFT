@@ -28,6 +28,8 @@ class TargetTests(unittest.TestCase):
         self.assertIn(b'PLATFORM.EXE /AUTO', guest_startup('platform'))
         with self.assertRaises(ValueError):
             guest_startup('platform', True)
+        self.assertIn(b'ADAPTER.EXE /AUTO\r\n', guest_startup('adapter'))
+        self.assertIn(b'Adapter test finished. See C:\\ADAPTER.TXT.', guest_startup('adapter'))
 
     def test_default_is_native_486_with_x87(self):
         self.assertEqual(argument_parser().parse_args([]).target, '486dx25')

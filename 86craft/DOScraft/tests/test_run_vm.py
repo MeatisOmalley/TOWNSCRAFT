@@ -26,6 +26,11 @@ class LauncherTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'primary-target'):
                 validate_vm(path)
             record['target'] = '486dx25'
+            record['probe'] = 'game'
+            (path / 'build.json').write_text(json.dumps(record))
+            with self.assertRaisesRegex(ValueError, 'primary-target'):
+                validate_vm(path)
+            record['probe'] = 'display'
             record['vm_directory'] = str(path / 'other')
             (path / 'build.json').write_text(json.dumps(record))
             with self.assertRaisesRegex(ValueError, 'different VM'):
