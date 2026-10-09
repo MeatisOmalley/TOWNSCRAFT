@@ -1,4 +1,4 @@
-"""Fetch the three selected, SHA-256-pinned ROMs into ignored dependencies."""
+"""Fetch SHA-256-pinned primary/legacy diagnostic ROMs into ignored dependencies."""
 import hashlib
 import json
 from pathlib import Path
@@ -7,6 +7,8 @@ from urllib.request import urlopen
 ROOT=Path(__file__).resolve().parents[1]
 REV='9596fe8d80acb30b36a8a678c7bbce9a890f8050'
 PATHS={
+    'machines/isa486/ISA-486.BIN':
+        '3b6e985cb94a6d37963f481a07cd6b1c84a698d6ba41fe4166298532b7c9a2be',
     'machines/asus386/ASUS_ISA-386C_BIOS.bin':
         '83de0f967c7a87bf56b4cf832f9c73fb6c29db2dcdb847d74cc895174fe0dd13',
     'video/et4000/ET4000_V8_06.BIN':

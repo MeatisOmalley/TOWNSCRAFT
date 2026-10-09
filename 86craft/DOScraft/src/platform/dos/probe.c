@@ -11,6 +11,13 @@
 #include <string.h>
 #include <conio.h>
 
+#ifndef DOSCRAFT_MINIMUM_CPU
+#error Build must specify the target CPU floor
+#endif
+#if DOSCRAFT_MINIMUM_CPU != 3 && DOSCRAFT_MINIMUM_CPU != 4
+#error Unsupported diagnostic CPU floor
+#endif
+
 static int old_mode = -1;
 static void mode(int number) {
     __dpmi_regs r;
@@ -53,19 +60,22 @@ int main(int argc, char **argv) {
     unsigned char *heap, *pixels;
     FILE *log;
     unsigned short fpu_word = 0;
-    int i, x, y, memory_ok = 1, disk, automatic = argc > 1 && !strcmp(argv[1], "/AUTO");
+    int i, x, y, memory_ok = 1, disk, passed, automatic = argc > 1 && !strcmp(argv[1], "/AUTO");
     uclock_t start, upload_ticks, elapsed;
     memset(&version, 0, sizeof(version));
     memset(&memory, 0, sizeof(memory));
     __dpmi_get_version(&version);
     __dpmi_get_free_memory_information(&memory);
+    if (version.cpu < DOSCRAFT_MINIMUM_CPU) {
+        puts("FAIL: CPU below this executable's build target"); return 1;
+    }
     heap = malloc(8UL * 1024 * 1024);
     pixels = malloc(64000);
     if (!heap || !pixels) { puts("FAIL: platform allocation"); free(heap); free(pixels); return 1; }
     for (i = 0; i < 8 * 1024 * 1024; i += 4096) heap[i] = (unsigned char)(i / 4096);
     for (i = 0; i < 8 * 1024 * 1024; i += 4096)
         if (heap[i] != (unsigned char)(i / 4096)) memory_ok = 0;
-    /* Profile requires a 387. This explicit instruction is not a renderer change. */
+    /* Primary profile has integrated x87; legacy diagnostic uses a 387 proxy. */
     __asm__ volatile ("fninit; fnstcw %0" : "=m" (fpu_word));
     disk = disk_test();
     memset(&r, 0, sizeof(r)); r.h.ah = 0x0f; __dpmi_int(0x10, &r);
@@ -90,12 +100,13 @@ int main(int argc, char **argv) {
     log = fopen("C:\\PLATFORM.TXT", "wb");
     if (!log) log = fopen("A:\\PLATFORM.TXT", "wb");
     if (!log) { puts("FAIL: report file"); return 1; }
-    fprintf(log, "DOScraft platform probe v1\r\nCPU_DPMI=%u\r\nFPU_CONTROL=%04x\r\n", version.cpu, fpu_word);
+    fprintf(log, "DOScraft platform probe v2\r\nCPU_DPMI=%u\r\nMINIMUM_CPU=%d\r\nFPU_CONTROL=%04x\r\n", version.cpu, DOSCRAFT_MINIMUM_CPU, fpu_word);
     fprintf(log, "FREE_BLOCK_BYTES=%lu\r\nPHYSICAL_PAGES=%lu\r\nSWAP_PAGES=%lu\r\n", memory.largest_available_free_block_in_bytes, memory.total_number_of_physical_pages, memory.size_of_paging_file_partition_in_pages);
     fprintf(log, "HEAP_8M=%s\r\nDISK_32K=%s\r\nVGA_UPLOADS=16\r\nVGA_TICKS=%lld\r\nTIMER_HZ=%ld\r\n", memory_ok ? "PASS" : "FAIL", disk == 0 ? "PASS" : "FAIL", upload_ticks, (long)UCLOCKS_PER_SEC);
-    fprintf(log, "RESULT=%s\r\n", memory_ok && disk == 0 && version.cpu == 3 && fpu_word == 0x37f && upload_ticks > 0 ? "PASS" : "FAIL");
+    passed = memory_ok && disk == 0 && version.cpu >= DOSCRAFT_MINIMUM_CPU && fpu_word == 0x37f && upload_ticks > 0;
+    fprintf(log, "RESULT=%s\r\n", passed ? "PASS" : "FAIL");
     fclose(log);
     printf("DOScraft platform probe: memory %s, C: disk %s, VGA tested.\n", memory_ok ? "PASS" : "FAIL", disk == 0 ? "PASS" : "FAIL");
     puts("Report: C:\\PLATFORM.TXT (or A: if C: unavailable).");
-    return memory_ok && disk == 0 ? 0 : 1;
+    return passed ? 0 : 1;
 }
