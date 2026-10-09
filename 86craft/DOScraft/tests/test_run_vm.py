@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 from run_vm import validate_vm, launch_command, main
 from fat_image import populate, scratch_hdd
 from build_pc import guest_startup
+from terrain_fixture import terrain_image
 
 
 class LauncherTests(unittest.TestCase):
@@ -129,6 +130,56 @@ class LauncherTests(unittest.TestCase):
             with patch('run_vm.ROOT', path):
                 with self.assertRaisesRegex(ValueError, 'executable checksum mismatch'):
                     launch_command(path)
+
+    def test_storage_requires_known_marker_capacity_and_startup(self):
+        with tempfile.TemporaryDirectory() as name:
+            path = Path(name)
+            record = self.make_vm(path)
+            executable, terrain = b'storage probe fixture', terrain_image()
+            record.update(probe='storage', exe_sha256=hashlib.sha256(executable).hexdigest(),
+                          terrain_fixture_sha256=hashlib.sha256(terrain).hexdigest())
+            (path / 'build.json').write_text(json.dumps(record))
+            boot = bytearray(512)
+            boot[:11] = b'\xeb\x3c\x90DOSCRAFT'
+            struct.pack_into('<HBHBHHBH', boot, 11, 512, 1, 1, 2, 224, 2880, 0xf0, 9)
+            boot[510:512] = b'\x55\xaa'
+            shell = (ROOT / 'guest/FDCONFIG.SYS').read_text().replace('\n', '\r\n').encode('ascii')
+            def media(contents=terrain, startup=guest_startup('storage')):
+                (path / 'boot.img').write_bytes(populate(boot,
+                    [('STORAGE.EXE', executable), ('AUTOEXEC.BAT', startup), ('FDCONFIG.SYS', shell)]))
+                disk = scratch_hdd()
+                start = struct.unpack_from('<I', disk, 454)[0] * 512
+                disk[start:] = populate(disk[start:start+512], [('TERRAIN.TMP', contents)])
+                (path / 'scratch.img').write_bytes(disk)
+            media()
+            self.assertEqual(validate_vm(path)[1]['probe'], 'storage')
+            original_disk = (path / 'scratch.img').read_bytes()
+            for offset in (510,450,458,462,17*512+510,17*512+11,17*512+19,17*512+28):
+                damaged = bytearray(original_disk); damaged[offset] ^= 1
+                (path / 'scratch.img').write_bytes(damaged)
+                with self.assertRaisesRegex(ValueError, 'HDD (partition|BPB) mismatch'):
+                    validate_vm(path)
+            (path / 'scratch.img').write_bytes(original_disk)
+            changed = bytearray(terrain)
+            changed[600] = 123  # Valid scratch contents after an earlier run.
+            media(changed)
+            self.assertEqual(validate_vm(path)[1]['probe'], 'storage')
+            for offset in (0,16,20,24,28,511):
+                changed = bytearray(terrain); changed[offset] ^= 1
+                media(changed)
+                with self.assertRaisesRegex(ValueError, 'marker/capacity'):
+                    validate_vm(path)
+            media(terrain[:-512])
+            with self.assertRaisesRegex(ValueError, 'marker/capacity'):
+                validate_vm(path)
+            media(startup=guest_startup('storage').replace(b'STORAGE.EXE', b'REM STORAGE.EXE'))
+            with self.assertRaisesRegex(ValueError, 'startup sequence'):
+                validate_vm(path)
+            media()
+            record['terrain_fixture_sha256'] = 'unknown fixture'
+            (path / 'build.json').write_text(json.dumps(record))
+            with self.assertRaisesRegex(ValueError, 'fixture does not match'):
+                validate_vm(path)
 
 
 if __name__ == '__main__':

@@ -35,6 +35,8 @@ class TargetTests(unittest.TestCase):
         self.assertIn(b'CTMOUSE /S14 /R11 /W /Y\r\nCWSDPMI -p -s-\r\n', guest_startup('mouse'))
         self.assertIn(b'MOUSE.EXE /AUTO\r\n', guest_startup('mouse'))
         self.assertNotIn(b'CTMOUSE', guest_startup('system'))
+        self.assertIn(b'STORAGE.EXE /AUTO\r\n', guest_startup('storage'))
+        self.assertIn(b'See C:\\STORAGE.TXT.', guest_startup('storage'))
 
     def test_default_is_native_486_with_x87(self):
         self.assertEqual(argument_parser().parse_args([]).target, '486dx25')

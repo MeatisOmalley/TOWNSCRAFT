@@ -24,6 +24,10 @@ The reproducible mouse probe pins [CuteMouse 1.9.1](https://cutemouse.sourceforg
 
 `MOUSE.EXE` verifies signed UART loopback packets through real IRQ4 delivery, driver detection, left/right combinations, motion accumulation/consumption (including +381/-384 totals), reset/cleanup and UART restoration while Mode X and the custom 100-Hz PIT are active. Native mocks exhaust all 65,536 signed counter values with eight button masks and cover absent/null/IRET drivers and DPMI failures. Loopback does **not** establish Windows/physical mouse capture or interactive gameplay; those remain acceptance gates. The launcher checks the emulator binary, actual boot-media driver hash, complete linear COM1 startup/shell configuration and mouse hardware; serial passthrough is refused. The driver stays loaded until DOS exits; game shutdown does not uninstall someone else's TSR. Close completed diagnostic emulator windows and preserve their images/reports.
 
+The temporary terrain `hdd_*` adapter now uses a dedicated DOS file, `C:\TERRAIN.TMP`, rather than Towns SCSI/DMA. It opens an existing regular, sector-aligned file without creation/truncation, checks the signed 32-bit seek range and retains one outstanding request, identical-argument polling, terminal-result restart and cancellation/buffer ownership. Each poll transfers at most 2 KiB; positive short transfers advance, zero progress/errors terminate, and write completion includes a strictly checked DOS commit (INT 21h/AX=6800h, including the carry flag) before callers can publish a slot. This avoids DJGPP `fsync` treating DOS errors 1/6 as success. Cancellation does not undo already-written slices. Missing or malformed files are never automatically formatted. The original world code still owns the marker, checksums, alternating slots, edit revisions and RAM-only directory; this adapter is not a new cache policy or durable save format. [Microsoft DOS commit API](https://www.pcjs.org/documents/books/mspl13/msdos/encyclopedia/appendix-a/).
+
+`STORAGE.EXE` passed on the primary guest with IRQ0/IRQ1 installed: 12-KiB polled reads/writes, unchanged marker, request identity, bounds, cancellation, alternate-slot isolation and flush/close/reopen. The host independently checked the entire 6,291,968-byte terrain file against the exact expected two-slot changes; all other bytes remained zero. Native fault injection covers absent/invalid files, short/zero/error transfers, seek/commit/close errors, failures after partial writes, strict commit ordering and cleanup/retry. `--probe storage --prepare-vm` creates this fixture **only in a newly allocated private diagnostic HDD**; it never provisions an existing image. The launcher rejects unknown file markers/capacity, malformed partition/BPB geometry and altered startup. DOS file calls themselves can block: sliced polling does not reproduce the Towns hardware driver's wait-latency bound. This is transport evidence, not world traversal or FPS evidence. Durable saves, mixed save/scratch source integration, dirty eviction and full world/mob save/load remain pending.
+
 ## Build the initial platform probe
 
 From this directory, with Python 3.10 or newer:
@@ -38,6 +42,7 @@ python tools/build_pc.py --probe display --hold-display --prepare-vm
 python tools/build_pc.py --probe adapter --prepare-vm
 python tools/build_pc.py --probe system --prepare-vm
 python tools/build_pc.py --probe mouse --prepare-vm
+python tools/build_pc.py --probe storage --prepare-vm
 python tools/import_towns.py --verify
 python tools/build_imported.py
 python tools/build_adapters.py

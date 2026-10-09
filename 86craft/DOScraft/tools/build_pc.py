@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
+import struct
 from fat_image import FatImage, populate, scratch_hdd
 from fetch_dependencies import CTMOUSE_EXE_SHA256
 
@@ -20,7 +21,7 @@ def argument_parser():
     parser.add_argument('--target', choices=TARGETS, default='486dx25',
                         help='default: 486 primary; 386 is only a retained diagnostic scaffold')
     parser.add_argument('--prepare-vm', action='store_true')
-    parser.add_argument('--probe', choices=('platform', 'display', 'adapter', 'system', 'mouse'), default='platform',
+    parser.add_argument('--probe', choices=('platform', 'display', 'adapter', 'system', 'mouse', 'storage'), default='platform',
                         help='standalone platform, display, framebuffer adapters, or startup/IRQ gate')
     parser.add_argument('--hold-display', action='store_true',
                         help='display probe only: hold the test pattern until Escape for visual inspection')
@@ -86,8 +87,10 @@ def main():
                    (f'{args.probe}_probe.c', 'irq.c', 'irq_entry.S', 'keyboard.c',
                     'system.c', 'input.c', 'heap.c', 'gfx.c', 'video.c', 'vga_pack.c')]
         sources += [system_dir / 'src/font.c']
+        if args.probe == 'storage':
+            sources.insert(-1, ROOT / 'src/platform/dos/hdd.c')
     flags = compiler_flags(args.target)
-    if args.probe in ('system', 'mouse'):
+    if args.probe in ('system', 'mouse', 'storage'):
         # No interrupt can corrupt an interrupted x87 operation.
         flags = [flag for flag in flags if flag not in ('-m80387', '-mfpmath=387')]
         flags += ['-mno-80387', '-mgeneral-regs-only']
@@ -138,7 +141,15 @@ def main():
         with (vm / 'boot.img').open('xb') as f:
             f.write(floppy)
         with (vm / 'scratch.img').open('xb') as f:
-            f.write(scratch_hdd())
+            disk = scratch_hdd()
+            if args.probe == 'storage':
+                from terrain_fixture import terrain_image
+                terrain = terrain_image()
+                start = struct.unpack_from('<I', disk, 454)[0] * 512
+                volume = populate(disk[start:start+512], [('TERRAIN.TMP', terrain)])
+                disk[start:] = volume
+                manifest['terrain_fixture_sha256'] = hashlib.sha256(terrain).hexdigest()
+            f.write(disk)
         config = profile.read_text()
         if args.probe == 'mouse':
             config += ('\n[Input devices]\nmouse_type = msserial\n'

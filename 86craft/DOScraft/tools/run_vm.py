@@ -8,6 +8,7 @@ import configparser
 import hashlib
 import json
 import re
+import struct
 from pathlib import Path
 import subprocess
 import sys
@@ -19,10 +20,29 @@ from build_pc import guest_startup
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def diagnostic_volume(disk):
+    """Require the generated single FAT16 C: partition, not an arbitrary offset."""
+    total, start = 615 * 4 * 17, 17
+    size = total - start
+    entry = bytes([0,1,1,0,6,3,17 | ((614 >> 2) & 0xc0),614 & 255]) + struct.pack('<II',start,size)
+    if (len(disk) != total * 512 or disk[510:512] != b'\x55\xaa' or
+            disk[446:462] != entry or any(disk[462:510])):
+        raise ValueError('Diagnostic HDD partition mismatch')
+    boot = disk[start*512:(start+1)*512]
+    if (boot[510:512] != b'\x55\xaa' or
+            struct.unpack_from('<HBHBHHBH',boot,11) != (512,4,1,2,512,size,0xf8,41) or
+            struct.unpack_from('<HHII',boot,24) != (17,4,start,0)):
+        raise ValueError('Diagnostic HDD BPB mismatch')
+    volume = FatImage(disk,start*512)
+    if volume.bits != 16 or volume.total != size:
+        raise ValueError('Diagnostic HDD FAT16 extent mismatch')
+    return volume
+
+
 def validate_vm(vm):
     vm = Path(vm).resolve(strict=True)
     record = json.loads((vm / 'build.json').read_text())
-    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system', 'mouse'):
+    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system', 'mouse', 'storage'):
         raise ValueError('Only prepared primary-target diagnostic VMs are supported')
     if Path(record['vm_directory']).resolve() != vm:
         raise ValueError('Manifest names a different VM directory')
@@ -68,14 +88,26 @@ def validate_vm(vm):
         if (hashlib.sha256(media.read('CTMOUSE.EXE')).hexdigest() != CTMOUSE_EXE_SHA256 or
                 record['mouse_driver']['sha256'] != CTMOUSE_EXE_SHA256):
             raise ValueError('Mouse driver does not match its manifest')
-        if media.read('AUTOEXEC.BAT') != guest_startup('mouse'):
-            raise ValueError('Mouse startup sequence is not the exact linear COM1/IRQ4 diagnostic')
+    if record['probe'] in ('mouse', 'storage'):
+        if media.read('AUTOEXEC.BAT') != guest_startup(record['probe']):
+            raise ValueError('Diagnostic startup sequence does not match the prepared probe')
         expected_config = (ROOT / 'guest/FDCONFIG.SYS').read_text().replace('\n', '\r\n').encode('ascii')
         if media.read('FDCONFIG.SYS') != expected_config:
-            raise ValueError('Mouse DOS shell configuration does not match the diagnostic')
+            raise ValueError('DOS shell configuration does not match the diagnostic')
     scratch = vm / 'scratch.img'
     if scratch.stat().st_size != 615 * 4 * 17 * 512:
         raise ValueError('Scratch HDD size does not match its declared geometry')
+    if record['probe'] == 'storage':
+        from terrain_fixture import terrain_image
+        disk = scratch.read_bytes()
+        terrain = diagnostic_volume(disk).read('TERRAIN.TMP')
+        expected = terrain_image()
+        # Payload legitimately changes after this diagnostic. The exact marker
+        # and capacity must still match; never format an unknown file at launch.
+        if len(terrain) != len(expected) or terrain[:512] != expected[:512]:
+            raise ValueError('Unexpected terrain file marker/capacity')
+        if record['terrain_fixture_sha256'] != hashlib.sha256(expected).hexdigest():
+            raise ValueError('Terrain fixture does not match its manifest')
     return vm, record
 
 
