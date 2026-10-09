@@ -447,6 +447,7 @@ int save_world(void)
 {
 	u32 sum;
 	int ok,version=world_cache_active() && g_W<256 ? SAVE_VERSION : 3;
+	if(!world_backing_idle()) return SAVE_DISK_ERROR;
 	world_set_backing_reader(save_column_read);
 	if(version<4 && !world_materialize_columns()) return SAVE_DISK_ERROR;
 	page_cancel();
@@ -509,6 +510,7 @@ int load_world(void)
 {
 	u32 sum,i,n,version;
 	int k;
+	if(!world_backing_idle()) return SAVE_DISK_ERROR;
 	loadedMobs=0;
 	world_set_backing_reader(save_column_read);
 	page_cancel();

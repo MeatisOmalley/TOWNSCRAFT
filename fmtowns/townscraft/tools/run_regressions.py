@@ -22,7 +22,11 @@ def main():
     trap=out/'trap-native.S'; trap.write_text(assembly)
     tests=[(n,n,[],[]) for n in ('caves','column_cache','column_save','edit','stream','mobs','mob_regions','save_regions')]
     tests += [('edit_cache_2','edit',['-DEDIT_CACHED','-DEDIT_RAM=2'],[]),
+              ('terrain_hdd','terrain_hdd',[],[]),
+              ('terrain_floppy','terrain_floppy',[],[]),
+              ('hdd','hdd',[],[]),
               ('edit_cache_4','edit',['-DEDIT_CACHED','-DEDIT_RAM=4'],[]),
+              ('edit_cache_8','edit',['-DEDIT_CACHED','-DEDIT_RAM=8'],[]),
               ('player','player',[],['src/player.c','src/physics.c']),
               ('keyboard','keyboard',[],['src/player.c','src/physics.c']),
               ('render_occlusion','render_occlusion',[],['src/raster.c',str(trap)])]
@@ -30,7 +34,8 @@ def main():
         name,test,flags,extra=spec
         exe=out/(name+'.exe')
         args=[str(zig),'cc','-target','x86-windows-gnu','-O2','-fno-builtin','-Isrc',*flags,
-              'tests/'+test+'_test.c',*extra,'src/blocks.c','src/fmath.c','src/libc.c',str(tables),'-o',str(exe)]
+              'tests/'+test+'_test.c',*extra,*([] if test in ('terrain_hdd','terrain_floppy','hdd') else ['tests/no_hdd.c']),
+              'src/blocks.c','src/fmath.c','src/libc.c',str(tables),'-o',str(exe)]
         compiled=subprocess.run(args,cwd=ROOT,text=True,capture_output=True)
         result=compiled if compiled.returncode else subprocess.run([str(exe)],cwd=ROOT,text=True,capture_output=True)
         log=compiled.stdout+compiled.stderr
@@ -41,6 +46,6 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool: results=list(pool.map(run,tests))
     (out/'results.json').write_text(json.dumps(results,indent=2)+'\n')
     if any(r['exit_code'] for r in results): raise SystemExit(1)
-    print('All 13 regression configurations passed.')
+    print(f'All {len(results)} regression configurations passed.')
 
 if __name__=='__main__': main()

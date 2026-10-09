@@ -132,6 +132,9 @@ void world_alloc(void);
 void world_set_column_pin(int (*pin)(int,int));
 void world_set_column_needed(int (*needed)(int *,int *));
 int world_cache_active(void);
+int world_hdd_active(void); /* Temporary terrain backing, not a permanent save. */
+int world_backing_idle(void); /* Finish terrain I/O before explicit save/load DMA. */
+extern u32 g_terrainDiskStats[4]; /* SCSI reads, writes, RAM hits, failed commands. */
 int world_store_flush(void);
 u32 world_store_used(void);
 int world_stream_error(void);

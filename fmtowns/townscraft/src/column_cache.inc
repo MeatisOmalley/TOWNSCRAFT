@@ -150,6 +150,8 @@ u32 world_store_used(void)
 
 static void generation_begin(void)
 {
+	(void)terrain_quiesce(); /* Release the old world's DMA before new writes. */
+	if(terrainActive) terrain_reset();
 	u32 cells=g_W*g_W*WH,bytes=cells+g_W*g_W;
 	generationTemporary=bytes>COLUMN_CELLS*g_residentColumns*2;
 	generationMark=heap_high_mark();
@@ -180,14 +182,16 @@ static void cache_reset(void)
 static int generation_finish(void)
 {
 	int cx,cz;
+	terrainBlocking=1;
 	for(cz=0; cz<g_NC; ++cz)
 	for(cx=0; cx<g_NC; ++cx)
 		if(!column_capture(cx,cz))
 		{
 			if(generationTemporary) heap_high_rewind(generationMark);
-			cache_reset(); loadPosition=0; return 0;
+			cache_reset(); loadPosition=0; terrainBlocking=0; return 0;
 		}
 	if(generationTemporary) heap_high_rewind(generationMark);
+	terrain_cache_allocate();
 	cache_reset();
 	cacheBoot=1; cache_stream(loadPosition ? loadX : g_spawnX,loadPosition ? loadZ : g_spawnZ,100000); cacheBoot=0;
 	loadPosition=0;
@@ -202,6 +206,7 @@ static int generation_finish(void)
 			if(e) { lset(i,1,e); pq_push(i); propagate(1); }
 		}
 	}
+	terrainBlocking=0;
 	return 1;
 }
 
@@ -212,7 +217,11 @@ static int cache_load(int cx,int cz,int slot)
 	if(!column_valid(cx,cz)) { streamError=1; return 0; }
 	if(ox>=0)
 	{
-		if(residentDirty[slot] && !column_capture(ox,oz)) { streamError=2; return 0; }
+		if(residentDirty[slot] && !column_capture(ox,oz))
+		{
+			if(!terrainActive) streamError=2;
+			return 0;
+		}
 		unmesh_column(ox,oz);
 		g_columnMap[oz*g_NC+ox]=-1;
 		/* The outgoing terrain becomes solid/missing to its retained
@@ -236,6 +245,8 @@ static int cache_load(int cx,int cz,int slot)
 
 static void cache_stream(int x,int z,int budget)
 {
+	terrainBlocking=budget>100;
+	if(terrainActive && terrainWriteID>=0 && terrain_finish_write()<=0) return;
 	int pcx=CLAMP(x/CS,0,g_NC-1),pcz=CLAMP(z/CS,0,g_NC-1);
 	if(cacheLastX>=0 && x!=cacheLastX) cacheDirectionX=x>cacheLastX ? 1 : -1;
 	if(cacheLastZ>=0 && z!=cacheLastZ) cacheDirectionZ=z>cacheLastZ ? 1 : -1;
@@ -295,14 +306,17 @@ static void cache_stream(int x,int z,int budget)
 int world_store_flush(void)
 {
 	if(!cacheAllocated) return 1;
+	if(!terrain_quiesce()) return 0;
+	terrainBlocking=1;
 	for(int s=0; s<g_residentColumns; ++s)
 	{
 		if(residentDirty[s])
 		{
-			if(!column_capture(g_columnCoords[s*2],g_columnCoords[s*2+1])) return 0;
+			if(!column_capture(g_columnCoords[s*2],g_columnCoords[s*2+1])) { terrainBlocking=0; return 0; }
 			residentDirty[s]=0;
 		}
 	}
+	terrainBlocking=0;
 	return 1;
 }
 
@@ -334,7 +348,7 @@ void world_set_backing_reader(int (*read)(u32,u32,u8 *)) { columnRead=read; }
 int world_backing_bank(u32 bankBytes)
 {
 	for(int id=0; id<g_NC*g_NC; ++id)
-		if(columnRecords[id].disk) return columnRecords[id].off/bankBytes;
+		if(columnRecords[id].disk==1) return columnRecords[id].off/bankBytes;
 	return -1;
 }
 
@@ -350,9 +364,8 @@ int world_materialize_columns(void)
 	{
 		ColumnRecord *r=&columnRecords[id];
 		if(!r->disk) continue;
-		if(!columnRead) return 0;
 		int status;
-		do { status=columnRead(r->off,r->len,columnScratch); } while(status==0);
+		do { status=column_read_record(r); } while(status==0);
 		if(status!=1 || !column_valid_bytes(r,columnScratch)) return 0;
 		memcpy(columnArena+columnTop,columnScratch,r->len);
 		r->off=columnTop; columnTop+=r->len; r->disk=0;
@@ -406,6 +419,7 @@ void world_commit_columns(void)
 
 int world_save_columns(void (*put)(u32),u32 (*position)(void))
 {
+	if(!terrain_quiesce()) return 0;
 	cache_light_pump(0);
 	preparedColumn=-1;
 	put(genSeed); put(genVersion); put(g_NC*g_NC);
@@ -422,9 +436,8 @@ int world_save_columns(void (*put)(u32),u32 (*position)(void))
 		}
 		else if(r->disk)
 		{
-			if(!columnRead) return 0;
 			int status;
-			do { status=columnRead(r->off,r->len,columnScratch); } while(status==0);
+			do { status=column_read_record(r); } while(status==0);
 			if(status!=1) return 0;
 			p=columnScratch; preparedColumn=-1;
 		}
@@ -448,6 +461,7 @@ int world_save_columns(void (*put)(u32),u32 (*position)(void))
 
 int world_load_columns(u32 (*get)(void),u32 (*position)(void))
 {
+	if(terrainActive) terrain_reset();
 	genSeed=get();
 	genVersion=get();
 	if(genVersion>1 || get()!=(u32)(g_NC*g_NC)) return 0;

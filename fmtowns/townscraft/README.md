@@ -28,7 +28,10 @@ image can be made with `Tsugaru_CUI -GENFD SAVE.BIN 1232` or as a file of
 1261568 zero bytes.  A world can only be loaded on a machine with the same
 logical world size. Keep that floppy mounted after saving or loading:
 the 96/160/208 maps page clean terrain columns from it during travel.
-New unsaved worlds work without a floppy using compressed RAM backing.
+New unsaved worlds use the dedicated, launcher-prepared SCSI HDD for temporary
+terrain backing when available. Without that disk they retain compressed RAM
+backing. The HDD archive is not a permanent save: starting a new world replaces
+its runtime contents. See [HDD_STREAMING.md](HDD_STREAMING.md).
 
 `-DIFFMOUSE` passes relative mouse motion to the emulated mouse (the game
 reads the mouse directly, without the TOWNS OS mouse driver that Tsugaru's
@@ -64,12 +67,16 @@ now use the expanded **late-1989 minimum target**, rather than the old
 | Timing | `-NORMALSCSI -NORMALFD -YESWAIT` |
 
 The shared launcher creates a missing HDD under that ISO's `runtime_1989/`
-folder and never overwrites an existing disk. These writable images are
+folder. It claims only a completely blank disk or one already marked as our
+temporary terrain scratch disk; unknown disk contents are left untouched.
+These writable images are
 ignored by Git; launchers and the hardware profile are tracked. See
 [iso/HARDWARE_1989.md](iso/HARDWARE_1989.md) for sources and limitations.
-The HDD is attached but the game still saves through its floppy driver;
-the FPU is enabled but the game remains integer-only. Neither capability
-is implemented in gameplay by this launcher change. Existing save floppies
+The current game streams unsaved terrain through its HDD driver and uses a
+384 KiB extra-RAM read cache on the 8 MB profile. Permanent saving still uses
+the floppy driver. The FPU is enabled but the game remains integer-only.
+Historical ISOs do not acquire the new HDD driver merely from these settings.
+Existing save floppies
 are not mounted, modified or migrated automatically.
 
 The earlier command examples and 2 MB/4 MB/6 MB benchmark results describe

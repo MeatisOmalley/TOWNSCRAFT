@@ -82,6 +82,7 @@ static void column_encode(int cx,int cz,u8 *dst,ColumnRecord *encoded)
 
 static int column_capture(int cx,int cz)
 {
+	if(terrainActive) return terrain_capture(cx,cz);
 	int id=cz*g_NC+cx;
 	ColumnRecord *rec=&columnRecords[id],encoded={0};
 	column_encode(cx,cz,columnEncodeScratch,&encoded);
@@ -143,7 +144,7 @@ static int column_prepare(int cx,int cz)
 	ColumnRecord *r=&columnRecords[id];
 	if(r->disk && preparedColumn!=id)
 	{
-		int status=columnRead ? columnRead(r->off,r->len,columnScratch) : -1;
+		int status=column_read_record(r);
 		if(status!=1) { if(status<0) streamError=1; return 0; }
 		preparedColumn=id;
 	}

@@ -73,6 +73,7 @@ static void travel(int x,int z)
     }
     check(0,"cooperative travel eventually prepares its neighborhood");
 }
+#ifndef COLUMN_SAVE_FIXTURE
 int main(void)
 {
     g_ramMB=2; reference_world(96,4242); world_alloc(); world_generate(4242);
@@ -158,3 +159,4 @@ int main(void)
     printf("PASS: actual floppy paging, exact terrain/light/mobs, bounded baseline RAM, interrupted writes and corrupt-bank recovery\n");
     return 0;
 }
+#endif

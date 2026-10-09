@@ -5,6 +5,7 @@
 #include "render.h"
 #include "mobs.h"
 #include "bench.h"
+#include "hdd.h"
 
 int g_W,g_NC;
 u8 *g_blocks,*g_light,*g_height;
@@ -36,7 +37,13 @@ static int cache_light_pending(void);
 static int lightBudget;
 static u32 genSeed;
 static u32 genVersion;
+static int terrainActive,terrainBlocking;
+static int terrain_init(void);
+static void terrain_reset(void);
+static int terrain_capture(int cx,int cz);
+static int column_read_record(const void *record);
 #include "column_store.inc"
+#include "column_hdd.inc"
 int g_spawnX,g_spawnY,g_spawnZ;
 void (*g_genProgress)(int percent);
 
@@ -91,6 +98,7 @@ void world_alloc(void)
 	columnArena=heap_alloc_high(columnCapacity);
 	columnScratch=heap_alloc_low(COLUMN_CELLS);
 	columnEncodeScratch=heap_alloc_low(COLUMN_CELLS);
+	terrain_init();
 	g_blocks=residentBlocks; g_light=residentLights; g_height=residentHeights;
 	g_columnMap=columnMapStorage; g_columnCoords=columnCoordsStorage;
 	g_columnReady=residentReady;
@@ -1371,6 +1379,7 @@ void world_set(int x,int y,int z,u8 b)
 		deferLight=cache_light_pending();
 	}
 	g_blocks[i]=b;
+	if(terrainActive && g_columnMap) ++terrainVersions[(z/CS)*g_NC+x/CS];
 	if(g_columnMap) residentDirty[i/COLUMN_CELLS]=1;
 	update_height(x,z);
 	if(deferLight) pending_light_edit_queue(x,y,z,b);

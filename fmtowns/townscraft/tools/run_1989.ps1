@@ -3,7 +3,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$IsoPath,
-    [switch]$ValidateOnly
+    [switch]$ValidateOnly,
+    [switch]$PrepareDiskOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,6 +47,38 @@ try {
         exit 0
     }
 
+    # Claim only a new/all-zero disk or our explicitly marked scratch disk.
+    # A zero boot sector alone is not proof that the rest of a disk is empty.
+    Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Text;
+public static class TownscraftTerrainDisk {
+    public static void Initialize(string path) {
+        byte[] header = new byte[512];
+        Encoding.ASCII.GetBytes("TSC-TERRAIN-TEMP").CopyTo(header, 0);
+        BitConverter.GetBytes((UInt32)1).CopyTo(header, 16);
+        BitConverter.GetBytes((UInt32)256).CopyTo(header, 20);
+        BitConverter.GetBytes((UInt32)24).CopyTo(header, 24);
+        using (FileStream disk = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) {
+            byte[] buffer = new byte[1024 * 1024];
+            int got = disk.Read(buffer, 0, 512);
+            bool owned = got == 512;
+            for (int i = 0; i < 512 && owned; ++i) owned = buffer[i] == header[i];
+            if (owned) return;
+            disk.Position = 0;
+            while ((got = disk.Read(buffer, 0, buffer.Length)) != 0)
+                for (int i = 0; i < got; ++i)
+                    if (buffer[i] != 0)
+                        throw new IOException("HDD contains unknown data; it was left unchanged: " + path);
+            disk.Position = 0;
+            disk.Write(header, 0, header.Length);
+            disk.Flush();
+        }
+    }
+}
+'@
+
     if (Test-Path -LiteralPath $hardDisk) {
         if (-not (Test-Path -LiteralPath $hardDisk -PathType Leaf)) {
             throw "Hard disk image path is not a file: $hardDisk"
@@ -64,6 +97,11 @@ try {
         } finally {
             $diskStream.Dispose()
         }
+    }
+    [TownscraftTerrainDisk]::Initialize($hardDisk)
+    if ($PrepareDiskOnly) {
+        [pscustomobject]@{ HardDisk = $hardDisk; Bytes = $diskBytes; ScratchVersion = 1 } | ConvertTo-Json
+        exit 0
     }
 
     Push-Location -LiteralPath $gameRoot

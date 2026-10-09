@@ -11,6 +11,7 @@ void (*g_genProgress)(int);
 void chests_clear(void) { memset(g_chests,0,sizeof(g_chests)); }
 void inv_clear(void) { memset(g_inv,0,sizeof(g_inv)); }
 int world_cache_active(void) { return 0; }
+int world_backing_idle(void) { return 1; }
 int world_store_flush(void) { return 1; }
 int world_save_columns(void (*put)(u32),u32 (*position)(void)) { return 0; }
 int world_load_columns(u32 (*get)(void),u32 (*position)(void)) { return 0; }

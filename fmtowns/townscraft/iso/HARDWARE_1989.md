@@ -1,7 +1,7 @@
 # Late-1989 Townscraft launcher minimum
 
-All 19 numbered/compatibility `.cmd` launchers use this profile through
-`../tools/run_1989.ps1`. Their ISO selection and ISO bytes are unchanged.
+The numbered/compatibility `.cmd` launchers use this profile through
+`../tools/run_1989.ps1`. Historical ISO selection and ISO bytes are unchanged.
 
 | Hardware | Selection |
 | --- | --- |
@@ -40,21 +40,25 @@ own historical CD images. This is not a new ROM installation.
 On first launch only, the helper creates
 `runtime_1989/<ISO-basename>.HDD0.h0` next to the selected ISO. Each ISO,
 including the compatibility ISO in folder 17, has a different disk path.
-The raw image is blank/unformatted; no Towns OS or game files are installed.
-Future writes persist in this file. Existing images must have the expected
-size or the launcher stops without modifying them. No existing disk or
-save file is resized, formatted, replaced or migrated.
+No Towns OS or filesystem is installed. The helper marks a newly created or
+completely zero-filled disk as dedicated temporary terrain scratch. It checks
+the ENTIRE existing disk before claiming a blank one, not just its boot sector.
+An existing marked scratch disk is reused; any other contents or wrong size
+stop the launcher without modification. No save or OS disk is resized,
+formatted, replaced or migrated. The new game writes only its reserved scratch
+area; each new world replaces its temporary terrain there.
 
 Writable `runtime_1989/` directories are ignored by Git. Back up these
 images separately if they acquire useful data; the scripts and this profile
 are versioned. Do not run two instances of the same ISO against its one HDD
 simultaneously.
 
-The current game does **not** have an HDD save/world-streaming driver and
-does **not** issue x87 math instructions. Attaching this hardware makes it
-available for future work, not automatically used. Existing floppy saving
-and RAM-dependent world sizing are unchanged. In particular, this change
-does not promise that a larger 8 MB world will fit the old save-floppy format.
+The current game has an HDD driver for **temporary terrain streaming**, not
+permanent saving. Historical ISOs do not gain that code from mounting a disk.
+The game still does **not** issue x87 math instructions. Existing floppy saving
+and RAM-dependent world sizing remain unchanged. This does not promise that
+a larger 8 MB world will fit the old save-floppy format. See
+`../HDD_STREAMING.md` for storage ownership and validation.
 
 Tsugaru's `-NORMALSCSI` avoids its explicit fast mode; it does not identify
 or calibrate the seek/cache behavior of a particular real 200 MB drive.
@@ -80,9 +84,10 @@ Do not interpret this as a cycle-exact Logitec HDD performance simulation.
 
 Run any `.cmd` with `-ValidateOnly` to print its resolved paths and complete
 argument list without creating a disk or starting the emulator. The default
-double-click path creates only a missing HDD and then runs the emulator.
+double-click path prepares a missing/blank scratch HDD and then runs the emulator.
+`-PrepareDiskOnly` performs the guarded disk preparation without starting it.
 
-Verified on 2026-10-08: all 19 `.cmd` wrappers resolved the expected ISO and
+Hardware-only verification on 2026-10-08: all 19 then-existing `.cmd` wrappers resolved the expected ISO and
 hardware arguments from a different working directory, with 19 distinct HDD
 paths. The latest (#18) actual CUI launcher reached gameplay with an advancing
 frame/tick counter and a 256-block world, reported the enabled FPU and attached

@@ -1,2 +1,3 @@
 build/
+tools/__pycache__/
 iso/**/runtime_1989/

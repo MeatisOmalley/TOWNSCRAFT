@@ -50,7 +50,14 @@ before new regional populations.
 
 ## Backing and saving
 
-New worlds initially retain their finite terrain in a bounded compressed
+With a launcher-marked dedicated SCSI HDD, new worlds now write their finite
+terrain to a temporary column archive and read entering columns cooperatively.
+Evicted edits go to alternate HDD slots before resident ownership is released.
+The 8 MB profile caches 32 recently read compressed records in 384 KiB of RAM.
+This is runtime backing, not permanent saving; see [HDD_STREAMING.md](HDD_STREAMING.md).
+The game never automatically formats or claims an unmarked disk.
+
+Without that HDD, new worlds retain their finite terrain in a bounded compressed
 RAM archive: 128 KiB on 2 MB, 384 KiB on 4 MB, and 1 MiB on larger profiles.
 Generation still runs once for the existing finite map; this preserves
 its terrain and seed behavior. Generation scratch is temporary and is
@@ -82,8 +89,9 @@ dormant animals and population markers. Saves copy clean records from
 the protected source bank without materializing all terrain in RAM.
 Resident edits can be saved directly even when the dirty archive is full.
 
-Changes remain pending until an explicit save; walking between regions
-is not an autosave. Eviction compresses dirty columns into bounded RAM.
+Permanent changes remain pending until an explicit floppy save; walking between
+regions is not an autosave. With HDD backing, dirty eviction updates temporary
+scratch records. Without HDD backing, eviction compresses dirty columns into bounded RAM.
 If that archive fills, data remains resident and the game reports the
 problem. Saving commits those changes and frees the archive.
 
@@ -93,7 +101,9 @@ snapshots initialize regional animals after loading. An import exceeding
 the archive budget returns an error rather than silently dropping blocks.
 
 The existing 256-wide profile can exceed a snapshot bank. It keeps the
-previous full-disk version 3 save layout and compressed RAM backing;
+previous full-disk version 3 save layout. The runtime archive may be HDD backed,
+but explicit legacy floppy saving still requires materializing the compressed
+terrain into the existing bounded RAM archive;
 it does not get version 4 disk paging or the alternating-bank guarantee.
 This preserves its larger save capacity while generation/storage evolve.
 

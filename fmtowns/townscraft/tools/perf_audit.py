@@ -137,6 +137,8 @@ def build(a, out):
                       STD_INTERLACE='g_interlace=0' if 'g_interlace' in code else '(void)0',
                       STD_IS_MESHED='c->meshed' if 'meshed;' in (src / 'src/world.h').read_text() else '1')
         for key, value in values.items(): probe = probe.replace(key, value)
+    if a.hdd_probe:
+        probe = (ROOT / 'tests/hdd_runtime_probe.inc').read_text()
     probe = probe.replace('AUDIT_INTERLACE_OFF', 'g_interlace=0' if 'g_interlace' in code else '(void)0')
     probe = probe.replace('AUDIT_UNMESHED', '!c->meshed' if 'meshed;' in (src / 'src/world.h').read_text() else '0')
     assert code.count('void kmain(void)') == 1
@@ -213,8 +215,11 @@ def measure(a, out):
     exe = ROOT / 'build/emulator/main_headless/Release/Tsugaru_Headless.exe'
     rom = ROOT / 'build/play/STUBROM'
     log = (out / 'run.log').open('w')
+    hardware = ['-TOWNSTYPE','2F' if a.towns1989 else 'MODEL2']
+    if a.towns1989: hardware += ['-USEFPU','-CDSPEED','1','-NORMALSCSI','-NORMALFD']
+    if a.hdd: hardware += ['-HD0',str(a.hdd.resolve()),'-NORMALSCSI']
     p = subprocess.Popen([str(exe), str(rom), '-CD', str(out / 'audit.ISO'),
-                          '-TOWNSTYPE', 'MODEL2', '-FREQ', str(a.freq), '-MEMSIZE', str(a.ram),
+                          *hardware, '-FREQ', str(a.freq), '-MEMSIZE', str(a.ram),
                           '-DONTAUTOSAVECMOS', '-NOWAITBOOT'], stdin=subprocess.PIPE,
                          stdout=log, stderr=subprocess.STDOUT, text=True)
     def cmd(s):
@@ -236,10 +241,29 @@ def measure(a, out):
             if not dump.exists() or dump.stat().st_size != 0x100000:
                 continue
             b = dump.read_bytes()
-            if word(b, 'stdDone' if a.standard else 'auditMeshDone' if a.mesh_probe else 'auditDone') == 1:
+            if word(b, 'hddProbeDone' if a.hdd_probe else 'stdDone' if a.standard else 'auditMeshDone' if a.mesh_probe else 'auditDone') == 1:
                 break
         else:
             raise RuntimeError('Benchmark did not complete; inspect ' + str(out / 'run.log'))
+        if a.hdd_probe:
+            info=list(struct.unpack_from('<8I',b,syms['hddProbeInfo']))
+            assert info[0]==256 and info[3]>256 and info[5]==0 and info[7]==13, info
+            # Verify the physical HDD bytes independently of the guest's RAM cache.
+            off,length,checksum=struct.unpack_from('<3I',b,syms['columnRecords'])
+            raw,backing=struct.unpack_from('<2B',b,syms['columnRecords']+24)
+            assert backing==2 and 0<length<=12288 and 512<=off<6291968
+            with a.hdd.open('rb') as disk:
+                disk.seek(off); record=disk.read(length)
+            hashed=2166136261
+            for byte in record: hashed=((hashed^byte)*16777619)&0xffffffff
+            assert hashed==checksum, 'HDD record checksum mismatch'
+            cells=record if raw else b''.join(bytes([record[i+1]])*record[i] for i in range(0,length,2))
+            assert len(cells)==12288 and cells[(8*16+8)*48+40]==info[6] and cells[(8*16+9)*48+40]==16
+            result=dict(ref=a.ref,width=info[0],travel_ticks=info[1],terrain_disk_stats=info[2:6],
+                        edit_preserved=True,disk_record_verified=True,torch_light=info[7],
+                        iso_sha256=hashlib.sha256((out/'audit.ISO').read_bytes()).hexdigest())
+            (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+            cmd('SS '+str(out/'end.png')); print(json.dumps(result),flush=True); return
         if a.standard:
             phases = ['look','walk','down','up','break','mixed']
             info = struct.unpack_from('<8I', b, syms['stdInfo'])
@@ -266,6 +290,11 @@ def measure(a, out):
             assert n <= 32
             result['edits'] = [struct.unpack_from('<7I', b, syms['stdEdits']+i*28) for i in range(n)]
             assert result['width'] == a.width and result['phases']
+            result['towns1989']=a.towns1989
+            result['hdd']=str(a.hdd.resolve()) if a.hdd else None
+            if 'terrainActive' in syms:
+                result['terrain_hdd_active']=bool(word(b,'terrainActive'))
+                result['terrain_disk_stats']=list(struct.unpack_from('<4I',b,syms['g_terrainDiskStats']))
             (out / 'result.json').write_text(json.dumps(result, indent=2)+'\n')
             cmd('SS '+str(out / 'end.png'))
             print(json.dumps(result), flush=True)
@@ -316,12 +345,15 @@ def main():
     ap.add_argument('--ref', default='WORKTREE')
     ap.add_argument('--ram', type=int, default=2)
     ap.add_argument('--freq', type=int, default=16)
+    ap.add_argument('--towns1989',action='store_true',help='Use 2F-generation, 8 MB/16 MHz/80387/normal I/O hardware')
+    ap.add_argument('--hdd',type=Path,help='Dedicated already marked terrain scratch image; NEVER use a save/OS disk')
     ap.add_argument('--zig', default=str(ROOT / 'build/tools/zig-windows-x86_64-0.13.0/zig.exe'))
     ap.add_argument('--timeout', type=float, default=240)
     ap.add_argument('--define', action='append', default=[])
     ap.add_argument('--build-only', action='store_true')
     ap.add_argument('--run-only', action='store_true')
     ap.add_argument('--mesh-probe', action='store_true', help='Controlled edit/memory fixture, not FPS')
+    ap.add_argument('--hdd-probe',action='store_true',help='Real-emulator HDD edit/evict/revisit verification, not FPS')
     ap.add_argument('--sync-mesh', action='store_true', help='Test-only synchronous local dirty rebuilds')
     ap.add_argument('--linear-test', action='store_true', help='Test-only local mesher with 80-wide linear storage')
     ap.add_argument('--full-mesh', action='store_true', help='Test-only master full rather than layer rebuilds')
@@ -334,6 +366,10 @@ def main():
     ap.add_argument('--step', choices=['all','look','walk','down','up','break','mixed'], help='Named alias for --phase')
     ap.add_argument('--production', action='store_true', help='Build untouched snapshot, without instrumentation')
     a = ap.parse_args()
+    if a.towns1989: a.ram,a.freq=8,16
+    if a.hdd and not a.hdd.is_file(): ap.error('--hdd image does not exist')
+    if a.hdd_probe and (a.standard or a.mesh_probe or a.production or not a.hdd or not a.towns1989):
+        ap.error('--hdd-probe requires --hdd and --towns1989, without other fixtures')
     if a.step: a.phase = ['all','look','walk','down','up','break','mixed'].index(a.step)-1
     if a.production and (not a.build_only or a.standard or a.mesh_probe):
         ap.error('--production requires --build-only and no instrumentation')

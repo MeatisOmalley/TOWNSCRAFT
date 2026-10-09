@@ -19,7 +19,7 @@ all: TOWNSCRAFT.ISO
 $(BUILD):
 	mkdir -p $(BUILD)
 
-$(BUILD)/%.o: src/%.c src/*.h | $(BUILD)
+$(BUILD)/%.o: src/%.c src/*.h src/*.inc | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/crt0.o: src/crt0.S | $(BUILD)

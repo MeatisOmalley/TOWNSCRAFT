@@ -6,6 +6,11 @@ This version-1 benchmark and its existing `minimum`/`high` profile names are
 retained unchanged for comparable historical measurements. They do not
 describe the new launcher minimum; do not relabel their results as 8 MB tests.
 
+`perf_audit.py --towns1989` selects the new 8 MB/16 MHz/80387 profile without
+changing the old suite profiles. Add `--hdd <dedicated-marked-scratch-image>`
+to exercise HDD terrain streaming; never point this at a save or OS disk.
+The result records HDD activation and physical read/write/cache-hit/error counts.
+
 Minimum spec is the priority: MODEL2, 16 MHz, 2 MB, 160x100 rendering,
 8-block textured view. Report the higher profile separately: MODEL2,
 25 MHz, 4 MB, 320x200 rendering, 12-block textured view. Higher settings
