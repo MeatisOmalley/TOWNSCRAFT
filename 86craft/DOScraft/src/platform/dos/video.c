@@ -16,6 +16,24 @@
 
 static int old_mode = -1;
 static unsigned int shown_page;
+static volatile unsigned int *irq_clock;
+static unsigned int irq_rate;
+void dos_video_set_tick_clock(volatile unsigned int *ticks, unsigned int rate)
+{
+    irq_clock = rate >= 10 ? ticks : 0;
+    irq_rate = rate;
+}
+static uclock_t wait_clock(void)
+{
+    return irq_clock ? (uclock_t)*irq_clock : uclock();
+}
+static int wait_pending(uclock_t start)
+{
+    /* g_ticks wraps at 32 bits; uclock_t is wider. Subtract at the correct
+     * width or a wrap could turn the bounded wait into a permanent loop. */
+    return irq_clock ? (unsigned int)(*irq_clock - (unsigned int)start) < irq_rate / 10 :
+                       uclock() - start < UCLOCKS_PER_SEC / 10;
+}
 #define VGA_PAGES 3
 typedef char pages_fit_vga_window[(VGA_PAGES * DOS_VGA_PLANE_BYTES <= 65536) ? 1 : -1];
 static unsigned char packed[DOS_VGA_PLANE_BYTES];
@@ -90,9 +108,9 @@ int video_in_vsync(void)
 void video_wait_vsync(void)
 {
     /* A broken display must not trap the program forever. */
-    uclock_t start = uclock();
-    while (video_in_vsync() && uclock() - start < UCLOCKS_PER_SEC / 10) {}
-    while (!video_in_vsync() && uclock() - start < UCLOCKS_PER_SEC / 10) {}
+    uclock_t start = wait_clock();
+    while (video_in_vsync() && wait_pending(start)) {}
+    while (!video_in_vsync() && wait_pending(start)) {}
 }
 
 void dos_video_present(const unsigned char *source, unsigned int pitch)
@@ -115,11 +133,11 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
      * visible page. Mode X CRTC start addresses are bytes per plane. Leave
      * the current retrace before programming the next start, then wait for
      * the retrace that latches it. Both waits are bounded on broken hardware. */
-    start = uclock();
-    while (video_in_vsync() && uclock() - start < UCLOCKS_PER_SEC / 10) {}
+    start = wait_clock();
+    while (video_in_vsync() && wait_pending(start)) {}
     outportw(0x3d4, (offset & 0xff00) | 0x0c);
     outportw(0x3d4, ((offset & 0xff) << 8) | 0x0d);
-    while (!video_in_vsync() && uclock() - start < UCLOCKS_PER_SEC / 10) {}
+    while (!video_in_vsync() && wait_pending(start)) {}
     shown_page = next_page;
 }
 

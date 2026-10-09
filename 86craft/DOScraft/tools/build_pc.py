@@ -19,8 +19,8 @@ def argument_parser():
     parser.add_argument('--target', choices=TARGETS, default='486dx25',
                         help='default: 486 primary; 386 is only a retained diagnostic scaffold')
     parser.add_argument('--prepare-vm', action='store_true')
-    parser.add_argument('--probe', choices=('platform', 'display', 'adapter'), default='platform',
-                        help='standalone platform, 320x240 display, or game-facing adapter gate')
+    parser.add_argument('--probe', choices=('platform', 'display', 'adapter', 'system'), default='platform',
+                        help='standalone platform, display, framebuffer adapters, or startup/IRQ gate')
     parser.add_argument('--hold-display', action='store_true',
                         help='display probe only: hold the test pattern until Escape for visual inspection')
     return parser
@@ -62,7 +62,7 @@ def main():
     elif args.probe == 'display':
         sources = [ROOT / 'src/platform/dos/display_probe.c', ROOT / 'src/platform/dos/video.c',
                    ROOT / 'src/platform/dos/vga_pack.c']
-    else:
+    elif args.probe == 'adapter':
         if args.target != '486dx25':
             parser.error('Game-facing adapters are only a primary 486 diagnostic')
         from build_adapters import stage
@@ -72,7 +72,23 @@ def main():
         sources = [*(ROOT / 'src/platform/dos' / name for name in
                      ('adapter_probe.c', 'gfx.c', 'heap.c', 'video.c', 'vga_pack.c')),
                    adapter_dir / 'src/font.c']
-    command = [str(compiler), *compiler_flags(args.target), *include_flags,
+    else:
+        if args.target != '486dx25':
+            parser.error('Interrupt integration is only a primary 486 diagnostic')
+        from build_adapters import stage
+        system_dir = out / 'system-probe'
+        adapter_record = stage(system_dir)
+        include_flags = ['-I', str(system_dir / 'src')]
+        sources = [ROOT / 'src/platform/dos' / name for name in
+                   ('system_probe.c', 'irq.c', 'irq_entry.S', 'keyboard.c',
+                    'system.c', 'heap.c', 'gfx.c', 'video.c', 'vga_pack.c')]
+        sources += [system_dir / 'src/font.c']
+    flags = compiler_flags(args.target)
+    if args.probe == 'system':
+        # No interrupt can corrupt an interrupted x87 operation.
+        flags = [flag for flag in flags if flag not in ('-m80387', '-mfpmath=387')]
+        flags += ['-mno-80387', '-mgeneral-regs-only']
+    command = [str(compiler), *flags, *include_flags,
                *(str(source) for source in sources), '-o', str(exe)]
     subprocess.run(command, check=True)
     profile = ROOT / 'profiles' / f'{args.target}-platform.cfg'

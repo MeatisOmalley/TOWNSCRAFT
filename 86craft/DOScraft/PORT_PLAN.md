@@ -2,6 +2,8 @@
 
 Research and investigation: 2026-10-09. This is the architecture/measurement phase, not a working DOS game. No production Towns gameplay, UI, renderer or emulator behavior was changed for this plan.
 
+Direct-port checkpoint, 2026-10-09: DOS startup backing and resident IRQ0/IRQ1 handlers now pass the combined `SYSTEM.EXE` guest diagnostic. Installed RAM remains 16 MiB; separate 1-MiB low / 8-MiB high arenas preserve permanent-versus-rewind lifetime boundaries without altering world/cache budgets. The timer remains 100 Hz beneath the unchanged 20 Hz simulation; BIOS clock chaining, AT controller key delivery, nested interrupt guards, sampling profiler, shutdown/reinstallation and Mode X presentation with IRQs active passed. Sampling frame decoding supports the pinned normal CWSDPMI r7 only. Physical/Windows keyboard ingress, mouse, SB/OPL audio, durable/temporary storage and the complete game link still need verification. No Phase B optimization is included.
+
 ## Recommendation
 
 Latest resolution guidance, 2026-10-09: the user authorizes selecting the resolution that makes sense for the target PC. References to 320x240 below describe the direct-port starting layout, not an immutable requirement. First candidate is Mode X presentation with the existing sharp HUD and doubled 160x100 3D option. Resolve the final resolution using playable-port measurements; unrelated UI/gameplay redesign remains out of scope.
