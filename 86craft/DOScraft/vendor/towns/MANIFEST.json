@@ -1,0 +1,407 @@
+{
+  "files": [
+    {
+      "git_blob": "6be728c3146b9a6af7a9aad944ca3f8128ef0acf",
+      "git_mode": "100644",
+      "path": "src/bench.c",
+      "sha256": "f065a6fec9fed0c40bb6ddbaa5ea35b2343a872dc21b4b962c10bd7056fa79c7",
+      "size": 8615,
+      "source_path": "fmtowns/townscraft/src/bench.c"
+    },
+    {
+      "git_blob": "f28d9267e5689b0e743de749b38512e4d4224231",
+      "git_mode": "100644",
+      "path": "src/bench.h",
+      "sha256": "57d70940b74b24871b1ac91761769db57b6bd9cc49a5d0cc13ae6f19c788c286",
+      "size": 3057,
+      "source_path": "fmtowns/townscraft/src/bench.h"
+    },
+    {
+      "git_blob": "93f0aaea7ab34bda40767422f8cca3bd393ea3e0",
+      "git_mode": "100644",
+      "path": "src/blocks.c",
+      "sha256": "04269d68a7a19953f052019f289cdf52c4eb17e533d2b776e1c4c4bbdd03c615",
+      "size": 8041,
+      "source_path": "fmtowns/townscraft/src/blocks.c"
+    },
+    {
+      "git_blob": "26e322bb4896a6361ddfa2d2ab5cc17d8b03e982",
+      "git_mode": "100644",
+      "path": "src/blocks.h",
+      "sha256": "5896120958f0ffe989976583f2487f4b82c9a19d86b7eb463cc0b4d6aef23c82",
+      "size": 3879,
+      "source_path": "fmtowns/townscraft/src/blocks.h"
+    },
+    {
+      "git_blob": "463f2fcaaf56eb20941f169148eb09ba9c59c8c4",
+      "git_mode": "100644",
+      "path": "src/column_cache.inc",
+      "sha256": "d03e6face9e90c95c4ec06ed3a8d8fcc0f2e171a57689b660416623f44a740e1",
+      "size": 15026,
+      "source_path": "fmtowns/townscraft/src/column_cache.inc"
+    },
+    {
+      "git_blob": "f038a75c696dbb3f69ed150143a990300a513b41",
+      "git_mode": "100644",
+      "path": "src/column_hdd.inc",
+      "sha256": "95f4bdedc89cc81ccfc0e521d358821d483750790be3b1471bb400a18a5d3086",
+      "size": 7629,
+      "source_path": "fmtowns/townscraft/src/column_hdd.inc"
+    },
+    {
+      "git_blob": "ea08e76e3b922b506a79ed2a49845eb9771afa10",
+      "git_mode": "100644",
+      "path": "src/column_store.inc",
+      "sha256": "42cb4861ae074ec90cb1a12c198fff5e315359576ad05eb7f4d661a9655f60b9",
+      "size": 4415,
+      "source_path": "fmtowns/townscraft/src/column_store.inc"
+    },
+    {
+      "git_blob": "eade5c02b6c8e135ef359c98f3aef3fa9281edde",
+      "git_mode": "100644",
+      "path": "src/common.h",
+      "sha256": "3f6959ebfbc4fbdf2ec4d1ccd94a84cdb44703cdddc2fb3ac580ad4a2b94e966",
+      "size": 812,
+      "source_path": "fmtowns/townscraft/src/common.h"
+    },
+    {
+      "git_blob": "83fbd74c1eedcc6bcab121ebe31734af7450fe42",
+      "git_mode": "100644",
+      "path": "src/crt0.S",
+      "sha256": "2fde2bc37c7268e927f02389b24567803e51ac51308108c77d10d288f03216bc",
+      "size": 886,
+      "source_path": "fmtowns/townscraft/src/crt0.S"
+    },
+    {
+      "git_blob": "3ddf6dac2da0752fe27b75806423e8150001bbc9",
+      "git_mode": "100644",
+      "path": "src/fmath.c",
+      "sha256": "b8288f37e72941e1c8cec764580eed8876feec8f9b1d35298741f4723635ef79",
+      "size": 492,
+      "source_path": "fmtowns/townscraft/src/fmath.c"
+    },
+    {
+      "git_blob": "963f9ba79b3dfb61f0572023b87b18674f49c0f8",
+      "git_mode": "100644",
+      "path": "src/fmath.h",
+      "sha256": "d9e21b85873a5e37cffa3bdd72914ac8b4d479e15e109e922a6bbe88a71e6e26",
+      "size": 1228,
+      "source_path": "fmtowns/townscraft/src/fmath.h"
+    },
+    {
+      "git_blob": "55c2ebfceb1f54203ef127823f8e6a2f22c8ea79",
+      "git_mode": "100644",
+      "path": "src/font.c",
+      "sha256": "10f1a3ce33bf2c37441d6771ec6f037ed2eab6ca6ee2258b5f2257650f30623e",
+      "size": 4270,
+      "source_path": "fmtowns/townscraft/src/font.c"
+    },
+    {
+      "git_blob": "b41ef1e17ab18db56526c710eef343d10906d07f",
+      "git_mode": "100644",
+      "path": "src/game.c",
+      "sha256": "e2602533f4654df04444068467f3c50ff90f9c2987845ee940943430062467b2",
+      "size": 42903,
+      "source_path": "fmtowns/townscraft/src/game.c"
+    },
+    {
+      "git_blob": "b9e18ca39e6e1aea0e175f13bbb472c5b71246e4",
+      "git_mode": "100644",
+      "path": "src/game.h",
+      "sha256": "aa49d646e75ed3131ddb40c0a1d3484edeb2b9f5a18165528f26b0cf70e571c9",
+      "size": 247,
+      "source_path": "fmtowns/townscraft/src/game.h"
+    },
+    {
+      "git_blob": "cf3504018adff85109ca8bf673223777028b372f",
+      "git_mode": "100644",
+      "path": "src/gfx.c",
+      "sha256": "5d7b6260faa53fbe1eff899d484aa8ded29cf3b13fc71147298549ec7166fa6a",
+      "size": 4303,
+      "source_path": "fmtowns/townscraft/src/gfx.c"
+    },
+    {
+      "git_blob": "08b882b8fe97b6d748b8435465f8f941201d996b",
+      "git_mode": "100644",
+      "path": "src/gfx.h",
+      "sha256": "c45355d286118adafbaa63a2906f7000d5935c34566512b483e7c795e9722a87",
+      "size": 1063,
+      "source_path": "fmtowns/townscraft/src/gfx.h"
+    },
+    {
+      "git_blob": "4fdae7b86bc197ed8c3eb329a9b6eb323ad4b711",
+      "git_mode": "100644",
+      "path": "src/hdd.c",
+      "sha256": "985b013adbf385cd68ddb6e7ae74d226487335b920fada6146bcc9f3653b7feb",
+      "size": 14590,
+      "source_path": "fmtowns/townscraft/src/hdd.c"
+    },
+    {
+      "git_blob": "96a939776f722e3d35bf5c895cf9c2b368947253",
+      "git_mode": "100644",
+      "path": "src/hdd.h",
+      "sha256": "2241306b6bbd7f566a0d9a3c16f0bae41003ac79000c3b1f50d31be984ea1f10",
+      "size": 3641,
+      "source_path": "fmtowns/townscraft/src/hdd.h"
+    },
+    {
+      "git_blob": "ebc344a742629dd397ffe1210ebb7ff494c29d71",
+      "git_mode": "100644",
+      "path": "src/hw.h",
+      "sha256": "12b8748b173a049145071f5ab1ae5d0c96693cb741977ec31e455168f4d8ef53",
+      "size": 861,
+      "source_path": "fmtowns/townscraft/src/hw.h"
+    },
+    {
+      "git_blob": "f6222e8a05b579730e9af6aff9027443ab39efb1",
+      "git_mode": "100644",
+      "path": "src/inventory.c",
+      "sha256": "986fb45b8ccf882d995e729673d1ae13b25dd7644a1b5b595fe31aba9c70074a",
+      "size": 5325,
+      "source_path": "fmtowns/townscraft/src/inventory.c"
+    },
+    {
+      "git_blob": "046daeea412f9e10bd9781f344fb0468fa0aca2f",
+      "git_mode": "100644",
+      "path": "src/inventory.h",
+      "sha256": "ca2b914ab7fa93514091e1f165c07a1162a83e0f57715f90d58746b9417bc11e",
+      "size": 1291,
+      "source_path": "fmtowns/townscraft/src/inventory.h"
+    },
+    {
+      "git_blob": "678204e2d11f248c74082a9346c7144f0f548dc3",
+      "git_mode": "100644",
+      "path": "src/isr.S",
+      "sha256": "0aae379ff4f9c8f9f6a8fd6f5a3e68edb8a03d9ad126473a286633f020d24301",
+      "size": 1553,
+      "source_path": "fmtowns/townscraft/src/isr.S"
+    },
+    {
+      "git_blob": "083f4c20062e53cbea6a9e3cd1c4190bc27b19f1",
+      "git_mode": "100644",
+      "path": "src/kernel.ld",
+      "sha256": "78d9b10a36083d9c82405a686cd052b59d500f8180a5337a2ebf9c96504b81c7",
+      "size": 575,
+      "source_path": "fmtowns/townscraft/src/kernel.ld"
+    },
+    {
+      "git_blob": "573a4698f3a4fcdacdb58ab8730b0bbf294af228",
+      "git_mode": "100644",
+      "path": "src/libc.c",
+      "sha256": "a1a9dac0deba426e4effed91633c8c1037ac6ee14fd5906cfeea481c9ef236be",
+      "size": 1860,
+      "source_path": "fmtowns/townscraft/src/libc.c"
+    },
+    {
+      "git_blob": "12ecdf75b19ad889f571e674b49a2b79023130f6",
+      "git_mode": "100644",
+      "path": "src/mobs.c",
+      "sha256": "0ed2e56dd5a56ceba7424a32943967e6fc1ce1ff6394f5c10b331cfc59e6e55f",
+      "size": 21532,
+      "source_path": "fmtowns/townscraft/src/mobs.c"
+    },
+    {
+      "git_blob": "ad5926627edb8048d1f4eb198da9413af4c63c69",
+      "git_mode": "100644",
+      "path": "src/mobs.h",
+      "sha256": "70056e95088ea7cc2102edc6c8917e0bdfddf53ec6a003766a846a2e53e7b8b2",
+      "size": 1284,
+      "source_path": "fmtowns/townscraft/src/mobs.h"
+    },
+    {
+      "git_blob": "5ef6d259bdc89125a29b0802bb57a460253765ae",
+      "git_mode": "100644",
+      "path": "src/physics.c",
+      "sha256": "f5aebcd4e8d5375317b4ba8bee618b07d37c544427b85a27d3ddb97073e224d9",
+      "size": 3848,
+      "source_path": "fmtowns/townscraft/src/physics.c"
+    },
+    {
+      "git_blob": "8c7093d034c1ab405e8ac115e86be2be41467cc9",
+      "git_mode": "100644",
+      "path": "src/physics.h",
+      "sha256": "c73bfeb870a33d9f815495db20208e4f79356961e5a2828d258058c7666724c9",
+      "size": 778,
+      "source_path": "fmtowns/townscraft/src/physics.h"
+    },
+    {
+      "git_blob": "a8cdd59b87372288ceb56e8a7c139b17d19c384e",
+      "git_mode": "100644",
+      "path": "src/player.c",
+      "sha256": "adea6381c0c20267c07f0f7ca48f6aa9d6e49fc3d8dc6fb14c28383155d6efd1",
+      "size": 3551,
+      "source_path": "fmtowns/townscraft/src/player.c"
+    },
+    {
+      "git_blob": "55ed3997d2024b82e60b943b51061a2f86a7a426",
+      "git_mode": "100644",
+      "path": "src/player.h",
+      "sha256": "2b5598426dc46adfc4906038f555ae47c5888c6a4bbae89a7c9479d21ab95940",
+      "size": 871,
+      "source_path": "fmtowns/townscraft/src/player.h"
+    },
+    {
+      "git_blob": "9c538506b9bb49de5483974f1c8b4cc2e5bd6dc9",
+      "git_mode": "100644",
+      "path": "src/raster.c",
+      "sha256": "83136bc32672c7609d6577f5a97d3b60d9ad24170c4ba9a91952453c577e8350",
+      "size": 10086,
+      "source_path": "fmtowns/townscraft/src/raster.c"
+    },
+    {
+      "git_blob": "419e5f91a85302a438150ccc2bdd095f75dd570a",
+      "git_mode": "100644",
+      "path": "src/raster.h",
+      "sha256": "8c6ebe7862c00ed54bdd3495b3dd183d044f0d7c27cc2efbd990b9245d40bceb",
+      "size": 1202,
+      "source_path": "fmtowns/townscraft/src/raster.h"
+    },
+    {
+      "git_blob": "0dd9e5745534fbacc6aa76e1f8202e17a49fb1fe",
+      "git_mode": "100644",
+      "path": "src/render.c",
+      "sha256": "358888a1ef6bd260499642e1740682b8aaa9b4052c7402c28445cd04bfa89b72",
+      "size": 48906,
+      "source_path": "fmtowns/townscraft/src/render.c"
+    },
+    {
+      "git_blob": "1fe86dcef3e2cd717e245c3f15bf1d6fa835674f",
+      "git_mode": "100644",
+      "path": "src/render.h",
+      "sha256": "68803a190ee8218a0f66e9dac982072640ec19eeb618fbf1e15400e99696886e",
+      "size": 1969,
+      "source_path": "fmtowns/townscraft/src/render.h"
+    },
+    {
+      "git_blob": "1b2ae0713f326ee66f84395227a5bb91856f06c3",
+      "git_mode": "100644",
+      "path": "src/save.c",
+      "sha256": "b001c7e93f156b35db16ff6fdb79abe4344a889298416bcb1020eb9f82be0fb1",
+      "size": 16051,
+      "source_path": "fmtowns/townscraft/src/save.c"
+    },
+    {
+      "git_blob": "5491d8190afb4f68569a345f3adb0fd84cf7c305",
+      "git_mode": "100644",
+      "path": "src/save.h",
+      "sha256": "f6ba49f29fe2598877ccb44b42c38a2c073469994adeb1b414a5bf4c419e7448",
+      "size": 533,
+      "source_path": "fmtowns/townscraft/src/save.h"
+    },
+    {
+      "git_blob": "677d874e4d1e65cd41dff89a068e80571e1ee169",
+      "git_mode": "100644",
+      "path": "src/sound.c",
+      "sha256": "10c8a9d074d0b149aa338bd14eb6e8ec8875edebe549a5dbfd57255bfb2e9280",
+      "size": 13459,
+      "source_path": "fmtowns/townscraft/src/sound.c"
+    },
+    {
+      "git_blob": "a7d896478b6438621575ca16a16d1439a178c07c",
+      "git_mode": "100644",
+      "path": "src/sound.h",
+      "sha256": "7dc957ae30fb9485891c1b0f9877f484b4820058c7faaf23813b95ef24d848d4",
+      "size": 1278,
+      "source_path": "fmtowns/townscraft/src/sound.h"
+    },
+    {
+      "git_blob": "319f1c09c2ef33d93b6e7f91c633252ef01d1dcc",
+      "git_mode": "100644",
+      "path": "src/sys.c",
+      "sha256": "25e341099b4c860040981d27d4490bc6fb2a6cf7902f97d499917e822b14f3d6",
+      "size": 7466,
+      "source_path": "fmtowns/townscraft/src/sys.c"
+    },
+    {
+      "git_blob": "e88b0def798ac288dc031492f3a79724d0051183",
+      "git_mode": "100644",
+      "path": "src/sys.h",
+      "sha256": "21722af7b4deec409de3a78289b4316d6b268a8c3cc797f295f33214e8b61269",
+      "size": 1848,
+      "source_path": "fmtowns/townscraft/src/sys.h"
+    },
+    {
+      "git_blob": "cd129aea193cb393a86de5a31012ca0e31fadd0d",
+      "git_mode": "100644",
+      "path": "src/textures.c",
+      "sha256": "4328c553b62ee2191e0bb62a46b1f3ad94c6d35de64dd5005eef2bb84fca9e60",
+      "size": 18497,
+      "source_path": "fmtowns/townscraft/src/textures.c"
+    },
+    {
+      "git_blob": "2d8c003d549af4071a44207a929a9fa64a4f591a",
+      "git_mode": "100644",
+      "path": "src/textures.h",
+      "sha256": "1f159ad23f894b945cb609574f40ae53dba01146b45f27bdda97a2dfde214293",
+      "size": 732,
+      "source_path": "fmtowns/townscraft/src/textures.h"
+    },
+    {
+      "git_blob": "c9f09570135d4ecf6b588ad20a8871858e6bb5a8",
+      "git_mode": "100644",
+      "path": "src/trap.S",
+      "sha256": "5cae43b54592b078ac64b39c70d60820185ac238a541f6bb4b270e593a73f1f0",
+      "size": 5730,
+      "source_path": "fmtowns/townscraft/src/trap.S"
+    },
+    {
+      "git_blob": "4641f7e5f0bc6a8d171bce2cde80971531959b96",
+      "git_mode": "100644",
+      "path": "src/ui.c",
+      "sha256": "51d9ec9d32e51cd876b75f4b8679129ea9f755a49c4185d8b1f5135754ead9c9",
+      "size": 4297,
+      "source_path": "fmtowns/townscraft/src/ui.c"
+    },
+    {
+      "git_blob": "037d7865636f1af0ebd40c4572a660642744355b",
+      "git_mode": "100644",
+      "path": "src/ui.h",
+      "sha256": "34b3c22250908c7929cbaa775d1919e0fcf4d014462149a872d0d691e17c3a04",
+      "size": 806,
+      "source_path": "fmtowns/townscraft/src/ui.h"
+    },
+    {
+      "git_blob": "64f1d953ccb9224394ee5ea29769b5850810b18c",
+      "git_mode": "100644",
+      "path": "src/video.c",
+      "sha256": "0192ea7c855583d5ac68eaa0765d03414e155c19676a3b212a4a5b55c4366704",
+      "size": 1291,
+      "source_path": "fmtowns/townscraft/src/video.c"
+    },
+    {
+      "git_blob": "dbbc6c76324077262effb68c439e15aa3c976b53",
+      "git_mode": "100644",
+      "path": "src/video.h",
+      "sha256": "b7389354a0defc9b6dbd4f12e0bc7e13afd34628875f2e3cd7770b473594a2e0",
+      "size": 168,
+      "source_path": "fmtowns/townscraft/src/video.h"
+    },
+    {
+      "git_blob": "56319f1fee84ce57fa277d3ba4f20b39486b930d",
+      "git_mode": "100644",
+      "path": "src/world.c",
+      "sha256": "4642a493342d64bf0262b50de571ad9aa84b77cfa8d708eb272754244a2a4b89",
+      "size": 43840,
+      "source_path": "fmtowns/townscraft/src/world.c"
+    },
+    {
+      "git_blob": "38af702398e0f4ddd2d3d84691ace12ce83a6b7e",
+      "git_mode": "100644",
+      "path": "src/world.h",
+      "sha256": "58a07046c850aa74a447610a0ae27198e604e04eb48061ae7b00dd932a2995e3",
+      "size": 5930,
+      "source_path": "fmtowns/townscraft/src/world.h"
+    },
+    {
+      "git_blob": "8f52d4c79dd3a27c98350448267a02237a09d761",
+      "git_mode": "100644",
+      "path": "tools/gentables.py",
+      "sha256": "3498a0f6e7f2dc2a7a51a4efc5ced1d8ac4d49d6c471ad451eae5e62ba25d479",
+      "size": 697,
+      "source_path": "fmtowns/townscraft/tools/gentables.py"
+    }
+  ],
+  "schema_version": 1,
+  "source_commit": "d706a67db6242627c6233e5593fd1a1e1ddc69af",
+  "source_root": "fmtowns/townscraft"
+}
