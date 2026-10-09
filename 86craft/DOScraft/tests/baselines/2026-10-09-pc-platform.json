@@ -45,7 +45,7 @@
     "verification": "Assistant read C:/DISPLAY.TXT and observed automatic return to DOS text mode.",
     "visual_vm": "display-486dx25-5cem2bex",
     "visual_check": "Held pattern observed: full 4:3 image, four borders including distinct last row, expected diagonal palette pattern; no obvious plane-interleaving or cropping.",
-    "keyboard_exit": "Automated Escape delivery not confirmed; physical keyboard confirmation pending."
+    "keyboard_exit": "Physical Escape completed the held probe; assistant independently read its C:/DISPLAY.TXT with RESULT=PASS. Automated key injection remains unverified."
   },
   "limitations": [
     "Diagnostics only: no gameplay, renderer FPS, audio, mouse, save/cache adapter or full parity validation.",
