@@ -85,6 +85,8 @@ void dos_video_set_tick_clock(volatile unsigned int *p, unsigned int rate) {
     else { assert(!rate); clock_live=0; }
 }
 void dos_video_restore(void) {}
+int dos_input_init(void) { assert(irq_live && clock_live); return 0; }
+void dos_input_shutdown(void) {}
 volatile unsigned int g_ticks;
 int main(void) {
     int f;

@@ -32,6 +32,9 @@ class TargetTests(unittest.TestCase):
         self.assertIn(b'Adapter test finished. See C:\\ADAPTER.TXT.', guest_startup('adapter'))
         self.assertIn(b'SYSTEM.EXE /AUTO\r\n', guest_startup('system'))
         self.assertIn(b'System test finished. See C:\\SYSTEM.TXT.', guest_startup('system'))
+        self.assertIn(b'CTMOUSE /S14 /R11 /W /Y\r\nCWSDPMI -p -s-\r\n', guest_startup('mouse'))
+        self.assertIn(b'MOUSE.EXE /AUTO\r\n', guest_startup('mouse'))
+        self.assertNotIn(b'CTMOUSE', guest_startup('system'))
 
     def test_default_is_native_486_with_x87(self):
         self.assertEqual(argument_parser().parse_args([]).target, '486dx25')

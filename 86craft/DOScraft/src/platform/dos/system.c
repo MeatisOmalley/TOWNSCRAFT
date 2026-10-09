@@ -4,6 +4,7 @@
 #include "system.h"
 #include "heap.h"
 #include "irq.h"
+#include "input.h"
 #include "video_backend.h"
 #include <dpmi.h>
 #include <stdio.h>
@@ -19,6 +20,7 @@ static int initialized, cleanup_registered;
 
 void dos_system_shutdown(void)
 {
+    dos_input_shutdown();
     dos_video_set_tick_clock(0, 0);
     dos_irq_shutdown(); /* No ISR may touch arenas after they are released. */
     if (initialized) dos_heap_shutdown();
@@ -69,4 +71,5 @@ void sys_init(void)
     }
     if (dos_irq_init()) fatal("Cannot install resident DOS interrupts");
     dos_video_set_tick_clock(&g_ticks, TICKS_PER_SEC);
+    dos_input_init(); /* Missing driver is a supported keyboard-only startup. */
 }

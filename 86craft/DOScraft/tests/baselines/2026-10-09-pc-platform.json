@@ -91,8 +91,26 @@
     "RESULT": "PASS",
     "verification": "Read C:/SYSTEM.TXT and observed DOS interrupts: PASS / return to DOS. Automatic controller D2 injection exercises controller/PIC/IRQ1/translation, not Windows input automation or human gameplay. Profiler frame decoding is specific to the pinned normal CWSDPMI r7 binary. Game simulation remains the unchanged 20 Hz accumulator. Audio hook exists but no audio adapter is bound."
   },
+  "mouse_transport": {
+    "vm": "mouse-486dx25-_4bj4ka6",
+    "exe_sha256": "43c48b0fe41c159b05b56c0fa04be56c9564ee1f3a393266d92bed020c8be26c",
+    "raw_report_sha256": "0a8435426c1be7a5b83a8f730435c3c9cc55c35456b336ddfdf3bb6c670bd883",
+    "mouse": "Microsoft two-button serial, COM1/IRQ4",
+    "driver": "CuteMouse 1.9.1 /S14 /R11 /W /Y",
+    "driver_sha256": "f4cef8579a1699045c37ac0ddf03fe0ca361de5c1003ba375c3e08f01a546d01",
+    "MOUSE_DRIVER": "PASS",
+    "COM1_IRQ4": "PASS",
+    "SERIAL_LOOPBACK_PACKETS": "PASS",
+    "RELATIVE_CONSUMPTION": "PASS",
+    "ACCUMULATION_16BIT": "PASS",
+    "LIFECYCLE": "PASS",
+    "UART_RESTORE": "PASS",
+    "HOST_MOUSE_CAPTURE": "UNTESTED",
+    "RESULT": "PASS",
+    "verification": "Assistant read C:/MOUSE.TXT and observed return to DOS with PASS. UART loopback packets exercise real driver IRQ4 delivery with Mode X and the custom PIT active. Includes one-count deltas, signed packet extrema, all left/right masks, multi-packet +381/-384 totals and linear response after reset. Does not verify Windows capture or physical mouse ingress. CuteMouse 2.1 beta 4 was rejected after measured (127,127) packets returned (381,381); inspected 1.9.1 source and guest evidence confirm /R11 linear counters."
+  },
   "limitations": [
-    "Diagnostics only: no gameplay, renderer FPS, audio, mouse, save/cache adapter or full parity validation.",
+    "Diagnostics only: no gameplay, renderer FPS, audio, physical mouse/keyboard ingress, save/cache adapter or full parity validation.",
     "Single diagnostic runs, not repeatable performance benchmarks or a Mode X vs Mode 13h comparison.",
     "VGA_TICKS times 16 Mode 13h uploads, not Mode X packing, whole frames or game FPS.",
     "Inherited firmware and motherboard proxies remain unauthenticated as exact 1989 retail hardware.",

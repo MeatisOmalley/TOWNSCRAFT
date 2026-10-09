@@ -7,7 +7,7 @@ import build_imported as imported
 
 ROOT = imported.ROOT
 OUTPUT = ROOT / 'build/pc/486dx25/adapters'
-ADAPTERS = ('gfx.c', 'heap.c', 'video.c', 'vga_pack.c', 'keyboard.c', 'irq.c', 'irq_entry.S', 'system.c')
+ADAPTERS = ('gfx.c', 'heap.c', 'video.c', 'vga_pack.c', 'keyboard.c', 'irq.c', 'irq_entry.S', 'system.c', 'input.c')
 
 
 def gfx_drawing_source(vendor=imported.VENDOR):

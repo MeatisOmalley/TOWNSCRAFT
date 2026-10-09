@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 from fat_image import FatImage, populate, scratch_hdd
+from fetch_dependencies import CTMOUSE_EXE_SHA256
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = {
@@ -19,7 +20,7 @@ def argument_parser():
     parser.add_argument('--target', choices=TARGETS, default='486dx25',
                         help='default: 486 primary; 386 is only a retained diagnostic scaffold')
     parser.add_argument('--prepare-vm', action='store_true')
-    parser.add_argument('--probe', choices=('platform', 'display', 'adapter', 'system'), default='platform',
+    parser.add_argument('--probe', choices=('platform', 'display', 'adapter', 'system', 'mouse'), default='platform',
                         help='standalone platform, display, framebuffer adapters, or startup/IRQ gate')
     parser.add_argument('--hold-display', action='store_true',
                         help='display probe only: hold the test pattern until Escape for visual inspection')
@@ -38,6 +39,8 @@ def guest_startup(probe, hold_display=False):
     text = (ROOT / 'guest/AUTOEXEC.BAT').read_text().replace('PLATFORM', probe.upper())
     text = text.replace('isolated platform test', f'isolated {probe} test')
     text = text.replace('Platform test finished', f'{probe.capitalize()} test finished')
+    if probe == 'mouse':
+        text = text.replace('CWSDPMI -p -s-', 'CTMOUSE /S14 /R11 /W /Y\nCWSDPMI -p -s-')
     if hold_display:
         text = text.replace('DISPLAY.EXE /AUTO', 'DISPLAY.EXE')
     return text.replace('\n', '\r\n').encode('ascii')
@@ -80,11 +83,11 @@ def main():
         adapter_record = stage(system_dir)
         include_flags = ['-I', str(system_dir / 'src')]
         sources = [ROOT / 'src/platform/dos' / name for name in
-                   ('system_probe.c', 'irq.c', 'irq_entry.S', 'keyboard.c',
-                    'system.c', 'heap.c', 'gfx.c', 'video.c', 'vga_pack.c')]
+                   (f'{args.probe}_probe.c', 'irq.c', 'irq_entry.S', 'keyboard.c',
+                    'system.c', 'input.c', 'heap.c', 'gfx.c', 'video.c', 'vga_pack.c')]
         sources += [system_dir / 'src/font.c']
     flags = compiler_flags(args.target)
-    if args.probe == 'system':
+    if args.probe in ('system', 'mouse'):
         # No interrupt can corrupt an interrupted x87 operation.
         flags = [flag for flag in flags if flag not in ('-m80387', '-mfpmath=387')]
         flags += ['-mno-80387', '-mgeneral-regs-only']
@@ -106,6 +109,13 @@ def main():
         manifest['imported_font_sha256'] = hashlib.sha256(sources[-1].read_bytes()).hexdigest()
     if args.target == '386dx33':
         manifest['fpu_note'] = 'Actual emulator model is Intel 387, not Cyrix FasMath. 386 game port is deferred.'
+    mouse_driver = None
+    if args.probe == 'mouse':
+        mouse_driver = (deps / 'ctmouse191/ctmouse.exe').read_bytes()
+        if hashlib.sha256(mouse_driver).hexdigest() != CTMOUSE_EXE_SHA256:
+            raise ValueError('CuteMouse binary is not the pinned driver')
+        manifest['mouse_driver'] = dict(version='CuteMouse 1.9.1',
+            sha256=hashlib.sha256(mouse_driver).hexdigest(), options='/S14 /R11 /W /Y')
     if args.prepare_vm:
         runtime = ROOT / 'runtime'
         runtime.mkdir(exist_ok=True)
@@ -116,6 +126,8 @@ def main():
                  ('COMMAND.COM', source.read('FREEDOS/BIN/COMMAND.COM')),
                  ('CWSDPMI.EXE', (deps / 'cwsdpmi/bin/CWSDPMI.EXE').read_bytes()),
                  (f'{probe_name}.EXE', exe.read_bytes())]
+        if mouse_driver is not None:
+            files.append(('CTMOUSE.EXE', mouse_driver))
         for name in ('FDCONFIG.SYS', 'AUTOEXEC.BAT'):
             if name == 'AUTOEXEC.BAT':
                 text = guest_startup(args.probe, args.hold_display)
@@ -128,6 +140,10 @@ def main():
         with (vm / 'scratch.img').open('xb') as f:
             f.write(scratch_hdd())
         config = profile.read_text()
+        if args.probe == 'mouse':
+            config += ('\n[Input devices]\nmouse_type = msserial\n'
+                       '\n[Microsoft Serial Mouse]\nport = 0\nbuttons = 2\n'
+                       '\n[Ports (COM & LPT)]\nserial1_enabled = 1\n')
         (vm / '86box.cfg').write_text(config, encoding='utf-8')
         manifest['vm_directory'] = str(vm)
         manifest['disk_note'] = 'New 20 MiB scratch FAT16 image; final large-world HDD not yet configured.'

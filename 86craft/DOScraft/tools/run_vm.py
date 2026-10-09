@@ -7,11 +7,14 @@ import argparse
 import configparser
 import hashlib
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
 from fat_image import FatImage
 from fetch_roms import PATHS
+from fetch_dependencies import CTMOUSE_EXE_SHA256, EMULATOR_EXE_SHA256
+from build_pc import guest_startup
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def validate_vm(vm):
     vm = Path(vm).resolve(strict=True)
     record = json.loads((vm / 'build.json').read_text())
-    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system'):
+    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system', 'mouse'):
         raise ValueError('Only prepared primary-target diagnostic VMs are supported')
     if Path(record['vm_directory']).resolve() != vm:
         raise ValueError('Manifest names a different VM directory')
@@ -36,6 +39,19 @@ def validate_vm(vm):
                        'hdd_01_parameters': '17, 4, 615, 0, esdi'},
         'Floppy and CD-ROM drives': {'fdd_01_fn': 'boot.img', 'fdd_01_type': '35_2hd'},
     }
+    if record['probe'] == 'mouse':
+        required.update({'Input devices': {'mouse_type': 'msserial'},
+                         'Microsoft Serial Mouse': {'port': '0', 'buttons': '2'}})
+        # 86Box omits default-enabled COM1 when rewriting config.
+        if cfg.getint('Ports (COM & LPT)', 'serial1_enabled', fallback=1) != 1:
+            raise ValueError('Unexpected hardware setting: COM1 disabled')
+        for key, value in cfg.items('Ports (COM & LPT)') if cfg.has_section('Ports (COM & LPT)') else ():
+            if ((re.fullmatch(r'serial\d+_device', key) and value != 'none') or
+                    (re.fullmatch(r'serial\d+_passthrough_enabled', key) and int(value))):
+                raise ValueError('Unexpected hardware setting: external serial device')
+        for section in cfg.sections():
+            if section.startswith(('Serial Passthrough', 'Named Pipe (COM)', 'Virtual Console (COM)')):
+                raise ValueError('Unexpected hardware setting: serial passthrough section')
     for section, values in required.items():
         for key, value in values.items():
             if cfg.get(section, key, fallback=None) != value:
@@ -44,9 +60,19 @@ def validate_vm(vm):
     if cfg.getint('Machine', 'cpu_override_interpreter', fallback=0):
         raise ValueError('Inaccurate interpreter override is not a benchmark profile')
     program = record['probe'].upper() + '.EXE'
-    payload = FatImage((vm / 'boot.img').read_bytes()).read(program)
+    media = FatImage((vm / 'boot.img').read_bytes())
+    payload = media.read(program)
     if hashlib.sha256(payload).hexdigest() != record['exe_sha256']:
         raise ValueError('Boot media executable does not match its manifest')
+    if record['probe'] == 'mouse':
+        if (hashlib.sha256(media.read('CTMOUSE.EXE')).hexdigest() != CTMOUSE_EXE_SHA256 or
+                record['mouse_driver']['sha256'] != CTMOUSE_EXE_SHA256):
+            raise ValueError('Mouse driver does not match its manifest')
+        if media.read('AUTOEXEC.BAT') != guest_startup('mouse'):
+            raise ValueError('Mouse startup sequence is not the exact linear COM1/IRQ4 diagnostic')
+        expected_config = (ROOT / 'guest/FDCONFIG.SYS').read_text().replace('\n', '\r\n').encode('ascii')
+        if media.read('FDCONFIG.SYS') != expected_config:
+            raise ValueError('Mouse DOS shell configuration does not match the diagnostic')
     scratch = vm / 'scratch.img'
     if scratch.stat().st_size != 615 * 4 * 17 * 512:
         raise ValueError('Scratch HDD size does not match its declared geometry')
@@ -58,6 +84,8 @@ def launch_command(vm):
     roms = ROOT / 'build/deps/86box/roms'
     if not executable.is_file():
         raise FileNotFoundError(f'86Box missing: {executable}')
+    if hashlib.sha256(executable.read_bytes()).hexdigest() != EMULATOR_EXE_SHA256:
+        raise ValueError('86Box executable checksum mismatch')
     for relative in ('machines/isa486/ISA-486.BIN', 'video/et4000/ET4000_V8_06.BIN',
                      'hdd/esdi_at/62-000279-061.bin'):
         if hashlib.sha256((roms / relative).read_bytes()).hexdigest() != PATHS[relative]:
