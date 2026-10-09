@@ -66,6 +66,18 @@ Freeze an emulator revision, ROM hashes, exact config, disk geometry/timing, DOS
 
 The historical hardware evidence already lives in the hardware document; this plan does not upgrade its provisional combinations into a claim of perfect 1989 authenticity. Modern development tools/algorithms are assumed acceptable for this hardware demake. Strict 1989 guest-software authenticity would require a separate runtime decision.
 
+### Target decision: 386 baseline, optional 486 comparison
+
+User decision, 2026-10-09: keep the Everex-class **386DX/33 + 80387** as the primary development and optimization target. The ASUS profile remains an emulator proxy, not an exact Everex motherboard/cache reconstruction. Keep a **486DX/25** configuration in reserve for compatibility and performance comparisons; it does not replace or raise the primary target.
+
+Use the same 386-compatible DOS executable for the first comparison, built with `-march=i386` and without unconditional 486-only instructions. Intel's [architecture manual](https://www.intel.com/content/dam/support/us/en/documents/processors/pentium4/sb/25366821.pdf) documents upward binary compatibility. CPU compatibility is expected, but the complete DOS/extender, VGA, input, storage and audio configuration must still be boot-tested. The 486DX has an integrated x87 FPU; it does not require an external 80387.
+
+For the initial A/B test, keep executable hash, DOS/extender versions, RAM, VGA card/memory, disk/controller/timing profile, seed, graphics settings and benchmark route identical wherever supported. Record unavoidable motherboard differences and emulator/cache-model limitations. Select a genuine emulated `i486dx` at 25 MHz on a compatible board: enabling the optional 486 interpreter on the 386 profile is **not** a 486 hardware comparison. Keep dynamic recompilation disabled and log FPU/PIT settings and emulation speed for both targets.
+
+Measure the house fixture and each standardized walking/looking/editing phase separately, including render versus presentation costs and edit/streaming spikes. Report measured improvements rather than treating clock speed, manufacturer claims, or CPU-family labels as an FPS multiplier. A later 486-tuned executable, if useful, is a separate experiment and must not compromise the 386 build.
+
+The secondary configuration is a reserved test target, not a supplied or verified VM. Do not label it an authentic, purchasable-in-1989 Compaq reconstruction: the Deskpro 486/25 was announced in November 1989, but a [contemporary availability report](https://www.computerwoche.de/article/2780242/mini-plaene-compaq-wird-pc-markt-zu-eng.html) gives January 1990. Exact board/firmware and retail availability remain to be audited before making a historical claim.
+
 ## 3. Runtime and platform split
 
 ### Default: DOS + DJGPP/CWSDPMI
