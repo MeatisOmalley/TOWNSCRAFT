@@ -678,9 +678,20 @@ Separately linked original/candidate assembly passes 24,000 full polygon
 images and 16,000 direct trapezoids, comparing every framebuffer byte, guards,
 pixel counters and final Trap state. Direct cases also vary shaded tile
 offsets, signed UVs, zero/nonzero quantized gradients, widths, clipped/empty
-rows and both scales. Native tests cover each probe independently. Low guest
-measurement is underway, High is prepared but unlaunched. Defaults and
-published ISO remain unchanged pending correctness and target measurements.
+rows and both scales. Native tests cover each probe independently. An automated
+actual DJGPP object gate verifies smaller text, identical BSS size, all eight
+exports/callee-save prologues and unchanged multiply counts with no FPU/SIMD.
+Defaults and published ISO remain unchanged pending target measurements.
+
+Low completes three PASS repeats with all six image hashes/readbacks matching:
+house 96.932 -> 96.405 ms (0.5%), walking/down/static/edits effectively neutral,
+up 54.033 -> 54.208 ms (0.3% slower; baseline repeat/retrace variability remains).
+P95/worst tails are unchanged. Draw-stage means decrease slightly: down
+81.914 -> 81.582 ms, house 40.713 -> 40.531 ms, edits 41.215 -> 41.030 ms.
+Much of this saving is absorbed by presentation waits; it is not a house-hitch
+fix or a broad FPS gain. Raw comparison, recipes, repeat/tail samples and hashes:
+`tests/benchmarks/2026-10-10/trap-destination-low.json`. High is now running;
+the Low result alone is insufficient justification to adopt the probe.
 
 Experimental real-game smoke can now use `--build-output` with
 `--trap-destination`, so testing a candidate need not overwrite the released

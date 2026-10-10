@@ -1,6 +1,7 @@
 """Independent original/candidate assembly images, not host timing evidence."""
 from pathlib import Path
 import subprocess
+import struct
 import sys
 import tempfile
 import unittest
@@ -94,6 +95,39 @@ class TrapZeroGradientTests(unittest.TestCase):
                 run([*flags,ROOT/'tests'/harness,*objects,'-o',exe])
                 output=run([exe]).stdout
                 self.assertIn(message,output); print(output.strip())
+
+    @unittest.skipUnless(imported.COMPILER.is_file(),'DJGPP unavailable')
+    def test_destination_actual_i486_coff_is_smaller_same_abi_and_scratch(self):
+        compiler=imported.COMPILER
+        objdump=compiler.with_name(compiler.name.replace('gcc','objdump'))
+        nm=compiler.with_name(compiler.name.replace('gcc','nm'))
+        with tempfile.TemporaryDirectory(prefix='doscraft-trap-coff-') as directory:
+            folder=Path(directory)
+            imported.stage_sources(imported.VENDOR,folder/'imported')
+            original=(folder/'imported/src/trap.S').read_bytes()
+            candidate,_=dos_sources.adapt('trap.S',original,trap_destination=True)
+            metadata=[]
+            for name,data in (('original',original),('candidate',candidate)):
+                source=folder/(name+'.S'); source.write_bytes(data)
+                obj=folder/(name+'.o')
+                result=subprocess.run([str(compiler),*imported.ASFLAGS,'-c',str(source),'-o',str(obj)],
+                    capture_output=True,text=True,timeout=120)
+                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+                binary=obj.read_bytes()
+                info=imported.coff_object(binary)
+                metadata.append({binary[20+i*40:28+i*40].rstrip(b'\0').decode('ascii'):
+                    struct.unpack_from('<I',binary,20+i*40+16)[0] for i in range(info['sections'])})
+                symbols=imported.parse_nm(subprocess.check_output([str(nm),'-g',str(obj)],text=True))
+                self.assertEqual(symbols,{**{'_'+n:'T' for n in imported.TRAP_SYMBOLS},'_g_recip14':'U'})
+                asm=subprocess.check_output([str(objdump),'-dr',str(obj)],text=True)
+                self.assertEqual(asm.count('push   %ebp'),8)
+                self.assertEqual(asm.count('pop    %ebp'),8)
+                self.assertEqual(asm.count('imul'),32,'Same gradient and prestep multiplies')
+                self.assertNotRegex(asm,r'%(?:[xyz]mm|mm|st)\d?')
+            old,new=metadata
+            # COFF metadata includes per-section lengths; no new scratch/cache.
+            self.assertLess(new['.text'],old['.text'])
+            self.assertEqual(new['.bss'],old['.bss'])
 
 
 if __name__=='__main__': unittest.main()
