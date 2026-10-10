@@ -7,6 +7,7 @@ static volatile unsigned char keyQ[KEYQ_LEN];
 static volatile unsigned int keyQHead, keyQTail;
 
 /* Zero means unsupported. Prefix bytes never index these bounded tables. */
+#ifndef DOSCRAFT_BENCH
 static const unsigned char keys[2][128] = {
     {
         [0x01]=KEY_ESC,
@@ -39,12 +40,15 @@ static const unsigned char keys[2][128] = {
         [0x52]=KEY_INSERT, [0x53]=KEY_DELETE
     }
 };
+#endif
 
 /* Physical sources are distinct even when they map to one Towns key. A
  * typematic make queues another press but does not increment heldCount. */
 static unsigned char physicalDown[2][128], heldCount[128];
 static unsigned char extended, pauseIndex;
+#ifndef DOSCRAFT_BENCH
 static const unsigned char pauseTail[5] = {0x1D,0x45,0xE1,0x9D,0xC5};
+#endif
 
 void dos_keyboard_reset(void)
 {
@@ -62,6 +66,12 @@ void dos_keyboard_reset(void)
 
 void dos_keyboard_scancode(unsigned char byte)
 {
+#ifdef DOSCRAFT_BENCH
+    /* Deterministic replay must never open menus or alter camera/controls
+     * from live host input. Hardware ISR still drains/acknowledges bytes. */
+    (void)byte;
+    return;
+#else
     unsigned int bank, scan, code, next;
     if (pauseIndex) {
         if (byte==pauseTail[pauseIndex-1]) {
@@ -106,6 +116,7 @@ void dos_keyboard_scancode(unsigned char byte)
         keyQ[keyQHead]=(unsigned char)code;
         keyQHead=next;
     }
+#endif
 }
 
 int key_get_event(void)

@@ -47,6 +47,10 @@ static int signed_mickeys(unsigned int value)
 
 int mouse_read(int *dx, int *dy)
 {
+#ifdef DOSCRAFT_BENCH
+    *dx = *dy = 0;
+    return 0;
+#else
     __dpmi_regs regs;
     int buttons;
     *dx = *dy = 0;
@@ -57,6 +61,7 @@ int mouse_read(int *dx, int *dy)
     *dx = signed_mickeys(regs.x.cx);
     *dy = signed_mickeys(regs.x.dx);
     return buttons;
+#endif
 }
 
 /* No gamepad is configured on the primary DOS target. Keyboard equivalents

@@ -20,6 +20,16 @@ boots its ISO-extracted floppy, runs three fresh DOS processes, reads each
 No Windows keyboard, focus, capture, BIOS interaction or player save is needed.
 A timeout leaves the test open for diagnosis rather than killing active I/O.
 
+Benchmark-only builds now ignore live keyboard scan codes and mouse motion/
+buttons. The interrupt handler still drains and acknowledges keyboard bytes;
+normal gameplay and scripted gameplay smoke retain the real input backend.
+A native test feeds all 256 byte values repeatedly and verifies no events or
+held keys; existing keyboard/mouse parity tests also pass. A normal isolated
+rebuild remains byte-identical (`4d2ef66520e55f19cbfc43f5b4fe5f65a57460ee5a3ffbd25609e8cda62b4bdb`).
+This closes a diagnostic hole where host input could open inventory and pause
+the supposedly unattended replay. The interrupted private run is not evidence.
+New renderer comparisons use input-isolated baseline and candidate alike.
+
 Results: `build/bench/486dx25/<label>/latest-report.txt` points to the complete
 JSON, including compiler commands, executable/source/ROM/emulator hashes and
 all raw samples. Guest PIT channel 2 measures microseconds; unchanged 100 Hz
