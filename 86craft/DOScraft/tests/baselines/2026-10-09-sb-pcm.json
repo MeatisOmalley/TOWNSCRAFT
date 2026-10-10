@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-09",
+  "stage": "Direct-port foreground effect mixing and SB1 single-cycle delivery; not the game or continuous audio",
+  "source_pin": "d706a67db6242627c6233e5593fd1a1e1ddc69af",
+  "mixer_checkpoint": "d3ffaed0",
+  "hardware": {
+    "cpu": "486DX/25, accurate interpreter; no dynarec or interpreter override",
+    "ram_mib": 16,
+    "video": "ET4000AX ISA 1 MiB, existing Mode X transport",
+    "sound": "SB1.0, actual reported DSP1.05; A220 I7 D1",
+    "output": "8-bit unsigned mono, TC165, nominal integer rate10989 Hz; single-cycle command14",
+    "dma_buffer": "4096 conventional bytes allocated, chosen 2048-byte window cannot cross physical 64-KiB page"
+  },
+  "native_suite": {
+    "tests_run": 128,
+    "result": "PASS",
+    "environment_dependent_symlink_skips": 2,
+    "mixer_cases": 12,
+    "transport_cases": 6,
+    "mixed_fixture_cases": 1,
+    "coverage": [
+      "Independent unbounded Python elapsed-frame oracle; every generated sample checked across rates/pitches/pan, round-robin replacement, loop phase/stop, chunking, clipping, maximum 64-bit steps and repeated init.",
+      "Real retained assets compared with separately compiled complete original Towns sound.c, not a copy of the production mixer implementation.",
+      "Every paragraph around the DMA physical-page boundary, invalid and busy submissions, exact single-cycle DMA/DSP count-minus-one sequence, real/spurious IRQ ack/EOI, state-preserving cleanup and reinstall.",
+      "Init failures and retry in both virtual-IF states; all three partial DSP start-command failures; vector-restore failure never releases live interrupt memory.",
+      "DJGPP integer-only COFF compile/link and emitted IRQ entry/context checks; interrupt body contains no calls. Launcher rejects changed card base/IRQ/DSP settings and startup."
+    ]
+  },
+  "source_sha256": {
+    "src/platform/dos/sb_pcm.c": "293c20590b1ea9ae385c444f3fd91615d55f794b4206f3412b8963fbe0fbe988",
+    "src/platform/dos/sb_pcm.h": "e6ce597f634badc715cb952cbfac2cf5cd9c101d53abe2d81ec4a9505b2c3de9",
+    "src/platform/dos/sb_entry.S": "7da360a7db19df7a984b449ef9ffce64bf5c580123c96313d28c475215c7be55",
+    "src/platform/dos/sound_mixer.c": "dfa5eea89f1cd71e291edf8dd3e364e54f6307dd36abc9d62600f16787e9cf7b",
+    "tests/sfx_pcm_fixture.inc": "76fdb0a92c37c36786ccb7e4593185facbfc8fb3023d6f75124d2543b249f869",
+    "tests/test_sfx_pcm_fixture.py": "43e9763a2ab9d67a7ec4c8a0fb0fbff6d3a7b51341e548d2169ffceff22b787c"
+  },
+  "transport_guest": {
+    "vm": "sbpcm-486dx25-kjlzik7g",
+    "emulator": "86Box6.0 b9001, pinned ordinary binary and ROMs",
+    "exe_sha256": "68ecc3148db12f960817826d833fc3862f49957b3e2b52539778e9c83d1fa355",
+    "report": "C:/SBPCM.TXT",
+    "report_sha256": "821dca22fe9213384edecc422b4ebcae4c38c19e2ddcfacd8076b8ed2038a70b",
+    "dma_physical": 225296,
+    "real_completions": 8,
+    "elapsed_100hz_ticks": 159,
+    "gates": {
+      "CONVENTIONAL_COPY": "PASS",
+      "DMA_TERMINAL_COUNT": "PASS",
+      "MODEX_WITH_AUDIO_IRQ": "PASS",
+      "VECTOR_MASK_RESTORATION": "PASS",
+      "REINITIALIZATION": "PASS",
+      "RESULT": "PASS"
+    },
+    "cleanup": "Finished hardware shutdown/report closed, then exact executable/private-VM command checked before completed idle PID21328 stopped. Media/reports preserved."
+  },
+  "mixed_effect_guest": {
+    "vm": "sfxpcm-486dx25-p7o_q_tm",
+    "exe_sha256": "b7dca8add0d3422d3dc9e0b84860163c573fd85ae4b5b125b89b2a920d6f9aee",
+    "report": "C:/SFXPCM.TXT",
+    "report_sha256": "98daf2e0937b9ad815e0e7cf3a83a60cc8b17633119f312005fe5877e9d35849",
+    "blocks": 48,
+    "frames_per_block": 512,
+    "real_completions": 48,
+    "elapsed_100hz_ticks": 332,
+    "diagnostic_pcm_bytes": 24576,
+    "guest_and_independent_reference_pcm_sha256": "dea034ece3c301eb9b5995f812166d42f64878d06e61bef57039a4a41c594ded",
+    "whole_pcm_reference_comparison": "ALL_BYTES_EQUAL",
+    "FINAL_SILENCE": "PASS",
+    "RESULT": "PASS",
+    "cleanup": "Mixer/DMA/system shutdown/report closed, then exact executable/private-VM command checked before completed idle PID25612 stopped. Media/reports preserved."
+  },
+  "adaptation": [
+    "Seven foreground one-shots plus looping eighth voice; original source FD/ENV calculations and phase-preserving same-ID loop updates, nearest-source resampling.",
+    "Documented mono fold sums source left/right gains and divides by30. Signed contributions sum without blanket isolated-effect attenuation, saturate and re-bias; not an analog RF5c68 mixing fidelity claim.",
+    "Locked private IRQ7 stack acknowledges DSP before PIC EOI. Spurious IRQ7 has no DSP ack/EOI. No DOS, allocation, DSP command polling or mixing inside audio ISR.",
+    "Foreground-only submissions borrow no caller buffer after return. Teardown masks DMA before reset/vector restoration/free; restores only the audio PIC bit while preserving other clients."
+  ],
+  "limitations": [
+    "Not continuous playback: each block is rearmed in foreground. This initial transport has gaps and is not an acceptable final game-audio service strategy under slow rendering or blocking disk calls.",
+    "Audible quality is untested: exact generated PCM and DMA delivery are checked, not a recording of the host DAC output, physical hardware or analog filtering.",
+    "OPL2 music and game-facing listener/flags/API integration remain unimplemented. No playable game, full parity acceptance or FPS gain is claimed.",
+    "Elapsed ticks include startup synthesis, diagnostics, file I/O, mixing and waits; not isolated mixer or renderer performance.",
+    "Native mocks do not execute IRQ assembly, and emitted assembly checks alone are not hardware proof. Guest tests provide separate primary-emulator delivery/lifecycle evidence.",
+    "No optimization, spawning/freeze, UI, world/cache/heap budget, Towns source, emulator, ROM or user-medium change. Mutable diagnostic media stay ignored."
+  ]
+}

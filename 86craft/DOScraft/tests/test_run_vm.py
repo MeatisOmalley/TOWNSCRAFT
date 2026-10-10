@@ -17,6 +17,37 @@ from save_fixture import save_image
 
 
 class LauncherTests(unittest.TestCase):
+    def test_sbpcm_requires_primary_dsp_irq_base_and_automatic_startup(self):
+        with tempfile.TemporaryDirectory() as name:
+            path=Path(name); record=self.make_vm(path)
+            executable=b'SB1 transport diagnostic fixture'
+            record.update(probe='sbpcm',exe_sha256=hashlib.sha256(executable).hexdigest())
+            (path/'build.json').write_text(json.dumps(record))
+            boot=bytearray(512); boot[:11]=b'\xeb\x3c\x90DOSCRAFT'
+            struct.pack_into('<HBHBHHBH',boot,11,512,1,1,2,224,2880,0xf0,9)
+            boot[510:512]=b'\x55\xaa'
+            shell=(ROOT/'guest/FDCONFIG.SYS').read_text().replace('\n','\r\n').encode('ascii')
+            def media(startup=guest_startup('sbpcm')):
+                (path/'boot.img').write_bytes(populate(boot,[('SBPCM.EXE',executable),
+                    ('AUTOEXEC.BAT',startup),('FDCONFIG.SYS',shell)]))
+            (path/'scratch.img').write_bytes(scratch_hdd())
+            media(); self.assertEqual(validate_vm(path)[1]['probe'],'sbpcm')
+            profile=(ROOT/'profiles/486dx25-platform.cfg').read_text()
+            for key,value in (('base','0x240'),('irq','5'),('dspver','4'),('dspver','2')):
+                (path/'86box.cfg').write_text(profile+'\n[Sound Blaster v1.0]\n'+key+' = '+value+'\n')
+                with self.assertRaisesRegex(ValueError,'SB1 setting'): validate_vm(path)
+            (path/'86box.cfg').write_text(profile+'\n[Sound Blaster v1.0]\nbase = 0x220\nirq = 7\ndspver = 3\n')
+            self.assertEqual(validate_vm(path)[1]['probe'],'sbpcm')
+            media(guest_startup('sbpcm').replace(b'SBPCM.EXE /AUTO',b'REM SBPCM.EXE /AUTO'))
+            with self.assertRaisesRegex(ValueError,'startup sequence'): validate_vm(path)
+            # The mixed-effects probe must share the same SB1 hardware gate.
+            record['probe']='sfxpcm'; (path/'build.json').write_text(json.dumps(record))
+            (path/'boot.img').write_bytes(populate(boot,[('SFXPCM.EXE',executable),
+                ('AUTOEXEC.BAT',guest_startup('sfxpcm')),('FDCONFIG.SYS',shell)]))
+            self.assertEqual(validate_vm(path)[1]['probe'],'sfxpcm')
+            (path/'86box.cfg').write_text(profile+'\n[Sound Blaster v1.0]\nirq = 5\n')
+            with self.assertRaisesRegex(ValueError,'SB1 setting'): validate_vm(path)
+
     def test_soundgen_validates_automatic_data_only_startup(self):
         with tempfile.TemporaryDirectory() as name:
             path=Path(name); record=self.make_vm(path)

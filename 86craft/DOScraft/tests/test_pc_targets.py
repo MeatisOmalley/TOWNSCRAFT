@@ -45,6 +45,10 @@ class TargetTests(unittest.TestCase):
         self.assertNotIn(b'/AUTO',world)
         self.assertIn(b'SOUNDGEN.EXE /AUTO\r\n',guest_startup('soundgen'))
         self.assertIn(b'C:\\SOUNDGEN.TXT.',guest_startup('soundgen'))
+        self.assertIn(b'SBPCM.EXE /AUTO\r\n',guest_startup('sbpcm'))
+        self.assertIn(b'C:\\SBPCM.TXT.',guest_startup('sbpcm'))
+        self.assertIn(b'SFXPCM.EXE /AUTO\r\n',guest_startup('sfxpcm'))
+        self.assertIn(b'C:\\SFXPCM.TXT.',guest_startup('sfxpcm'))
 
     def test_default_is_native_486_with_x87(self):
         self.assertEqual(argument_parser().parse_args([]).target, '486dx25')

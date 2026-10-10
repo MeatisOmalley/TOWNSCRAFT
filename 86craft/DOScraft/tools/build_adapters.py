@@ -8,7 +8,7 @@ import audio_assets
 
 ROOT = imported.ROOT
 OUTPUT = ROOT / 'build/pc/486dx25/adapters'
-ADAPTERS = ('gfx.c', 'heap.c', 'video.c', 'vga_pack.c', 'keyboard.c', 'irq.c', 'irq_entry.S', 'system.c', 'input.c', 'hdd.c', 'save.c', 'sound_assets.c')
+ADAPTERS = ('gfx.c', 'heap.c', 'video.c', 'vga_pack.c', 'keyboard.c', 'irq.c', 'irq_entry.S', 'system.c', 'input.c', 'hdd.c', 'save.c', 'sound_assets.c', 'sb_pcm.c', 'sb_entry.S', 'sound_mixer.c')
 
 
 def save_codec_source(vendor=imported.VENDOR):

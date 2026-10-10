@@ -44,6 +44,12 @@ The first audio checkpoint retains the original ten synthesized effects and comp
 
 ## Build the initial platform probe
 
+Audio playback infrastructure has advanced beyond the data-only checkpoint above. The foreground mono mixer retains seven round-robin effects plus the eighth looping voice, with original pitch/volume controls and phase-preserving loop updates. Its explicit mono fold, nearest-sample rate conversion and saturating sum are tested against independent integer arithmetic and the full original-source assets; this is a platform adaptation, not analog RF5c68 fidelity or a new gameplay rule.
+
+The SB1 transport uses A220/IRQ7/DMA1, unsigned mono at time constant 165 (about 10,989 Hz), and single-cycle command 14h. It owns 4 KiB of conventional RAM, selects a 2-KiB window that cannot cross a physical 64-KiB DMA page, and copies only while idle. A locked private IRQ stack handles acknowledgement/completion and spurious IRQ7; no mixing, DOS call or DSP command polling occurs in the ISR. Reset/masking stop DMA before teardown, vector-restore failure aborts without releasing live IRQ memory, and cleanup preserves other devices' current PIC mask bits. The launcher validates the actual SB1.05/default enum, base and IRQ rather than assuming the card name proves its settings. [Creative hardware guide](https://www.cs.utexas.edu/~dahlin/Classes/UGOS/reading/SoundBlaster.pdf), [DJGPP conventional DMA memory guidance](https://www.delorie.com/djgpp/v2faq/faq18_13.html), [pinned emulator DSP enum](https://github.com/86Box/86Box/blob/4fef696a/src/include/86box/snd_sb.h).
+
+`SBPCM.EXE` passed real IRQ delivery, exact conventional-memory copies, DMA terminal counts, Mode X with audio active, vector/mask restoration and reinitialization. `SFXPCM.EXE` then passed 48 mixed-effect blocks while foreground DOS writes ran; all 24,576 output bytes match an independent original-assets/arithmetic oracle, including final silence. Both completed diagnostic windows were closed. **This is still not continuous or playable-game audio:** foreground-only single-cycle rearming leaves gaps; buffering/service integration under slow rendering/disk I/O, listener/game API integration, OPL2 music and audible checks remain. [Recorded transport/mixed-effect evidence](tests/baselines/2026-10-09-sb-pcm.json). No optimization, mob policy, UI or Towns-source change is included.
+
 From this directory, with Python 3.10 or newer:
 
 ```powershell
@@ -60,6 +66,8 @@ python tools/build_pc.py --probe storage --prepare-vm
 python tools/build_pc.py --probe saveio --prepare-vm
 python tools/build_pc.py --probe worldio --prepare-vm
 python tools/build_pc.py --probe soundgen --prepare-vm
+python tools/build_pc.py --probe sbpcm --prepare-vm
+python tools/build_pc.py --probe sfxpcm --prepare-vm
 python tools/import_towns.py --verify
 python tools/build_imported.py
 python tools/build_adapters.py

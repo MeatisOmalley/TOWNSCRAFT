@@ -42,7 +42,7 @@ def diagnostic_volume(disk):
 def validate_vm(vm):
     vm = Path(vm).resolve(strict=True)
     record = json.loads((vm / 'build.json').read_text())
-    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system', 'mouse', 'storage', 'saveio', 'worldio', 'soundgen'):
+    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system', 'mouse', 'storage', 'saveio', 'worldio', 'soundgen', 'sbpcm', 'sfxpcm'):
         raise ValueError('Only prepared primary-target diagnostic VMs are supported')
     if Path(record['vm_directory']).resolve() != vm:
         raise ValueError('Manifest names a different VM directory')
@@ -72,6 +72,13 @@ def validate_vm(vm):
         for section in cfg.sections():
             if section.startswith(('Serial Passthrough', 'Named Pipe (COM)', 'Virtual Console (COM)')):
                 raise ValueError('Unexpected hardware setting: serial passthrough section')
+    if record['probe'] in ('sbpcm','sfxpcm'):
+        # 86Box removes default-valued settings on rewrite. DSP enum3 is the
+        # actual SB1.05; don't silently accept DSP2 on a card still named sb.
+        for key,default in (('base',0x220),('irq',7),('dspver',3)):
+            value=cfg.get('Sound Blaster v1.0',key,fallback=str(default))
+            if int(value,0)!=default:
+                raise ValueError('Unexpected SB1 setting: '+key)
     for section, values in required.items():
         for key, value in values.items():
             if cfg.get(section, key, fallback=None) != value:
@@ -88,7 +95,7 @@ def validate_vm(vm):
         if (hashlib.sha256(media.read('CTMOUSE.EXE')).hexdigest() != CTMOUSE_EXE_SHA256 or
                 record['mouse_driver']['sha256'] != CTMOUSE_EXE_SHA256):
             raise ValueError('Mouse driver does not match its manifest')
-    if record['probe'] in ('mouse', 'storage', 'saveio', 'worldio', 'soundgen'):
+    if record['probe'] in ('mouse', 'storage', 'saveio', 'worldio', 'soundgen', 'sbpcm', 'sfxpcm'):
         if media.read('AUTOEXEC.BAT') != guest_startup(record['probe']):
             raise ValueError('Diagnostic startup sequence does not match the prepared probe')
         expected_config = (ROOT / 'guest/FDCONFIG.SYS').read_text().replace('\n', '\r\n').encode('ascii')
