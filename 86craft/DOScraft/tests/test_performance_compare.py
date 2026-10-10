@@ -40,4 +40,12 @@ class CompareTests(unittest.TestCase):
         with self.assertRaises(ValueError): compare(baseline,candidate,('occlusion',))
         with self.assertRaises(ValueError): compare(baseline,candidate,('scale',))
 
+    def test_reject_reference_redraw_timings(self):
+        candidate=copy.deepcopy(self.evidence['candidate'])
+        candidate['results'][0]['header']['f2b_verification']='TIMINGS_INVALID'
+        with self.assertRaises(ValueError): compare(self.evidence['baseline'],candidate)
+        candidate['results'][0]['header'].pop('f2b_verification')
+        candidate['results'][0]['header']['draw_profiling']='TIMINGS_DIAGNOSTIC_ONLY'
+        with self.assertRaises(ValueError): compare(self.evidence['baseline'],candidate)
+
 if __name__=='__main__': unittest.main()

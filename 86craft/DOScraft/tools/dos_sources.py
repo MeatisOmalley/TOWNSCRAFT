@@ -9,7 +9,7 @@ from build_imported import replace_once
 
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
-          packed_raster=False, early_split_cull=False):
+          packed_raster=False, early_split_cull=False, front_to_back=False):
     recipe=[]
     if graphics:
         import dos_graphics
@@ -99,4 +99,10 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
             '\t\t{\n\t\t\tBENCH_HOOK(++g_benchCnt[S_EARLY]);\n\t\t\treturn;\n\t\t}\n'
             '\t\tif(g_textureSubdivision==SUBDIV_FULL)\n',recipe)
         data=text.encode('utf-8')
+    if front_to_back:
+        if packed_raster:
+            raise ValueError('Front-to-back and packed-raster target layouts cannot be combined')
+        import dos_front_to_back
+        data,steps=dos_front_to_back.adapt(name,data)
+        recipe.extend(steps)
     return data,recipe

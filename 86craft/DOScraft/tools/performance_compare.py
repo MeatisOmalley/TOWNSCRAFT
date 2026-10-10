@@ -9,6 +9,10 @@ def compare(baseline,candidate,allowed_settings=()):
     if set(allowed_settings)-{'occlusion'}: raise ValueError('Unsupported setting change')
     for report in (baseline,candidate):
         if len(report['results'])!=3: raise ValueError('Need three guest repeats')
+        if any(r['header'].get('f2b_verification') for r in report['results']):
+            raise ValueError('Reference-redraw verification timings are not performance evidence')
+        if any(r['header'].get('draw_profiling') for r in report['results']):
+            raise ValueError('Sampling diagnostic timings are not performance evidence')
         if any(r['header']['result']!='PASS' for r in report['results']):
             raise ValueError('A failed guest run cannot establish a gain')
     for key in ('emulator_sha256','rom_sha256','profile_sha256','bios_seed_sha256'):

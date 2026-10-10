@@ -1,6 +1,6 @@
 # Exact front-to-back experiment
 
-This is a development plan and correctness scaffold, not a shipping optimization
+This is an integrated, opt-in renderer experiment, not a shipping optimization
 or an FPS claim. The playable build keeps the accepted painter and Mode X.
 Substantial visual/gameplay changes require prior approval. All graphics presets
 use adaptive subdivision; reduced subdivision is not this experiment.
@@ -94,7 +94,8 @@ Reverse the existing merge, not a new block-center distance sort:
 tile pointer, flags and flat color. This avoids a large full-frame vertex queue.
 An overflow or unsupported primitive requires a complete original-painter frame
 fallback; the module refuses to replay an overflowing prefix. Atlas data must
-remain valid through replay. The capture module is not wired into gameplay yet.
+remain valid through replay. The capture module is now wired into diagnostic
+builds only; it is not enabled by the normal playable builder.
 
 The native test uses the actual pinned rasterizer and `trap.S` in 48 overlapping
 scenes at both scales. Forward capture exactly matches the original. An
@@ -137,3 +138,44 @@ Native and actual DJGPP i486 objects contain no calls, divides, FPU/SIMD or wide
 math in this kernel. This proves phase correctness, not a speedup. Integration
 must still skip fully covered rows before gradients and keep original-image
 checks and full-frame fallback.
+
+## Integrated diagnostic checkpoint
+
+`--candidate front-to-back` selects explicit replayable DOS-only source overlays
+in `tools/dos_front_to_back.py`; the 50-file Towns vendor pin is unchanged.
+The original stable item/entity merge and every item's finalized primitive
+sequence are reversed. Original collection, projection, adaptive subdivision,
+LOD and clipping remain. Coverage begins after sky/clouds and ends before the
+target outline, row doubling and HUD. The eight original trapezoid entry points
+are link-wrapped; inactive calls use original assembly. Opaque uncovered runs
+use `f2b_span.S`, retaining the original ADD/ADC pair loop and full-row UV setup.
+Cutouts mark only nonzero writes. Conservative primitive rectangles query,
+never fill, coverage. Full coverage ends only world traversal. Any item capture
+failure redraws sky/clouds and the complete original painter frame.
+
+Native tests pass 128 original-painter image scenes at both scales (including
+non-word widths, non-power-two strides, guards, clipping, wrapping, flat/opaque
+zero and cutout holes), 4,096 real-trap active/inactive cases, 360 actual opaque
+assembly phase cases, invalid-target/coverage checks and nine DJGPP object/ABI
+checks. The frontend tests exhaust stable key ties and recipe replay.
+
+Three real 486DX/25 Low guest repeats additionally compared **every** frame's
+world pixels against a fresh original-painter redraw: 228 frames per process,
+684 total, zero mismatches and zero fallback frames. All last-frame hashes and
+VGA-plane readbacks pass. Raw provenance/recipes are retained in
+`tests/benchmarks/2026-10-10/f2b-low-every-frame-verify.json`.
+`--verify-f2b` deliberately draws twice and labels its timings invalid;
+`performance_compare.py` refuses those timings as performance evidence.
+
+`--f2b-stress --verify-f2b` separately adds diagnostic-only mixed glass/leaves/
+water/plants/torch/door terrain and overlapping rotated entity boxes near the
+camera. It forces one genuine 256-command capture overflow to test whole-frame
+fallback. These fixtures are not playable-world changes or comparable timings;
+their guest result is still pending at this checkpoint. `--profile-draw` enables
+existing 100 Hz IRQ EIP sampling during drawing only; its timings are also
+rejected as performance evidence. The normal game remains byte-identical.
+
+Performance/adoption is a separate gate. Compare input-isolated baseline and
+candidate with the same hardware/settings, moving/down/house/edit means and
+tails, then assess High only if Low is neutral or improves. No renderer default
+or playable ISO has changed at this correctness checkpoint.

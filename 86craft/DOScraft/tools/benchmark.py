@@ -63,12 +63,17 @@ def collect(vm):
     return results
 
 
-def write_report(vm,output,manifest,build_record,label,results):
+def write_report(vm,output,manifest,build_record,label,results,archive=None):
     report={'manifest':manifest,'build':build_record,'results':results,'note':
         'Guest PIT timings; frozen deterministic graphics/update replay, not full simulation FPS.',
         'label':label}
     (vm/'performance.json').write_text(json.dumps(report,indent=2)+'\n')
     (output/'latest-report.txt').write_text(str(vm/'performance.json'))
+    if archive:
+        from performance_compare import compact
+        archive=Path(archive)
+        archive.parent.mkdir(parents=True,exist_ok=True)
+        archive.write_text(json.dumps(compact(report),indent=2)+'\n')
     return report
 
 
@@ -78,10 +83,14 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back'),default='reference')
     parser.add_argument('--timeout',type=int,default=900)
     parser.add_argument('--quality',choices=('low','medium','high'),default='low')
     parser.add_argument('--prepare-only',action='store_true')
+    parser.add_argument('--verify-f2b',action='store_true',help='Redraw every frame with the original painter; correctness only, timings invalid')
+    parser.add_argument('--f2b-stress',action='store_true',help='Verification-only cutout/model/overflow stress fixtures')
+    parser.add_argument('--profile-draw',action='store_true',help='Guest IRQ0 EIP samples during drawing; diagnostic timings only')
+    parser.add_argument('--archive',type=Path,help='Retain compact raw evidence and source recipes in a tracked report path')
     args=parser.parse_args()
     output=OUTPUT/args.label
     if args.collect_vm:
@@ -90,7 +99,7 @@ def main():
         build_record=json.loads((output/'build.json').read_text())
         if not manifest.get('benchmark') or manifest['exe_sha256']!=build_record['exe_sha256']:
             raise ValueError('Collect only a matching private benchmark build')
-        write_report(vm,output,manifest,build_record,args.label,collect(vm))
+        write_report(vm,output,manifest,build_record,args.label,collect(vm),args.archive)
         print(f'REPORT={vm / "performance.json"}')
         return
     variants={'reference':(), 'pack-all':('-DDOS_VGA_PACK_ALL',),
@@ -100,8 +109,16 @@ def main():
         'zero-dx':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_RASTER_ZERO_DX'),
         'camera-reuse':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_CAMERA_REUSE'),
         'packed-raster':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_PACKED_RASTER'),
-        'early-split-cull':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_EARLY_SPLIT_CULL')}
+        'early-split-cull':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_EARLY_SPLIT_CULL'),
+        'front-to-back':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_FRONT_TO_BACK')}
     flags=(*variants[args.candidate],'-DDOS_BENCH_QUALITY='+str(('low','medium','high').index(args.quality)))
+    if args.verify_f2b:
+        if args.candidate!='front-to-back': parser.error('--verify-f2b needs --candidate front-to-back')
+        flags=(*flags,'-DDOS_F2B_VERIFY')
+    if args.f2b_stress:
+        if not args.verify_f2b: parser.error('--f2b-stress needs --verify-f2b')
+        flags=(*flags,'-DDOS_F2B_STRESS')
+    if args.profile_draw: flags=(*flags,'-DDOS_BENCH_PROFILE_DRAW')
     if args.run_vm:
         vm=args.run_vm.resolve(strict=True)
         manifest=json.loads((vm/'build.json').read_text())
@@ -150,7 +167,7 @@ def main():
         # closed files and restored hardware. Process identity comes directly
         # from our Popen, never a name-based kill of unrelated user windows.
         process.terminate(); process.wait(timeout=30)
-        write_report(vm,output,manifest,build_record,args.label,results)
+        write_report(vm,output,manifest,build_record,args.label,results,args.archive)
         for scene in range(6):
             rows=[r['scenes'][scene] for r in results]
             print(rows[0]['name'], 'mean_ms=',round(statistics.mean(r['summary_ms']['mean'] for r in rows),3),

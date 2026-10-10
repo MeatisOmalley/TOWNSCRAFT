@@ -39,11 +39,13 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         camera_reuse='-DDOS_CAMERA_REUSE' in extra_adapter_flags
         packed_raster='-DDOS_PACKED_RASTER' in extra_adapter_flags
         early_split_cull='-DDOS_EARLY_SPLIT_CULL' in extra_adapter_flags
+        front_to_back='-DDOS_FRONT_TO_BACK' in extra_adapter_flags
         transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
             raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster,
-            early_split_cull=early_split_cull)
+            early_split_cull=early_split_cull,front_to_back=front_to_back)
         portable=imported.build(output=output/'imported',
-            extra_cflags=(*extra,'-I',str(ROOT/'src/platform/dos')),source_transform=transform)
+            extra_cflags=(*extra,*(flag for flag in extra_adapter_flags if flag in ('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS')),
+                '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
         platform=adapters.stage(output/'platform')
         report['imported']=portable
         report['platform']=platform
@@ -60,6 +62,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             names=(*names,'vga_upload_plan.c')
         if packed_raster:
             names=(*names,'packed_raster.c')
+        if front_to_back:
+            names=(*names,'coverage_spans.c','f2b_capture.c','f2b_texel.c','f2b_raster.c','f2b_span.S')
         for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')
@@ -75,6 +79,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         exe=output/'DOSCRAFT.EXE'
         wraps='-Wl,--wrap=gfx_present' if benchmark else '-Wl,--wrap=gfx_present,--wrap=save_world,--wrap=load_world,--wrap=render_frame'
         if packed_raster: wraps+=',--wrap=raster_finish'
+        if front_to_back:
+            wraps+=''.join(',--wrap=trap_'+name for name in
+                ('opaque1','opaque2','transp1','transp2','opaque1w','opaque2w','transp1w','transp2w'))
         command=[imported.COMPILER,*imported.CFLAGS,*objects,wraps,'-o',exe]
         subprocess.run(list(map(str,command)),check=True)
         report.update(status='linked',linked=True,exe_sha256=imported.sha256(exe.read_bytes()),

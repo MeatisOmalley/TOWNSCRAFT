@@ -301,7 +301,7 @@ def build(vendor=VENDOR, output=OUTPUT, compiler=COMPILER, extra_cflags=(), sour
         run([sys.executable, output / 'tools/gentables.py', tables], 'generate-tables')
         report['generated'].append(dict(staged='src/tables.c', sha256=sha256(tables.read_bytes()),
                                          generator='tools/gentables.py'))
-        run([compiler, *CFLAGS, '-fsyntax-only', source_dir / 'abi_check.c'], 'abi-check')
+        run([compiler, *CFLAGS, *extra_cflags, '-fsyntax-only', source_dir / 'abi_check.c'], 'abi-check')
         report['trap_layout_verified'] = True
         object_dir = output / 'obj'
         object_dir.mkdir(exist_ok=True)
