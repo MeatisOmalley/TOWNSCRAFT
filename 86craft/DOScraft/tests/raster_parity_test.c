@@ -5,10 +5,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#ifdef PACKED_RASTER_TEST
+#include "packed_raster.h"
+void __wrap_raster_finish(void);
+#define raster_finish __wrap_raster_finish
+#endif
 void reference_raster_set_target(u8 *,int,int,int,int);
 void reference_raster_poly(const RVert *,int,const u8 *,int);
 void reference_raster_flat_poly(const RVert *,int,u8);
 void reference_raster_finish(void);
+void reference_raster_pixel(int,int,u8);
+void reference_raster_line(int,int,int,int,u8);
+void reference_raster_fill_rows(int,int,u8);
 void reference_raster_occlusion_reset(void);
 void reference_raster_occluder(const RVert *,int,int,u32);
 int reference_raster_occluded(int,int,int,int,int,u32);
@@ -40,12 +48,30 @@ int main(void)
         memset(a,197,sizeof(a)); memcpy(b,a,sizeof(a));
         reference_raster_set_target(a+16,w,h,512,scale);
         raster_set_target(b+16,w,h,512,scale);
+#ifdef PACKED_RASTER_TEST
+        /* Non-uniform sky with horizon bands and points; compacting must
+         * preserve its actual pixels, not assume one background color.
+         */
+        reference_raster_fill_rows(0,h/3,19); raster_fill_rows(0,h/3,19);
+        reference_raster_fill_rows(h/3,h/2,27); raster_fill_rows(h/3,h/2,27);
+        reference_raster_pixel(3,4,52); raster_pixel(3,4,52);
+        dos_packed_begin(b+16,w,h,512,scale);
+#endif
         reference_g_fastFlat=g_fastFlat=i&1;
         reference_g_statPixels=g_statPixels=0;
         if(flat) {
             reference_raster_flat_poly(v,4,(u8)i); raster_flat_poly(v,4,(u8)i);
         } else {
             reference_raster_poly(v,4,tile,flags); raster_poly(v,4,tile,flags);
+        }
+        /* Stars/points, clipped outlines and rows preserve the same API and
+         * leave the padding/HUD/guards intact. Color zero is opaque here.
+         */
+        reference_raster_pixel(x,y,0); raster_pixel(x,y,0);
+        reference_raster_line(x*16,y*16,(x+width)*16,(y+height)*16,31);
+        raster_line(x*16,y*16,(x+width)*16,(y+height)*16,31);
+        if(i%11==0) {
+            reference_raster_fill_rows(y,y+2,47); raster_fill_rows(y,y+2,47);
         }
         reference_raster_finish(); raster_finish();
         if(memcmp(a,b,sizeof(a)) || reference_g_statPixels!=g_statPixels) {

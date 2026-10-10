@@ -37,8 +37,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         report['graphics_presets']=graphics
         raster_zero_dx='-DDOS_RASTER_ZERO_DX' in extra_adapter_flags
         camera_reuse='-DDOS_CAMERA_REUSE' in extra_adapter_flags
+        packed_raster='-DDOS_PACKED_RASTER' in extra_adapter_flags
         transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
-            raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse)
+            raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,'-I',str(ROOT/'src/platform/dos')),source_transform=transform)
         platform=adapters.stage(output/'platform')
@@ -55,6 +56,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             names=(*names,'vga_hud_cache.c')
         if '-DDOS_VGA_BROADCAST' in extra_adapter_flags:
             names=(*names,'vga_upload_plan.c')
+        if packed_raster:
+            names=(*names,'packed_raster.c')
         for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')
@@ -69,6 +72,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             objects.append(obj)
         exe=output/'DOSCRAFT.EXE'
         wraps='-Wl,--wrap=gfx_present' if benchmark else '-Wl,--wrap=gfx_present,--wrap=save_world,--wrap=load_world,--wrap=render_frame'
+        if packed_raster: wraps+=',--wrap=raster_finish'
         command=[imported.COMPILER,*imported.CFLAGS,*objects,wraps,'-o',exe]
         subprocess.run(list(map(str,command)),check=True)
         report.update(status='linked',linked=True,exe_sha256=imported.sha256(exe.read_bytes()),

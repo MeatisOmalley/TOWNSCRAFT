@@ -282,3 +282,21 @@ Consequently this candidate remains independently selectable, not enabled in
 the normal builder or published ISO. The benchmark's `broadcast` candidate
 remains the independent baseline.
 Occlusion and zero-dx remain selectable losing experiments, not defaults.
+
+## Retained experiment: compact logical raster
+
+`--candidate packed-raster` draws clouds/geometry/outlines into a 16,000-byte
+logical buffer for the doubled view, then expands once at finish. It preserves
+the actual sky image, Mode X, sharp HUD and the full-resolution reference path.
+Native comparisons exercise 24,000 polygons against the actual original assembly
+with cutouts, wrap, clipping, colors including opaque zero, both scales, sky
+bands/points, outlines, padding and guards. The portable renderer overlay is
+explicit and provenance-recorded; no vendor changes are needed.
+
+All three Low guest runs pass and all scene hashes match, but total frames are
+slower in every scene: walking 59.120 → 72.118 ms, house 98.506 → 103.777 ms,
+down 138.521 → 145.898 ms. House drawing itself falls about 41.0 → 38.1 ms,
+but sky-copy and final expansion add roughly 11 ms before retrace effects.
+The net result is a loss, not an optimization. Keep the selectable checkpoint
+and `tests/benchmarks/2026-10-10/packed-raster-low.json`, not a normal-build
+default. Stationary camera reuse also remains experimental, per user priority.
