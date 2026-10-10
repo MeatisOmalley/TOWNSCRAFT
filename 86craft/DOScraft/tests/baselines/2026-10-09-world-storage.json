@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-09",
+  "stage": "Direct-port real-state storage integration diagnostic, not the game",
+  "source_pin": "d706a67db6242627c6233e5593fd1a1e1ddc69af",
+  "mob_codec_test_checkpoint": "cdcea8f7",
+  "runtime_checkpoint": "6971efce",
+  "hardware": {
+    "cpu": "486DX/25, accurate interpreter; no dynarec or interpreter override",
+    "ram_mib": 16,
+    "low_arena_bytes": 1048576,
+    "high_arena_bytes": 8388608,
+    "world_width": 256,
+    "resident_columns": 25,
+    "mesh_budget_quads": 24000,
+    "hdd": "Private 20 MiB FAT16 ESDI diagnostic; generic 1989_3500rpm proxy, not final Wren V"
+  },
+  "native_suite": {
+    "tests_run": 96,
+    "result": "PASS",
+    "environment_dependent_symlink_skips": 2,
+    "world_storage": "Two native x86 processes, real Win32 file I/O and DOS arenas/adapters; DOS paths and commit substituted only",
+    "mob_codec": "Eight tests; unchanged staged mobs.c and real math/RNG, diagnostic heap/callback fixtures"
+  },
+  "guest": {
+    "vm": "worldio-486dx25-8fut3gxk",
+    "emulator": "86Box 6.0 b9001, pinned ordinary binary and ROMs",
+    "exe_sha256": "8d280107bfe510cf2545730de34ad655bcc1c2f61b10992f8eb701cfb10eec4e",
+    "fixture_sha256": "0deff3e85751fc5252efb2364265e29ecd1c06d3b74a3909f4042e9dcd05ebfb",
+    "oracle_source_sha256": "c8da7dd0a6a92b2f0a8730404bf23daa2f70fd00db25600fc2e418c265738074",
+    "save_bytes": 1261568,
+    "save_after_write_and_reload_sha256": "c59bba9733c518f1178a7de2e7fa6d34a54190a9c122937e8d8ac1f5337d402c",
+    "terrain_after_sha256": "9382ad2dd21da4144d0bf661bf9d5ce13694b222c984fd193db40834718192a8",
+    "whole_save_byte_oracle": "PASS",
+    "write": {
+      "report": "C:/WORLDWR.TXT",
+      "raw_report_sha256": "62f7e07320d67613a23fd61485b5bb052263ea6d9bbfdc9457003c3d5bebcd68",
+      "elapsed_100hz_ticks": 9254,
+      "result": "PASS"
+    },
+    "fresh_process_reload": {
+      "report": "C:/WORLDRE.TXT",
+      "raw_report_sha256": "e4ba7afed070d9ad37b6bf36507e9ada897c9728ccaa3977d3f8ad1221584aa3",
+      "elapsed_100hz_ticks": 3385,
+      "result": "PASS"
+    },
+    "both_reports": {
+      "REAL_TERRAIN_EVICTION_EDITS": "PASS",
+      "TORCH_LIGHT": "PASS",
+      "ACTIVE_DORMANT_MOBS": "PASS",
+      "V3_SAVE_LOAD": "PASS",
+      "PLAYER_INVENTORY_CHEST": "PASS",
+      "TERRAIN_READS": 75,
+      "TERRAIN_WRITES": 256,
+      "TERRAIN_RAM_HITS": 0,
+      "TERRAIN_FAILURES": 0,
+      "counter_scope": "Since terrain_reset during load. The write phase separately asserts positive RAM-cache hits before that reset."
+    },
+    "cleanup": "After both reports were written/closed and save bytes verified, executable and exact private VM command line were checked before stopping completed idle PID 33612. Images/reports preserved."
+  },
+  "verification": [
+    "Byte-identical staged world.c, mobs.c, inventory.c and all three column includes; vendor verification passed all 50 pinned files.",
+    "Deterministic flat world imported through the original API; distinct per-column markers detect owner/coordinate errors. Actual cache/lighting/meshing paths exercised, but no render output.",
+    "Dirty plank/torch column actually evicts and adds HDD writes, then returns with exact blocks and adjacent block-light level 13. Original active/dormant owners migrate before traversal using unchanged policy.",
+    "Width256 follows original v3 selection; materialization, full terrain RLE, actual mob fields/IDs/visited state, player/inventory/chest state and post-load travel checked.",
+    "Independent Python oracle checks every save byte, checksum, RLE, state and untouched trailing tracks. Reload does not alter the durable save file.",
+    "Native repeated write refuses nonblank save before touching either file. Launcher tests reject missing/malformed fixtures, nonblank save, wrong hashes and modified two-process startup."
+  ],
+  "limitations": [
+    "Not playable or accepted full parity. Audio, physics/combat, renderer and input callbacks are unused diagnostic stubs; procedural generation is not measured or exercised by the flat imported fixture.",
+    "Actual v4 mixed saved-column/scratch ownership and failures remain separate integration gates; mock transport/fault tests are not a substitute.",
+    "Fresh DOS process, not full machine reboot, power-loss recovery or physical-drive durability.",
+    "Whole save has an independent byte oracle; final terrain payload hash is recorded, not independently reconstructed as a whole-file oracle.",
+    "Elapsed ticks cover large diagnostics, not FPS or generation performance. One screenshot showed emulation at 70%; host speed was not continuously measured.",
+    "No optimization, new spawning/freeze rule, save policy, heap/world budget, UI, emulator, ROM or user-medium change. Runtime media remain ignored."
+  ]
+}

@@ -17,6 +17,44 @@ from save_fixture import save_image
 
 
 class LauncherTests(unittest.TestCase):
+    def test_worldio_requires_both_private_media_and_two_process_startup(self):
+        with tempfile.TemporaryDirectory() as name:
+            path=Path(name)
+            record=self.make_vm(path)
+            executable=b'world integration fixture'
+            terrain,save=terrain_image(),save_image()
+            record.update(probe='worldio',exe_sha256=hashlib.sha256(executable).hexdigest(),
+                terrain_fixture_sha256=hashlib.sha256(terrain).hexdigest(),
+                save_fixture_sha256=hashlib.sha256(save).hexdigest())
+            (path/'build.json').write_text(json.dumps(record))
+            boot=bytearray(512); boot[:11]=b'\xeb\x3c\x90DOSCRAFT'
+            struct.pack_into('<HBHBHHBH',boot,11,512,1,1,2,224,2880,0xf0,9)
+            boot[510:512]=b'\x55\xaa'
+            shell=(ROOT/'guest/FDCONFIG.SYS').read_text().replace('\n','\r\n').encode('ascii')
+            def media(terrain_data=terrain,save_data=save,startup=guest_startup('worldio')):
+                (path/'boot.img').write_bytes(populate(boot,[('WORLDIO.EXE',executable),
+                    ('AUTOEXEC.BAT',startup),('FDCONFIG.SYS',shell)]))
+                disk=scratch_hdd(); start=struct.unpack_from('<I',disk,454)[0]*512
+                files=[]
+                if terrain_data is not None: files.append(('TERRAIN.TMP',terrain_data))
+                if save_data is not None: files.append(('WORLD.SAV',save_data))
+                disk[start:]=populate(disk[start:start+512],files)
+                (path/'scratch.img').write_bytes(disk)
+            media(); self.assertEqual(validate_vm(path)[1]['probe'],'worldio')
+            for missing in ({'terrain_data':None},{'save_data':None}):
+                media(**missing)
+                with self.assertRaises((ValueError,FileNotFoundError)): validate_vm(path)
+            changed=bytearray(save); changed[100]=1; media(save_data=changed)
+            with self.assertRaisesRegex(ValueError,'blank private medium'): validate_vm(path)
+            changed=bytearray(terrain); changed[28]=1; media(terrain_data=changed)
+            with self.assertRaisesRegex(ValueError,'marker/capacity'): validate_vm(path)
+            for before in (b'WORLDIO.EXE /RELOAD',b'IF ERRORLEVEL 1 GOTO WORLDDONE'):
+                media(startup=guest_startup('worldio').replace(before,b'REM '+before))
+                with self.assertRaisesRegex(ValueError,'startup sequence'): validate_vm(path)
+            media(); record['save_fixture_sha256']='wrong hash'
+            (path/'build.json').write_text(json.dumps(record))
+            with self.assertRaisesRegex(ValueError,'blank private medium'): validate_vm(path)
+
     def make_vm(self, path):
         (path / '86box.cfg').write_bytes((ROOT / 'profiles/486dx25-platform.cfg').read_bytes())
         record = dict(target='486dx25', probe='display', vm_directory=str(path), exe_sha256='not-used')

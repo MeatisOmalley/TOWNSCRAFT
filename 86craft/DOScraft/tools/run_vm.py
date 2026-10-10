@@ -42,7 +42,7 @@ def diagnostic_volume(disk):
 def validate_vm(vm):
     vm = Path(vm).resolve(strict=True)
     record = json.loads((vm / 'build.json').read_text())
-    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system', 'mouse', 'storage', 'saveio'):
+    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system', 'mouse', 'storage', 'saveio', 'worldio'):
         raise ValueError('Only prepared primary-target diagnostic VMs are supported')
     if Path(record['vm_directory']).resolve() != vm:
         raise ValueError('Manifest names a different VM directory')
@@ -88,7 +88,7 @@ def validate_vm(vm):
         if (hashlib.sha256(media.read('CTMOUSE.EXE')).hexdigest() != CTMOUSE_EXE_SHA256 or
                 record['mouse_driver']['sha256'] != CTMOUSE_EXE_SHA256):
             raise ValueError('Mouse driver does not match its manifest')
-    if record['probe'] in ('mouse', 'storage', 'saveio'):
+    if record['probe'] in ('mouse', 'storage', 'saveio', 'worldio'):
         if media.read('AUTOEXEC.BAT') != guest_startup(record['probe']):
             raise ValueError('Diagnostic startup sequence does not match the prepared probe')
         expected_config = (ROOT / 'guest/FDCONFIG.SYS').read_text().replace('\n', '\r\n').encode('ascii')
@@ -97,7 +97,7 @@ def validate_vm(vm):
     scratch = vm / 'scratch.img'
     if scratch.stat().st_size != 615 * 4 * 17 * 512:
         raise ValueError('Scratch HDD size does not match its declared geometry')
-    if record['probe'] == 'storage':
+    if record['probe'] in ('storage','worldio'):
         from terrain_fixture import terrain_image
         disk = scratch.read_bytes()
         terrain = diagnostic_volume(disk).read('TERRAIN.TMP')
@@ -108,7 +108,7 @@ def validate_vm(vm):
             raise ValueError('Unexpected terrain file marker/capacity')
         if record['terrain_fixture_sha256'] != hashlib.sha256(expected).hexdigest():
             raise ValueError('Terrain fixture does not match its manifest')
-    if record['probe'] == 'saveio':
+    if record['probe'] in ('saveio','worldio'):
         from save_fixture import save_image
         save = diagnostic_volume(scratch.read_bytes()).read('WORLD.SAV')
         expected_hash = hashlib.sha256(save_image()).hexdigest()
