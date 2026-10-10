@@ -40,9 +40,10 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         packed_raster='-DDOS_PACKED_RASTER' in extra_adapter_flags
         early_split_cull='-DDOS_EARLY_SPLIT_CULL' in extra_adapter_flags
         front_to_back='-DDOS_FRONT_TO_BACK' in extra_adapter_flags
+        edge_recip='-DDOS_EDGE_RECIP' in extra_adapter_flags
         transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
             raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster,
-            early_split_cull=early_split_cull,front_to_back=front_to_back)
+            early_split_cull=early_split_cull,front_to_back=front_to_back,edge_recip=edge_recip)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*(flag for flag in extra_adapter_flags if flag in ('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS')),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
@@ -64,6 +65,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             names=(*names,'packed_raster.c')
         if front_to_back:
             names=(*names,'coverage_spans.c','f2b_capture.c','f2b_texel.c','f2b_raster.c','f2b_span.S')
+        if edge_recip: names=(*names,'edge_recip.c')
         for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')

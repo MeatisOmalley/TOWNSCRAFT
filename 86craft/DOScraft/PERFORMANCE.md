@@ -359,3 +359,38 @@ same EXE hash `4d2ef66520e55f19cbfc43f5b4fe5f65a57460ee5a3ffbd25609e8cda62b4bdb`
 The final host suite ran 210 tests successfully with two dependency-dependent
 skips. The pinned Towns import independently verified all 50 files unchanged;
 the existing launcher validated from `C:\Windows`. All diagnostic VMs closed.
+
+## Integrated coverage renderer: retained, not adopted
+
+The exact reverse-painter renderer is now integrated in an opt-in diagnostic
+build, with opaque ADD/ADC spans, cutout-aware coverage, conservative primitive
+queries and original full-frame fallback. All 684 Low guest verification frames
+match the original painter. Independent actual-raster/native-assembly tests
+and the full 220-test host suite pass (two dependency skips). The Towns pin
+still verifies all 50 files. See `FRONT_TO_BACK.md` and its raw reports.
+
+Three input-isolated timed repeats nevertheless regress: walking 58.422 to
+71.069 ms, down 137.999 to 166.984 ms, house 98.513 to 110.456 ms, edit aftermath
+115.159 to 125.520 ms; up is neutral. Thus it is not a playable default. This
+implementation's coverage/capture costs exceed the eliminated work; larger
+scenes or a cheaper reverse traversal remain separate hypotheses, not gains.
+
+## Independent candidate: exact edge reciprocal division
+
+`--candidate edge-recip` changes only three edge divisions in the original
+painter's `pedge_init`, plus one-time table initialization. It does not combine
+with the losing coverage candidate or alter subdivision, UVs, material behavior,
+clipping, resolution, view distance, UI or gameplay. A 32,772-byte reciprocal
+table covers positive edge heights 1..8192. For bounded shifted magnitudes,
+high-half unsigned multiplication followed by an exact correction reproduces
+original signed division/truncation. Negative or oversized divisors/numerators
+and other shifts retain original IDIV. No approximation or FPU conversion.
+
+Native proofs cover 7,501,146 original x86 IDIV comparisons, all supported
+divisors, both signs, boundaries and fallback inputs; 32,192 actual raster/
+assembly polygon comparisons preserve pixels, guards, counters and occlusion.
+DJGPP audits show the fast core is inline MULL/correction with no divide,
+function/helper call, FPU or SIMD. Explicit source recipes replay exactly and
+fail closed on upstream changes. Low/High guest binaries are prepared; guest
+performance/adoption is still pending at this checkpoint. Default flags and
+the playable ISO remain unchanged.

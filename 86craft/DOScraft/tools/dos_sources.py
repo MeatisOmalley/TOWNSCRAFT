@@ -9,7 +9,7 @@ from build_imported import replace_once
 
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
-          packed_raster=False, early_split_cull=False, front_to_back=False):
+          packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False):
     recipe=[]
     if graphics:
         import dos_graphics
@@ -98,6 +98,18 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
             '\t\tif(!split_parent_visible(x,y,z,dir,ex,ez))\n'
             '\t\t{\n\t\t\tBENCH_HOOK(++g_benchCnt[S_EARLY]);\n\t\t\treturn;\n\t\t}\n'
             '\t\tif(g_textureSubdivision==SUBDIV_FULL)\n',recipe)
+        data=text.encode('utf-8')
+    if name=='raster.c' and edge_recip:
+        text=data.decode('utf-8')
+        if '\r\n' in text:
+            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
+            text=text.replace('\r\n','\n')
+        text=replace_once(text,'#include "fmath.h"\n','#include "fmath.h"\n#include "edge_recip.h"\n',recipe)
+        text=replace_once(text,'\trscale=scale;\n','\trscale=scale;\n\tdos_edge_recip_init();\n',recipe)
+        before='divshift(b->x-a->x,dy,16)'
+        text=replace_once(text,before,'dos_edge_recip_divshift(b->x-a->x,dy,16)',recipe)
+        text=replace_once(text,'divshift(du,dy,4)','dos_edge_recip_divshift(du,dy,4)',recipe)
+        text=replace_once(text,'divshift(dv,dy,4)','dos_edge_recip_divshift(dv,dy,4)',recipe)
         data=text.encode('utf-8')
     if front_to_back:
         if packed_raster:
