@@ -76,3 +76,64 @@ Replay version 2 separately records the synchronous edit call and following
 frame, permitting both their sum and render-only reporting. It still freezes
 physics/AI and excludes fixture construction; it is not a comprehensive
 simulation or first-edit-to-visible latency test.
+
+## Audited implementation contract
+
+Reverse the existing merge, not a new block-center distance sort:
+
+| Existing painter | Exact front-to-back replay |
+| --- | --- |
+| Larger item keys first | Smaller keys first |
+| Equal-key static items in reverse collection order | Collection order |
+| Equal keys: entities before terrain (`>=`) | Terrain before entities (entity test `<`) |
+| Reverse stable entity-part order | Ascending existing entity array |
+| Subdivision/model faces in emitted order | Reverse their emitted primitives |
+
+`f2b_capture.c` now provides caller-owned, bounded **per-item** command capture:
+256 commands, each with up to 12 copied projected vertices plus the original
+tile pointer, flags and flat color. This avoids a large full-frame vertex queue.
+An overflow or unsupported primitive requires a complete original-painter frame
+fallback; the module refuses to replay an overflowing prefix. Atlas data must
+remain valid through replay. The capture module is not wired into gameplay yet.
+
+The native test uses the actual pinned rasterizer and `trap.S` in 48 overlapping
+scenes at both scales. Forward capture exactly matches the original. An
+independent slow oracle draws each reversed primitive over backgrounds zero
+and 255: equal results identify actual writes, including opaque zero, while
+cutout holes remain unequal. First actual writes then reproduce the original
+frame exactly, including guards/padding. This dual-background oracle is a test,
+not the intended performance implementation.
+
+In the actual trapezoid loop, query coverage after determining the original
+clipped row bounds but **before** reciprocal/gradient setup. A fully covered row
+can jump straight to edge/row advancement. For partially uncovered rows,
+preserve the complete original gradient and left prestep, then advance the
+existing fraction/byte-carry texture state across covered gaps. Bulk-mark only
+opaque spans; cutouts mark individual nonzero samples. Query conservative
+primitive bounds before edge setup when all enclosed pixels are covered.
+Keep calls out of per-pixel hot loops, and measure capture/query overhead too.
+
+The pre-subdivision audit also found a rounding hazard relevant to future
+earlier rejection: weighted fixed-point plane tables can have interior minima
+lower than both endpoints. The exact experimental parent gate confirms all
+included grid lines only on a potential rejection; 120,000 real parent tests
+prove descendants still fail the original gate. Its measured 0.6% walking-only
+gain is not the architectural house improvement sought here and is not a
+shipping default.
+
+`f2b_texel.c` supplies the next arithmetic piece: advance the original texture
+state over a covered gap without sampling it. It reproduces the existing
+independent 8-bit integer address additions and 16-bit fraction carries, including
+negative steps and no-wrap address-byte rollover. It does not recalculate a
+gradient or clipping prestep; those remain the original complete-row values.
+The caller still handles actual texel reads, transparent-zero decisions and
+coverage updates. Do not insert a call for every pixel into the shipping loop.
+
+Tests compare sparse sampling with the actual pinned `trap.S` for 20,480 rows:
+all eight trap variants, every width 1–320, clipping, negative gradients, opaque
+zero/cutout holes, wrapping and odd destination alignment. Every jump length
+0–320 is independently compared with repeated real x86 ADD/ADC instructions.
+Native and actual DJGPP i486 objects contain no calls, divides, FPU/SIMD or wide
+math in this kernel. This proves phase correctness, not a speedup. Integration
+must still skip fully covered rows before gradients and keep original-image
+checks and full-frame fallback.

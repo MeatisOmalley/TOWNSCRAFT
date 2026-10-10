@@ -325,3 +325,27 @@ and covered scanlines BEFORE edge/gradient/texture work. The bounded capture
 and actual-assembly image oracle are development scaffolding, not shipping
 renderer integration or a measured speedup. Avoid spending further iterations
 on stationary-only caches or sub-percent arithmetic tweaks.
+
+## Front-to-back correctness checkpoint
+
+The next architecture now has tested per-item primitive capture and exact
+texture-state jumps across covered gaps, alongside the existing bounded
+coverage bitset. Capture owns its projected vertices and refuses an overflowing
+prefix; it is intended to reverse each item's actual emitted primitives while
+the existing global painter merge is reversed with its exact tie rules.
+
+The actual rasterizer/assembly serves as an independent image oracle for 48
+overlapping forward-capture/reverse-first-opaque scenes. The gap kernel matches
+20,480 actual assembly rows across all eight textured paths, every width 1–320,
+clipping, wrapping, negative steps, byte rollover and cutout holes. DJGPP i486
+object checks confirm no added divide/FPU/helper instructions in the gap kernel.
+See `FRONT_TO_BACK.md` for the specific integration gates.
+
+These modules are not connected to the playable renderer yet and have no guest
+performance claim. The current ISO remains the tested adaptive-preset release;
+none of the stationary reuse, compact raster, parent-culling or front-to-back
+experiments is enabled. Rebuilding the normal default still produces the exact
+same EXE hash `4d2ef66520e55f19cbfc43f5b4fe5f65a57460ee5a3ffbd25609e8cda62b4bdb`.
+The final host suite ran 210 tests successfully with two dependency-dependent
+skips. The pinned Towns import independently verified all 50 files unchanged;
+the existing launcher validated from `C:\Windows`. All diagnostic VMs closed.
