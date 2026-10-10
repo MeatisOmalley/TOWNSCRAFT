@@ -171,7 +171,9 @@ VGA-plane readbacks pass. Raw provenance/recipes are retained in
 water/plants/torch/door terrain and overlapping rotated entity boxes near the
 camera. It forces one genuine 256-command capture overflow to test whole-frame
 fallback. These fixtures are not playable-world changes or comparable timings;
-their guest result is still pending at this checkpoint. `--profile-draw` enables
+all three Low guest stress processes now pass: 227 compared frames each with
+zero mismatches, and exactly one original-painter overflow fallback per process.
+Raw recipes/reports are in `f2b-low-stress-verify.json`. `--profile-draw` enables
 existing 100 Hz IRQ EIP sampling during drawing only; its timings are also
 rejected as performance evidence. The normal game remains byte-identical.
 
