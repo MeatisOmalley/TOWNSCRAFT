@@ -170,3 +170,32 @@ compare chunky transport (keeping Mode X). The current replay deliberately
 cannot rank AI or full block-edit latency. Existing fixed math, shared axis
 transforms, greedy meshes, shade LUTs, division reciprocals and assembly are
 retained rather than reimplemented or converted to x87 on speculation.
+
+## Playable release checkpoint
+
+The normal game executable (not the frozen benchmark) passed the automated
+new-world and fresh-process reload tests. Both exercised actual guest AT input,
+walking, full down/up look, torch placement/breaking, inventory/crafting
+snapshots, VGA readback and the full-resolution toggle. Saving and reloading
+returned success. Images were inspected; evidence is tracked in
+`tests/baselines/2026-10-10-optimized-game/`. This is a smoke test, not exhaustive
+gameplay acceptance or a live FPS measurement. All completed test VMs closed.
+The host suite passed 184 tests (two dependency-dependent skips).
+
+`tools/publish_game.py` published the smoke-verified normal executable into
+`ISO/DOSCRAFT.ISO`. The existing `.cmd` validated successfully from `C:\Windows`,
+without depending on its working directory. Player VM:
+`runtime/game-play-ac_jv6sq`. Previous VM `runtime/game-play-hmcctnfd` remains
+untouched, and its entire HDD was copied exactly into the new VM. The previous
+ISO is preserved as `ISO/DOSCRAFT.before-471a1a8d4b54.ISO`.
+
+Verified SHA-256 fingerprints:
+
+- Normal executable: `a191bb04a312123d09c96e519062c84fd51b3cfe943059f021564df3dbabfc9f`
+- Published ISO: `f48ffba45f14e774c2d96769fdca6e80390c2ba2f0aa89897263ff47e2bd9bfc`
+- Previous ISO/backup: `4c837427b13597b903452b3b454b0a749334c26d85b7c1f2ed83f8c789f7fd08`
+- Old and new player HDD: `8efe8c1f4ee321145c47db730832868bb59332a4d5ac10f935730a72fd3ffda5`
+
+Generated ISOs and private HDDs remain local/ignored; source, launchers, tests,
+benchmark evidence and smoke screenshots are committed. No gameplay/UI/layout,
+graphics-quality or default-budget changes are included in this checkpoint.
