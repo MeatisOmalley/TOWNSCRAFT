@@ -241,3 +241,22 @@ records `EDIT_CALLS` and call-plus-following-frame summaries. `--quality
 low|medium|high` uses the normal game's adaptive preset table. Compare version 2
 only with fresh version-2 baselines at the same profile; version-1 evidence
 remains historical, not silently rewritten.
+
+## Adaptive graphics-preset release acceptance
+
+The normal game passed new-world and fresh-process reload smoke with real AT
+input cycling Low → Medium → High → Low, including VGA readback at each profile.
+All profiles retained adaptive subdivision; walking, full pitch, torch edits,
+menus and save/reload also passed. Inspected snapshots and reports are tracked
+in `tests/baselines/2026-10-10-graphics-presets/`. The host suite ran 201 tests,
+passing with two dependency-dependent skips. Completed diagnostic VMs closed.
+
+The preset ISO was published through the save-preserving workflow to the existing
+launcher. Normal EXE SHA-256:
+`4d2ef66520e55f19cbfc43f5b4fe5f65a57460ee5a3ffbd25609e8cda62b4bdb`.
+ISO SHA-256: `2f5ab9c8ba1a2c0921c3c9a93cf8626de09ba2ce27c9c2e42529afb9b9fed9dd`.
+Player VM `runtime/game-play-ns_83t_k` retained the byte-identical HDD hash
+`8efe8c1f4ee321145c47db730832868bb59332a4d5ac10f935730a72fd3ffda5`.
+Previous VM and `ISO/DOSCRAFT.before-a191bb04a312.ISO` remain available.
+Launcher `-ValidateOnly` passed. No experimental occlusion, edge division,
+camera reuse or front-to-back code is enabled in that release.
