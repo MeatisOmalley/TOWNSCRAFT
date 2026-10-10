@@ -48,11 +48,18 @@ samples, not proof of which instructions or cache misses dominate.
    accounting for comparison/dispatch/cache costs; no blanket per-face gradient.
    The new exact constant-gradient entry specialization is effectively neutral
    on Low and stays off. Four-texel opaque unrolling adds only 288 bytes, passes
-   independent actual assembly parity, and is being guest-timed separately.
+   independent actual assembly parity, and now saves about 1.1% Low house frame
+   time and 2.7% High house / 1.4% High walking in isolated guest repeats.
+   Combined normal-game verification/publication remains a separate gate.
 2. **Earlier exact visibility/geometry rejection with cheaper maintenance.**
    Target hidden building geometry before projection/subdivision/setup. Do not
    stack the losing per-pixel coverage backend onto the painter, or invent
    filled coverage from a bounding rectangle. Keep doorway/model/cutout oracles.
+   The directional world-space per-item wall-cone probe also loses: Low house
+   +12% time, walking +14.4%, down +38.2%, despite matching images. Its guarded
+   house eligibility is only zero/one rejected item per frame for 628-2,642
+   tests. Leave it off. Next work needs cheap group/batch-level rejection and
+   eligibility counters before adding per-item costs.
 3. **ET4000 banked chunky CPU upload, now accepted for High.** The independent
    High-only path removes planar conversion and exercises contiguous VGA
    writes. Low/Medium keep the accepted repeated-pixel broadcast. Same 320x240
@@ -67,6 +74,10 @@ samples, not proof of which instructions or cache misses dominate.
    Both isolated and exact-release game-loop preset/save/reload smoke pass.
    It is enabled in normal defaults and the save-preserving published ISO.
    See PERFORMANCE.md for fingerprints and preserved player HDD/previous ISO.
+   A separate direct pitched-row upload prototype avoids full-frame RAM
+   gathering while switching banks only at real crossings. Native presenter
+   tests pass; High guest timing is running. It remains off pending benefit,
+   Low screening and normal-game verification.
 
 Stationary-only reuse and already-rejected edge reciprocal/word transpose
 variants are lower priority. x87 conversion, reduced visible content, spawning
@@ -87,10 +98,15 @@ Next bounded probes should include both invisible and quality-gated options:
   Adaptive subdivision remains enabled. This is a candidate, not a selected
   precision rule, implementation or measured gain.
 
-### Next structural candidate: bounded sealed-room visibility proof
+### Set-aside candidate: bounded sealed-room visibility proof
 
-The user's house slowdown still needs geometry elimination, not only tiny loop
-savings. A bounded flood of camera-connected passable cells could prove a small
+The user prioritizes rooms with doors/doorways and rejects changing the existing
+benchmark to favor a rare sealed-room case. The incomplete draft is retained
+unintegrated in `research/sealed_room/`; it is not the next selected optimization.
+Directional wall rejection should be useful when facing walls while retaining
+everything visible through the entrance. No benchmark fixture was changed.
+
+A bounded flood of camera-connected passable cells could prove a small
 room completely enclosed by full opaque cubes. Then chunks wholly outside the
 room's conservatively padded bounds could be rejected before face collection/
 projection. Keep boundary/overlapping merged faces, models/entities and the

@@ -948,7 +948,17 @@ tests pass 100,000 boxes, source-selection tests keep doorway gaps and reject
 dirty/unknown/trimmed/alpha/model sources, and 3,647 actual raster cases from
 100,000 generated scenes preserve complete images and guards on both scales,
 all axes/sides and moving/rotating cameras. The original seam case is retained
-as a regression. Low revision-2 guest timing is in progress, not a claimed gain.
+as a regression. Low revision-2 guest timing completes three PASS repeats with
+matching final images, but loses badly: static 67.421 -> 84.283 ms (+25.0%),
+walk 58.425 -> 66.854 (+14.4%), down 136.420 -> 188.592 (+38.2%), house
+96.932 -> 108.525 (+12.0%), edits 112.521 -> 123.590 (+9.8%); up mostly neutral.
+Paired raw evidence: `tests/benchmarks/2026-10-10/wall-low-seam.json`.
+On the first house repeat, each frame performs 628-2,642 cone tests and rejects
+zero or one terrain item. Checks/setup outweigh almost nonexistent avoided work.
+Do not adopt or retry this unchanged on High. Leave it off. Any successor needs
+much cheaper batch-level rejection before per-item iteration and measured
+eligibility, not just additional conservative tests. This result does not prove
+that the house has no overdraw or that all earlier visibility approaches fail.
 
 ## Optional direct pitched ET4000 upload
 
