@@ -796,3 +796,21 @@ streaming, preset transitions, full-resolution selection, VGA readback and
 save/reload all pass. Evidence: `tests/baselines/2026-10-10-et4000-game/report.json`.
 The private emulator was closed; audio stays deliberately silent. This is
 scripted gameplay evidence, not full feature parity or Windows input proof.
+
+## Depth-aware adaptive leaves: independent quality probe
+
+`--candidate depth-adaptive` retains adaptive subdivision but permits an opaque
+node of at most 2x2 cells to stop splitting when its four actual corner depths
+are all at/above the near plane and spread by no more than 1/16 of minimum
+depth. Only the doubled Low/Medium view uses this rule; High, cutouts, occlusion
+capture/query, Full and Off keep their original decisions. Texture sampling and
+the inset/wrap path may differ: this is explicitly a quality tradeoff, not an
+image-exact optimization. No geometry removal, render-radius or gameplay change.
+
+Native actual-frontend/raster tests cover 24,000 parents with untouched High/
+cutout/occlusion/full/off packets and images, and buffer guards/reduced submission
+counts on eligible Low opaque cases. Only 24 random synthetic cases coarsen:
+282,424 -> 281,820 projection calls. This sparse random-camera result is not
+performance evidence; the straight-down replay is the targeted workload.
+Guest timing and visual review are required before deciding. Keep this probe
+separate from shared-corner reuse and disabled in production.

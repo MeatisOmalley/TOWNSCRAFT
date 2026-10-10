@@ -52,7 +52,7 @@ static u32 next(void) { seed^=seed<<13;seed^=seed>>17;seed^=seed<<5;return seed;
 static u8 a[512*240+32],b[sizeof(a)];
 int main(void)
 {
-    unsigned i,j,totalOld=0,totalNew=0,savedCases=0;
+    unsigned i,j,totalOld=0,totalNew=0,savedCases=0,qualityChanges=0;
     u8 *allocation=malloc(NUM_TEXTURES*4096+16384);
     assert(allocation);
     g_texAtlas=(u8 *)(((uintptr_t)allocation+4095)&~(uintptr_t)4095);
@@ -89,8 +89,17 @@ int main(void)
             raster_finish();
             if(!side) {oldCalls=project_calls;oldPixels=g_statPixels;oldFaces=g_statFaces;}
             else {
-                if(packet_count[0]!=packet_count[1] || memcmp(packets[0],packets[1],packet_count[0]*sizeof(Packet)) ||
-                    memcmp(a,b,sizeof(a)) || oldPixels!=g_statPixels || oldFaces!=g_statFaces || project_calls>oldCalls) {
+                int exact=1;
+#ifdef DEPTH_ADAPTIVE_TEST
+                exact=g_renderScale==1 || texTransparent[tex] || occCapture || occQuery || g_textureSubdivision!=SUBDIV_ADAPTIVE;
+                if(!exact) {
+                    qualityChanges+=memcmp(a,b,sizeof(a))!=0;
+                    assert(packet_count[1]<=packet_count[0]);
+                    for(j=0;j<16;++j) assert(a[j]==197 && b[j]==197 && a[sizeof(a)-1-j]==197 && b[sizeof(a)-1-j]==197);
+                }
+#endif
+                if(exact && (packet_count[0]!=packet_count[1] || memcmp(packets[0],packets[1],packet_count[0]*sizeof(Packet)) ||
+                    memcmp(a,b,sizeof(a)) || oldPixels!=g_statPixels || oldFaces!=g_statFaces || project_calls>oldCalls)) {
                     fprintf(stderr,"mismatch parent=%u dir=%d scale=%d packets=%u/%u projection=%u/%u\n",
                         i,dir,g_renderScale,packet_count[0],packet_count[1],oldCalls,project_calls);return 2;
                 }
@@ -99,7 +108,12 @@ int main(void)
             }
         }
     }
+#ifdef DEPTH_ADAPTIVE_TEST
+    assert(savedCases>0 && totalNew<totalOld && qualityChanges>0);
+    printf("PASS: 24000 real adaptive/full/off parents; High/cutout/occlusion/full/off exact, Low opaque bounds preserved; projections %u -> %u, saved cases %u, changed synthetic images %u\n",totalOld,totalNew,savedCases,qualityChanges);
+#else
     assert(savedCases>100 && totalNew<totalOld);
     printf("PASS: 24000 real adaptive/full/off parents, six directions, both scales, camera resets, near/guard clipping, cutout/flat/occlusion; packets/images/guards identical; projections %u -> %u, saved cases %u\n",totalOld,totalNew,savedCases);
+#endif
     free(allocation);return 0;
 }

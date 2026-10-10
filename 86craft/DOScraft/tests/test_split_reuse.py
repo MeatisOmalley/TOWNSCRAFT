@@ -16,26 +16,33 @@ def frontend(data,prefix):
     text=data.decode().replace('\r\n','\n')
     body=text[text.index('static int quad_in_frustum('):text.index('static void draw_model_box(')]
     names=('TX','TY','TZ','PX','PY','PZ','planeLen','camBX','camBY','camBZ',
-        'draw_quad','draw_quad_split','quad_in_frustum','box_outside')
+        'draw_quad','draw_quad_split','quad_in_frustum','box_outside','split_depth_safe')
     pattern=re.compile(r'\b('+'|'.join(names)+r')\b')
     return pattern.sub(lambda m:prefix+'_'+m[0],body)
 
 
 class SplitReuseTests(unittest.TestCase):
     def test_optional_replay_and_real_frontend_images(self):
+        self.run_frontend('split_reuse')
+
+    def test_depth_adaptive_quality_gate_and_real_frontend_bounds(self):
+        self.run_frontend('depth_adaptive')
+
+    def run_frontend(self,experiment):
         data=(imported.VENDOR/'src/render.c').read_bytes()
-        candidate,recipe=dos_sources.adapt('render.c',data,split_reuse=True)
+        candidate,recipe=dos_sources.adapt('render.c',data,**{experiment:True})
         replay=data
         for step in recipe:
             old,new=step['before'].encode(),step['after'].encode()
             self.assertEqual(replay.count(old),step['count']); replay=replay.replace(old,new)
         self.assertEqual(candidate,replay)
         self.assertEqual(dos_sources.adapt('render.c',data),(data,[]))
-        with self.assertRaises(ValueError): dos_sources.adapt('render.c',b'unexpected',split_reuse=True)
+        with self.assertRaises(ValueError): dos_sources.adapt('render.c',b'unexpected',**{experiment:True})
+        with self.assertRaises(ValueError): dos_sources.adapt('render.c',data,split_reuse=True,depth_adaptive=True)
         for name in imported.SELECTED:
             if name!='render.c':
                 original=(imported.VENDOR/'src'/name).read_bytes()
-                self.assertEqual(dos_sources.adapt(name,original,split_reuse=True),(original,[]))
+                self.assertEqual(dos_sources.adapt(name,original,**{experiment:True}),(original,[]))
         text=data.decode().replace('\r\n','\n')
         corners=text[text.index('static const u8 faceCorner'):text.index('static int max_items_for_ram')]
         projection=text[text.index('int face_light_level('):text.index('static inline int to_screen(')]
@@ -53,6 +60,7 @@ class SplitReuseTests(unittest.TestCase):
             subprocess.run([sys.executable,str(imported.VENDOR/'tools/gentables.py'),str(tables)],check=True)
             exe=folder/'test.exe'
             command=[str(ZIG),'cc','-target','x86-windows-gnu','-O2','-std=gnu99','-UNDEBUG',
+                *(['-DDEPTH_ADAPTIVE_TEST'] if experiment=='depth_adaptive' else []),
                 '-fno-builtin','-Wall','-Wextra','-Wno-unused-function','-I',str(folder),'-I',str(src),
                 str(ROOT/'tests/split_reuse_test.c'),str(src/'raster.c'),str(src/'trap.S'),
                 str(src/'fmath.c'),str(tables),'-o',str(exe)]
