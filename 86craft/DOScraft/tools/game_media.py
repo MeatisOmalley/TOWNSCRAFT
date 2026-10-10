@@ -65,7 +65,7 @@ def embedded_boot(image):
     return boot
 
 
-def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False):
+def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False, update_pointer=True):
     output=Path(output)
     if bios:
         bios=Path(bios).resolve(strict=True)
@@ -125,7 +125,8 @@ def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False):
         'boot_note':'Floppy extracted from ISO; no native CD boot claim',
         'audio':'SILENT_DEFERRED'}
     (vm/'build.json').write_text(json.dumps(record,indent=2)+'\n')
-    (output/('latest-bench-vm.txt' if benchmark else 'latest-smoke-vm.txt' if smoke else 'latest-play-vm.txt')).write_text(str(vm))
+    if update_pointer:
+        (output/('latest-bench-vm.txt' if benchmark else 'latest-smoke-vm.txt' if smoke else 'latest-play-vm.txt')).write_text(str(vm))
     return vm,record
 
 

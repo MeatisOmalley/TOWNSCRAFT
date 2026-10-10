@@ -22,6 +22,7 @@ static int x0,z0,pitch0,walk_ok,look_ok;
 static int save_busy,save_result=-1,load_result=-1;
 static int placed,broken,torch_before,torch_after,vga_ok=1;
 static int rendered_frames;
+static int fullres_ok;
 void __real_gfx_present(void);
 void __real_render_frame(u8 *fb,const RenderEnv *env);
 void __wrap_render_frame(u8 *fb,const RenderEnv *env)
@@ -102,16 +103,16 @@ static void finish(void)
     FILE *file=fopen(load_smoke ? "C:\\PLAYLOAD.TXT" : "C:\\PLAYNEW.TXT","wb");
     int storage_ok=load_smoke ? load_result==SAVE_OK : save_result==SAVE_OK;
     int ok=input_ok && walk_ok && look_ok && stream_ok && width==256 && mesh>0 &&
-        storage_ok && placed && broken && vga_ok;
+        storage_ok && placed && broken && vga_ok && fullres_ok;
     if(!file) exit(1);
     int written=fprintf(file,"DOScraft real game-loop smoke\nMODE=%s\nWORLD_WIDTH=%d\n"
         "RESIDENT_COLUMNS=%d\nMESH_QUADS=%u\nPRESENTED_FRAMES=%d\nAT_INPUT=%s\n"
         "WALK_MOVED=%s\nFULL_DOWN_UP_LOOK=%s\nSTREAM_ERROR=%d\nELAPSED_100HZ_TICKS=%u\n"
-        "PLACE_TORCH=%s\nBREAK_TORCH=%s\nVGA_READBACK=%s\nSAVE_RESULT=%d\nLOAD_RESULT=%d\n"
+        "PLACE_TORCH=%s\nBREAK_TORCH=%s\nVGA_READBACK=%s\nFULL_RES_OPTION=%s\nSAVE_RESULT=%d\nLOAD_RESULT=%d\n"
         "AUDIO=SILENT_DEFERRED\nRESULT=%s\n",load_smoke?"LOAD":"NEW",width,columns,mesh,frames,
         input_ok?"PASS":"FAIL",walk_ok?"PASS":"FAIL",look_ok?"PASS":"FAIL",
         !stream_ok,ticks,placed?"PASS":"FAIL",broken?"PASS":"FAIL",vga_ok?"PASS":"FAIL",
-        save_result,load_result,ok?"PASS":"FAIL")>=0;
+        fullres_ok?"PASS":"FAIL",save_result,load_result,ok?"PASS":"FAIL")>=0;
     if(fclose(file)) written=0;
     puts(ok && written ? "Real DOS game smoke: PASS" : "Real DOS game smoke: FAIL");
     exit(!(ok && written));
@@ -168,7 +169,14 @@ void __wrap_gfx_present(void)
         tap(0x2e); /* C craft */ until=g_ticks+30; stage=7;
     } else if(stage==7 && (int)(g_ticks-until)>=0) {
         snapshot("C:\\CRAFT.RAW",frame);
-        tap(0x01); until=g_ticks+30; stage=8;
+        tap(0x01); until=g_ticks+30; stage=13;
+    } else if(stage==13 && (int)(g_ticks-until)>=0) {
+        tap(0x3c); /* F2: existing full-resolution option, no new UI. */
+        until=g_ticks+30; stage=14;
+    } else if(stage==14 && (int)(g_ticks-until)>=0) {
+        fullres_ok=g_renderScale==1;
+        snapshot("C:\\FULL.RAW",frame);
+        tap(0x3c); until=g_ticks+30; stage=8;
     } else if(stage==8 && (int)(g_ticks-until)>=0) {
         stage=9; /* Set before PF9: progress screens reenter this wrapper. */
         if(!load_smoke) tap(0x43); /* F9 -> real game's save_game */

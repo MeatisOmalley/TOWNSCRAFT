@@ -29,7 +29,7 @@ try {
         throw 'Game VM must be a private DOScraft runtime directory.'
     }
     $record = Get-Content -LiteralPath (Join-Path $vm 'build.json') -Raw | ConvertFrom-Json
-    if ($record.smoke -or $record.target -ne '486dx25' -or $record.vm_directory -ne $vm) {
+    if ($record.smoke -or $record.benchmark -or $record.target -ne '486dx25' -or $record.vm_directory -ne $vm) {
         throw 'Expected the prepared playable 486 ISO, not diagnostic media.'
     }
     $emulator = Join-Path $taskRoot 'build\deps\86box\86Box.exe'

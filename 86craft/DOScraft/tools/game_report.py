@@ -66,6 +66,9 @@ def main():
     args.output.mkdir(parents=True,exist_ok=False)
     for name in ('TITLE','WORLD','DOWN','PLACE','BREAK','INV','CRAFT'):
         (args.output/(name+'.png')).write_bytes(frame_png(volume.read(name+'.RAW')))
+    try: full=volume.read('FULL.RAW')
+    except FileNotFoundError: pass # Historical smoke reports predate this gate.
+    else: (args.output/'FULL.png').write_bytes(frame_png(full))
     record={'vm_directory':str(args.vm.resolve()),'build':json.loads((args.vm/'build.json').read_text()),
         'reports':reports,'save':save,'limitations':['Silent audio',
         'AT-controller diagnostic input, not proof of Windows ingress',

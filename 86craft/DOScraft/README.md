@@ -4,21 +4,38 @@ IBM-PC port of Townscraft, targeting a 486DX/25-class PC in 86Box.
 
 Primary target: Intel 486DX/25 with its integrated x87 FPU, 16 MB RAM, Tseng ET4000AX ISA with 1 MB video RAM, ESDI HDD and original Sound Blaster. The ASUS ISA-486 motherboard and selected BIOS images are emulator proxies, not an authenticated 1989 Compaq reconstruction. The Everex-class 386DX/33 is a **deferred compatibility/port target**, to revisit only after the main demake meets its agreed correctness/performance goals. The main build may use 486 instructions and x87; 386 compatibility is not a current release gate.
 
-Current stage: direct port first; optimizations later. The pinned 50-file Towns
+Current stage: direct port working, measured platform optimization underway. The pinned 50-file Towns
 snapshot remains immutable. The full gameplay/fixed-point renderer now links
 into `DOSCRAFT.EXE` through the original `kmain`, with DOS platform adapters.
 Real procedural generation, AT movement/full-pitch input, torch placement/removal
 and save/fresh-process reload now pass in 86Box. Full feature acceptance is still
 pending. Audio is deliberately
 silent under the user's latest priority, not completed Sound Blaster parity.
-No new renderer optimization, mob policy, UI or gameplay change is included.
+Three verified VGA-transport optimizations are now enabled; the renderer,
+mob policy, UI and gameplay remain unchanged.
 Earlier diagnostic paragraphs below record their individual historical gates.
 
-See [the port plan](PORT_PLAN.md) for the direct-port parity gate, and the separate [optimization backlog](OPTIMIZATION_BACKLOG.md) for work deferred until port acceptance. [The investigation runner](tools/audit_towns_house.py) builds isolated Towns test snapshots without modifying Towns production sources or ISOs.
+See [the port plan](PORT_PLAN.md) for the direct-port parity gate, the [optimization backlog](OPTIMIZATION_BACKLOG.md), and [measured DOS performance checkpoints](PERFORMANCE.md). The user authorized optimization work on October 10; full feature-parity acceptance remains separate. [The investigation runner](tools/audit_towns_house.py) builds isolated Towns test snapshots without modifying Towns production sources or ISOs.
 
 The emulator checkout at `../86Box` is an independent Git repository. Game work belongs here. Generated builds and mutable runtime images are ignored.
 
 ## Build and launch the real game
+
+For an **existing installed game**, use the save-preserving release workflow:
+
+```powershell
+python tools/game_smoke.py --bios "runtime/<known-good-ISA486-VM>/nvr/isa486.nvr" --report "build/<new-smoke-report-directory>"
+python tools/publish_game.py --bios "runtime/<same-known-good-ISA486-VM>/nvr/isa486.nvr"
+```
+
+The smoke runner needs no Windows keypresses and checks real AT input, menus,
+both resolution options, torch placement/breaking, VGA readback and save/reload.
+Publication requires that exact executable to pass. It preserves the old VM,
+copies its entire HDD byte-for-byte to the new VM, backs up the old ISO beside
+it, and updates `ISO/DOSCRAFT.ISO` and the launcher pointer. It refuses a live
+player VM. Neither procedure starts or modifies the old player VM.
+
+For a **first installation only** (no player HDD to preserve):
 
 With the existing pinned dependencies/ROMs present, run from this directory:
 
@@ -29,6 +46,8 @@ python tools/game_media.py --bios "runtime/<known-good-ISA486-VM>/nvr/isa486.nvr
 
 Omit `--bios` on a new machine and configure CMOS as described below. Each media
 preparation creates a **new private HDD**, never overwriting an old world.
+Copy the printed ISO into `ISO/DOSCRAFT.ISO` for this first setup. Do not use
+fresh media preparation as an existing-player upgrade; use publication above.
 Double-click `ISO/Launch-DOScraft.cmd` afterward; keep its `.ps1` and `DOSCRAFT.ISO` beside it. It needs no Python at launch time
 and works regardless of the current directory. It validates the prepared ISO,
 embedded boot media, emulator/ROM hashes and hardware, refuses a second process
