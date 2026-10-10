@@ -66,8 +66,9 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bios',type=Path)
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
+    parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','pack-all'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache'),default='reference')
     parser.add_argument('--timeout',type=int,default=900)
     parser.add_argument('--prepare-only',action='store_true')
     args=parser.parse_args()
@@ -81,14 +82,31 @@ def main():
         write_report(vm,output,manifest,build_record,args.label,collect(vm))
         print(f'REPORT={vm / "performance.json"}')
         return
-    if not args.bios: parser.error('--bios is required to create a new benchmark VM')
-    flags=('-DDOS_VGA_PACK_ALL',) if args.candidate=='pack-all' else ()
-    build(output,benchmark=True,extra_adapter_flags=flags)
+    flags=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE') if args.candidate=='hud-cache' else ('-DDOS_VGA_PACK_ALL',) if args.candidate=='pack-all' else ()
+    if args.run_vm:
+        vm=args.run_vm.resolve(strict=True)
+        manifest=json.loads((vm/'build.json').read_text())
+        if not manifest.get('benchmark') or not vm.is_relative_to(ROOT/'runtime'):
+            raise ValueError('Only a private prepared benchmark can be run')
+        volume=diagnostic_volume((vm/'scratch.img').read_bytes())
+        try: volume.read('BENCH1.TXT')
+        except FileNotFoundError: pass
+        else: raise ValueError('Already used benchmark disk; prepare a fresh VM')
+    else:
+        if not args.bios: parser.error('--bios is required to create a new benchmark VM')
+        build(output,benchmark=True,extra_adapter_flags=flags)
+        vm,manifest=prepare(bios=args.bios,output=output,benchmark=True)
     build_record=json.loads((output/'build.json').read_text())
-    vm,manifest=prepare(bios=args.bios,output=output,benchmark=True)
+    if manifest['exe_sha256']!=build_record['exe_sha256']:
+        raise ValueError('Prepared VM and build manifest differ')
     command=validate(vm)
     print(f'VM={vm}',flush=True)
     if args.prepare_only: return
+    # Exclusive launch claim: never open this private writable HDD twice.
+    # Retain the claim after completion or timeout; fresh repetitions use a
+    # fresh VM. --collect-vm may still collect preserved completed reports.
+    with (vm/'benchmark-launched.json').open('x') as claim:
+        json.dump({'command':command,'label':args.label},claim)
     process=subprocess.Popen(command,cwd=vm)
     print(f'PID={process.pid}',flush=True)
     until=time.monotonic()+args.timeout

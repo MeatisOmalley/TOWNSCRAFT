@@ -15,7 +15,7 @@ ROOT=imported.ROOT
 OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c')
-DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL',)
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE')
 
 
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None):
@@ -41,6 +41,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None):
         names=tuple('bench_runtime.c' if name=='game_runtime.c' else name for name in GAME_ADAPTERS) if benchmark else GAME_ADAPTERS
         if '-DDOS_VGA_PACK_ALL' in extra_adapter_flags:
             names=(*names,'vga_pack_all.c')
+        if '-DDOS_VGA_HUD_CACHE' in extra_adapter_flags:
+            names=(*names,'vga_hud_cache.c')
         for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')

@@ -101,3 +101,31 @@ Raw samples, repeat means, p95, hashes and pinned hardware/binary evidence are
 tracked in `tests/benchmarks/2026-10-10/pack-all.json`. Three repeats are strongly
 consistent, but this frozen replay is not a promise of the same live-play FPS.
 ISA upload remains roughly 31 ms; dense geometry remains expensive.
+
+## Accepted optimization 2: exact unchanged HUD upload avoidance
+
+Three further guest runs and the independent presenter model pass. A separate
+shadow of each actual VGA page's HUD is compared byte-for-byte, using safe
+unaligned word comparisons. Identical HUD plane bytes need not cross ISA again.
+Changed bytes are copied/uploaded; titles, menus, loading/dimming, sharp text,
+palette changes and all three pages remain correct. Cache initialization tracks
+the VGA clear. This is not a probabilistic hash or gameplay dirty-flag shortcut.
+Extra scratch: 38,400 B. Native tests also exercise the byte-only fallback.
+
+Compared with accepted optimization 1, upload **including comparison overhead**
+falls from about 30.7 to 27.1 ms. Stationary frames are neutral because retrace
+absorbs the saving; moving improves 1.4%, down 3.1%, up 11.7%, house 4.8% and edit
+aftermath 3.8%. No measured primary-scene regression. The default builder now
+keeps both optimizations. `--candidate hud-cache` selects this checkpoint;
+`--candidate pack-all` still tests the first change independently. Raw evidence
+is `tests/benchmarks/2026-10-10/hud-cache.json`.
+
+## Next independent candidate
+
+VGA plane-map masks can broadcast one byte write to multiple planes. Exact
+row comparisons can exploit doubled world pixels (and uniform sky) without
+assuming all pixels match: outlines, HUD, text and full-resolution differences
+must retain separate writes. Coalesced matching row runs may save more ISA
+traffic than further CPU setup changes. Measure planning overhead, full-resolution
+regressions and actual framebuffer equality before selecting it. This is a
+system/code-specific priority, not simply following the supplied list.

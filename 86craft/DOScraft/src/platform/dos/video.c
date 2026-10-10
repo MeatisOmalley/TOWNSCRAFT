@@ -14,6 +14,10 @@
 #include "vga_pack.h"
 #include "video_backend.h"
 #include "bench_transport.h"
+#ifdef DOS_VGA_HUD_CACHE
+#include "vga_hud_cache.h"
+static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
+#endif
 
 static int old_mode = -1;
 static unsigned int shown_page;
@@ -91,6 +95,11 @@ void video_init(void)
     outportw(0x3ce, 0x0506); /* A0000 mapping, graphics, no odd/even. */
     outportw(0x3ce, 0xff08); /* All bits writable. */
     memset(packed, 0, sizeof(packed));
+#ifdef DOS_VGA_HUD_CACHE
+    /* The following all-plane clear establishes the same known zero content
+     * in each VGA page; never confuse a RAM page's HUD cache with VRAM state. */
+    memset(hud_shadow,0,sizeof(hud_shadow));
+#endif
     outportw(0x3c4, 0x0f02);
     for (i = 0; i < VGA_PAGES; ++i)
         dosmemput(packed, DOS_VGA_PLANE_BYTES, 0xa0000 + i * DOS_VGA_PLANE_BYTES);
@@ -139,6 +148,8 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #endif
 #endif
     for (plane = 0; plane < 4; ++plane) {
+        const unsigned char *plane_data;
+        unsigned int upload_bytes=DOS_VGA_PLANE_BYTES;
 #ifndef DOS_VGA_PACK_ALL
 #ifdef DOSCRAFT_BENCH
         stamp=bench_us();
@@ -155,12 +166,20 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOSCRAFT_BENCH
         stamp=bench_us();
 #endif
-        outportw(0x3c4, ((1 << plane) << 8) | 2);
-        dosmemput(packed
+        plane_data=packed
 #ifdef DOS_VGA_PACK_ALL
             +plane*DOS_VGA_PLANE_BYTES
 #endif
-            ,DOS_VGA_PLANE_BYTES,0xa0000 + offset);
+            ;
+#ifdef DOS_VGA_HUD_CACHE
+        /* Exact bytes, destination-page keyed. Works for arbitrary title,
+         * loading, menu/dimming, HUD changes and source pitch, not just play. */
+        if(dos_vga_hud_changed(plane_data+200*80,hud_shadow[next_page][plane],
+                              DOS_VGA_HUD_CACHE_MAX_BYTES)==0)
+            upload_bytes=200*80;
+#endif
+        outportw(0x3c4, ((1 << plane) << 8) | 2);
+        dosmemput(plane_data,upload_bytes,0xa0000 + offset);
 #ifdef DOSCRAFT_BENCH
         dos_bench_upload+=bench_us()-stamp;
 #endif
