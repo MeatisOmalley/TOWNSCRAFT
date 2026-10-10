@@ -68,7 +68,7 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast'),default='reference')
     parser.add_argument('--timeout',type=int,default=900)
     parser.add_argument('--prepare-only',action='store_true')
     args=parser.parse_args()
@@ -82,7 +82,10 @@ def main():
         write_report(vm,output,manifest,build_record,args.label,collect(vm))
         print(f'REPORT={vm / "performance.json"}')
         return
-    flags=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE') if args.candidate=='hud-cache' else ('-DDOS_VGA_PACK_ALL',) if args.candidate=='pack-all' else ()
+    variants={'reference':(), 'pack-all':('-DDOS_VGA_PACK_ALL',),
+        'hud-cache':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE'),
+        'broadcast':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST')}
+    flags=variants[args.candidate]
     if args.run_vm:
         vm=args.run_vm.resolve(strict=True)
         manifest=json.loads((vm/'build.json').read_text())

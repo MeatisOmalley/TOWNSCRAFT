@@ -129,3 +129,18 @@ must retain separate writes. Coalesced matching row runs may save more ISA
 traffic than further CPU setup changes. Measure planning overhead, full-resolution
 regressions and actual framebuffer equality before selecting it. This is a
 system/code-specific priority, not simply following the supplied list.
+
+The selectable `--candidate broadcast` experiment now implements exact per-row
+pair/all-plane equality and coalesces runs using map masks 3, 12 or 15. It
+includes sharp single-pixel differences rather than assuming a doubled picture.
+Planning is disabled by the game-facing adapter when the existing full-resolution
+option is active; that path retains optimization 2. Both paths have independent
+native VGA-model coverage; the planner additionally has word/portable-path and
+randomized byte-oracle tests. Extra persistent run scratch: 5,760 B.
+
+The user also explicitly authorizes a 13h/chunky backend experiment if it shows
+a major benefit, while retaining Mode X as an option. Standard 13h is 320x200;
+our current display is 320x240 including its HUD. An isolated transport probe
+may compare bandwidth/conversion, but cropping/rearranging the UI is not implied
+permission. Also investigate ET4000 banked chunky 320x240 for a like-for-like
+layout. Do not retire the working Mode X/reference path.

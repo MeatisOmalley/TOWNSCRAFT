@@ -7,7 +7,8 @@ ZIG=ROOT.parents[1]/'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zi
 
 class VideoTransportTests(unittest.TestCase):
     def test_real_presenter_reference_and_all_plane_candidate(self):
-        for flags in ([],['-DDOS_VGA_PACK_ALL'],['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE']):
+        for flags in ([],['-DDOS_VGA_PACK_ALL'],['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE'],
+                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST']):
             with self.subTest(flags=flags),tempfile.TemporaryDirectory(prefix='doscraft-present-test-') as directory:
                 exe=Path(directory)/'test.exe'
                 command=[str(ZIG),'cc','-target','x86-windows-gnu','-O2','-Wall','-Wextra','-Werror',*flags,
@@ -15,6 +16,7 @@ class VideoTransportTests(unittest.TestCase):
                     str(ROOT/'tests/video_transport_test.c'),str(ROOT/'src/platform/dos/video.c'),
                     str(ROOT/'src/platform/dos/vga_pack.c'),str(ROOT/'src/platform/dos/vga_pack_all.c'),
                     str(ROOT/'src/platform/dos/vga_hud_cache.c'),
+                    str(ROOT/'src/platform/dos/vga_upload_plan.c'),
                     '-o',str(exe)]
                 process=subprocess.run(command,capture_output=True,text=True,timeout=120)
                 self.assertEqual(process.returncode,0,process.stderr)

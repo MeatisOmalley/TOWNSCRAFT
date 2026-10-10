@@ -3,6 +3,9 @@
 /* Bind the game's IRQ clock after PIT reprogramming. NULL restores the
  * standalone diagnostics' default BIOS/PIT uclock timebase. */
 void dos_video_set_tick_clock(volatile unsigned int *ticks, unsigned int rate);
+/* Performance hint only. Broadcast always proves exact row equality; disable
+ * planning for full-resolution views where adjacent pixels usually differ. */
+void dos_video_set_repeated_pixel_hint(int enabled);
 
 void video_init(void);
 void video_set_palette(int index, int red, int green, int blue);

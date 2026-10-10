@@ -45,12 +45,19 @@ int main(void)
     for(frame=0;frame<36;++frame) {
         pitch=frame%2?331:512;
         for(y=0;y<240;++y) for(x=0;x<320;++x)
-            source[1+y*pitch+x]=(unsigned char)(x*13+y*17+(y<200?frame:frame/9));
+            source[1+y*pitch+x]=(unsigned char)((y<200 && frame%3==0?x/2:x)*13+y*17+(y<200?frame:frame/9));
+        if(frame%3==0) source[1+110*pitch+127]^=1; /* Sharp one-pixel overlay. */
+        dos_video_set_repeated_pixel_hint(frame%3!=2);
         bytes_written=0;
         dos_video_present(source+1,pitch);
         assert(dos_video_verify(source+1,pitch)==0);
 #ifdef DOS_VGA_HUD_CACHE
+#ifdef DOS_VGA_BROADCAST
+        if(frame%3==0) assert(bytes_written<(frame%9>=3?64000u:76800u));
+        else assert(bytes_written==(frame%9>=3?64000u:76800u));
+#else
         assert(bytes_written==(frame%9>=3?64000u:76800u));
+#endif
 #else
         assert(bytes_written==76800);
 #endif

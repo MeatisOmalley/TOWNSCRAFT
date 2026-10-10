@@ -14,6 +14,22 @@
 #include "vga_pack.h"
 #include "video_backend.h"
 #include "bench_transport.h"
+#ifdef DOS_VGA_BROADCAST
+#if !defined(DOS_VGA_PACK_ALL) || !defined(DOS_VGA_HUD_CACHE)
+#error Broadcast requires all-plane packing and exact HUD caching
+#endif
+#include "vga_upload_plan.h"
+static struct DosVgaRun upload_runs[DOS_VGA_UPLOAD_MAX_RUNS];
+static int repeated_pixel_hint=1;
+#endif
+void dos_video_set_repeated_pixel_hint(int enabled)
+{
+#ifdef DOS_VGA_BROADCAST
+    repeated_pixel_hint=enabled!=0;
+#else
+    (void)enabled;
+#endif
+}
 #ifdef DOS_VGA_HUD_CACHE
 #include "vga_hud_cache.h"
 static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
@@ -146,6 +162,33 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOSCRAFT_BENCH
     dos_bench_pack+=bench_us()-stamp;
 #endif
+#endif
+#ifdef DOS_VGA_BROADCAST
+    if(repeated_pixel_hint) {
+        int count,r;
+#ifdef DOSCRAFT_BENCH
+        stamp=bench_us();
+#endif
+        count=dos_vga_upload_plan(packed,DOS_VGA_PLANE_BYTES,200,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);
+        if(count<0) { dos_video_restore(); fputs("Invalid VGA upload plan\n",stderr); exit(1); }
+        for(r=0;r<count;++r) {
+            const struct DosVgaRun *run=&upload_runs[r];
+            unsigned int row_offset=run->row*80u;
+            outportw(0x3c4,(run->mask<<8)|2);
+            dosmemput(packed+run->plane*DOS_VGA_PLANE_BYTES+row_offset,
+                      run->rows*80u,0xa0000+offset+row_offset);
+        }
+        for(plane=0;plane<4;++plane) {
+            const unsigned char *hud=packed+plane*DOS_VGA_PLANE_BYTES+200*80;
+            if(dos_vga_hud_changed(hud,hud_shadow[next_page][plane],DOS_VGA_HUD_CACHE_MAX_BYTES)) {
+                outportw(0x3c4,((1u<<plane)<<8)|2);
+                dosmemput(hud,DOS_VGA_HUD_CACHE_MAX_BYTES,0xa0000+offset+200*80);
+            }
+        }
+#ifdef DOSCRAFT_BENCH
+        dos_bench_upload+=bench_us()-stamp;
+#endif
+    } else
 #endif
     for (plane = 0; plane < 4; ++plane) {
         const unsigned char *plane_data;

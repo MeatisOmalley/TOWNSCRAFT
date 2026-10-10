@@ -43,6 +43,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None):
             names=(*names,'vga_pack_all.c')
         if '-DDOS_VGA_HUD_CACHE' in extra_adapter_flags:
             names=(*names,'vga_hud_cache.c')
+        if '-DDOS_VGA_BROADCAST' in extra_adapter_flags:
+            names=(*names,'vga_upload_plan.c')
         for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')

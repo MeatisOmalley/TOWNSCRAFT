@@ -3,6 +3,9 @@
  * presentation synchronously uploads one page to the tested VGA backend. */
 #include "gfx.h"
 #include "video_backend.h"
+#ifdef DOS_VGA_BROADCAST
+#include "render.h"
+#endif
 
 static u8 pages[3][FB_PITCH * SCR_H];
 static int back_page, presented_page;
@@ -22,6 +25,9 @@ void gfx_init(void)
 
 void gfx_present(void)
 {
+#ifdef DOS_VGA_BROADCAST
+    dos_video_set_repeated_pixel_hint(g_renderScale==2);
+#endif
     dos_video_present(g_fb, FB_PITCH);
     presented_page = back_page;
     back_page = (presented_page + 1) % 3;
