@@ -11,7 +11,7 @@ def compare(baseline,candidate,allowed_settings=(),image_review=None):
     image_review={} if image_review is None else image_review
     for report in (baseline,candidate):
         if len(report['results'])!=3: raise ValueError('Need three guest repeats')
-        if any(r['header'].get('f2b_verification') for r in report['results']):
+        if any(r['header'].get('f2b_verification') or r['header'].get('wall_verification') for r in report['results']):
             raise ValueError('Reference-redraw verification timings are not performance evidence')
         if any(r['header'].get('draw_profiling') for r in report['results']):
             raise ValueError('Sampling diagnostic timings are not performance evidence')

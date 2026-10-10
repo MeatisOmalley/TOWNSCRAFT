@@ -10,8 +10,16 @@ from build_imported import replace_once
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
-          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False):
+          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False):
     recipe=[]
+    if wall_verify and not wall_visibility:
+        raise ValueError('Wall verification requires its candidate')
+    if wall_visibility:
+        if front_to_back:
+            raise ValueError('Measure wall rejection separately from the losing coverage renderer')
+        import dos_wall_visibility
+        data,steps=dos_wall_visibility.adapt(name,data,verify=wall_verify)
+        recipe.extend(steps)
     if sum((trap_stable,trap_four,trap_zero_gradient,trap_destination))>1:
         raise ValueError('Measure trap probes independently before combining')
     if trap_four:

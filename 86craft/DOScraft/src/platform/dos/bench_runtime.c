@@ -73,6 +73,13 @@ static unsigned int edit_calls[PHASES][FRAMES];
 static BenchTotal packs[PHASES],uploads[PHASES],waits[PHASES],timeouts[PHASES];
 static BenchTotal pixels[PHASES],faces[PHASES],items[PHASES];
 static unsigned int hashes[PHASES];
+#ifdef DOS_WALL_VISIBILITY
+extern unsigned dos_wall_sources,dos_wall_tests,dos_wall_rejected;
+static unsigned wall_stats[PHASES][FRAMES][3];
+#ifdef DOS_WALL_VERIFY
+extern unsigned dos_wall_verify_frames,dos_wall_verify_failures;
+#endif
+#endif
 #ifdef DOS_BENCH_PROFILE_DRAW
 static unsigned profile_begin[PHASES],profile_end[PHASES];
 #endif
@@ -190,6 +197,9 @@ static void finish(void)
 {
     int p,f,s; char path[]="C:\\BENCH1.TXT"; FILE *file;
     int ok=vga_ok && !world_stream_error();
+#ifdef DOS_WALL_VERIFY
+    ok=ok && !dos_wall_verify_failures && dos_wall_verify_frames==PHASES*(WARM+FRAMES);
+#endif
 #ifdef DOS_F2B_VERIFY
     ok=ok && !dos_f2b_verify_failures &&
         dos_f2b_verify_frames+dos_f2b_verify_fallbacks==PHASES*(WARM+FRAMES);
@@ -206,6 +216,9 @@ static void finish(void)
     fprintf(file,"VERSION=2\nEDIT_TIMING=CALL_PLUS_FOLLOWING_FRAME\nSEED=4242\nSIMULATION=FROZEN_GRAPHICS_REPLAY\nSCALE=%d\nVIEW=%d\nFLAT=%d\nSUBDIV=%d\nOCCLUSION=%d\nGEN_MS=%u\nTICKS=%u\nRESULT=%s\n",
         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
     fprintf(file,"SAMPLES_PER_SCENE=%d\nMOTION_POLICY=REPEAT_32_MEASURED_POSES\n",FRAMES);
+#ifdef DOS_WALL_VERIFY
+    fprintf(file,"WALL_VERIFICATION=TIMINGS_INVALID\nWALL_VERIFY_FRAMES=%u\nWALL_VERIFY_FAILURES=%u\n",dos_wall_verify_frames,dos_wall_verify_failures);
+#endif
 #ifdef DOS_BENCH_DUMP_FRAMES
     fprintf(file,"FRAME_DUMPS=TIMINGS_DIAGNOSTIC_ONLY\n");
 #endif
@@ -228,6 +241,11 @@ static void finish(void)
         fprintf(file,"\nEDIT_CALLS=");
         for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
         fprintf(file,"\n");
+#ifdef DOS_WALL_VISIBILITY
+        fprintf(file,"WALL_SOURCES_TESTS_REJECTED_BY_FRAME=");
+        for(f=0;f<FRAMES;++f) fprintf(file,"%s%u,%u,%u",f?";":"",wall_stats[p][f][0],wall_stats[p][f][1],wall_stats[p][f][2]);
+        fprintf(file,"\n");
+#endif
 #ifdef DOS_BENCH_PROFILE_DRAW
         fprintf(file,"DRAW_SAMPLE_BEGIN=%u\nDRAW_SAMPLE_END=%u\n",profile_begin[p],profile_end[p]);
 #endif
@@ -247,6 +265,13 @@ void bench_frame(void)
 {
     extern u32 g_statPixels;
     unsigned int now=bench_us();
+#ifdef DOS_WALL_VISIBILITY
+    if(phase>=0 && frame>=WARM && frame<WARM+FRAMES) {
+        wall_stats[phase][frame-WARM][0]=dos_wall_sources;
+        wall_stats[phase][frame-WARM][1]=dos_wall_tests;
+        wall_stats[phase][frame-WARM][2]=dos_wall_rejected;
+    }
+#endif
     if(measured) {
         int n=frame-WARM;
         bench_mark(S_PRESENT);

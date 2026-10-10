@@ -890,7 +890,62 @@ justified. Retain it off. Raw paired evidence:
 `tests/benchmarks/2026-10-10/trap-stable-low.json`.
 
 Four-texel COFF code is 3,872 bytes (288-byte increase), with unchanged 32-byte
-BSS and eight original callee-save functions. Its Low guest timing is running.
+BSS and eight original callee-save functions. Low and High each complete three
+PASS repeats with matching final scene images. Low house 96.932 -> 95.878 ms
+(1.1% reduction); other Low scenes essentially neutral. High walk 110.597 ->
+109.017 ms (1.4%), down 252.361 -> 248.145 ms (1.7%), house 175.982 -> 171.239 ms
+(2.7%), edits 193.154 -> 188.412 ms (2.5%); static/up neutral. Each was isolated
+against the pre-ET four-flag codegen baseline, not combined transport timings.
+Paired raw evidence: `tests/benchmarks/2026-10-10/trap-four-low.json` and
+`trap-four-high.json`. Tail metrics are retained, but 96 samples per scene do
+not establish reliable 0.1% lows. Normal-game combined-transport verification
+is required before enabling this small invisible gain in production.
 The updated full host suite runs 271 tests successfully with two Windows
 symlink-permission skips. An isolated default rebuild remains byte-identical to
 the published ET4000 executable after all four renderer probes were added.
+
+## Directional wall rejection prototype (not a release default)
+
+The user prioritizes the unchanged house with its open doorway, not a modified
+sealed-room performance fixture. The incomplete sealed-room draft was rejected
+before integration; its known missing safety obligations are preserved under
+`research/sealed_room/`. No benchmark geometry was changed.
+
+`--candidate wall-visibility` instead constructs a bounded set of shadow cones
+from opaque quads already present in the collected painter list. Exact
+rectangular unions may join coplanar patches, never bridge a doorway. Texture
+zeros, models, dirty/unready/trimmed sources and near-clipped patches are not
+proof sources. Sources are rechecked each frame against publication readiness.
+Only farther terrain boxes wholly within one inset wall cone may skip projection,
+subdivision and raster setup; models/entities and the unculled painter list stay
+original. It does NOT yet skip collection or claim general portal connectivity.
+
+The core uses bounded 32-bit products, no screen mask, strict painter
+key ordering, inset patch edges and expanded target boxes. Native tests compare
+100,000 boxes against an independent double-precision ray/plane oracle, covering
+all wall axes/sides and a visible doorway. That proves the world-space predicate,
+not actual fixed-point raster coverage. `--verify-wall` redraws EVERY guest frame
+with rejection disabled and compares framebuffer bytes. Verification timings are
+explicitly invalid performance evidence and rejected by the comparison tool.
+Per-frame source/test/rejection counters are reported without changing the route.
+Guest verification, independent timing and normal gameplay gates remain pending;
+there is no measured wall speedup or production adoption yet.
+
+The first union-only prototype passes all 684 guest double-render frames on the
+unchanged Low replay, but a stronger native actual-render oracle finds a crack
+between wall rows (case 11177, camera 25708/5211/25726, yaw 59, pitch 21, +Z wall
+at cell 104). Four physical pixels (one doubled logical pixel) differ because
+the mathematical union is not always raster-opaque. This is not accepted as a
+visibility proof. Raw diagnostic evidence is retained in
+`tests/benchmarks/2026-10-10/wall-low-verify-v1-raw.json`; its timings are invalid.
+
+Revision 2 requires every target-box ray to intersect the inset interior of ONE
+wall grid cell, conservatively avoiding shared-face/subdivision seams. Only a
+box already passing the coarse cone incurs two seam-cell selection divisions;
+bounded product tests then certify all corners. This adds cost and reduces
+eligibility, so timing may reject the approach. Native independent ray/plane
+tests pass 100,000 boxes, source-selection tests keep doorway gaps and reject
+dirty/unknown/trimmed/alpha/model sources, and 3,647 actual raster cases from
+100,000 generated scenes preserve complete images and guards on both scales,
+all axes/sides and moving/rotating cameras. The original seam case is retained
+as a regression. Low revision-2 guest timing is in progress, not a claimed gain.

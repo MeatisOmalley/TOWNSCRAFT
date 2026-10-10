@@ -60,6 +60,9 @@ class CompareTests(unittest.TestCase):
 
     def test_reject_reference_redraw_timings(self):
         candidate=copy.deepcopy(self.evidence['candidate'])
+        candidate['results'][0]['header']['wall_verification']='TIMINGS_INVALID'
+        with self.assertRaises(ValueError): compare(self.evidence['baseline'],candidate)
+        candidate['results'][0]['header'].pop('wall_verification')
         candidate['results'][0]['header']['f2b_verification']='TIMINGS_INVALID'
         with self.assertRaises(ValueError): compare(self.evidence['baseline'],candidate)
         candidate['results'][0]['header'].pop('f2b_verification')
