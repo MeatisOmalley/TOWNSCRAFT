@@ -25,7 +25,7 @@ def parse(text):
         key,value=line.split('=',1)
         if key=='SCENE':
             row={'name':value}; scenes.append(row)
-        elif key in ('FRAMES','SECTIONS'):
+        elif key in ('FRAMES','SECTIONS','EDIT_CALLS'):
             row[key.lower()]=[int(x) for x in value.split(',')]
         else: row[key.lower()]=value
     if header.get('result')!='PASS' or len(scenes)!=6:
@@ -41,6 +41,16 @@ def parse(text):
         row['stage_mean_ms']={name:value/32000 for name,value in zip(SECTIONS,row['sections'])}
         row['transport_mean_ms']={name:int(row[name])/32000 for name in ('pack','upload','wait')}
         row['over_100ms']=sum(x>100000 for x in frames)
+        if header.get('version')=='2':
+            calls=row.get('edit_calls',[])
+            if len(calls)!=32 or any(x<0 or x>=10000000 for x in calls):
+                raise ValueError('Invalid edit-call samples')
+            if row['name']!='block_edits' and any(calls):
+                raise ValueError('Edit calls in a non-edit scene')
+            cycles=[a+b for a,b in zip(frames,calls)]
+            row['edit_call_mean_ms']=statistics.mean(calls)/1000
+            row['edit_cycle_summary_ms']={'mean':statistics.mean(cycles)/1000,
+                'p95':sorted(cycles)[30]/1000,'max':max(cycles)/1000}
     return {'header':header,'scenes':scenes}
 
 
@@ -68,8 +78,9 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','occlusion','zero-dx'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','occlusion','zero-dx','camera-reuse'),default='reference')
     parser.add_argument('--timeout',type=int,default=900)
+    parser.add_argument('--quality',choices=('low','medium','high'),default='low')
     parser.add_argument('--prepare-only',action='store_true')
     args=parser.parse_args()
     output=OUTPUT/args.label
@@ -86,8 +97,9 @@ def main():
         'hud-cache':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE'),
         'broadcast':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST'),
         'occlusion':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_BENCH_OCCLUSION'),
-        'zero-dx':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_RASTER_ZERO_DX')}
-    flags=variants[args.candidate]
+        'zero-dx':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_RASTER_ZERO_DX'),
+        'camera-reuse':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_CAMERA_REUSE')}
+    flags=(*variants[args.candidate],'-DDOS_BENCH_QUALITY='+str(('low','medium','high').index(args.quality)))
     if args.run_vm:
         vm=args.run_vm.resolve(strict=True)
         manifest=json.loads((vm/'build.json').read_text())

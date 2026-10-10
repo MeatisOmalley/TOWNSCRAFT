@@ -20,7 +20,9 @@ def compare(baseline,candidate,allowed_settings=()):
         new=[r['scenes'][i] for r in candidate['results']]
         for report in (baseline,candidate):
             for run in report['results']:
-                for key in ('version','seed','simulation','scale','view','flat','subdiv','occlusion'):
+                keys=('version','seed','simulation','scale','view','flat','subdiv','occlusion')
+                if baseline['results'][0]['header']['version']=='2': keys+=('edit_timing',)
+                for key in keys:
                     if run['header'][key]!=report['results'][0]['header'][key]:
                         raise ValueError('Different settings within repeats: '+key)
                     if key not in allowed_settings and run['header'][key]!=baseline['results'][0]['header'][key]:
@@ -40,9 +42,16 @@ def compare(baseline,candidate,allowed_settings=()):
 
 
 def compact(report):
-    return {'manifest':report['manifest'],'build':{key:report['build'].get(key) for key in
+    result={'manifest':report['manifest'],'build':{key:report['build'].get(key) for key in
         ('source_commit','exe_sha256','benchmark','extra_adapter_flags','objects','link_command')},
         'results':report['results'],'note':report['note']}
+    # Renderer overlays must retain staged-source recipes and object hashes,
+    # not just adapter hashes/flags or the immutable upstream commit identity.
+    imported=report['build'].get('imported')
+    if imported:
+        result['build']['imported']={key:imported.get(key) for key in
+            ('source_commit','cflags','compiler_sha256','compiler_version','files','generated','objects')}
+    return result
 
 
 def main():

@@ -234,3 +234,10 @@ The original painter remains the image reference and safe fallback. Introduce
 an independent coverage/depth reference before enabling a larger renderer
 rewrite, and test buildings/doorways, seams, moving models, transparent texels
 and edits. Substantial changes to visible geometry or gameplay need approval.
+
+The next-step design is `FRONT_TO_BACK.md`. Coverage tests are a correctness
+scaffold, not enabled gameplay code or a measured speedup. Replay version 2
+records `EDIT_CALLS` and call-plus-following-frame summaries. `--quality
+low|medium|high` uses the normal game's adaptive preset table. Compare version 2
+only with fresh version-2 baselines at the same profile; version-1 evidence
+remains historical, not silently rewritten.

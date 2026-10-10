@@ -16,6 +16,9 @@
 #include "hdd_backend.h"
 #include "save_backend.h"
 #include "video_backend.h"
+#ifdef DOS_BENCH_QUALITY
+#include "graphics_presets.h"
+#endif
 #include <pc.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +30,7 @@ u32 g_benchOut[BO_COUNT],g_benchSec[2][S_N],g_benchCnt[S_N];
 int g_benchFreeze=1;
 unsigned int dos_bench_pack,dos_bench_upload,dos_bench_wait,dos_bench_timeouts;
 static unsigned int times[PHASES][FRAMES],sections[PHASES][10];
+static unsigned int edit_calls[PHASES][FRAMES];
 static unsigned int packs[PHASES],uploads[PHASES],waits[PHASES],timeouts[PHASES];
 static unsigned int pixels[PHASES],faces[PHASES],items[PHASES],hashes[PHASES];
 static unsigned int tick0,lo0,acc,secmark,last;
@@ -103,13 +107,15 @@ static void finish(void)
     dos_save_shutdown(); dos_hdd_shutdown(); dos_system_shutdown(); dos_video_restore();
     outportb(0x61,old61);
     path[8]=(char)('0'+run); file=fopen(path,"wb"); if(!file) exit(1);
-    fprintf(file,"VERSION=1\nSEED=4242\nSIMULATION=FROZEN_GRAPHICS_REPLAY\nSCALE=%d\nVIEW=%d\nFLAT=%d\nSUBDIV=%d\nOCCLUSION=%d\nGEN_MS=%u\nTICKS=%u\nRESULT=%s\n",
+    fprintf(file,"VERSION=2\nEDIT_TIMING=CALL_PLUS_FOLLOWING_FRAME\nSEED=4242\nSIMULATION=FROZEN_GRAPHICS_REPLAY\nSCALE=%d\nVIEW=%d\nFLAT=%d\nSUBDIV=%d\nOCCLUSION=%d\nGEN_MS=%u\nTICKS=%u\nRESULT=%s\n",
         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
     for(p=0;p<PHASES;++p) {
         fprintf(file,"SCENE=%s\nPACK=%u\nUPLOAD=%u\nWAIT=%u\nTIMEOUTS=%u\nPIXELS=%u\nFACES=%u\nITEMS=%u\nHASH=%08x\nFRAMES=",names[p],packs[p],uploads[p],waits[p],timeouts[p],pixels[p],faces[p],items[p],hashes[p]);
         for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",times[p][f]);
         fprintf(file,"\nSECTIONS=");
         for(s=0;s<10;++s) fprintf(file,"%s%u",s?",":"",sections[p][s]);
+        fprintf(file,"\nEDIT_CALLS=");
+        for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
         fprintf(file,"\n");
     }
     if(ferror(file) || fclose(file)) exit(1);
@@ -140,6 +146,12 @@ void bench_frame(void)
     if(phase<0) {
         sx=g_player.body.x/FU; sz=g_player.body.z/FU; sy=world_surface_y(sx,sz);
         g_renderScale=2; g_viewDist=8; g_flatDist=0; g_distanceMode=0;
+#ifdef DOS_BENCH_QUALITY
+        const DosGraphicsSettings *quality=dos_graphics_settings(DOS_BENCH_QUALITY);
+        g_renderScale=quality->render_scale; g_viewDist=quality->view_distance;
+        g_flatDist=quality->flat_distance; g_distanceMode=quality->distance_mode;
+        g_textureSubdivision=quality->texture_subdivision;
+#endif
 #ifdef DOS_BENCH_OCCLUSION
         g_occlusion=1;
 #endif
@@ -160,7 +172,12 @@ void bench_frame(void)
     if(phase>=4) {
         g_player.body.z=sz*FU+FU/2; g_player.body.y=(sy+1)*FU; g_player.pitch=-20;
         g_player.yaw=frame*16;
-        if(phase==5) world_set(sx+2,sy+2,sz,(frame&1)?B_AIR:B_STONE);
+        if(phase==5) {
+            unsigned int edit_start=bench_us();
+            world_set(sx+2,sy+2,sz,(frame&1)?B_AIR:B_STONE);
+            unsigned int duration=bench_us()-edit_start;
+            if(frame>=WARM) edit_calls[phase][frame-WARM]=duration;
+        }
     }
     g_player.body.vx=g_player.body.vy=g_player.body.vz=0;
     measured=frame>=WARM; dos_bench_pack=dos_bench_upload=dos_bench_wait=dos_bench_timeouts=0;

@@ -35,6 +35,18 @@ class BenchmarkTests(unittest.TestCase):
         for text in ('RESULT=FAIL\n',self.fixture().replace('100000','0')):
             with self.assertRaises(ValueError): parse(text)
 
+    def test_separate_edit_call_and_frame_latency(self):
+        text='VERSION=2\n'+self.fixture().replace('SCENE=5','SCENE=block_edits')
+        for n in range(6):
+            name='block_edits' if n==5 else str(n)
+            calls=','.join(['2000' if n==5 else '0']*32)
+            text=text.replace('SCENE='+name+'\n','SCENE='+name+'\nEDIT_CALLS='+calls+'\n')
+        result=parse(text)
+        self.assertEqual(result['scenes'][5]['edit_call_mean_ms'],2)
+        self.assertEqual(result['scenes'][5]['edit_cycle_summary_ms']['mean'],102)
+        with self.assertRaises(ValueError): parse(text.replace('EDIT_CALLS=0','EDIT_CALLS=2000',1))
+        with self.assertRaises(ValueError): parse('VERSION=2\n'+self.fixture())
+
     def test_no_keyboard_three_guarded_processes(self):
         script=startup(benchmark=True)
         self.assertIn(b'DOSCRAFT /1\r\nIF ERRORLEVEL 1',script)

@@ -36,7 +36,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         report['extra_adapter_flags']=list(extra_adapter_flags)
         report['graphics_presets']=graphics
         raster_zero_dx='-DDOS_RASTER_ZERO_DX' in extra_adapter_flags
-        transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,raster_zero_dx=raster_zero_dx)
+        camera_reuse='-DDOS_CAMERA_REUSE' in extra_adapter_flags
+        transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
+            raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,'-I',str(ROOT/'src/platform/dos')),source_transform=transform)
         platform=adapters.stage(output/'platform')
@@ -45,7 +47,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         objects=[output/'imported'/row['path'] for row in portable['objects']]
         objdir=output/'obj'; objdir.mkdir(exist_ok=True)
         names=tuple('bench_runtime.c' if name=='game_runtime.c' else name for name in GAME_ADAPTERS) if benchmark else GAME_ADAPTERS
-        if graphics: names=(*names,'graphics_presets.c')
+        if graphics or any(flag.startswith('-DDOS_BENCH_QUALITY=') for flag in extra_adapter_flags):
+            names=(*names,'graphics_presets.c')
         if '-DDOS_VGA_PACK_ALL' in extra_adapter_flags:
             names=(*names,'vga_pack_all.c')
         if '-DDOS_VGA_HUD_CACHE' in extra_adapter_flags:
