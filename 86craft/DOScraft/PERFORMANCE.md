@@ -656,3 +656,28 @@ pass 24,000 full polygon images and 16,000 direct trapezoids, including signed
 deltas, zero/nonzero quantized gradients, skip rows, both scales, clipping,
 cutouts, buffer guards and final mutated Trap state. Guest performance is
 unmeasured, the flag stays off, and this is checkpointed rather than adopted.
+
+## Independent row-setup experiment: destination register reuse
+
+`--candidate trap-destination` is separate from both ET4000 and zero-gradient
+probes. Form the accepted row's destination in EDI immediately; the original
+gradient and clipped-prestep code never touches EDI. Remove the later duplicate
+destination setup and the `rowX` store/load. In the left-clipped branch, the
+already-clamped row X is necessarily zero, so use the identical `0x8000`
+pixel-center offset directly. No new branches, cache keys, stack slots, UV
+arithmetic, texture addressing, visibility policy or quality changes.
+
+Actual i486 DJGPP COFF disassembly confirms early destination setup and the
+unchanged multiply/prestep/texel operations. The original 72-byte Trap ABI,
+callee saves and eight entry points remain. Keep the unused four-byte `rowX`
+BSS slot for now, avoiding an unrelated scratch-layout change. This removes
+two/three instructions per visible scale-1/scale-2 row and two additional
+instructions when left-clipped, but instruction counts are not a speed result.
+
+Separately linked original/candidate assembly passes 24,000 full polygon
+images and 16,000 direct trapezoids, comparing every framebuffer byte, guards,
+pixel counters and final Trap state. Direct cases also vary shaded tile
+offsets, signed UVs, zero/nonzero quantized gradients, widths, clipped/empty
+rows and both scales. Native tests cover each probe independently. Low guest
+measurement is underway, High is prepared but unlaunched. Defaults and
+published ISO remain unchanged pending correctness and target measurements.

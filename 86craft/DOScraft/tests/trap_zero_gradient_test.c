@@ -32,7 +32,7 @@ int main(void)
         int scale=1+(k&1),maxX=320/scale,x=(k>=4)?(int)(next()%400)-100:0;
         int width=1+next()%400;
         Trap t={a+16,512,1+(int)(next()%64),x*65536,0,0,0,0,0,
-            (x+width)*65536,0,0,0,0,0,tile,maxX,0},r;
+            (x+width)*65536,0,0,0,0,0,tile+(i%16)*16,maxX,0},r;
         if(i==0) t.rows=0;
         if(k<4) {
             t.rx=width*65536; t.ru=(i&1)?15*65536-1:255;

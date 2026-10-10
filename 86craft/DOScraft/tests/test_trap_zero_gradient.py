@@ -34,12 +34,38 @@ class TrapZeroGradientTests(unittest.TestCase):
 
     @unittest.skipUnless(ZIG.is_file(),'Native x86 Zig unavailable')
     def test_original_and_separate_candidate_traps_exact_images(self):
+        self.assembly_parity(trap_zero_gradient=True)
+
+    @unittest.skipUnless(ZIG.is_file(),'Native x86 Zig unavailable')
+    def test_destination_reuse_original_and_separate_traps_exact_images(self):
+        self.assembly_parity(trap_destination=True)
+
+    def test_destination_overlay_is_optional_exact_and_replayable(self):
+        for name in imported.SELECTED:
+            original=(imported.VENDOR/'src'/name).read_bytes()
+            candidate,recipe=dos_sources.adapt(name,original,trap_destination=True)
+            replay=original
+            for step in recipe:
+                old,new=step['before'].encode(),step['after'].encode()
+                self.assertEqual(replay.count(old),step['count'])
+                replay=replay.replace(old,new)
+            self.assertEqual(candidate,replay)
+            if name=='trap.S':
+                self.assertNotEqual(candidate,original)
+                self.assertEqual(candidate.count(b'rowX'),1,'Only unused BSS slot retained')
+                self.assertEqual(candidate.count(b'\timull\t%ecx,%eax'),2)
+                self.assertEqual(candidate.count(b'\timull\t%ebx,%eax'),2)
+            else: self.assertEqual((candidate,recipe),(original,[]))
+        with self.assertRaises(ValueError):
+            dos_sources.adapt('trap.S',b'unexpected',trap_destination=True)
+
+    def assembly_parity(self, **options):
         with tempfile.TemporaryDirectory(prefix='doscraft-trap-zero-') as directory:
             folder=Path(directory)
             imported.stage_sources(imported.VENDOR,folder/'imported')
             src=folder/'imported/src'
             original=(src/'trap.S').read_bytes()
-            candidate,recipe=dos_sources.adapt('trap.S',original,trap_zero_gradient=True)
+            candidate,recipe=dos_sources.adapt('trap.S',original,**options)
             self.assertTrue(recipe)
             reference=original
             for symbol in imported.TRAP_SYMBOLS:

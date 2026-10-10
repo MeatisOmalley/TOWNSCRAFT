@@ -47,10 +47,11 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         front_to_back='-DDOS_FRONT_TO_BACK' in extra_adapter_flags
         edge_recip='-DDOS_EDGE_RECIP' in extra_adapter_flags
         trap_zero_gradient='-DDOS_TRAP_ZERO_GRADIENT' in extra_adapter_flags
+        trap_destination='-DDOS_TRAP_DESTINATION' in extra_adapter_flags
         transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
             raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster,
             early_split_cull=early_split_cull,front_to_back=front_to_back,edge_recip=edge_recip,
-            trap_zero_gradient=trap_zero_gradient)
+            trap_zero_gradient=trap_zero_gradient,trap_destination=trap_destination)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)

@@ -10,8 +10,26 @@ from build_imported import replace_once
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
-          trap_zero_gradient=False):
+          trap_zero_gradient=False, trap_destination=False):
     recipe=[]
+    if name=='trap.S' and trap_destination:
+        text=data.decode('utf-8')
+        if '\r\n' in text:
+            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
+            text=text.replace('\r\n','\n')
+        text=replace_once(text,'\tmovl\t%eax,rowX\n',
+            '\t/* EDI is unused by gradient/prestep setup. Keep the exact destination. */\n'
+            '\tmovl\tT_ROW(%ebp),%edi\n'
+            '\t.if \\SCALE==2\n\tleal\t(%edi,%eax,2),%edi\n'
+            '\t.else\n\taddl\t%eax,%edi\n\t.endif\n',recipe)
+        text=replace_once(text,
+            '\tmovl\trowX,%eax\n\tshll\t$16,%eax\n\taddl\t$0x8000,%eax\n',
+            '\t/* Left-clipped xl was clamped to zero above. */\n\tmovl\t$0x8000,%eax\n',recipe)
+        text=replace_once(text,
+            '\t/* Destination */\n\tmovl\tT_ROW(%ebp),%edi\n\tmovl\trowX,%eax\n'
+            '\t.if \\SCALE==2\n\taddl\t%eax,%edi\n\t.endif\n\taddl\t%eax,%edi\n',
+            '\t/* Destination already held in EDI; texture setup did not touch it. */\n',recipe)
+        data=text.encode('utf-8')
     if name=='trap.S' and trap_zero_gradient:
         text=data.decode('utf-8')
         if '\r\n' in text:
