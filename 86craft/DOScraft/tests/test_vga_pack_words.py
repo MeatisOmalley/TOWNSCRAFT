@@ -101,10 +101,11 @@ class VgaPackWordsNativeTests(unittest.TestCase):
                 raise unittest.SkipTest('Native C compiler unavailable')
             compilers = {'native': [native]}
         for architecture, compiler in compilers.items():
-            for portable in (False, True):
-                name = architecture + ('-portable' if portable else '-default')
+            variants = [('default', []), ('portable', ['-DDOS_VGA_PACK_WORDS_PORTABLE'])]
+            if architecture == 'i386': variants.append(('c-transpose', ['-DDOS_VGA_PACK_WORDS_C_TRANSPOSE']))
+            for variant, defines in variants:
+                name = architecture + '-' + variant
                 executable = Path(temporary.name) / (name + '.exe')
-                defines = ['-DDOS_VGA_PACK_WORDS_PORTABLE'] if portable else []
                 run([*compiler, '-std=c99', '-O2', '-fno-builtin', '-fstrict-aliasing',
                      '-Wall', '-Wextra', '-Werror', *defines, '-I', DOS,
                      ROOT / 'tests/vga_pack_words_test.c', DOS / 'vga_pack_words.c',
@@ -151,6 +152,7 @@ class VgaPackWordsDjgppTests(unittest.TestCase):
             costs = {}
             for name, source, defines in (
                 ('words', 'vga_pack_words.c', []),
+                ('c-transpose', 'vga_pack_words.c', ['-DDOS_VGA_PACK_WORDS_C_TRANSPOSE']),
                 ('portable', 'vga_pack_words.c', ['-DDOS_VGA_PACK_WORDS_PORTABLE']),
                 ('original', 'vga_pack_all.c', []),
             ):

@@ -11,6 +11,7 @@
  * pointer, short pitch or short capacity, before reading/writing buffers.
  * GNU i386 uses an i486 register transpose; other targets use C XOR swaps.
  * Define DOS_VGA_PACK_WORDS_PORTABLE to force byte-only C word accesses.
+ * DOS_VGA_PACK_WORDS_C_TRANSPOSE retains word accesses but forces XOR swaps.
  * Performance/adoption requires guest timing; native parity is not a speed test.
  * Source allocation must cover (239 * pitch + 320) bytes; like the original,
  * this interface cannot check allocation size or pointer arithmetic overflow.

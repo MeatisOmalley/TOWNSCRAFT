@@ -47,7 +47,7 @@ int dos_vga_pack_words(const unsigned char *source, unsigned int pitch,
             uint32_t a = load_word(row), b = load_word(row + 4);
             uint32_t c = load_word(row + 8), d = load_word(row + 12);
 #if defined(__GNUC__) && defined(__i386__) && \
-    !defined(DOS_VGA_PACK_WORDS_PORTABLE)
+    !defined(DOS_VGA_PACK_WORDS_PORTABLE) && !defined(DOS_VGA_PACK_WORDS_C_TRANSPOSE)
             /* All four byte-addressable i486 registers hold one source word.
              * xchg ah,bl swaps a1/b0; rotations expose a3/b2 for the same
              * exchange, then restore byte order. Repeat for c/d. Finally

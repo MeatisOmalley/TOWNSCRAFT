@@ -422,3 +422,16 @@ Instruction counts alone do not establish a speedup; Low guest timing and
 image/readback checks are the adoption gate. The normal executable rebuilt
 byte-identically after both new experimental backends; the launcher validates
 from `C:\Windows`. No playable ISO/default flag changes at this checkpoint.
+
+Three Low guest repeats match all images/readbacks but regress: packing grows
+from about 8.72 to 14.28 ms; walking 58.422 -> 64.924 ms, down 137.999 ->
+143.270 ms, house 98.513 -> 101.675 ms, up 54.208 -> 57.369 ms. The actual
+rotates/exchanges cost more on this target despite the lower instruction count.
+Evidence is retained in `tests/benchmarks/2026-10-10/pack-words-low.json`.
+Keep the experiment disabled; no High justification for a clear Low loss.
+
+`--candidate pack-words-c` independently retains dword memory accesses but uses
+C XOR/shift swaps instead of register exchanges. It additionally passes all
+i386 native parity/boundary tests. The DJGPP loop has 51 instructions and 11
+stack accesses per 16 pixels: register spills are a concern, not a demonstrated
+improvement. Guest performance remains unmeasured; this is a recoverable probe.
