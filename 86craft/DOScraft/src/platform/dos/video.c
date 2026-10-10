@@ -51,6 +51,7 @@ static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
  * Restore bank zero/unchained access before any normal path or readback. */
 static unsigned char chunky_hud[3][40*320];
 static unsigned char planar_hud_valid[3],chunky_hud_valid[3];
+#ifndef DOS_ET4000_STRIDED
 static void et4000_upload(const unsigned char *data,unsigned int bytes,unsigned int address)
 {
     outportw(0x3c4,0x0e04); /* CPU chain-4; odd/even remains disabled. */
@@ -66,6 +67,36 @@ static void et4000_upload(const unsigned char *data,unsigned int bytes,unsigned 
     outportb(0x3cd,0);
     outportw(0x3c4,0x0604);
 }
+#else
+/* Optional direct row upload: avoid gathering 76,800 bytes in system RAM.
+ * CPU chain-4 state is set once; bank switches happen only at a crossing,
+ * including crossings INSIDE a row. Pitched source padding is never copied. */
+static void et4000_upload_rows(const unsigned char *data,unsigned int pitch,
+                              unsigned int rows,unsigned int address)
+{
+    unsigned int row,current_bank=~0u;
+    outportw(0x3c4,0x0e04);
+    outportw(0x3c4,0x0f02);
+    for(row=0;row<rows;++row) {
+        const unsigned char *source=data+(size_t)row*pitch;
+        unsigned int bytes=320;
+        while(bytes) {
+            unsigned int offset=address&65535u,count=65536u-offset;
+            unsigned int next_bank=(address>>16)&15u;
+            if(count>bytes) count=bytes;
+            if(next_bank!=current_bank) { outportb(0x3cd,next_bank); current_bank=next_bank; }
+            dosmemput(source,count,0xa0000+offset);
+            source+=count;address+=count;bytes-=count;
+        }
+    }
+    outportb(0x3cd,0);
+    outportw(0x3c4,0x0604);
+}
+#endif
+#endif
+
+#if defined(DOS_ET4000_STRIDED) && !defined(DOS_ET4000_CHUNKY)
+#error Direct pitched upload requires the ET4000 chunky path
 #endif
 
 static int old_mode = -1;
@@ -208,6 +239,7 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOSCRAFT_BENCH
         stamp=bench_us();
 #endif
+#ifndef DOS_ET4000_STRIDED
         for(y=0;y<240;++y) memcpy(packed+y*320,source+(size_t)y*pitch,320);
         changed=!chunky_hud_valid[next_page] ||
             memcmp(packed+200*320,chunky_hud[next_page],40*320)!=0;
@@ -215,11 +247,24 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
             memcpy(chunky_hud[next_page],packed+200*320,40*320);
             bytes=320*240;
         }
+#else
+        changed=!chunky_hud_valid[next_page];
+        for(y=0;!changed && y<40;++y)
+            changed=memcmp(source+(size_t)(y+200)*pitch,chunky_hud[next_page]+y*320,320)!=0;
+        if(changed) {
+            for(y=0;y<40;++y) memcpy(chunky_hud[next_page]+y*320,source+(size_t)(y+200)*pitch,320);
+            bytes=320*240;
+        }
+#endif
 #ifdef DOSCRAFT_BENCH
         dos_bench_pack+=bench_us()-stamp;
         stamp=bench_us();
 #endif
+#ifndef DOS_ET4000_STRIDED
         et4000_upload(packed,bytes,offset*4);
+#else
+        et4000_upload_rows(source,pitch,bytes/320,offset*4);
+#endif
         chunky_hud_valid[next_page]=1;
         planar_hud_valid[next_page]=0;
 #ifdef DOSCRAFT_BENCH

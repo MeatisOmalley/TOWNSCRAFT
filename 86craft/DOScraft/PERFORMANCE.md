@@ -949,3 +949,22 @@ dirty/unknown/trimmed/alpha/model sources, and 3,647 actual raster cases from
 100,000 generated scenes preserve complete images and guards on both scales,
 all axes/sides and moving/rotating cameras. The original seam case is retained
 as a regression. Low revision-2 guest timing is in progress, not a claimed gain.
+
+## Optional direct pitched ET4000 upload
+
+`--candidate et4000-strided` is a separate follow-up to the already accepted
+High banked path. It uploads the pitched system-RAM framebuffer directly,
+row-by-row, instead of gathering all 240 rows into a contiguous staging buffer.
+Only an actual 64 KiB crossing changes banks (including an inside-row crossing);
+CPU chain-4 state is set/restored once per frame. Unchanged per-page HUD rows are
+not uploaded; changed HUD rows refresh the shadow exactly. Low/Medium retain
+their original planar/broadcast path. No Mode X timing, view/HUD geometry,
+palette, graphics-preset or gameplay changes.
+
+Native actual-presenter tests pass all pages and bytes against an independent
+four-plane/banked memory model, unaligned sources with pitches 331/512, alternating
+access paths, changed/unchanged HUDs, visible/other-page guards and bank restoration.
+At most three bank writes occur on a chunky frame, not one per row. More small
+`dosmemput` calls may erase the saved RAM-copy cost; guest High timing/readback,
+Low regression screening and combined normal-game smoke are required. The
+candidate is prepared but not a production default or a measured speedup yet.

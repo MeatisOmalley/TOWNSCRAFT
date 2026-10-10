@@ -11,7 +11,7 @@
 static unsigned char vram[4][65536],source[512*240+4];
 static unsigned char before[4][65536];
 static unsigned int mask=15,readplane,index,start_hi,start_lo,retrace,bytes_written;
-static unsigned int chain4,bank;
+static unsigned int chain4,bank,bank_writes;
 int __dpmi_int(int n,__dpmi_regs *r) { assert(n==0x10); r->h.al=3; return 0; }
 uclock_t uclock(void) { static uclock_t t; return ++t; }
 unsigned char inportb(unsigned int p)
@@ -23,7 +23,7 @@ unsigned char inportb(unsigned int p)
 }
 void outportb(unsigned int p,unsigned int v) {
     if(p==0x3d4) index=v;
-    if(p==0x3cd) { assert(v<4); bank=v; }
+    if(p==0x3cd) { assert(v<4); bank=v; ++bank_writes; }
 }
 void outportw(unsigned int p,unsigned int v)
 {
@@ -69,9 +69,13 @@ int main(void)
 #endif
         dos_video_set_repeated_pixel_hint(hint);
         bytes_written=0;
+        bank_writes=0;
         memcpy(before,vram,sizeof(before));
         dos_video_present(source+1,pitch);
         assert(!chain4 && !bank);
+#ifdef DOS_ET4000_STRIDED
+        if(!hint) assert(bank_writes<=3); /* Not a bank switch per scanline. */
+#endif
         assert(dos_video_verify(source+1,pitch)==0);
 #ifdef DOS_ET4000_CHUNKY
         /* Switching access paths can require refreshing a stale page HUD.

@@ -93,12 +93,13 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','trap-zero-gradient','trap-destination','trap-stable','trap-four','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
     parser.add_argument('--timeout',type=int,help='Host timeout seconds; default 900 for short runs, increased for long runs')
     parser.add_argument('--quality',choices=('low','medium','high'),default='low')
     parser.add_argument('--frames',type=int,default=32,help='Measured frames per scene per repeat (32..10000); 10000 recommended for tail metrics')
     parser.add_argument('--prepare-only',action='store_true')
     parser.add_argument('--verify-f2b',action='store_true',help='Redraw every frame with the original painter; correctness only, timings invalid')
+    parser.add_argument('--verify-wall',action='store_true',help='Double-render every frame without wall rejection; correctness only, timings invalid')
     parser.add_argument('--f2b-stress',action='store_true',help='Verification-only cutout/model/overflow stress fixtures')
     parser.add_argument('--profile-draw',action='store_true',help='Guest IRQ0 EIP samples during drawing; diagnostic timings only')
     parser.add_argument('--dump-frames',action='store_true',help='Capture final scene frames to the private HDD; diagnostic timings only')
@@ -123,12 +124,14 @@ def main():
         'pack-words-c':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_VGA_PACK_WORDS','-DDOS_VGA_PACK_WORDS_C_TRANSPOSE'),
         'omit-frame':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer'),
         'et4000-chunky':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY'),
+        'et4000-strided':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED'),
         'trap-zero-gradient':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_TRAP_ZERO_GRADIENT'),
         'trap-destination':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_TRAP_DESTINATION'),
         'split-reuse':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_SPLIT_REUSE'),
         'depth-adaptive':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_DEPTH_ADAPTIVE'),
         'trap-stable':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_TRAP_STABLE'),
         'trap-four':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_TRAP_FOUR'),
+        'wall-visibility':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_WALL_VISIBILITY'),
         'occlusion':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_BENCH_OCCLUSION'),
         'zero-dx':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_RASTER_ZERO_DX'),
         'camera-reuse':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_CAMERA_REUSE'),
@@ -142,6 +145,9 @@ def main():
     if args.verify_f2b:
         if args.candidate not in ('front-to-back','front-to-back-fast'): parser.error('--verify-f2b needs a front-to-back candidate')
         flags=(*flags,'-DDOS_F2B_VERIFY')
+    if args.verify_wall:
+        if args.candidate!='wall-visibility': parser.error('--verify-wall needs the wall-visibility candidate')
+        flags=(*flags,'-DDOS_WALL_VERIFY')
     if args.f2b_stress:
         if not args.verify_f2b: parser.error('--f2b-stress needs --verify-f2b')
         flags=(*flags,'-DDOS_F2B_STRESS')
