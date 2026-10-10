@@ -87,6 +87,14 @@ comparison now includes average FPS, slow-tail FPS and sample-support flags;
 
 Next bounded probes should include both invisible and quality-gated options:
 
+- Independently reuse the accepted word-wise HUD identity helper for the
+  banked High path. The current chunky HUD check uses the imported byte-loop
+  `memcmp` over 12,800 bytes; direct-row timing still spends about 5.2 ms in
+  the pack/HUD section on its first repeat. Four 3,200-byte helper calls for
+  the staged path (or 40 exact 320-byte row calls for a pitched path) could
+  reduce that cost without visual or hardware changes. Do not combine it with
+  the direct-row trial before independent measurement. Existing helper tests
+  cover unaligned loads, no-overread guards, changed bytes and exact shadows.
 - Parent-local shared-corner projection reuse was implemented and tested but
   worsens Low down timing by 0.8%; preserve its checkpoint off. The bounded
   depth-aware 2x2 opaque adaptive-leaf quality probe is also neutral; it does not
