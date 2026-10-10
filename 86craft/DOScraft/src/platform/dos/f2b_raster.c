@@ -37,6 +37,74 @@ static struct DosCoverageSpans coverage;
 static unsigned char *target;
 static int target_w, target_h, target_scale, target_stride, target_shift;
 
+#ifdef DOS_F2B_FAST_COVERAGE
+/* Private hot path: begin has validated state; callers clip spans first.
+ * Keep the checked public kernel as the independently selectable reference.
+ * Counts advance ONLY on proven first opaque writes, including point writes.
+ * A complete row permits constant-time rejection, but never claims a bbox. */
+static unsigned short row_claimed[DOS_COVERAGE_MAX_HEIGHT];
+
+static inline unsigned coverage_mask(int left, int right)
+{ return UINT_MAX << left & UINT_MAX >> (32 - right); }
+
+static inline int coverage_seek(const unsigned *row, int left, int right, int covered)
+{
+    while (left < right) {
+        int base = left & ~31, end = right - base;
+        unsigned bits = covered ? row[left >> 5] : ~row[left >> 5];
+        if (end > 32) end = 32;
+        bits &= coverage_mask(left - base, end);
+        if (bits) return base + __builtin_ctz(bits);
+        left = base + end;
+    }
+    return right;
+}
+
+static inline int coverage_run(int y, int left, int right, int32_t *a, int32_t *b)
+{
+    const unsigned *row;
+    int start;
+    if (y < 0 || y >= coverage.height) return -1;
+    if (left >= right || row_claimed[y] == coverage.width) return 0;
+    if (!row_claimed[y]) { *a = left; *b = right; return 1; }
+    row = coverage.words + y * coverage.row_stride;
+    start = coverage_seek(row, left, right, 0);
+    if (start == right) return 0;
+    *a = start; *b = coverage_seek(row, start, right, 1);
+    return 1;
+}
+
+static inline void coverage_claim(int y, int left, int right)
+{
+    unsigned *row = coverage.words + y * coverage.row_stride;
+    row_claimed[y] += (unsigned short)(right - left);
+    while (left < right) {
+        int base = left & ~31, end = right - base;
+        if (end > 32) end = 32;
+        row[left >> 5] |= coverage_mask(left - base, end);
+        left = base + end;
+    }
+}
+
+static inline int coverage_hidden(int y, int left, int right)
+{
+    const unsigned *row;
+    if (row_claimed[y] == coverage.width) return 1;
+    if (!row_claimed[y]) return 0;
+    row = coverage.words + y * coverage.row_stride;
+    while (left < right) {
+        int base = left & ~31, end = right - base;
+        if (end > 32) end = 32;
+        if (~row[left >> 5] & coverage_mask(left - base, end)) return 0;
+        left = base + end;
+    }
+    return 1;
+}
+#else
+#define coverage_run(y, left, right, a, b) dos_coverage_find_run(&coverage, y, left, right, a, b)
+#define coverage_claim(y, left, right) dos_coverage_mark_span(&coverage, y, left, right)
+#endif
+
 void dos_f2b_set_target(unsigned char *fb, int w, int h, int pitch, int scale)
 {
     unsigned stride;
@@ -59,6 +127,9 @@ int dos_f2b_begin(int w, int h)
     memset(&dos_f2b_stats, 0, sizeof(dos_f2b_stats));
     if (!target_stride || w != target_w || h != target_h) return 0;
     if (dos_coverage_reset(&coverage, w, h) != 1) return 0;
+#ifdef DOS_F2B_FAST_COVERAGE
+    memset(row_claimed, 0, (size_t)h * sizeof(*row_claimed));
+#endif
     dos_f2b_active = 1;
     return 1;
 }
@@ -74,7 +145,9 @@ int dos_f2b_full(void)
 int dos_f2b_hidden_rect(int left, int top, int right, int bottom)
 {
     int y;
+#ifndef DOS_F2B_FAST_COVERAGE
     int32_t a, b;
+#endif
     if (!dos_f2b_active) return 0;
     if (left < 0) left = 0;
     if (top < 0) top = 0;
@@ -82,7 +155,11 @@ int dos_f2b_hidden_rect(int left, int top, int right, int bottom)
     if (bottom > coverage.height) bottom = coverage.height;
     if (left >= right || top >= bottom) return 0;
     for (y = top; y < bottom; ++y)
+#ifdef DOS_F2B_FAST_COVERAGE
+        if (!coverage_hidden(y, left, right)) return 0;
+#else
         if (dos_coverage_find_run(&coverage, y, left, right, &a, &b) != 0) return 0;
+#endif
     ++dos_f2b_stats.hidden_primitives;
     return 1;
 }
@@ -92,7 +169,12 @@ int dos_f2b_claim_point(int x, int y)
     int result;
     if (!dos_f2b_active) return -1;
     result = dos_coverage_mark_pixel(&coverage, x, y);
-    if (result == 1) ++dos_f2b_stats.covered;
+    if (result == 1) {
+        ++dos_f2b_stats.covered;
+#ifdef DOS_F2B_FAST_COVERAGE
+        ++row_claimed[y];
+#endif
+    }
     return result;
 }
 
@@ -100,7 +182,7 @@ int dos_f2b_claim_point(int x, int y)
  * Cutouts send only consecutive nonzero writes, never their bounding span. */
 static void claim_run(int y, int left, int right)
 {
-    dos_coverage_mark_span(&coverage, y, left, right);
+    coverage_claim(y, left, right);
     dos_f2b_stats.covered += (unsigned)(right - left);
 }
 
@@ -118,7 +200,7 @@ void dos_f2b_flat_row(unsigned char *row, int left, int right, int y,
         memset(row + left * scale, color, (size_t)(right - left) * scale);
         return;
     }
-    while (dos_coverage_find_run(&coverage, y, left, right, &a, &b) == 1) {
+    while (coverage_run(y, left, right, &a, &b) == 1) {
         memset(row + a * scale, color, (size_t)(b - a) * scale);
         claim_run(y, a, b);
         left = b;
@@ -182,7 +264,7 @@ static void draw_trap(struct DosF2BTrap *t, int scale, int transparent, int wrap
             t->pixels += (unsigned)(xr - left);
             if (y >= 0 && y < coverage.height && left < coverage.width) {
                 int right = xr > coverage.width ? coverage.width : xr;
-                int found = dos_coverage_find_run(&coverage, y, left, right, &a, &b);
+                int found = coverage_run(y, left, right, &a, &b);
                 if (found == 0) {
                     ++dos_f2b_stats.hidden_rows;
                     dos_f2b_stats.skipped += (unsigned)(right - left);
@@ -225,7 +307,7 @@ static void draw_trap(struct DosF2BTrap *t, int scale, int transparent, int wrap
                             sampled += (unsigned)(b - a);
                             if (opaque_start >= 0) claim_run(y, opaque_start, b);
                             phase = b;
-                        } while (dos_coverage_find_run(&coverage, y, b, right, &a, &b) == 1);
+                        } while (b < right && coverage_run(y, b, right, &a, &b) == 1);
                         dos_f2b_stats.sampled += sampled;
                         dos_f2b_stats.skipped += (unsigned)(right - left) - sampled;
                     }

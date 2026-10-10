@@ -230,3 +230,22 @@ Opaque trapezoid assembly accounts for about 53% overall, polygon scan setup
 16-18%, and quad generation 11-13%. The function-level samples do not distinguish
 the assembly's scanline setup from its texel loop. This supports targeting
 per-row coverage/setup costs and actual overdraw, rather than a stationary cache.
+
+## Private coverage hot-path checkpoint
+
+`DOS_F2B_FAST_COVERAGE` is separately selectable with the experimental coverage
+renderer. It keeps the authoritative bitmap and exact primitive order, but
+inlines validated row operations, tracks disjoint opaque claims per row in a
+400-byte sidecar, skips empty/full-row searches, and uses a boolean word-mask
+query for conservative rectangles. It never marks a rectangle or claims a
+transparent texel. Successful point claims update the sidecar; reset clears it.
+The checked public kernel remains independently available. Bounded gap runs
+retain their original texture phase and all trapezoid field advancement.
+
+Both backend variants pass the original-assembly/native image, sparse-gap,
+opaque-zero, cutout, target-bound and mutation tests at both scales. Actual
+DJGPP objects confirm the hot backend no longer calls checked run-discovery
+or span-marking functions. Three Low guest verification repeats additionally
+match all 684 frames, with zero mismatches/fallbacks; evidence is retained in
+`f2b-fast-low-every-frame-verify.json`. Verification timings remain invalid.
+The separate unprofiled timing comparison is still the adoption gate.

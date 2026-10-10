@@ -66,6 +66,7 @@ def stage(folder):
 @unittest.skipUnless(sys.platform == 'win32' and ZIG.is_file(),
                      'Pinned native x86 Windows Zig harness unavailable')
 class F2BRasterNativeTests(unittest.TestCase):
+    defines = ()
     @classmethod
     def setUpClass(cls):
         temporary = tempfile.TemporaryDirectory(prefix='doscraft-f2b-raster-')
@@ -75,6 +76,7 @@ class F2BRasterNativeTests(unittest.TestCase):
         flags = [ZIG, 'cc', '-target', 'x86-windows-gnu', '-mcpu=i486',
                  '-O2', '-std=gnu99', '-UNDEBUG', '-fno-builtin', '-Wall',
                  '-Wextra', '-Wno-unused-function', '-I', src, '-I', PLATFORM]
+        flags.extend(cls.defines)
         run([*flags, '-c', src / 'abi_check.c', '-o', folder / 'abi_check.o'])
         objects = []
         sources = [
@@ -122,7 +124,12 @@ class F2BRasterNativeTests(unittest.TestCase):
         self.check_mode('bounds', 'PASS: target/begin bounds')
 
 
+class F2BFastRasterNativeTests(F2BRasterNativeTests):
+    defines = ('-DDOS_F2B_FAST_COVERAGE',)
+
+
 class F2BRasterDosTests(unittest.TestCase):
+    defines = ()
     @unittest.skipUnless(imported.COMPILER.is_file(), 'Existing DJGPP unavailable')
     def test_i486_djgpp_objects_and_original_assembly_wrapper_symbols(self):
         with tempfile.TemporaryDirectory(prefix='doscraft-f2b-raster-dos-') as directory:
@@ -147,7 +154,7 @@ class F2BRasterDosTests(unittest.TestCase):
             for source, name, defines in sources:
                 obj = folder / (name + '.o')
                 flags = imported.ASFLAGS if source.suffix == '.S' else imported.CFLAGS
-                run([compiler, *flags, *defines, '-UNDEBUG', '-Werror', '-I', src,
+                run([compiler, *flags, *defines, *self.defines, '-UNDEBUG', '-Werror', '-I', src,
                      '-I', PLATFORM, '-c', source, '-o', obj])
                 self.assertEqual(imported.coff_object(obj.read_bytes())['format'],
                                  'coff-i386')
@@ -164,10 +171,17 @@ class F2BRasterDosTests(unittest.TestCase):
                 self.assertEqual(objects['trap'].get('_' + name), 'T')
                 self.assertNotIn('_' + name, objects['candidate'])
             self.assertEqual(objects['f2b_raster'].get('_g_recip14'), 'U')
+            if self.defines:
+                self.assertNotIn('_dos_coverage_find_run', objects['f2b_raster'])
+                self.assertNotIn('_dos_coverage_mark_span', objects['f2b_raster'])
             self.assertIn(objects['candidate'].get('_g_recip14'), ('B', 'C', 'D'))
             self.assertEqual(objects['f2b_span'].get('_dos_f2b_opaque_span'), 'T')
             print('PASS: 9 DJGPP i486 COFF objects, original exports, real trap '
                   'forwarders, wrapper routing and candidate reciprocal ABI')
+
+
+class F2BFastRasterDosTests(F2BRasterDosTests):
+    defines = ('-DDOS_F2B_FAST_COVERAGE',)
 
 
 if __name__ == '__main__':
