@@ -22,7 +22,7 @@ def argument_parser():
     parser.add_argument('--target', choices=TARGETS, default='486dx25',
                         help='default: 486 primary; 386 is only a retained diagnostic scaffold')
     parser.add_argument('--prepare-vm', action='store_true')
-    parser.add_argument('--probe', choices=('platform', 'display', 'adapter', 'system', 'mouse', 'storage', 'saveio', 'worldio'), default='platform',
+    parser.add_argument('--probe', choices=('platform', 'display', 'adapter', 'system', 'mouse', 'storage', 'saveio', 'worldio', 'soundgen'), default='platform',
                         help='standalone platform, display, framebuffer adapters, or startup/IRQ gate')
     parser.add_argument('--hold-display', action='store_true',
                         help='display probe only: hold the test pattern until Escape for visual inspection')
@@ -100,12 +100,18 @@ def main():
             sources[-1:-1]=[ROOT / 'src/platform/dos' / s for s in ('hdd.c','save.c')]
             sources[-1:-1]=[system_dir / 'src' / s for s in ('inventory.c','blocks.c','fmath.c','libc.c')]
             sources.insert(-1,tables)
+        elif args.probe == 'soundgen':
+            tables=system_dir / 'src/tables.c'
+            subprocess.run([sys.executable,str(system_dir/'tools/gentables.py'),str(tables)],check=True)
+            sources.insert(-1,ROOT/'src/platform/dos/sound_assets.c')
+            sources[-1:-1]=[system_dir/'src'/s for s in ('fmath.c','libc.c')]
+            sources.insert(-1,tables)
     flags = compiler_flags(args.target)
     if args.probe in ('system', 'mouse', 'storage', 'saveio'):
         # No interrupt can corrupt an interrupted x87 operation.
         flags = [flag for flag in flags if flag not in ('-m80387', '-mfpmath=387')]
         flags += ['-mno-80387', '-mgeneral-regs-only']
-    elif args.probe == 'worldio':
+    elif args.probe in ('worldio','soundgen'):
         from build_imported import CFLAGS
         flags=list(CFLAGS)  # Same retained integer-only world/math contract.
     command = [str(compiler), *flags, *include_flags,
@@ -134,6 +140,10 @@ def main():
             manifest['imported_world_sources']=[row for row in adapter_record['files'] if row['source'] in
                 ('src/world.c','src/mobs.c','src/column_store.inc','src/column_cache.inc','src/column_hdd.inc')]
             manifest['cold_restart']='Two separate DOS executables: /WRITE then /RELOAD, not one process reset.'
+        elif args.probe == 'soundgen':
+            manifest['imported_audio_assets']=adapter_record['audio_selection']
+            manifest['audio_assets_header_sha256']=hashlib.sha256((ROOT/'src/platform/dos/sound_assets.h').read_bytes()).hexdigest()
+            manifest['audio_status']='Synthesis/score data only: no SB/OPL playback or gameplay parity.'
     if args.target == '386dx33':
         manifest['fpu_note'] = 'Actual emulator model is Intel 387, not Cyrix FasMath. 386 game port is deferred.'
     mouse_driver = None

@@ -17,6 +17,25 @@ from save_fixture import save_image
 
 
 class LauncherTests(unittest.TestCase):
+    def test_soundgen_validates_automatic_data_only_startup(self):
+        with tempfile.TemporaryDirectory() as name:
+            path=Path(name); record=self.make_vm(path)
+            executable=b'audio asset data probe fixture'
+            record.update(probe='soundgen',exe_sha256=hashlib.sha256(executable).hexdigest())
+            (path/'build.json').write_text(json.dumps(record))
+            boot=bytearray(512); boot[:11]=b'\xeb\x3c\x90DOSCRAFT'
+            struct.pack_into('<HBHBHHBH',boot,11,512,1,1,2,224,2880,0xf0,9)
+            boot[510:512]=b'\x55\xaa'
+            shell=(ROOT/'guest/FDCONFIG.SYS').read_text().replace('\n','\r\n').encode('ascii')
+            def media(startup=guest_startup('soundgen')):
+                (path/'boot.img').write_bytes(populate(boot,[('SOUNDGEN.EXE',executable),
+                    ('AUTOEXEC.BAT',startup),('FDCONFIG.SYS',shell)]))
+            (path/'scratch.img').write_bytes(scratch_hdd())
+            media(); self.assertEqual(validate_vm(path)[1]['probe'],'soundgen')
+            for before in (b'SOUNDGEN.EXE /AUTO',b'CWSDPMI -p -s-'):
+                media(guest_startup('soundgen').replace(before,b'REM '+before))
+                with self.assertRaisesRegex(ValueError,'startup sequence'): validate_vm(path)
+
     def test_worldio_requires_both_private_media_and_two_process_startup(self):
         with tempfile.TemporaryDirectory() as name:
             path=Path(name)

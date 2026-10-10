@@ -4,10 +4,11 @@ from pathlib import Path
 import subprocess
 import sys
 import build_imported as imported
+import audio_assets
 
 ROOT = imported.ROOT
 OUTPUT = ROOT / 'build/pc/486dx25/adapters'
-ADAPTERS = ('gfx.c', 'heap.c', 'video.c', 'vga_pack.c', 'keyboard.c', 'irq.c', 'irq_entry.S', 'system.c', 'input.c', 'hdd.c', 'save.c')
+ADAPTERS = ('gfx.c', 'heap.c', 'video.c', 'vga_pack.c', 'keyboard.c', 'irq.c', 'irq_entry.S', 'system.c', 'input.c', 'hdd.c', 'save.c', 'sound_assets.c')
 
 
 def save_codec_source(vendor=imported.VENDOR):
@@ -95,11 +96,14 @@ def stage(output, vendor=imported.VENDOR):
     # Verify all inputs before creating a compile result. The vendor is read-only.
     portable, selection = gfx_drawing_source(vendor)
     codec, save_selection = save_codec_source(vendor)
+    audio, audio_selection = audio_assets.asset_source(vendor)
     record = imported.stage_sources(vendor, output)
     (output / selection['staged']).write_bytes(portable)
     record['gfx_selection'] = selection
     (output / save_selection['staged']).write_bytes(codec)
     record['save_selection'] = save_selection
+    (output / audio_selection['staged']).write_bytes(audio)
+    record['audio_selection'] = audio_selection
     return record
 
 

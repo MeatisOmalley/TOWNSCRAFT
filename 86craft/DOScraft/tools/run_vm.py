@@ -42,7 +42,7 @@ def diagnostic_volume(disk):
 def validate_vm(vm):
     vm = Path(vm).resolve(strict=True)
     record = json.loads((vm / 'build.json').read_text())
-    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system', 'mouse', 'storage', 'saveio', 'worldio'):
+    if record.get('target') != '486dx25' or record.get('probe') not in ('platform', 'display', 'adapter', 'system', 'mouse', 'storage', 'saveio', 'worldio', 'soundgen'):
         raise ValueError('Only prepared primary-target diagnostic VMs are supported')
     if Path(record['vm_directory']).resolve() != vm:
         raise ValueError('Manifest names a different VM directory')
@@ -88,7 +88,7 @@ def validate_vm(vm):
         if (hashlib.sha256(media.read('CTMOUSE.EXE')).hexdigest() != CTMOUSE_EXE_SHA256 or
                 record['mouse_driver']['sha256'] != CTMOUSE_EXE_SHA256):
             raise ValueError('Mouse driver does not match its manifest')
-    if record['probe'] in ('mouse', 'storage', 'saveio', 'worldio'):
+    if record['probe'] in ('mouse', 'storage', 'saveio', 'worldio', 'soundgen'):
         if media.read('AUTOEXEC.BAT') != guest_startup(record['probe']):
             raise ValueError('Diagnostic startup sequence does not match the prepared probe')
         expected_config = (ROOT / 'guest/FDCONFIG.SYS').read_text().replace('\n', '\r\n').encode('ascii')

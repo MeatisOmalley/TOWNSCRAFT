@@ -43,6 +43,8 @@ class TargetTests(unittest.TestCase):
         self.assertIn(b'WORLDIO.EXE /WRITE\r\nIF ERRORLEVEL 1 GOTO WORLDDONE\r\nWORLDIO.EXE /RELOAD\r\n',world)
         self.assertIn(b'C:\\WORLDWR.TXT and C:\\WORLDRE.TXT.',world)
         self.assertNotIn(b'/AUTO',world)
+        self.assertIn(b'SOUNDGEN.EXE /AUTO\r\n',guest_startup('soundgen'))
+        self.assertIn(b'C:\\SOUNDGEN.TXT.',guest_startup('soundgen'))
 
     def test_default_is_native_486_with_x87(self):
         self.assertEqual(argument_parser().parse_args([]).target, '486dx25')

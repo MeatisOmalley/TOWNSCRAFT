@@ -38,6 +38,10 @@ The next storage checkpoint uses **real pinned world/cache, mobs and inventory**
 
 `WORLDIO.EXE /WRITE` followed by `/RELOAD` passed that integration fixture in two DOS processes on the primary 486/16-MiB machine, with ordinary resident IRQs and both private HDD files. The full guest save matched the oracle after both processes. The launcher validates both markers/capacities, blank save and exact two-process startup; a failed write phase skips reload. This imports a deterministic flat test level through the existing world API, not a new generator or reduced world/cache/mesh budget. Fresh-process reload is not a power-cycle or power-loss durability test. Rendering/audio/combat/physics callbacks are explicit unused diagnostic stubs: this is still not a playable game or a full parity/FPS gate. Actual v4 mixed saved-column/scratch ownership, generation/gameplay and full audio/game linking remain separate work. [Recorded world-storage evidence](tests/baselines/2026-10-09-world-storage.json).
 
+The first audio checkpoint retains the original ten synthesized effects and complete two-hand score, with replayable source selections from the immutable pin. `sound_assets.c` builds them at startup, converting RF5c68 sign-magnitude samples to unsigned mono PCM without baked resampling or new timing rules. The borrowed buffer preserves offsets/base pitches/volumes; unused alignment gaps and excluded end markers are explicitly silent. Native x86 tests compare every byte, descriptor and event against the full original `sound.c`, with only its hardware wave window redirected to bounded mocks. Repeated builds restore the original seed and score.
+
+`SOUNDGEN.EXE` passed on the primary guest with normal resident startup/IRQs. Its entire 48,917-byte diagnostic output matches that independent original-source reference: 47,425 waveform bytes, ten effects, 328 events and 9,792 song ticks. This is data parity, **not playback**: the SB1 mono mixer/DMA transport, OPL2 instruments/sequencer and audible/gameplay checks remain unimplemented. No renderer optimization, spawning/freeze change, UI change or user-medium mutation accompanies it. The completed emulator window was closed. [Recorded audio-data evidence](tests/baselines/2026-10-09-audio-assets.json).
+
 ## Build the initial platform probe
 
 From this directory, with Python 3.10 or newer:
@@ -55,6 +59,7 @@ python tools/build_pc.py --probe mouse --prepare-vm
 python tools/build_pc.py --probe storage --prepare-vm
 python tools/build_pc.py --probe saveio --prepare-vm
 python tools/build_pc.py --probe worldio --prepare-vm
+python tools/build_pc.py --probe soundgen --prepare-vm
 python tools/import_towns.py --verify
 python tools/build_imported.py
 python tools/build_adapters.py

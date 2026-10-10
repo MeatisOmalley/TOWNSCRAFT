@@ -65,6 +65,12 @@ class GfxAdapterTests(unittest.TestCase):
                 self.assertEqual(save['symbols']['_'+name],'T')
             for name in ('world_commit_columns','mobs_save','mobs_load','__dpmi_int'):
                 self.assertEqual(save['symbols']['_'+name],'U')
+            audio = next(obj for obj in report['objects'] if obj['path']=='obj/sound_assets.o')
+            for name in ('dos_sound_assets_build','dos_sound_wave','dos_sound_sample','dos_sound_events'):
+                self.assertEqual(audio['symbols']['_'+name],'T')
+            self.assertEqual(audio['symbols']['_g_sinTab'],'U')
+            for name in ('_outb','_inb','_cli','_sti','_fm_write'):
+                self.assertNotIn(name,audio['symbols'])
             self.assertFalse(report['playable'])
             self.assertFalse(report['linked'])
 

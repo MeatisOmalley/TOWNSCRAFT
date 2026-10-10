@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-09",
+  "stage": "Direct-port synthesized effects and score data, not playback or the game",
+  "source_pin": "d706a67db6242627c6233e5593fd1a1e1ddc69af",
+  "runtime_checkpoint": "6971efce",
+  "hardware": {
+    "cpu": "486DX/25, accurate interpreter; no dynarec or interpreter override",
+    "ram_mib": 16,
+    "video": "ET4000AX ISA 1 MiB",
+    "sound": "Configured SB1; this diagnostic does not access SB/OPL hardware"
+  },
+  "provenance": {
+    "original_sound_c_sha256": "10c8a9d074d0b149aa338bd14eb6e8ec8875edebe549a5dbfd57255bfb2e9280",
+    "generated_audio_include_sha256": "deb555c96eac47fad2bfbdcb6eabb04f0962c954975ea44f75d30fd301558f32",
+    "source_selection_tool_sha256": "6ebc3e809b538b2c6f439bf6d820853cfc3e31030b57ca083fff7e2c3678c255",
+    "sound_assets_c_sha256": "ee27608e7f398223b08f1836e0f3d8106e82b8b5161bc07684eab7c04640c4cc",
+    "sound_assets_header_sha256": "e0906e8bb3214eaea50e63002a9d380e1f35dec6433471ff781b180d6c2f3561",
+    "reference_harness_sha256": "b47c8ae5b61a6abf51500b6257443d7a12c56a31f619109e4356d827d088f2b2",
+    "selection": "Seven exact pinned source slices, recorded assembly wrappers and one removal of the unused hardware bank-shadow declaration; generation, parameters, score parsing and stable sort unchanged",
+    "independent_reference": "Full original sound.c in a separate native x86 translation unit. Unique PCM_WINDOW literal substitution recorded; original sound_init and FM initialization run behind bounded port/window mocks. Not the selected DOS implementation."
+  },
+  "native_suite": {
+    "tests_run": 108,
+    "result": "PASS",
+    "environment_dependent_symlink_skips": 2,
+    "audio_native_cases": 5,
+    "coverage": "Before-build getters, invalid IDs, optional outputs, every converted waveform byte/descriptor/score event, repeat-build seed/score stability and explicit little-endian wire"
+  },
+  "guest": {
+    "vm": "soundgen-486dx25-kgxy7sjo",
+    "emulator": "86Box 6.0 b9001, pinned ordinary binary and ROMs",
+    "exe_sha256": "e76810b19bb0301402068e35be0fdd3ac0564bd5252d156edba0ed638cec34cf",
+    "report": "C:/SOUNDGEN.TXT",
+    "raw_report_sha256": "1c075b992eca55076f8e38abcea76d841e7076b7c421595591e2381f3462367f",
+    "wave_bytes": 47425,
+    "effects": 10,
+    "score_events": 328,
+    "song_ticks": 9792,
+    "elapsed_100hz_ticks": 72,
+    "diagnostic_wire": "C:/SNDASSET.BIN; test-only schema, not a game asset or save format",
+    "diagnostic_wire_bytes": 48917,
+    "guest_and_original_reference_sha256": "d832f2000d3ad882d7666b44e23d7742fb21f205fedd471ebc8dd222816d8cfd",
+    "whole_wire_original_reference_comparison": "ALL_BYTES_EQUAL",
+    "result": "PASS",
+    "cleanup": "Report closed and normal hardware shutdown finished before executable and exact private-VM command line were verified and completed idle PID 9224 stopped. Media/reports preserved."
+  },
+  "adaptation": [
+    "Original RF5c68 sign-magnitude values become unsigned 8-bit mono; negative zero and excluded loop/end markers become 128. No baked sample-rate/pitch resampling.",
+    "Offsets, frame counts excluding end markers, base pitch/volume and stable two-hand score tick/note/voice order are retained. Unplayed alignment gaps explicitly become silence.",
+    "Startup-only borrowed 64-KiB waveform buffer; no game heap, world/cache/mesh budget or allocation policy change."
+  ],
+  "limitations": [
+    "SB/OPL playback is unimplemented and audible parity untested. No mixer, conventional DMA buffer/IRQ transport, OPL2 patch or runtime music sequencer is implied.",
+    "Full original synthesis/score data parity does not establish identical YM2612 and OPL2 timbre or stereo/mono behavior.",
+    "Elapsed ticks cover data synthesis plus diagnostic file output, not FPS, audio latency or mixer cost.",
+    "Not a playable game or parity acceptance. No optimization, new mob spawning/freeze rule, UI, emulator, ROM or user-medium change. Runtime images remain ignored."
+  ]
+}
