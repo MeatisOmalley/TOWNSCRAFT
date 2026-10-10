@@ -10,7 +10,8 @@ class VideoTransportTests(unittest.TestCase):
         for flags in ([],['-DDOS_VGA_PACK_ALL'],['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE'],
                       ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST'],
                       ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_VGA_PACK_WORDS'],
-                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer']):
+                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer'],
+                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY']):
             with self.subTest(flags=flags),tempfile.TemporaryDirectory(prefix='doscraft-present-test-') as directory:
                 exe=Path(directory)/'test.exe'
                 command=[str(ZIG),'cc','-target','x86-windows-gnu','-O2','-Wall','-Wextra','-Werror',*flags,

@@ -40,6 +40,33 @@ void dos_video_set_repeated_pixel_hint(int enabled)
 #include "vga_hud_cache.h"
 static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
 #endif
+#ifdef DOS_ET4000_CHUNKY
+#if !defined(DOS_VGA_PACK_ALL) || !defined(DOS_VGA_BROADCAST)
+#error ET4000 experiment requires the accepted all-plane/HUD/broadcast path
+#endif
+/* Opt-in CPU-access experiment, not a different display mode. ET4000 chain-4
+ * plus 3CD banks maps consecutive bytes onto the same four display planes.
+ * Display timing/start addresses remain the original 320x240 Mode X values.
+ * Source: Tseng ET4000 data book, sections 3.2, 4.2 (3CD), 4.4 (TS4).
+ * Restore bank zero/unchained access before any normal path or readback. */
+static unsigned char chunky_hud[3][40*320];
+static unsigned char planar_hud_valid[3],chunky_hud_valid[3];
+static void et4000_upload(const unsigned char *data,unsigned int bytes,unsigned int address)
+{
+    outportw(0x3c4,0x0e04); /* CPU chain-4; odd/even remains disabled. */
+    outportw(0x3c4,0x0f02);
+    while(bytes) {
+        unsigned int offset=address&65535u;
+        unsigned int count=65536u-offset;
+        if(count>bytes) count=bytes;
+        outportb(0x3cd,(address>>16)&15u);
+        dosmemput(data,count,0xa0000+offset);
+        data+=count; address+=count; bytes-=count;
+    }
+    outportb(0x3cd,0);
+    outportw(0x3c4,0x0604);
+}
+#endif
 
 static int old_mode = -1;
 static unsigned int shown_page;
@@ -116,6 +143,16 @@ void video_init(void)
     outportw(0x3ce, 0x4005); /* 256-color shift, write/read mode zero. */
     outportw(0x3ce, 0x0506); /* A0000 mapping, graphics, no odd/even. */
     outportw(0x3ce, 0xff08); /* All bits writable. */
+#ifdef DOS_ET4000_CHUNKY
+    outportb(0x3d4,0x36);
+    if(inportb(0x3d5)&0x10) {
+        dos_video_restore(); fputs("ET4000 banked memory unavailable\n",stderr); exit(1);
+    }
+    outportb(0x3cd,0);
+    memset(chunky_hud,0,sizeof(chunky_hud));
+    memset(planar_hud_valid,1,sizeof(planar_hud_valid));
+    memset(chunky_hud_valid,1,sizeof(chunky_hud_valid));
+#endif
     memset(packed, 0, sizeof(packed));
 #ifdef DOS_VGA_HUD_CACHE
     /* The following all-plane clear establishes the same known zero content
@@ -158,6 +195,40 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOSCRAFT_BENCH
     unsigned int stamp;
 #endif
+#ifdef DOS_ET4000_CHUNKY
+    /* Low/Medium keep repeated-pixel broadcast. High uses row-gathered bytes,
+     * not four-way deinterleaving. All 240 rows, three pages and HUD identity
+     * survive transitions between access paths. No visible-page upload. */
+    if(!repeated_pixel_hint) {
+        unsigned int y,bytes=320*200;
+        int changed;
+        if(!source || pitch<320) {
+            dos_video_restore(); fputs("Invalid 320x240 framebuffer\n",stderr); exit(1);
+        }
+#ifdef DOSCRAFT_BENCH
+        stamp=bench_us();
+#endif
+        for(y=0;y<240;++y) memcpy(packed+y*320,source+(size_t)y*pitch,320);
+        changed=!chunky_hud_valid[next_page] ||
+            memcmp(packed+200*320,chunky_hud[next_page],40*320)!=0;
+        if(changed) {
+            memcpy(chunky_hud[next_page],packed+200*320,40*320);
+            bytes=320*240;
+        }
+#ifdef DOSCRAFT_BENCH
+        dos_bench_pack+=bench_us()-stamp;
+        stamp=bench_us();
+#endif
+        et4000_upload(packed,bytes,offset*4);
+        chunky_hud_valid[next_page]=1;
+        planar_hud_valid[next_page]=0;
+#ifdef DOSCRAFT_BENCH
+        dos_bench_upload+=bench_us()-stamp;
+#endif
+        goto page_flip;
+    }
+    chunky_hud_valid[next_page]=0;
+#endif
 #ifdef DOS_VGA_PACK_ALL
 #ifdef DOSCRAFT_BENCH
     stamp=bench_us();
@@ -192,7 +263,11 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         }
         for(plane=0;plane<4;++plane) {
             const unsigned char *hud=packed+plane*DOS_VGA_PLANE_BYTES+200*80;
-            if(dos_vga_hud_changed(hud,hud_shadow[next_page][plane],DOS_VGA_HUD_CACHE_MAX_BYTES)) {
+            if(dos_vga_hud_changed(hud,hud_shadow[next_page][plane],DOS_VGA_HUD_CACHE_MAX_BYTES)
+#ifdef DOS_ET4000_CHUNKY
+               || !planar_hud_valid[next_page]
+#endif
+               ) {
                 outportw(0x3c4,((1u<<plane)<<8)|2);
                 dosmemput(hud,DOS_VGA_HUD_CACHE_MAX_BYTES,0xa0000+offset+200*80);
             }
@@ -230,7 +305,11 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         /* Exact bytes, destination-page keyed. Works for arbitrary title,
          * loading, menu/dimming, HUD changes and source pitch, not just play. */
         if(dos_vga_hud_changed(plane_data+200*80,hud_shadow[next_page][plane],
-                              DOS_VGA_HUD_CACHE_MAX_BYTES)==0)
+                              DOS_VGA_HUD_CACHE_MAX_BYTES)==0
+#ifdef DOS_ET4000_CHUNKY
+           && planar_hud_valid[next_page]
+#endif
+           )
             upload_bytes=200*80;
 #endif
         outportw(0x3c4, ((1 << plane) << 8) | 2);
@@ -239,6 +318,10 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         dos_bench_upload+=bench_us()-stamp;
 #endif
     }
+#ifdef DOS_ET4000_CHUNKY
+    planar_hud_valid[next_page]=1;
+page_flip:
+#endif
     outportw(0x3c4, 0x0f02);
     /* Preserve hidden-page presentation, not four planes fading onto the
      * visible page. Mode X CRTC start addresses are bytes per plane. Leave

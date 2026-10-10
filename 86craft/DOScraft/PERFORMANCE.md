@@ -537,3 +537,30 @@ against the tested executable; media and HDD hashes are independently verified.
 
 Generated media/disks remain local and ignored; sources, tests, launchers and
 release evidence are tracked. Audio remains deliberately deferred.
+
+## Independent experiment: ET4000 banked chunky upload
+
+`--candidate et4000-chunky` keeps all four accepted optimizations, adding only
+an opt-in ET4000 CPU-access path when the repeated-pixel hint is off (High).
+Low/Medium remain planar/broadcast. It gathers the existing pitched image into
+consecutive bytes, temporarily enables CPU chain-4 and selects 64 KiB write
+banks at 3CD, then restores bank zero/unchained access before the original page
+flip or planar readback. Three 76,800-byte physical pages fit in 230,400 bytes.
+The display stays 320x240 Mode X; HUD, palette, renderer and timing are unchanged.
+
+The [Tseng ET4000 data book](https://manuals.plus/m/db23f00af4e83256d746dbcb9869926ed1e4e0dbde40e21a9b338e43038f9304)
+documents linear-byte CPU access, segment pointers and chain-4 (sections 3.2,
+4.2 and 4.4). The local emulator independently has bank selection and packed
+chain-4 address handling, with a separate bulk-write fast path. That supports
+the hypothesis; it does not prove hardware speed or physical display behavior.
+No emulator source/configuration/timing patch is part of this experiment.
+
+Exact per-destination-page HUD caches have explicit cross-path invalidation;
+unchanged RAM shadows must not stand in for bytes written by the other path.
+Native tests use an independent four-plane/banked model, all actual presenter
+paths, 180 flips, unaligned source and both odd/standard pitches, all bank
+boundaries, seven-flip path switching (every page crosses), full pixel checks,
+unmodified other pages/unused VRAM and a deliberately corrupted readback.
+An isolated normal rebuild is byte-identical to the published EXE. Guest Low/
+High comparisons against a fresh current-codegen baseline remain required.
+Do not enable this candidate or claim a gain from native speed/instruction counts.

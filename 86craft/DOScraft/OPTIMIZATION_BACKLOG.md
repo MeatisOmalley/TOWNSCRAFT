@@ -19,6 +19,36 @@ Phase A preserves every existing gameplay/feature/storage behavior and inherited
 
 ## Fixed target and corrections to the supplied list
 
+### Current independent ranking (2026-10-10 continuation)
+
+Evaluate this backlog alongside actual profiling; its original order is not a
+requirement to retry losing candidates. The original painter's coarse drawing
+samples put about 53% in opaque trap assembly, 16-18% in polygon setup and
+11-13% in quad generation. Coverage run discovery and orchestration outweighed
+avoided drawing in both exact reverse-painter prototypes. These are function
+samples, not proof of which instructions or cache misses dominate.
+
+1. **ET4000 banked chunky CPU upload, retaining the Mode X display.** An opt-in
+   High-only probe can remove planar conversion and exercise contiguous VGA
+   writes. Low/Medium keep the accepted repeated-pixel broadcast. Same 320x240
+   timing, palette, triple buffering and sharp HUD; no Mode13h crop or renderer
+   change. Native independent plane/bank tests and actual guest readback/timing
+   must establish correctness and benefit. See PERFORMANCE.md; not a default.
+2. **Opaque trap row/setup versus actual texel-loop cost.** Narrow profiling
+   before another assembly rewrite; retain original texture phase, clipping,
+   cutout behavior, subdivision and integer precision. Avoid interpreting
+   fewer instructions as a target speedup (the word-packing experiment lost).
+3. **Earlier exact visibility/geometry rejection with cheaper maintenance.**
+   Target hidden building geometry before projection/subdivision/setup. Do not
+   stack the losing per-pixel coverage backend onto the painter, or invent
+   filled coverage from a bounding rectangle. Keep doorway/model/cutout oracles.
+
+Stationary-only reuse and already-rejected edge reciprocal/word transpose
+variants are lower priority. x87 conversion, reduced visible content, spawning
+changes and world-storage redesign are not incidental fixes. Every measured
+comparison now includes average FPS, slow-tail FPS and sample-support flags;
+32-frame screens cannot establish statistically useful 0.1% lows.
+
 - Primary hardware remains 486DX/25 with integrated x87, 16 MB RAM, **ISA Tseng ET4000AX with 1 MB**, WD1007V-SE1 ESDI / desired CDC Wren V 94186-383, and original Sound Blaster 1.x / OPL2. The 386DX/33 compatibility port is deferred until the main demake is satisfactory.
 - Preserve the **320x240 game UI**, including the 200-row view and 40-row HUD, and existing viewport/scale options. The attachment's 320x200 Mode13h examples are useful diagnostic arithmetic, not authority to shrink the game. An 8-bit full 320x240 color image is 76,800 bytes; its full-screen coverage bitset is 9,600 bytes. A 320x200 3D-only image/bitset is 64,000/8,000 bytes; a logical 160x100 image/bitset is 16,000/2,000 bytes. State which surface is measured and account separately for HUD, pitch, planes, buffers and metadata.
 - Correct the attachment's IBM PS/2 VGA/MCA guidance to the agreed **ISA ET4000AX**. Measure its actual planar/presentation path and ISA transfer costs; do not substitute MCA, VLB, W32 or PCI behavior.
