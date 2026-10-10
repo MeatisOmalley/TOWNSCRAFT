@@ -20,6 +20,7 @@ ZIG = ROOT.parents[1] / 'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.
 
 @unittest.skipUnless(sys.platform == 'win32' and ZIG.is_file(), 'native Win32 Zig unavailable')
 class WorldStorageTests(unittest.TestCase):
+    codegen_flags = ()
     def test_real_eviction_edits_light_mobs_save_and_cold_reload(self):
         with tempfile.TemporaryDirectory(prefix='doscraft-world-storage-') as name:
             folder=Path(name)
@@ -32,6 +33,7 @@ class WorldStorageTests(unittest.TestCase):
             tables=folder/'src/tables.c'
             self.command([sys.executable,folder/'tools/gentables.py',tables])
             flags=[ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99','-fno-builtin',
+                   *self.codegen_flags,
                    '-Wall','-Wextra','-Werror=implicit-function-declaration','-I',folder,
                    '-I',folder/'src','-I',ROOT/'src/platform/dos']
             objects=[]
@@ -61,6 +63,10 @@ class WorldStorageTests(unittest.TestCase):
         result=subprocess.run(list(map(str,args)),capture_output=True,text=True,errors='replace',timeout=120)
         self.assertEqual(result.returncode,0,result.stdout+'\n'+result.stderr)
         return result
+
+
+class OmitFrameWorldStorageTests(WorldStorageTests):
+    codegen_flags = ('-fomit-frame-pointer',)
 
 
 if __name__=='__main__': unittest.main()

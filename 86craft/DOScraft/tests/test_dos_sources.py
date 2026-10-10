@@ -27,12 +27,19 @@ class DosSourcesTests(unittest.TestCase):
             dos_sources.adapt('raster.c',b'unexpected source',raster_zero_dx=True)
 
     def test_real_raster_and_assembly_exact_pixel_parity(self):
+        self.raster_parity(raster_zero_dx=True)
+
+    def test_frame_register_codegen_matches_original_raster_and_assembly(self):
+        self.raster_parity(reference_flags=('-fno-omit-frame-pointer','-mcpu=i486'),
+                           candidate_flags=('-fomit-frame-pointer','-mcpu=i486'))
+
+    def raster_parity(self, raster_zero_dx=False, reference_flags=(), candidate_flags=()):
         with tempfile.TemporaryDirectory(prefix='doscraft-raster-parity-') as folder:
             folder=Path(folder)
             imported.stage_sources(imported.VENDOR,folder/'imported')
             src=folder/'imported/src'
             original=(src/'raster.c').read_bytes()
-            candidate,_=dos_sources.adapt('raster.c',original,raster_zero_dx=True)
+            candidate,_=dos_sources.adapt('raster.c',original,raster_zero_dx=raster_zero_dx)
             (src/'candidate.c').write_bytes(candidate)
             exports=('g_recip14','g_statPixels','g_fastFlat','g_statOcclusionTiles',
                 'raster_occlusion_reset','raster_occluded','raster_set_target','raster_width',
@@ -44,8 +51,8 @@ class DosSourcesTests(unittest.TestCase):
                 result=subprocess.run(command,capture_output=True,text=True,timeout=120)
                 self.assertEqual(result.returncode,0,result.stdout+'\n'+result.stderr[-3000:])
                 return result
-            run([*flags,*(f'-D{n}=reference_{n}' for n in exports),'-c',str(src/'raster.c'),'-o',str(folder/'reference.o')])
-            run([*flags,'-c',str(src/'candidate.c'),'-o',str(folder/'candidate.o')])
+            run([*flags,*reference_flags,*(f'-D{n}=reference_{n}' for n in exports),'-c',str(src/'raster.c'),'-o',str(folder/'reference.o')])
+            run([*flags,*candidate_flags,'-c',str(src/'candidate.c'),'-o',str(folder/'candidate.o')])
             run([*flags,'-c',str(src/'trap.S'),'-o',str(folder/'trap.o')])
             exe=folder/'test.exe'
             run([*flags,str(ROOT/'tests/raster_parity_test.c'),str(folder/'reference.o'),

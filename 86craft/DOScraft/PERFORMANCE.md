@@ -453,3 +453,17 @@ identified interrupt frame through saved SS:ESP; they do not walk a C EBP
 frame chain. Diagnostic C stack backtraces may be less informative with the
 option, which is distinct from gameplay correctness. Low and High guest builds
 are prepared, and the isolated Low comparison is underway.
+
+Three Low guest repeats match all six hashes/readbacks: walking/up/static are
+neutral, looking down 137.999 -> 136.422 ms (1.1%), house 98.513 -> 96.933 ms
+(1.6%), edit aftermath 115.159 -> 112.525 ms (2.3%). Edit-call time is neutral;
+mean call-plus-frame falls from 115.366 to 112.731 ms. P95 tails remain essentially
+unchanged; do not characterize this as a hitch fix or a large FPS improvement.
+Raw evidence: `tests/benchmarks/2026-10-10/omit-frame-low.json`.
+
+Independent native codegen comparisons preserve all 24,000 original-raster/
+assembly polygons. Explicit no-frame IRQ mock variants pass lifecycle, failure
+unwind, keyboard, timer wrap and profiling/cadence checks. Real world/cache/
+lighting/mob/save/cold-reload tests also pass with the compiler option and
+preserve the complete save byte oracle. High timing and real-game smoke are
+still required before adoption.

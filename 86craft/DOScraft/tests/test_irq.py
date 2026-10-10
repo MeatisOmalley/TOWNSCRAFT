@@ -65,6 +65,7 @@ int __dpmi_get_and_set_virtual_interrupt_state(int);
 
 @unittest.skipUnless(ZIG.is_file(), 'existing native Zig toolchain unavailable')
 class NativeIRQTests(unittest.TestCase):
+    codegen_flags = ()
     @classmethod
     def setUpClass(cls):
         cls.temporary = tempfile.TemporaryDirectory(prefix='doscraft-irq-native-')
@@ -73,7 +74,7 @@ class NativeIRQTests(unittest.TestCase):
         imported.stage_sources(imported.VENDOR, directory / 'imported')
         mock_headers(directory)
         cls.executable = directory / 'irq_test.exe'
-        run([ZIG, 'cc', '-target', 'x86-windows-gnu', '-std=gnu99', '-O2',
+        run([ZIG, 'cc', '-target', 'x86-windows-gnu', '-std=gnu99', '-O2', *cls.codegen_flags,
              '-Wall', '-Wextra', '-Werror', '-I', directory,
              '-I', directory / 'imported/src', '-I', DOS,
              ROOT / 'tests/irq_test.c', '-o', cls.executable], timeout=180)
@@ -108,6 +109,10 @@ class NativeIRQTests(unittest.TestCase):
         for failure in ('rollback_timer', 'restore_timer', 'restore_keyboard'):
             with self.subTest(failure=failure):
                 self.check_case('abort_safety', failure)
+
+
+class NativeOmitFrameIRQTests(NativeIRQTests):
+    codegen_flags = ('-fomit-frame-pointer',)
 
 
 def instructions(block):
