@@ -58,6 +58,9 @@ static unsigned int times[PHASES][FRAMES],sections[PHASES][10];
 static unsigned int edit_calls[PHASES][FRAMES];
 static unsigned int packs[PHASES],uploads[PHASES],waits[PHASES],timeouts[PHASES];
 static unsigned int pixels[PHASES],faces[PHASES],items[PHASES],hashes[PHASES];
+#ifdef DOS_BENCH_PROFILE_DRAW
+static unsigned profile_begin[PHASES],profile_end[PHASES];
+#endif
 static unsigned int tick0,lo0,acc,secmark,last;
 static int clock_on,old61,phase=-1,frame,measured,run=1,vga_ok=1,sx,sy,sz;
 static const char *names[PHASES]={"open_static","walk","walk_down","walk_up","house","block_edits"};
@@ -174,6 +177,9 @@ static void finish(void)
         fprintf(file,"\nEDIT_CALLS=");
         for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
         fprintf(file,"\n");
+#ifdef DOS_BENCH_PROFILE_DRAW
+        fprintf(file,"DRAW_SAMPLE_BEGIN=%u\nDRAW_SAMPLE_END=%u\n",profile_begin[p],profile_end[p]);
+#endif
 #ifdef DOS_FRONT_TO_BACK
         fprintf(file,"F2B_SAMPLE_SKIP_ROWS_HIDDEN_PRIMS_COVERED_FALLBACK_STOP=");
         for(s=0;s<8;++s) fprintf(file,"%s%u",s?",":"",f2b_stats[p][s]);
@@ -226,9 +232,15 @@ void bench_frame(void)
         phase=0; frame=-1;
     }
     if(++frame==WARM+FRAMES) {
+#ifdef DOS_BENCH_PROFILE_DRAW
+        profile_end[phase]=g_profCount;
+#endif
         frame=0; if(++phase==PHASES) finish();
         if(phase==4) house();
     }
+#ifdef DOS_BENCH_PROFILE_DRAW
+    if(!frame) profile_begin[phase]=g_profCount;
+#endif
     g_time=6000; g_skyDarken=0;
     g_player.body.x=sx*FU+FU/2; g_player.body.z=(sz-6)*FU+FU/2;
     g_player.body.y=(sy+1)*FU; g_player.yaw=0; g_player.pitch=-40;

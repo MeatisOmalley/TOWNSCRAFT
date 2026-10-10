@@ -179,3 +179,31 @@ Performance/adoption is a separate gate. Compare input-isolated baseline and
 candidate with the same hardware/settings, moving/down/house/edit means and
 tails, then assess High only if Low is neutral or improves. No renderer default
 or playable ISO has changed at this correctness checkpoint.
+
+## Timed Low result: do not adopt
+
+The separate three-repeat input-isolated comparison passes every hash/readback
+but loses performance. `tests/benchmarks/2026-10-10/f2b-low-span.json` retains
+all samples, tails, stage totals, coverage counters, hardware and build recipes.
+
+| Scene | Accepted painter ms | Exact coverage ms |
+| --- | ---: | ---: |
+| Walking | 58.422 | 71.069 |
+| Walking/down | 137.999 | 166.984 |
+| Walking/up | 54.208 | 54.207 |
+| House | 98.513 | 110.456 |
+| Edit aftermath | 115.159 | 125.520 |
+
+Drawing grows from about 11 to 21 ms walking, 83 to 112 ms down and 41 to 54 ms
+inside the house. Presentation costs remain comparable. The house candidate
+samples about 15,796 logical textured texels/frame and fully terminates world
+traversal in 17/32 measured frames, but the capture/coverage implementation
+costs more than it saves. This result rejects this implementation as a default,
+not all possible front-to-back/traversal architectures. Do not pursue High as
+a justification for a clear Low regression. The existing painter remains.
+
+`tools/profile_draw.py` maps actual guest EIPs to matching executable symbols
+and rejects mismatched binaries or invalid sampling ranges. Per-scene ranges
+separate stationary/walking/down/house samples in new profiling builds. IRQ0
+sampling is illustrative attribution, not exact per-instruction timing; the
+performance comparator refuses profiling runs as gain evidence.
