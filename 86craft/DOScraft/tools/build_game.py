@@ -1,7 +1,7 @@
 """Link real pinned gameplay/renderer with existing DOS platform adapters.
 
-No gameplay defines, budget reductions, optimizer experiments or vendor edits.
-Audio deliberately silent per user priority. This builds the game, not a probe.
+No gameplay changes, budget reductions or vendor edits. Verified transport
+optimizations are separate from the pinned renderer. Audio is deliberately silent.
 """
 import argparse
 import json
@@ -15,9 +15,11 @@ ROOT=imported.ROOT
 OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c')
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL',)
 
 
-def build(output=OUTPUT, benchmark=False, extra_adapter_flags=()):
+def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None):
+    if extra_adapter_flags is None: extra_adapter_flags=DEFAULT_ADAPTER_FLAGS
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
     report={'stage':'Full game link; silent audio; gameplay acceptance pending',

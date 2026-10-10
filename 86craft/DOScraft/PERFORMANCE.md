@@ -79,3 +79,25 @@ the actual presenter against an independent four-plane VGA model, checking
 every pixel across 18 flips with odd pitches/unaligned source. The separate
 converter tests check 448 frames and invalid-input guards. A fresh three-run
 guest retest is required before adopting this candidate.
+
+## Accepted optimization 1: all-plane packing
+
+The corrected three-run test passed VGA readback and all six scene image hashes
+matched the original baseline in every repeat. Packing fell from approximately
+22.0 to 8.7 ms. The default full-game builder now selects this converter; the
+benchmark retains `--candidate reference` as the untouched transport baseline.
+No renderer, gameplay, resolution, view distance or graphics-option change.
+
+| Replay scene | Original mean ms | One-pass mean ms | Frame-time reduction |
+| --- | ---: | ---: | ---: |
+| Stationary | 101.142 | 84.278 | 16.7% |
+| Moving | 91.092 | 75.282 | 17.4% |
+| Moving/down | 164.345 | 152.224 | 7.4% |
+| Moving/up | 76.335 | 67.376 | 11.7% |
+| House interior | 120.641 | 109.045 | 9.6% |
+| Edit aftermath | 138.184 | 125.714 | 9.0% |
+
+Raw samples, repeat means, p95, hashes and pinned hardware/binary evidence are
+tracked in `tests/benchmarks/2026-10-10/pack-all.json`. Three repeats are strongly
+consistent, but this frozen replay is not a promise of the same live-play FPS.
+ISA upload remains roughly 31 ms; dense geometry remains expensive.
