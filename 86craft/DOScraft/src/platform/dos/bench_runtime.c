@@ -141,6 +141,26 @@ void __wrap_gfx_present(void)
         for(y=0;y<240;++y) for(x=0;x<320;++x) h=(h^fb[y*512+x])*16777619u;
         hashes[phase]=h;
         measured=0;
+#ifdef DOS_BENCH_DUMP_FRAMES
+        /* Diagnostic only, after closing the frame clock. Disk/IRQ time can
+         * perturb later scheduling, so these runs are not gain evidence. */
+        {
+            char path[]="C:\\B1S0.RAW";
+            unsigned char palette[768];
+            FILE *dump;
+            path[4]=(char)('0'+run); path[6]=(char)('0'+phase);
+            outportb(0x3c7,0);
+            for(x=0;x<768;++x) palette[x]=(unsigned char)(inportb(0x3c9)<<2);
+            dump=fopen(path,"wb");
+            if(!dump) vga_ok=0;
+            else {
+                if(fwrite(palette,1,sizeof(palette),dump)!=sizeof(palette)) vga_ok=0;
+                for(y=0;y<240;++y)
+                    if(fwrite(fb+y*512,1,320,dump)!=320) vga_ok=0;
+                if(fclose(dump)) vga_ok=0;
+            }
+        }
+#endif
     }
 }
 static void house(void)
@@ -186,6 +206,9 @@ static void finish(void)
     fprintf(file,"VERSION=2\nEDIT_TIMING=CALL_PLUS_FOLLOWING_FRAME\nSEED=4242\nSIMULATION=FROZEN_GRAPHICS_REPLAY\nSCALE=%d\nVIEW=%d\nFLAT=%d\nSUBDIV=%d\nOCCLUSION=%d\nGEN_MS=%u\nTICKS=%u\nRESULT=%s\n",
         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
     fprintf(file,"SAMPLES_PER_SCENE=%d\nMOTION_POLICY=REPEAT_32_MEASURED_POSES\n",FRAMES);
+#ifdef DOS_BENCH_DUMP_FRAMES
+    fprintf(file,"FRAME_DUMPS=TIMINGS_DIAGNOSTIC_ONLY\n");
+#endif
 #ifdef DOS_F2B_VERIFY
     fprintf(file,"F2B_VERIFICATION=TIMINGS_INVALID\nF2B_VERIFY_FRAMES=%u\nF2B_VERIFY_FAILURES=%u\nF2B_VERIFY_FALLBACKS=%u\n",dos_f2b_verify_frames,dos_f2b_verify_failures,dos_f2b_verify_fallbacks);
 #endif

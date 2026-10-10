@@ -101,6 +101,7 @@ def main():
     parser.add_argument('--verify-f2b',action='store_true',help='Redraw every frame with the original painter; correctness only, timings invalid')
     parser.add_argument('--f2b-stress',action='store_true',help='Verification-only cutout/model/overflow stress fixtures')
     parser.add_argument('--profile-draw',action='store_true',help='Guest IRQ0 EIP samples during drawing; diagnostic timings only')
+    parser.add_argument('--dump-frames',action='store_true',help='Capture final scene frames to the private HDD; diagnostic timings only')
     parser.add_argument('--archive',type=Path,help='Retain compact raw evidence and source recipes in a tracked report path')
     args=parser.parse_args()
     if not 32<=args.frames<=10000: parser.error('--frames must be between 32 and 10000')
@@ -139,6 +140,7 @@ def main():
         if not args.verify_f2b: parser.error('--f2b-stress needs --verify-f2b')
         flags=(*flags,'-DDOS_F2B_STRESS')
     if args.profile_draw: flags=(*flags,'-DDOS_BENCH_PROFILE_DRAW')
+    if args.dump_frames: flags=(*flags,'-DDOS_BENCH_DUMP_FRAMES')
     if args.run_vm:
         vm=args.run_vm.resolve(strict=True)
         manifest=json.loads((vm/'build.json').read_text())

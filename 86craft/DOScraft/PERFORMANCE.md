@@ -595,3 +595,24 @@ rounded span width and shifted U/V deltas match; projected-row widths/UVs can
 change, so a blanket once-per-face gradient changes images and is unacceptable.
 Any cache checks, spills and code footprint must earn their cost on moving/
 house/down scenes. This is prioritization evidence, not an implemented gain.
+
+### Low gate failure retained before High testing
+
+The fresh `codegen-current-low-v1` and `et4000-chunky-low-v1` runs both complete
+three PASS repeats with VGA readback and essentially identical timings. However,
+the down scene's RAM-image hashes differ consistently: baseline `cccac37c`,
+candidate `e76ff760`. All five other final scene hashes match. The comparator
+correctly refuses this pair; these timings cannot establish adoption. High VMs
+are prepared but the queue stopped before launching them. The accepted game
+and ISO remain unchanged, with the experimental compile flag off.
+
+Preserved full raw/provenance reports: `et4000-low-mismatch-baseline.json` and
+`et4000-low-mismatch-candidate.json` under `tests/benchmarks/2026-10-10/`.
+The host suite passes 254 tests with two dependency skips. `--dump-frames`
+now captures palette/indexed final images after the timing boundary to each
+private HDD. Its timings are explicitly diagnostic and rejected by the
+performance comparator, because added disk time can perturb later scheduling.
+`bench_frame_report.py` checks completion and captured FNV hashes, compares
+view/HUD/palette bytes, and renders unchanged frame dumps into a NEW directory.
+Hash/region tests and diagnostic-timing rejection pass. This infrastructure
+investigates the mismatch; it neither relaxes image gates nor changes gameplay.

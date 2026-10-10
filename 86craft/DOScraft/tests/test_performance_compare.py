@@ -65,5 +65,8 @@ class CompareTests(unittest.TestCase):
         candidate['results'][0]['header'].pop('f2b_verification')
         candidate['results'][0]['header']['draw_profiling']='TIMINGS_DIAGNOSTIC_ONLY'
         with self.assertRaises(ValueError): compare(self.evidence['baseline'],candidate)
+        candidate['results'][0]['header'].pop('draw_profiling')
+        candidate['results'][0]['header']['frame_dumps']='TIMINGS_DIAGNOSTIC_ONLY'
+        with self.assertRaises(ValueError): compare(self.evidence['baseline'],candidate)
 
 if __name__=='__main__': unittest.main()
