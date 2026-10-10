@@ -300,3 +300,28 @@ but sky-copy and final expansion add roughly 11 ms before retrace effects.
 The net result is a loss, not an optimization. Keep the selectable checkpoint
 and `tests/benchmarks/2026-10-10/packed-raster-low.json`, not a normal-build
 default. Stationary camera reuse also remains experimental, per user priority.
+
+## Retained experiment: rejection before adaptive subdivision
+
+`--candidate early-split-cull` rejects an invisible merged face before creating
+its adaptive child faces, retaining all original per-child rejection. Visible
+subdivision, UVs, lighting and gameplay are unchanged. Weighted fixed-point
+frustum values are not necessarily monotonic between grid lines, so an endpoint
+test alone is insufficient. The final gate checks included interior grid lines
+only when the endpoint check suggests rejection. Native tests cover 120,000
+actual parent cases against original child bounds at both scales, including a
+negative control that demonstrates the endpoint-only hazard.
+
+Three final Low guest runs match every image hash. Walking mean falls from
+59.120 to 58.768 ms (0.6%), but house/down/edit means are effectively unchanged;
+stationary changes by +0.2%. This is a small moving-view result, not a meaningful
+dense-scene solution, and is not enabled by default. Evidence:
+`tests/benchmarks/2026-10-10/early-split-cull-exact-low.json`. The earlier endpoint
+prototype's raw recipe/results remain in `early-split-cull-endpoints-low.json`
+for recovery, not as proof of general image correctness or an adopted variant.
+
+Priority is exact front-to-back coverage that can skip complete hidden polygons
+and covered scanlines BEFORE edge/gradient/texture work. The bounded capture
+and actual-assembly image oracle are development scaffolding, not shipping
+renderer integration or a measured speedup. Avoid spending further iterations
+on stationary-only caches or sub-percent arithmetic tweaks.

@@ -9,7 +9,7 @@ from build_imported import replace_once
 
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
-          packed_raster=False):
+          packed_raster=False, early_split_cull=False):
     recipe=[]
     if graphics:
         import dos_graphics
@@ -58,5 +58,45 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
             '#ifndef BENCH_OVERDRAW\n'
             '\tdos_packed_begin(fb,vw,vh,FB_PITCH,g_renderScale);\n'
             '#endif\n\tdraw_clouds(env);\n',recipe)
+        data=text.encode('utf-8')
+    if name=='render.c' and early_split_cull:
+        text=data.decode('utf-8')
+        if '\r\n' in text:
+            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
+            text=text.replace('\r\n','\n')
+        text=replace_once(text,'/* Is the box between grid lines xa..xb, ya..yb, za..zb wholly behind the\n',
+            '/* Exact descendant gate: fixed-point weighted planes can have interior\n'
+            '   minima lower than their endpoint minima. Confirm every included grid\n'
+            '   line only when the cheap endpoint test suggests rejection. */\n'
+            'static int split_parent_visible(int x,int y,int z,int dir,int ex,int ez)\n'
+            '{\n'
+            '\tint x1=x+ex,y1=y+1,z1=z+ez,k,i;\n'
+            '\tif(dir==DIR_NX) x1=x;\n'
+            '\telse if(dir==DIR_PX) x=x1;\n'
+            '\telse if(dir==DIR_NY) y1=y;\n'
+            '\telse if(dir==DIR_PY) y=y1;\n'
+            '\telse if(dir==DIR_NZ) z1=z;\n'
+            '\telse if(dir==DIR_PZ) z=z1;\n'
+            '\tfor(k=0;k<NPLANES;++k)\n'
+            '\t{\n'
+            '\t\tint limit=k==0 ? -NEAR_Z : 0;\n'
+            '\t\tint ax=MIN(PX[k][x],PX[k][x1]);\n'
+            '\t\tint ay=MIN(PY[k][y],PY[k][y1]);\n'
+            '\t\tint az=MIN(PZ[k][z],PZ[k][z1]);\n'
+            '\t\tif(ax+ay+az<=limit) continue;\n'
+            '\t\tfor(i=x+1;i<x1;++i) ax=MIN(ax,PX[k][i]);\n'
+            '\t\tfor(i=z+1;i<z1;++i) az=MIN(az,PZ[k][i]);\n'
+            '\t\tif(ax+ay+az>limit) return 0;\n'
+            '\t}\n'
+            '\treturn 1;\n'
+            '}\n\n'
+            '/* Is the box between grid lines xa..xb, ya..yb, za..zb wholly behind the\n',recipe)
+        text=replace_once(text,
+            '\t\tif(g_textureSubdivision==SUBDIV_FULL)\n',
+            '\t\t/* Reject the whole parent before generating invisible children.\n'
+            '\t\t   Confirm interior grid lines before trusting endpoint minima. */\n'
+            '\t\tif(!split_parent_visible(x,y,z,dir,ex,ez))\n'
+            '\t\t{\n\t\t\tBENCH_HOOK(++g_benchCnt[S_EARLY]);\n\t\t\treturn;\n\t\t}\n'
+            '\t\tif(g_textureSubdivision==SUBDIV_FULL)\n',recipe)
         data=text.encode('utf-8')
     return data,recipe

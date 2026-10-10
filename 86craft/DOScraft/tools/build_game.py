@@ -38,8 +38,10 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         raster_zero_dx='-DDOS_RASTER_ZERO_DX' in extra_adapter_flags
         camera_reuse='-DDOS_CAMERA_REUSE' in extra_adapter_flags
         packed_raster='-DDOS_PACKED_RASTER' in extra_adapter_flags
+        early_split_cull='-DDOS_EARLY_SPLIT_CULL' in extra_adapter_flags
         transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
-            raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster)
+            raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster,
+            early_split_cull=early_split_cull)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,'-I',str(ROOT/'src/platform/dos')),source_transform=transform)
         platform=adapters.stage(output/'platform')
