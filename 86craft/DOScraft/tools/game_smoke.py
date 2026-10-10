@@ -15,8 +15,13 @@ def main():
     parser.add_argument('--timeout',type=int,default=900)
     parser.add_argument('--report',required=True,type=Path)
     parser.add_argument('--omit-frame-pointer',action='store_true',help='Test the explicit codegen candidate before changing production defaults')
+    parser.add_argument('--et4000-chunky',action='store_true',help='Test the opt-in banked CPU upload, including graphics-preset transitions')
     args=parser.parse_args()
-    flags=tuple(dict.fromkeys((*DEFAULT_ADAPTER_FLAGS,'-fomit-frame-pointer'))) if args.omit_frame_pointer else None
+    flags=None
+    if args.omit_frame_pointer or args.et4000_chunky:
+        flags=tuple(dict.fromkeys((*DEFAULT_ADAPTER_FLAGS,
+            *(('-fomit-frame-pointer',) if args.omit_frame_pointer else ()),
+            *(('-DDOS_ET4000_CHUNKY',) if args.et4000_chunky else ()))))
     build(extra_adapter_flags=flags)
     vm,record=prepare(smoke=True,bios=args.bios)
     process=subprocess.Popen(validate(vm),cwd=vm)

@@ -564,3 +564,34 @@ unmodified other pages/unused VRAM and a deliberately corrupted readback.
 An isolated normal rebuild is byte-identical to the published EXE. Guest Low/
 High comparisons against a fresh current-codegen baseline remain required.
 Do not enable this candidate or claim a gain from native speed/instruction counts.
+
+## Finer attribution from existing original-painter samples
+
+Read-only analysis of `broadcast-low-draw-profile.json` uses its exact matching
+EXE (`99e2e43f30c9bcec7147dcc365b4c2601d408fc2bd766ab13a404fe34c9ec2b1`),
+SHA-checked before disassembly. All three probes already satisfy the corrected
+post-generation sampling/range gate. For each of eight original trap entry
+points, identify the unique backwards pair-loop `JAE` and backwards row-loop
+`JNE`; their targets delimit entry, row setup, texel loop, row advancement and
+exit. Reject ambiguous/nonmonotonic boundaries rather than guessing.
+
+Across 2,344 drawing samples: row setup 593 (25.3%), texel loops 677 (28.9%),
+row advancement 94 (4.0%), entry/exit 7 (0.3%), other drawing 973 (41.5%).
+These trap categories include opaque and cutout paths, not opaque alone.
+
+| Scene | Drawing samples | Trap row setup | Trap texel loops |
+| --- | ---: | ---: | ---: |
+| Walking | 117 | 26 (22.2%) | 33 (28.2%) |
+| Moving/down | 946 | 208 (22.0%) | 217 (22.9%) |
+| House | 450 | 130 (28.9%) | 151 (33.6%) |
+| Edit aftermath | 454 | 123 (27.1%) | 142 (31.3%) |
+
+The original trap bodies are unchanged by the accepted C frame-register flag.
+Nevertheless these are old-codegen, 100 Hz EIP samples including warm frames;
+sampling/interrupt-boundary bias remains, not exact instruction cycles.
+Setup deserves investigation alongside texel-loop/visibility improvements.
+One invisible hypothesis is reusing row gradients only when their **exact**
+rounded span width and shifted U/V deltas match; projected-row widths/UVs can
+change, so a blanket once-per-face gradient changes images and is unacceptable.
+Any cache checks, spills and code footprint must earn their cost on moving/
+house/down scenes. This is prioritization evidence, not an implemented gain.
