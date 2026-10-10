@@ -10,7 +10,7 @@ from build_imported import replace_once
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
-          trap_zero_gradient=False, trap_destination=False):
+          trap_zero_gradient=False, trap_destination=False,split_reuse=False):
     recipe=[]
     if name=='trap.S' and trap_destination:
         text=data.decode('utf-8')
@@ -144,6 +144,10 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         text=replace_once(text,'divshift(du,dy,4)','dos_edge_recip_divshift(du,dy,4)',recipe)
         text=replace_once(text,'divshift(dv,dy,4)','dos_edge_recip_divshift(dv,dy,4)',recipe)
         data=text.encode('utf-8')
+    if split_reuse:
+        import dos_split_reuse
+        data,steps=dos_split_reuse.adapt(name,data)
+        recipe.extend(steps)
     if front_to_back:
         if packed_raster:
             raise ValueError('Front-to-back and packed-raster target layouts cannot be combined')

@@ -769,3 +769,30 @@ production adoption. It meets the user's neutral-Low/useful-High investigation
 criterion and should not be discarded over the tiny Low texture-edge difference.
 The compile flag remains off in the published executable/ISO for now; the user's
 HDD was not touched. The completed private diagnostic emulator was closed.
+
+## Shared-edge projection reuse checkpoint
+
+`--candidate split-reuse` enables an independent DOS-only renderer overlay.
+Within one subdivided parent, exactly adjacent children of equal shared-edge
+extent may reuse the previous child's two camera/projected positions. Each
+child keeps its own UVs, texture, lighting, primitive order and bounds. Store
+positions before guard clipping mutates the temporary polygon; reset at each
+parent and on near-plane/box rejection. Occlusion capture/query use the original
+path. No persistent camera/world cache or quality change.
+
+The native oracle extracts actual camera setup, adaptive subdivision, clipping
+and quad code, then uses the pinned rasterizer and trap assembly. Across 24,000
+parents, six directions, both scales, adaptive/full/off, near/guard clipping,
+opaque/cutout/flat textures and occlusion fallbacks, every submitted polygon
+packet, image byte, framebuffer guard and pixel/face counter matches. Synthetic
+projection calls fall from 282,424 to 218,688; this is eligibility evidence, not
+a 486 speed claim. Guest timing is running; the production flag remains off.
+
+### ET4000 gameplay smoke
+
+The isolated candidate also passes two real game-loop smoke runs, new game and
+save reload: AT input, walking, full down/up looking, torch placement/breaking,
+streaming, preset transitions, full-resolution selection, VGA readback and
+save/reload all pass. Evidence: `tests/baselines/2026-10-10-et4000-game/report.json`.
+The private emulator was closed; audio stays deliberately silent. This is
+scripted gameplay evidence, not full feature parity or Windows input proof.
