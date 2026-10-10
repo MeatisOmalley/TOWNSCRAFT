@@ -7,10 +7,15 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 import build_imported as imported
-from build_game import portable_experiment_flags
+from build_game import portable_experiment_flags,DEFAULT_ADAPTER_FLAGS
 
 
 class CodegenTests(unittest.TestCase):
+    def test_production_uses_only_accepted_transport_and_codegen(self):
+        self.assertEqual(DEFAULT_ADAPTER_FLAGS,('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE',
+            '-DDOS_VGA_BROADCAST','-fomit-frame-pointer'))
+        self.assertEqual(portable_experiment_flags(DEFAULT_ADAPTER_FLAGS),('-fomit-frame-pointer',))
+
     def test_explicit_allowlist_preserves_order_and_integer_target(self):
         self.assertEqual(portable_experiment_flags(('-DDOS_VGA_PACK_ALL',)),())
         self.assertEqual(portable_experiment_flags(('-DDOS_F2B_VERIFY','-fomit-frame-pointer','-O3','-ffast-math')),

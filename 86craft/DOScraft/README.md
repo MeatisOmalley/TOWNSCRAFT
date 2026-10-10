@@ -11,7 +11,8 @@ Real procedural generation, AT movement/full-pitch input, torch placement/remova
 and save/fresh-process reload now pass in 86Box. Full feature acceptance is still
 pending. Audio is deliberately
 silent under the user's latest priority, not completed Sound Blaster parity.
-Three verified VGA-transport optimizations are now enabled. The user-authorized
+Three verified VGA-transport optimizations and the measured i486 frame-register
+compiler optimization are now enabled. The user-authorized
 DOS graphics settings are grouped into Low/Medium/High; mob policy and gameplay
 remain unchanged. All three presets retain adaptive texture subdivision.
 Earlier diagnostic paragraphs below record their individual historical gates.

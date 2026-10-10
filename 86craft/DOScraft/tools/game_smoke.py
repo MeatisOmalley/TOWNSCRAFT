@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from build_game import build,ROOT,OUTPUT
+from build_game import build,ROOT,OUTPUT,DEFAULT_ADAPTER_FLAGS
 from game_media import prepare,validate
 from run_vm import diagnostic_volume
 
@@ -14,8 +14,10 @@ def main():
     parser.add_argument('--bios',required=True,type=Path)
     parser.add_argument('--timeout',type=int,default=900)
     parser.add_argument('--report',required=True,type=Path)
+    parser.add_argument('--omit-frame-pointer',action='store_true',help='Test the explicit codegen candidate before changing production defaults')
     args=parser.parse_args()
-    build()
+    flags=tuple(dict.fromkeys((*DEFAULT_ADAPTER_FLAGS,'-fomit-frame-pointer'))) if args.omit_frame_pointer else None
+    build(extra_adapter_flags=flags)
     vm,record=prepare(smoke=True,bios=args.bios)
     process=subprocess.Popen(validate(vm),cwd=vm)
     print(f'VM={vm}\nPID={process.pid}',flush=True)

@@ -499,3 +499,41 @@ unwind, keyboard, timer wrap and profiling/cadence checks. Real world/cache/
 lighting/mob/save/cold-reload tests also pass with the compiler option and
 preserve the complete save byte oracle. High timing and real-game smoke are
 still required before adoption.
+
+## Accepted optimization 4: frame-register codegen release
+
+High also passes three input-isolated repeats, with unchanged scene hashes and
+VGA readback. Mean improvements are small: walking 111.124 -> 110.598 ms (0.5%),
+down 253.941 -> 252.361 ms (0.6%), up 67.383 -> 66.330 ms (1.6%), house
+177.036 -> 175.983 ms (0.6%), edits 194.030 -> 193.154 ms (0.5%); static is
+neutral. Evidence: `tests/benchmarks/2026-10-10/omit-frame-high.json`.
+Together with the Low improvements above, this supports adoption without
+reducing quality or changing gameplay. It does not fix worst-frame tails or
+the architectural dense-building slowdown.
+
+Normal-game smoke passes new-world and fresh-process reload, actual guest AT
+movement, full down/up look, torch placement/breaking, inventory/crafting,
+Low/Medium/High VGA readback and saving/loading. Evidence and inspected snapshots:
+`tests/baselines/2026-10-10-omit-frame-game/`. The earlier complete host suite
+passed 246 tests with two dependency skips; the release additionally checks the
+exact accepted default flags. A fresh isolated build with the new defaults
+reproduced the smoke-verified normal EXE byte-for-byte. Benchmark-only long-run
+changes are excluded from this executable. All experimental renderers/culling/
+packing variants and stationary camera reuse remain off. No graphics, UI,
+mob policy, save format or FPU conversion accompanies this release.
+
+Save-preserving publication updates the existing `ISO/Launch-DOScraft.cmd` path
+to `runtime/game-play-zv5p5p7p`. The launcher validates from `C:\Windows`.
+The previous `runtime/game-play-ns_83t_k` and its HDD remain untouched; the new
+VM received its entire current HDD, including the user's intervening play/save
+changes. The previous ISO is backed up as
+`ISO/DOSCRAFT.before-4d2ef66520e5.ISO`. The embedded boot executable is checked
+against the tested executable; media and HDD hashes are independently verified.
+
+- Normal executable: `13803b3fa72128babd8be97c3b73a904e6891d2b6e80bfbd3d529764a8177a69`
+- Published ISO: `edaa0c5c0a213effcbd283cf2f0b59452b5df9741708760d12e4c5c297c20686`
+- Previous ISO/backup: `2f5ab9c8ba1a2c0921c3c9a93cf8626de09ba2ce27c9c2e42529afb9b9fed9dd`
+- Preserved current player HDD: `c785fc4e3684c055d11c85928a8186d998a477ba4c122919ad09ba7ac98927b6`
+
+Generated media/disks remain local and ignored; sources, tests, launchers and
+release evidence are tracked. Audio remains deliberately deferred.
