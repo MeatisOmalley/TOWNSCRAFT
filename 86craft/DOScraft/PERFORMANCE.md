@@ -55,6 +55,38 @@ readback and image hashing are outside timed frames. Three repeats expose
 variance; compare each scene, p95/max and frame samples, not just aggregate FPS.
 Readback proves all four VGA planes match RAM, not renderer visibility itself.
 
+## FPS and slow-frame reporting
+
+Reports and comparisons include average FPS, 1% low and 0.1% low, per repeat,
+per scene pooled across repeats, and across the full measured replay. Average
+FPS is measured frame count divided by total frame duration, not the average
+of individual instantaneous FPS values. Each low is the reciprocal of the mean
+duration of the slowest `ceil(N * fraction)` frames. This is distinct from the
+also-reported nearest-rank p99/p99.9 frame-time percentiles.
+
+Every FPS summary includes sample count, tail-frame count, whether there are
+at least 100/1000 samples for the respective low, and whether its tail contains
+at least ten frames. Short default runs (32 frames/scene/repeat, 96 pooled)
+remain useful regression checks but their lows are effectively worst-frame
+indicators, **not reliable tail statistics**. Existing evidence is not rewritten;
+comparison tools can derive the added metrics from its retained raw frames.
+
+Use `--frames 1000` for a longer screening run or `--frames 10000` for ten
+0.1%-tail frames per scene per repeat. These runs can take hours on the emulated
+CPU; the default host timeout increases automatically, or use `--timeout`.
+Measured movement repeats the same bounded 32-pose route rather than drifting
+into unrelated terrain. Long runs use wide PIT/stage accumulators and are
+compared only with matching sample counts and movement policy. They remain
+frozen-simulation replays: repeated routes warm caches, and combined metrics
+exclude generation, warmup, inter-scene construction and report writing. Use
+individual scene metrics to avoid hiding a building slowdown behind easy views.
+The long-run plumbing requires guest acceptance; adding the metrics does not
+claim a completed long-run benchmark or full-game 0.1% low measurement.
+Verification: all 16 focused metric/parser/comparison tests pass, including
+nonuniform frames, tail averaging, rounding, sample-support flags, long-run
+units and mismatched-workload rejection. The real DJGPP i486 10,000-frame
+benchmark links successfully; no long emulator run was started at this checkpoint.
+
 ## Initial independent priority
 
 One preliminary run measured about 22 ms packing + 31 ms upload per frame;

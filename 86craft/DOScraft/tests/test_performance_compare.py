@@ -5,7 +5,7 @@ import sys
 import unittest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
-from performance_compare import compare
+from performance_compare import compare,compact
 
 class CompareTests(unittest.TestCase):
     @classmethod
@@ -16,6 +16,24 @@ class CompareTests(unittest.TestCase):
         rows=compare(self.evidence['baseline'],self.evidence['candidate'])
         self.assertEqual(len(rows),6)
         self.assertTrue(all(row['frame_time_reduction_percent']>7 for row in rows))
+        self.assertEqual(rows[0]['baseline_fps']['sample_count'],96)
+        self.assertFalse(rows[0]['baseline_fps']['0_1_percent_minimum_sample_count_met'])
+        self.assertEqual(len(rows[0]['baseline_repeat_fps']),3)
+
+    def test_compact_contains_per_scene_and_combined_fps(self):
+        result=compact(self.evidence['baseline'])
+        self.assertEqual(result['fps_overall']['sample_count'],576)
+        self.assertEqual(len(result['fps_by_scene']),6)
+        self.assertTrue(all(x['sample_count']==96 for x in result['fps_by_scene'].values()))
+
+    def test_reject_different_sampling_workloads(self):
+        for change in ('count','policy','frames'):
+            candidate=copy.deepcopy(self.evidence['candidate'])
+            if change=='count': candidate['results'][0]['header']['samples_per_scene']='1000'
+            if change=='policy': candidate['results'][1]['header']['motion_policy']='unbounded_walk'
+            if change=='frames': candidate['results'][2]['scenes'][0]['frames'].append(100000)
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                compare(self.evidence['baseline'],candidate)
 
     def test_reject_different_images_hardware_settings_or_failed_runs(self):
         for change in ('hash','hardware','scale','fail','repeats'):

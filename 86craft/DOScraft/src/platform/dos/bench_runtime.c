@@ -35,8 +35,21 @@ extern unsigned dos_f2b_verify_failures,dos_f2b_verify_frames,dos_f2b_verify_fal
 #endif
 
 #define PHASES 6
-#define FRAMES 32
+#ifndef DOS_BENCH_FRAMES
+#define DOS_BENCH_FRAMES 32
+#endif
+#if DOS_BENCH_FRAMES < 32 || DOS_BENCH_FRAMES > 10000
+#error Unsupported benchmark sample count
+#endif
+#define FRAMES DOS_BENCH_FRAMES
 #define WARM 6
+/* Long diagnostics can exceed 32-bit PIT counts and accumulated microseconds.
+ * Preserve short-run arithmetic/codegen for existing comparison checkpoints. */
+#if FRAMES > 32
+typedef unsigned long long BenchTotal;
+#else
+typedef unsigned int BenchTotal;
+#endif
 #ifdef DOS_FRONT_TO_BACK
 static unsigned f2b_stats[PHASES][8];
 static void record_f2b(int p)
@@ -54,14 +67,17 @@ static void record_f2b(int p)
 u32 g_benchOut[BO_COUNT],g_benchSec[2][S_N],g_benchCnt[S_N];
 int g_benchFreeze=1;
 unsigned int dos_bench_pack,dos_bench_upload,dos_bench_wait,dos_bench_timeouts;
-static unsigned int times[PHASES][FRAMES],sections[PHASES][10];
+static unsigned int times[PHASES][FRAMES];
+static BenchTotal sections[PHASES][10];
 static unsigned int edit_calls[PHASES][FRAMES];
-static unsigned int packs[PHASES],uploads[PHASES],waits[PHASES],timeouts[PHASES];
-static unsigned int pixels[PHASES],faces[PHASES],items[PHASES],hashes[PHASES];
+static BenchTotal packs[PHASES],uploads[PHASES],waits[PHASES],timeouts[PHASES];
+static BenchTotal pixels[PHASES],faces[PHASES],items[PHASES];
+static unsigned int hashes[PHASES];
 #ifdef DOS_BENCH_PROFILE_DRAW
 static unsigned profile_begin[PHASES],profile_end[PHASES];
 #endif
-static unsigned int tick0,lo0,acc,secmark,last;
+static unsigned int tick0,lo0,secmark,last;
+static BenchTotal acc;
 static int clock_on,old61,phase=-1,frame,measured,run=1,vga_ok=1,sx,sy,sz;
 static const char *names[PHASES]={"open_static","walk","walk_down","walk_up","house","block_edits"};
 
@@ -169,6 +185,7 @@ static void finish(void)
     path[8]=(char)('0'+run); file=fopen(path,"wb"); if(!file) exit(1);
     fprintf(file,"VERSION=2\nEDIT_TIMING=CALL_PLUS_FOLLOWING_FRAME\nSEED=4242\nSIMULATION=FROZEN_GRAPHICS_REPLAY\nSCALE=%d\nVIEW=%d\nFLAT=%d\nSUBDIV=%d\nOCCLUSION=%d\nGEN_MS=%u\nTICKS=%u\nRESULT=%s\n",
         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
+    fprintf(file,"SAMPLES_PER_SCENE=%d\nMOTION_POLICY=REPEAT_32_MEASURED_POSES\n",FRAMES);
 #ifdef DOS_F2B_VERIFY
     fprintf(file,"F2B_VERIFICATION=TIMINGS_INVALID\nF2B_VERIFY_FRAMES=%u\nF2B_VERIFY_FAILURES=%u\nF2B_VERIFY_FALLBACKS=%u\n",dos_f2b_verify_frames,dos_f2b_verify_failures,dos_f2b_verify_fallbacks);
 #endif
@@ -178,10 +195,13 @@ static void finish(void)
     fprintf(file,"\n");
 #endif
     for(p=0;p<PHASES;++p) {
-        fprintf(file,"SCENE=%s\nPACK=%u\nUPLOAD=%u\nWAIT=%u\nTIMEOUTS=%u\nPIXELS=%u\nFACES=%u\nITEMS=%u\nHASH=%08x\nFRAMES=",names[p],packs[p],uploads[p],waits[p],timeouts[p],pixels[p],faces[p],items[p],hashes[p]);
+        fprintf(file,"SCENE=%s\nPACK=%llu\nUPLOAD=%llu\nWAIT=%llu\nTIMEOUTS=%llu\nPIXELS=%llu\nFACES=%llu\nITEMS=%llu\nHASH=%08x\nFRAMES=",names[p],
+            (unsigned long long)packs[p],(unsigned long long)uploads[p],(unsigned long long)waits[p],
+            (unsigned long long)timeouts[p],(unsigned long long)pixels[p],(unsigned long long)faces[p],
+            (unsigned long long)items[p],hashes[p]);
         for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",times[p][f]);
         fprintf(file,"\nSECTIONS=");
-        for(s=0;s<10;++s) fprintf(file,"%s%u",s?",":"",sections[p][s]);
+        for(s=0;s<10;++s) fprintf(file,"%s%llu",s?",":"",(unsigned long long)sections[p][s]);
         fprintf(file,"\nEDIT_CALLS=");
         for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
         fprintf(file,"\n");
@@ -252,14 +272,17 @@ void bench_frame(void)
     g_time=6000; g_skyDarken=0;
     g_player.body.x=sx*FU+FU/2; g_player.body.z=(sz-6)*FU+FU/2;
     g_player.body.y=(sy+1)*FU; g_player.yaw=0; g_player.pitch=-40;
+    /* Longer sampling repeats the same bounded route, not a progressively
+     * longer walk into unrelated terrain. The legacy 32-frame route is exact. */
+    int pose=frame<WARM?frame:WARM+(frame-WARM)%32;
     if(phase>=1 && phase<=3) {
-        g_player.body.x+=(frame*FU/8); g_player.yaw=frame*8;
+        g_player.body.x+=(pose*FU/8); g_player.yaw=pose*8;
         g_player.body.y=(world_surface_y(g_player.body.x/FU,g_player.body.z/FU)+1)*FU;
         g_player.pitch=phase==2?-250:phase==3?250:-40;
     }
     if(phase>=4) {
         g_player.body.z=sz*FU+FU/2; g_player.body.y=(sy+1)*FU; g_player.pitch=-20;
-        g_player.yaw=frame*16;
+        g_player.yaw=pose*16;
         if(phase==5) {
             unsigned int edit_start=bench_us();
             world_set(sx+2,sy+2,sz,(frame&1)?B_AIR:B_STONE);

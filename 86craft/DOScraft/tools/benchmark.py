@@ -14,6 +14,7 @@ import time
 from build_game import build, ROOT
 from game_media import prepare, validate
 from run_vm import diagnostic_volume
+from frame_metrics import frame_metrics
 
 OUTPUT=ROOT/'build/bench/486dx25'
 SECTIONS=('game','world_update','collect','entities','flip_wait','sky','draw','finish','hud','present')
@@ -30,27 +31,33 @@ def parse(text):
         else: row[key.lower()]=value
     if header.get('result')!='PASS' or len(scenes)!=6:
         raise ValueError('Incomplete/failed guest benchmark')
+    count=int(header.get('samples_per_scene',32))
+    if not 32<=count<=10000: raise ValueError('Invalid samples per scene')
     for row in scenes:
         frames=row['frames']
-        if len(frames)!=32 or not all(0<x<10000000 for x in frames) or len(row['sections'])!=10:
+        if len(frames)!=count or not all(0<x<10000000 for x in frames) or len(row['sections'])!=10:
             raise ValueError('Invalid guest frame samples')
         ordered=sorted(frames)
         row['summary_ms']={
             'mean':statistics.mean(frames)/1000,'median':statistics.median(frames)/1000,
-            'p95':ordered[30]/1000,'p99':ordered[31]/1000,'max':max(frames)/1000}
-        row['stage_mean_ms']={name:value/32000 for name,value in zip(SECTIONS,row['sections'])}
-        row['transport_mean_ms']={name:int(row[name])/32000 for name in ('pack','upload','wait')}
+            'p95':ordered[(95*count+99)//100-1]/1000,
+            'p99':ordered[(99*count+99)//100-1]/1000,
+            'p99_9':ordered[(999*count+999)//1000-1]/1000,'max':max(frames)/1000}
+        row['fps']=frame_metrics(frames)
+        row['stage_mean_ms']={name:value/(count*1000) for name,value in zip(SECTIONS,row['sections'])}
+        row['transport_mean_ms']={name:int(row[name])/(count*1000) for name in ('pack','upload','wait')}
         row['over_100ms']=sum(x>100000 for x in frames)
         if header.get('version')=='2':
             calls=row.get('edit_calls',[])
-            if len(calls)!=32 or any(x<0 or x>=10000000 for x in calls):
+            if len(calls)!=count or any(x<0 or x>=10000000 for x in calls):
                 raise ValueError('Invalid edit-call samples')
             if row['name']!='block_edits' and any(calls):
                 raise ValueError('Edit calls in a non-edit scene')
             cycles=[a+b for a,b in zip(frames,calls)]
             row['edit_call_mean_ms']=statistics.mean(calls)/1000
             row['edit_cycle_summary_ms']={'mean':statistics.mean(cycles)/1000,
-                'p95':sorted(cycles)[30]/1000,'max':max(cycles)/1000}
+                'p95':sorted(cycles)[(95*count+99)//100-1]/1000,'max':max(cycles)/1000}
+            row['edit_cycle_fps']=frame_metrics(cycles)
     return {'header':header,'scenes':scenes}
 
 
@@ -66,7 +73,10 @@ def collect(vm):
 def write_report(vm,output,manifest,build_record,label,results,archive=None):
     report={'manifest':manifest,'build':build_record,'results':results,'note':
         'Guest PIT timings; frozen deterministic graphics/update replay, not full simulation FPS.',
-        'label':label}
+        'label':label,
+        'fps_by_scene':{results[0]['scenes'][i]['name']:frame_metrics(
+            [x for run in results for x in run['scenes'][i]['frames']]) for i in range(6)},
+        'fps_overall':frame_metrics([x for run in results for scene in run['scenes'] for x in scene['frames']])}
     (vm/'performance.json').write_text(json.dumps(report,indent=2)+'\n')
     (output/'latest-report.txt').write_text(str(vm/'performance.json'))
     if archive:
@@ -84,14 +94,17 @@ def main():
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
     parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
-    parser.add_argument('--timeout',type=int,default=900)
+    parser.add_argument('--timeout',type=int,help='Host timeout seconds; default 900 for short runs, increased for long runs')
     parser.add_argument('--quality',choices=('low','medium','high'),default='low')
+    parser.add_argument('--frames',type=int,default=32,help='Measured frames per scene per repeat (32..10000); 10000 recommended for tail metrics')
     parser.add_argument('--prepare-only',action='store_true')
     parser.add_argument('--verify-f2b',action='store_true',help='Redraw every frame with the original painter; correctness only, timings invalid')
     parser.add_argument('--f2b-stress',action='store_true',help='Verification-only cutout/model/overflow stress fixtures')
     parser.add_argument('--profile-draw',action='store_true',help='Guest IRQ0 EIP samples during drawing; diagnostic timings only')
     parser.add_argument('--archive',type=Path,help='Retain compact raw evidence and source recipes in a tracked report path')
     args=parser.parse_args()
+    if not 32<=args.frames<=10000: parser.error('--frames must be between 32 and 10000')
+    if args.timeout is None: args.timeout=900 if args.frames==32 else 900+args.frames*6
     output=OUTPUT/args.label
     if args.collect_vm:
         vm=args.collect_vm.resolve(strict=True)
@@ -117,6 +130,7 @@ def main():
         'front-to-back-fast':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_FRONT_TO_BACK','-DDOS_F2B_FAST_COVERAGE'),
         'edge-recip':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_EDGE_RECIP')}
     flags=(*variants[args.candidate],'-DDOS_BENCH_QUALITY='+str(('low','medium','high').index(args.quality)))
+    if args.frames!=32: flags=(*flags,'-DDOS_BENCH_FRAMES='+str(args.frames))
     if args.verify_f2b:
         if args.candidate not in ('front-to-back','front-to-back-fast'): parser.error('--verify-f2b needs a front-to-back candidate')
         flags=(*flags,'-DDOS_F2B_VERIFY')
@@ -177,6 +191,7 @@ def main():
             rows=[r['scenes'][scene] for r in results]
             print(rows[0]['name'], 'mean_ms=',round(statistics.mean(r['summary_ms']['mean'] for r in rows),3),
                   'transport=',rows[0]['transport_mean_ms'],flush=True)
+            print('FPS=',frame_metrics([x for r in rows for x in r['frames']]),flush=True)
         print(f'REPORT={vm / "performance.json"}',flush=True)
         return
     raise RuntimeError(f'No complete reports by timeout. Private VM {vm}, PID {process.pid} left for diagnosis.')

@@ -3,6 +3,7 @@ import argparse
 import json
 from pathlib import Path
 import statistics
+from frame_metrics import frame_metrics
 
 
 def compare(baseline,candidate,allowed_settings=()):
@@ -31,6 +32,11 @@ def compare(baseline,candidate,allowed_settings=()):
                         raise ValueError('Different settings within repeats: '+key)
                     if key not in allowed_settings and run['header'][key]!=baseline['results'][0]['header'][key]:
                         raise ValueError('Different replay/settings: '+key)
+                for key,default in (('samples_per_scene','32'),('motion_policy','REPEAT_32_MEASURED_POSES')):
+                    if run['header'].get(key,default)!=baseline['results'][0]['header'].get(key,default):
+                        raise ValueError('Different sampling workload: '+key)
+        if any(len(s['frames'])!=len(base_scene['frames']) for s in old+new):
+            raise ValueError('Different frame sample counts')
         if any(s['name']!=base_scene['name'] or s['hash']!=base_scene['hash'] for s in old+new):
             raise ValueError('Image mismatch: '+base_scene['name'])
         before=statistics.mean(r['summary_ms']['mean'] for r in old)
@@ -41,6 +47,10 @@ def compare(baseline,candidate,allowed_settings=()):
             'candidate_repeat_means_ms':[r['summary_ms']['mean'] for r in new],
             'baseline_p95_ms':[r['summary_ms']['p95'] for r in old],
             'candidate_p95_ms':[r['summary_ms']['p95'] for r in new],
+            'baseline_fps':frame_metrics([x for r in old for x in r['frames']]),
+            'candidate_fps':frame_metrics([x for r in new for x in r['frames']]),
+            'baseline_repeat_fps':[frame_metrics(r['frames']) for r in old],
+            'candidate_repeat_fps':[frame_metrics(r['frames']) for r in new],
             'hash':base_scene['hash']})
     return rows
 
@@ -49,6 +59,10 @@ def compact(report):
     result={'manifest':report['manifest'],'build':{key:report['build'].get(key) for key in
         ('source_commit','exe_sha256','benchmark','extra_adapter_flags','objects','link_command')},
         'results':report['results'],'note':report['note']}
+    result['fps_by_scene']={report['results'][0]['scenes'][i]['name']:frame_metrics(
+        [x for run in report['results'] for x in run['scenes'][i]['frames']])
+        for i in range(len(report['results'][0]['scenes']))}
+    result['fps_overall']=frame_metrics([x for run in report['results'] for scene in run['scenes'] for x in scene['frames']])
     # Renderer overlays must retain staged-source recipes and object hashes,
     # not just adapter hashes/flags or the immutable upstream commit identity.
     imported=report['build'].get('imported')
@@ -74,6 +88,7 @@ def main():
     for row in rows:
         print(f'{row["scene"]}: {row["baseline_ms"]:.3f} -> {row["candidate_ms"]:.3f} ms '
               f'({row["frame_time_reduction_percent"]:.1f}% reduction, matching image)')
+        print('  baseline FPS:',row['baseline_fps'],'candidate FPS:',row['candidate_fps'])
 
 
 if __name__=='__main__': main()

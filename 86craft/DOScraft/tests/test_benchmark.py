@@ -30,6 +30,21 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(result['scenes'][0]['summary_ms']['mean'],100)
         self.assertEqual(result['scenes'][0]['transport_mean_ms']['upload'],2)
         self.assertEqual(result['scenes'][0]['stage_mean_ms']['draw'],1)
+        self.assertEqual(result['scenes'][0]['fps']['average_fps'],10)
+        self.assertFalse(result['scenes'][0]['fps']['0_1_percent_minimum_sample_count_met'])
+
+    def test_long_run_units_percentiles_and_sample_validation(self):
+        text='SAMPLES_PER_SCENE=1000\n'+self.fixture().replace(
+            ','.join(['100000']*32),','.join(['100000']*999+['500000']))
+        result=parse(text)['scenes'][0]
+        self.assertEqual(result['summary_ms']['p99_9'],100)
+        self.assertEqual(result['summary_ms']['max'],500)
+        self.assertEqual(result['fps']['0_1_percent_low_fps'],2)
+        self.assertAlmostEqual(result['fps']['1_percent_low_fps'],10*1e6/1400000)
+        self.assertEqual(result['transport_mean_ms']['upload'],.064)
+        self.assertEqual(result['stage_mean_ms']['draw'],.032)
+        with self.assertRaises(ValueError): parse(text.replace('SAMPLES_PER_SCENE=1000','SAMPLES_PER_SCENE=999'))
+        with self.assertRaises(ValueError): parse(text.replace('SAMPLES_PER_SCENE=1000','SAMPLES_PER_SCENE=10001'))
 
     def test_reject_incomplete_and_zero_samples(self):
         for text in ('RESULT=FAIL\n',self.fixture().replace('100000','0')):
