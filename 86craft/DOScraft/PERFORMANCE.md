@@ -842,3 +842,42 @@ accepted planar/broadcast transport. No renderer precision, layout, resolution,
 view distance, subdivision, palette, HUD or gameplay setting changes.
 Run the exact default executable through the release smoke/publication workflow
 before replacing the player's ISO. The two new subdivision probes stay off.
+
+### Save-preserving ET4000 release
+
+The exact default executable passes another new-game/save-reload/preset/VGA
+smoke in `tests/baselines/2026-10-10-et4000-release/report.json`. Publication
+and `ISO/Launch-DOScraft.ps1 -ValidateOnly` succeed; neither launches or changes
+the old player's VM. The ISO now contains the verified High transport change.
+
+- EXE: `f92eb4c1a257b283f83eee252ea31391c690c141eb2aa4795c2c93e5dc6dcfd7`.
+- ISO: `ebf95e4e292802fc8e04ca5e984f865d4d892d412ac818ddcc8db6c9ac58332c`.
+- New player VM: `runtime/game-play-_qx41hi7`.
+- Preserved source VM: `runtime/game-play-zv5p5p7p`.
+- Preserved current HDD: `e726a563eac98e3e996ae7ead2c5da3c01069edc9021595c615147075f498591`.
+- Previous ISO retained as `ISO/DOSCRAFT.before-13803b3fa721.ISO`.
+
+## Independent trap specializations under test
+
+`--candidate trap-stable` specializes only opaque doubled-resolution
+trapezoids with at least four rows and equal left/right X, U and V increments.
+Those equal increments preserve the raw span width and both UV differences
+exactly, including the original rounded/clamped reciprocal. An entry dispatcher
+chooses the original loop or a loop with the identical gradient computed once.
+There is no per-row cache test, new scratch memory or precision change. High
+and transparent loops retain the original path. Code footprint increases from
+3,584 to 4,560 bytes; the 976-byte cost must earn its place in the 8 KiB L1.
+
+`--candidate trap-four` independently processes four opaque texels per loop
+iteration instead of two. Partial first groups enter the required store without
+extra texel reads or writes; all transparent loops remain original. This targets
+the measured texel-loop hotspot rather than another stationary/frame cache.
+Row setup, clipping, UV stepping, texture wrapping, counters and output remain
+unchanged. The extra unrolled code can lose instruction-cache locality.
+
+Both pass independently linked original/candidate assembly and raster oracles:
+24,000 polygon images plus 16,000 direct trapezoids, all eight variants, signed/
+zero UV gradients, slanted/stable edges, clipping, empty/short rows, pixel/frame
+guards and final Trap state. Actual DJGPP COFF checks preserve ABI/callee saves,
+scratch size and integer instructions. These probes cannot be combined with
+other trap probes before independent measurement; neither is a release default.
