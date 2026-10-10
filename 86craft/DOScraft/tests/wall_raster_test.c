@@ -66,7 +66,7 @@ int main(void)
            here. Keep the exact deterministic camera/target regression. */
         if(i==11177) assert(!dos_wall_hidden(&cone,lo,hi,cam,20));
         if(!dos_wall_hidden(&cone,lo,hi,cam,20)) continue;
-        g_renderScale=1+(i&1);g_textureSubdivision=i%7==0?SUBDIV_FULL:SUBDIV_ADAPTIVE;
+        g_renderScale=1+((i/6)&1);g_textureSubdivision=i%7==0?SUBDIV_FULL:SUBDIV_ADAPTIVE;
         g_distanceMode=i%5==0;g_flatDist=i%7==0?10:0;
         reference_setup_camera();
         vw=320/g_renderScale;vh=200/g_renderScale;focal16=172*16/g_renderScale;

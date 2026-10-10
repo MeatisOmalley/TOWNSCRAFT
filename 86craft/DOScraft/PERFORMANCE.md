@@ -978,3 +978,14 @@ At most three bank writes occur on a chunky frame, not one per row. More small
 `dosmemput` calls may erase the saved RAM-copy cost; guest High timing/readback,
 Low regression screening and combined normal-game smoke are required. The
 candidate is prepared but not a production default or a measured speedup yet.
+
+The independent High three-repeat comparison now passes with matching images:
+walk 107.962 -> 107.436 ms (0.5%), down 250.253 -> 248.672 (0.6%), up
+59.479 -> 58.601 (1.5%), house 173.347 -> 172.293 (0.6%), edits
+193.152 -> 189.993 (1.6%); static neutral. The staged-copy baseline is the
+accepted five-flag ET4000 path, without four-texel unrolling. Raw paired evidence:
+`tests/benchmarks/2026-10-10/et4000-strided-high.json`. Pack/HUD drops about
+7.9 -> 5.2 ms, while the many small DOS-memory calls raise upload cost about
+25.6 -> 27.0 ms. Net gains are modest and retrace-quantized, not a bandwidth
+breakthrough. Low regression screening is running; adoption remains gated by
+that result and normal-game verification with the accepted raster change.
