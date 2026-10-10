@@ -234,7 +234,7 @@ def verify_symbols(symbols):
             raise ValueError(f'Missing generated table: {name}')
 
 
-def build(vendor=VENDOR, output=OUTPUT, compiler=COMPILER, extra_cflags=()):
+def build(vendor=VENDOR, output=OUTPUT, compiler=COMPILER, extra_cflags=(), source_transform=None):
     vendor, output, compiler = map(lambda p: Path(p).resolve(), (vendor, output, compiler))
     # CLI always uses the ignored checkpoint directory; callers/tests may use
     # private temporary directories. No cleanup of other agents' build files.
@@ -264,6 +264,25 @@ def build(vendor=VENDOR, output=OUTPUT, compiler=COMPILER, extra_cflags=()):
     save_report()
     try:
         report.update(stage_sources(vendor, output))
+        # Phase-B DOS overlays are explicit and recorded separately from the
+        # immutable direct-port adaptation. Default compile-only behavior stays
+        # byte-identical to the pinned import.
+        if source_transform:
+            for entry in report['files']:
+                path=output/entry['staged']
+                before=path.read_bytes()
+                after,steps=source_transform(path.name,before)
+                replay=before
+                for step in steps:
+                    old,new=step['before'].encode(),step['after'].encode()
+                    if replay.count(old)!=step['count']: raise ValueError('Invalid DOS overlay recipe')
+                    replay=replay.replace(old,new)
+                if replay!=after: raise ValueError('DOS overlay is not exactly replayable')
+                if steps:
+                    path.write_bytes(after)
+                    entry['dos_transformations']=steps
+                    entry['dos_transformations_sha256']=sha256(canonical_json(steps))
+                    entry['dos_staged_sha256']=sha256(after)
         if not compiler.is_file():
             raise FileNotFoundError(f'DJGPP compiler missing: {compiler}')
         nm = compiler.with_name(compiler.name.replace('gcc', 'nm'))

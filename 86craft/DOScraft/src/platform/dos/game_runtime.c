@@ -23,6 +23,14 @@ static int save_busy,save_result=-1,load_result=-1;
 static int placed,broken,torch_before,torch_after,vga_ok=1;
 static int rendered_frames;
 static int fullres_ok;
+#ifdef DOS_GRAPHICS_PRESETS
+static int presets_ok;
+static int preset_matches(int scale,int view,int flat)
+{
+    return g_renderScale==scale && g_viewDist==view && g_flatDist==flat &&
+        !g_distanceMode && g_textureSubdivision==SUBDIV_ADAPTIVE && !g_occlusion;
+}
+#endif
 void __real_gfx_present(void);
 void __real_render_frame(u8 *fb,const RenderEnv *env);
 void __wrap_render_frame(u8 *fb,const RenderEnv *env)
@@ -104,6 +112,9 @@ static void finish(void)
     int storage_ok=load_smoke ? load_result==SAVE_OK : save_result==SAVE_OK;
     int ok=input_ok && walk_ok && look_ok && stream_ok && width==256 && mesh>0 &&
         storage_ok && placed && broken && vga_ok && fullres_ok;
+#ifdef DOS_GRAPHICS_PRESETS
+    ok=ok && presets_ok;
+#endif
     if(!file) exit(1);
     int written=fprintf(file,"DOScraft real game-loop smoke\nMODE=%s\nWORLD_WIDTH=%d\n"
         "RESIDENT_COLUMNS=%d\nMESH_QUADS=%u\nPRESENTED_FRAMES=%d\nAT_INPUT=%s\n"
@@ -113,6 +124,9 @@ static void finish(void)
         input_ok?"PASS":"FAIL",walk_ok?"PASS":"FAIL",look_ok?"PASS":"FAIL",
         !stream_ok,ticks,placed?"PASS":"FAIL",broken?"PASS":"FAIL",vga_ok?"PASS":"FAIL",
         fullres_ok?"PASS":"FAIL",save_result,load_result,ok?"PASS":"FAIL")>=0;
+#ifdef DOS_GRAPHICS_PRESETS
+    if(fprintf(file,"GRAPHICS_PRESETS=%s\n",presets_ok?"PASS":"FAIL")<0) written=0;
+#endif
     if(fclose(file)) written=0;
     puts(ok && written ? "Real DOS game smoke: PASS" : "Real DOS game smoke: FAIL");
     exit(!(ok && written));
@@ -171,13 +185,24 @@ void __wrap_gfx_present(void)
         snapshot("C:\\CRAFT.RAW",frame);
         tap(0x01); until=g_ticks+30; stage=13;
     } else if(stage==13 && (int)(g_ticks-until)>=0) {
-        tap(0x3c); /* F2: existing full-resolution option, no new UI. */
+        tap(0x3c); /* F2: first graphics option step. */
         until=g_ticks+30; stage=14;
     } else if(stage==14 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_GRAPHICS_PRESETS
+        presets_ok=preset_matches(2,12,10);
+        snapshot("C:\\MEDIUM.RAW",frame);
+        tap(0x3c); until=g_ticks+30; stage=15;
+    } else if(stage==15 && (int)(g_ticks-until)>=0) {
+        presets_ok=presets_ok && preset_matches(1,12,10);
+#endif
         fullres_ok=g_renderScale==1;
         snapshot("C:\\FULL.RAW",frame);
         tap(0x3c); until=g_ticks+30; stage=8;
     } else if(stage==8 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_GRAPHICS_PRESETS
+        presets_ok=presets_ok && preset_matches(2,8,0);
+        snapshot("C:\\LOW.RAW",frame);
+#endif
         stage=9; /* Set before PF9: progress screens reenter this wrapper. */
         if(!load_smoke) tap(0x43); /* F9 -> real game's save_game */
         until=g_ticks+50;

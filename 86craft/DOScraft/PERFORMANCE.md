@@ -4,7 +4,10 @@ The user authorized optimization work on 2026-10-10, including independent
 prioritization beyond the supplied list. This supersedes the old Phase B timing
 restriction, **not** the unresolved full gameplay-parity acceptance. Audio is
 still deliberately silent. No UI, quality, mob-rule or save-format changes are
-authorized as incidental optimizations.
+authorized as incidental optimizations. The subsequent explicit request permits
+grouping graphics options into Low/Medium/High and modest visual tradeoffs, with
+adaptive subdivision in all three. Substantial visual/gameplay changes still
+require approval before experimentation. See the preset table in README.md.
 
 ## Automated guest benchmark
 

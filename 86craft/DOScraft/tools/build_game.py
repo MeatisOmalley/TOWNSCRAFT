@@ -10,6 +10,7 @@ import subprocess
 import sys
 import build_imported as imported
 import build_adapters as adapters
+import dos_sources
 
 ROOT=imported.ROOT
 OUTPUT=ROOT/'build/game/486dx25'
@@ -18,8 +19,9 @@ GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c'
 DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST')
 
 
-def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None):
+def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):
     if extra_adapter_flags is None: extra_adapter_flags=DEFAULT_ADAPTER_FLAGS
+    if graphics is None: graphics=not benchmark
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
     report={'stage':'Full game link; silent audio; gameplay acceptance pending',
@@ -32,13 +34,18 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None):
         extra=('-DBENCH_EDIT','-DFIXED_SEED=4242','-DDOSCRAFT_BENCH') if benchmark else ()
         report['benchmark']=benchmark
         report['extra_adapter_flags']=list(extra_adapter_flags)
-        portable=imported.build(output=output/'imported',extra_cflags=extra)
+        report['graphics_presets']=graphics
+        raster_zero_dx='-DDOS_RASTER_ZERO_DX' in extra_adapter_flags
+        transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,raster_zero_dx=raster_zero_dx)
+        portable=imported.build(output=output/'imported',
+            extra_cflags=(*extra,'-I',str(ROOT/'src/platform/dos')),source_transform=transform)
         platform=adapters.stage(output/'platform')
         report['imported']=portable
         report['platform']=platform
         objects=[output/'imported'/row['path'] for row in portable['objects']]
         objdir=output/'obj'; objdir.mkdir(exist_ok=True)
         names=tuple('bench_runtime.c' if name=='game_runtime.c' else name for name in GAME_ADAPTERS) if benchmark else GAME_ADAPTERS
+        if graphics: names=(*names,'graphics_presets.c')
         if '-DDOS_VGA_PACK_ALL' in extra_adapter_flags:
             names=(*names,'vga_pack_all.c')
         if '-DDOS_VGA_HUD_CACHE' in extra_adapter_flags:
@@ -48,7 +55,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None):
         for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')
-            command=[imported.COMPILER,*imported.CFLAGS,*extra,*extra_adapter_flags,'-I',output/'platform/src',
+            command=[imported.COMPILER,*imported.CFLAGS,*extra,*extra_adapter_flags,
+                *(('-DDOS_GRAPHICS_PRESETS',) if graphics else ()),'-I',output/'platform/src',
                 '-I',ROOT/'src/platform/dos','-c',source,'-o',obj]
             subprocess.run(list(map(str,command)),check=True)
             report['commands'].append(list(map(str,command)))

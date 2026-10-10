@@ -11,8 +11,9 @@ Real procedural generation, AT movement/full-pitch input, torch placement/remova
 and save/fresh-process reload now pass in 86Box. Full feature acceptance is still
 pending. Audio is deliberately
 silent under the user's latest priority, not completed Sound Blaster parity.
-Three verified VGA-transport optimizations are now enabled; the renderer,
-mob policy, UI and gameplay remain unchanged.
+Three verified VGA-transport optimizations are now enabled. The user-authorized
+DOS graphics settings are grouped into Low/Medium/High; mob policy and gameplay
+remain unchanged. All three presets retain adaptive texture subdivision.
 Earlier diagnostic paragraphs below record their individual historical gates.
 
 See [the port plan](PORT_PLAN.md) for the direct-port parity gate, the [optimization backlog](OPTIMIZATION_BACKLOG.md), and [measured DOS performance checkpoints](PERFORMANCE.md). The user authorized optimization work on October 10; full feature-parity acceptance remains separate. [The investigation runner](tools/audit_towns_house.py) builds isolated Towns test snapshots without modifying Towns production sources or ISOs.
@@ -29,7 +30,7 @@ python tools/publish_game.py --bios "runtime/<same-known-good-ISA486-VM>/nvr/isa
 ```
 
 The smoke runner needs no Windows keypresses and checks real AT input, menus,
-both resolution options, torch placement/breaking, VGA readback and save/reload.
+all three graphics presets, torch placement/breaking, VGA readback and save/reload.
 Publication requires that exact executable to pass. It preserves the old VM,
 copies its entire HDD byte-for-byte to the new VM, backs up the old ISO beside
 it, and updates `ISO/DOSCRAFT.ISO` and the launcher pointer. It refuses a live
@@ -54,6 +55,24 @@ embedded boot media, emulator/ROM hashes and hardware, refuses a second process
 on the same writable HDD, and reuses that HDD on future launches. `-ValidateOnly`
 on the PowerShell launcher checks these gates without starting a window.
 An error is shown and kept visible by the `.cmd` launcher.
+
+### Graphics presets
+
+Press **F2** to cycle Low → Medium → High → Low. Startup is explicitly Low;
+the old independent resolution/view/subdivision controls are replaced by this
+single setting. Debug, audio and save controls remain separate. Mode X is still
+the display backend, with the same 320x240 display and 40-row HUD.
+
+| Preset | 3D view resolution | View distance | Textured distance | Subdivision |
+| --- | --- | --- | --- | --- |
+| Low (default) | 160x100, doubled | 8 blocks | All 8 blocks | Adaptive |
+| Medium | 160x100, doubled | 12 blocks | 10 blocks, then flat shading | Adaptive |
+| High | 320x200 | 12 blocks | 10 blocks, then flat shading | Adaptive |
+
+Low preserves the primary-target benchmark quality. Medium/High combine existing
+settings, not new rendering effects. Significant new visual/gameplay changes
+require approval before experimentation. Occlusion remains off pending evidence;
+it is no longer an independent player toggle.
 
 The exact ISO path is printed at preparation and recorded via
 `build/game/486dx25/latest-play-vm.txt`. The ISO contains the real executable and
