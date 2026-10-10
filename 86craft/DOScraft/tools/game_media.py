@@ -26,10 +26,13 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def startup(smoke=False):
+def startup(smoke=False, benchmark=False):
     lines=['@ECHO OFF','SET PATH=A:\\','CTMOUSE /S14 /R11 /W /Y',
            'CWSDPMI -p -s-']
-    if smoke:
+    if benchmark:
+        lines += ['DOSCRAFT /1','IF ERRORLEVEL 1 GOTO DONE','DOSCRAFT /2',
+                  'IF ERRORLEVEL 1 GOTO DONE','DOSCRAFT /3',':DONE','ECHO Benchmark finished.']
+    elif smoke:
         lines += ['DOSCRAFT /SMOKE','IF ERRORLEVEL 1 GOTO DONE',
                   'DOSCRAFT /SMOKELOAD',':DONE','ECHO Game test finished.']
     else:
@@ -62,13 +65,14 @@ def embedded_boot(image):
     return boot
 
 
-def prepare(smoke=False, bios=None):
+def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False):
+    output=Path(output)
     if bios:
         bios=Path(bios).resolve(strict=True)
         if bios.name!='isa486.nvr' or bios.stat().st_size!=128:
             raise ValueError('Expected known-good same-machine 128-byte isa486.nvr')
-    build=json.loads((OUTPUT/'build.json').read_text())
-    exe=(OUTPUT/'DOSCRAFT.EXE').read_bytes()
+    build=json.loads((output/'build.json').read_text())
+    exe=(output/'DOSCRAFT.EXE').read_bytes()
     if build.get('status')!='linked' or sha(exe)!=build['exe_sha256']:
         raise ValueError('Build a fresh successfully linked game first')
     deps=ROOT/'build/deps'
@@ -81,7 +85,7 @@ def prepare(smoke=False, bios=None):
            ('CWSDPMI.EXE',(deps/'cwsdpmi/bin/CWSDPMI.EXE').read_bytes()),
            ('CTMOUSE.EXE',driver),('DOSCRAFT.EXE',exe),
            ('FDCONFIG.SYS',(ROOT/'guest/FDCONFIG.SYS').read_text().replace('\n','\r\n').encode('ascii')),
-           ('AUTOEXEC.BAT',startup(smoke))]
+           ('AUTOEXEC.BAT',startup(smoke,benchmark))]
     boot=populate(source.data[:512],files)
     note=('DOScraft direct port: 486DX/25, 16 MiB, ET4000, 320x240 Mode X.\r\n'
           'Silent audio checkpoint; no renderer optimization.\r\n'
@@ -109,7 +113,7 @@ def prepare(smoke=False, bios=None):
         (vm/'nvr').mkdir(); shutil.copyfile(bios,vm/'nvr/isa486.nvr')
     command=launch_command(vm) # Pinned executable and ROM checks before publishing.
     record={'stage':'Real game; silent audio; interactive acceptance pending',
-        'smoke':smoke,'target':'486dx25','vm_directory':str(vm),
+        'smoke':smoke,'benchmark':benchmark,'target':'486dx25','vm_directory':str(vm),
         'source_commit':build['source_commit'],'exe_sha256':sha(exe),
         'iso_sha256':sha(iso),'boot_sha256':sha(boot),'profile_sha256':sha(profile.read_bytes()),
         'bios_seed_sha256':sha(bios.read_bytes()) if bios else None,
@@ -121,7 +125,7 @@ def prepare(smoke=False, bios=None):
         'boot_note':'Floppy extracted from ISO; no native CD boot claim',
         'audio':'SILENT_DEFERRED'}
     (vm/'build.json').write_text(json.dumps(record,indent=2)+'\n')
-    (OUTPUT/('latest-smoke-vm.txt' if smoke else 'latest-play-vm.txt')).write_text(str(vm))
+    (output/('latest-bench-vm.txt' if benchmark else 'latest-smoke-vm.txt' if smoke else 'latest-play-vm.txt')).write_text(str(vm))
     return vm,record
 
 
@@ -160,7 +164,7 @@ def validate(vm):
     if sha(iso)!=record['iso_sha256'] or sha(boot)!=record['boot_sha256'] or embedded_boot(iso)!=boot:
         raise ValueError('ISO/boot media differs from prepared build')
     media=FatImage(boot)
-    if sha(media.read('DOSCRAFT.EXE'))!=record['exe_sha256'] or media.read('AUTOEXEC.BAT')!=startup(record['smoke']):
+    if sha(media.read('DOSCRAFT.EXE'))!=record['exe_sha256'] or media.read('AUTOEXEC.BAT')!=startup(record['smoke'],record.get('benchmark',False)):
         raise ValueError('Game payload or startup mismatch')
     if sha(media.read('CTMOUSE.EXE'))!=CTMOUSE_EXE_SHA256:
         raise ValueError('Mouse driver mismatch')

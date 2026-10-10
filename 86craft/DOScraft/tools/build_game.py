@@ -17,7 +17,7 @@ GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c'
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c')
 
 
-def build(output=OUTPUT):
+def build(output=OUTPUT, benchmark=False):
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
     report={'stage':'Full game link; silent audio; gameplay acceptance pending',
@@ -27,16 +27,19 @@ def build(output=OUTPUT):
     manifest=output/'build.json'
     manifest.write_text(json.dumps(report,indent=2)+'\n')
     try:
-        portable=imported.build(output=output/'imported')
+        extra=('-DBENCH_EDIT','-DFIXED_SEED=4242','-DDOSCRAFT_BENCH') if benchmark else ()
+        report['benchmark']=benchmark
+        portable=imported.build(output=output/'imported',extra_cflags=extra)
         platform=adapters.stage(output/'platform')
         report['imported']=portable
         report['platform']=platform
         objects=[output/'imported'/row['path'] for row in portable['objects']]
         objdir=output/'obj'; objdir.mkdir(exist_ok=True)
-        for name in GAME_ADAPTERS:
+        names=tuple('bench_runtime.c' if name=='game_runtime.c' else name for name in GAME_ADAPTERS) if benchmark else GAME_ADAPTERS
+        for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')
-            command=[imported.COMPILER,*imported.CFLAGS,'-I',output/'platform/src',
+            command=[imported.COMPILER,*imported.CFLAGS,*extra,'-I',output/'platform/src',
                 '-I',ROOT/'src/platform/dos','-c',source,'-o',obj]
             subprocess.run(list(map(str,command)),check=True)
             report['commands'].append(list(map(str,command)))
@@ -45,8 +48,8 @@ def build(output=OUTPUT):
                 'object_sha256':imported.sha256(obj.read_bytes())})
             objects.append(obj)
         exe=output/'DOSCRAFT.EXE'
-        command=[imported.COMPILER,*imported.CFLAGS,*objects,
-            '-Wl,--wrap=gfx_present,--wrap=save_world,--wrap=load_world,--wrap=render_frame','-o',exe]
+        wraps='-Wl,--wrap=gfx_present' if benchmark else '-Wl,--wrap=gfx_present,--wrap=save_world,--wrap=load_world,--wrap=render_frame'
+        command=[imported.COMPILER,*imported.CFLAGS,*objects,wraps,'-o',exe]
         subprocess.run(list(map(str,command)),check=True)
         report.update(status='linked',linked=True,exe_sha256=imported.sha256(exe.read_bytes()),
             executable_bytes=exe.stat().st_size,link_command=list(map(str,command)))

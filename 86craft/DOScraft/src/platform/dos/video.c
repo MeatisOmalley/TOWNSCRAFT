@@ -13,6 +13,7 @@
 #include <string.h>
 #include "vga_pack.h"
 #include "video_backend.h"
+#include "bench_transport.h"
 
 static int old_mode = -1;
 static unsigned int shown_page;
@@ -119,14 +120,26 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
     unsigned int next_page = (shown_page + 1) % VGA_PAGES;
     unsigned int offset = next_page * DOS_VGA_PLANE_BYTES;
     uclock_t start;
+#ifdef DOSCRAFT_BENCH
+    unsigned int stamp;
+#endif
     for (plane = 0; plane < 4; ++plane) {
+#ifdef DOSCRAFT_BENCH
+        stamp=bench_us();
+#endif
         if (dos_vga_pack_plane(source, pitch, packed, sizeof(packed), plane)) {
             dos_video_restore();
             fputs("Invalid 320x240 framebuffer\n", stderr);
             exit(1);
         }
+#ifdef DOSCRAFT_BENCH
+        dos_bench_pack+=bench_us()-stamp; stamp=bench_us();
+#endif
         outportw(0x3c4, ((1 << plane) << 8) | 2);
         dosmemput(packed, sizeof(packed), 0xa0000 + offset);
+#ifdef DOSCRAFT_BENCH
+        dos_bench_upload+=bench_us()-stamp;
+#endif
     }
     outportw(0x3c4, 0x0f02);
     /* Preserve hidden-page presentation, not four planes fading onto the
@@ -134,10 +147,17 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
      * the current retrace before programming the next start, then wait for
      * the retrace that latches it. Both waits are bounded on broken hardware. */
     start = wait_clock();
+#ifdef DOSCRAFT_BENCH
+    stamp=bench_us();
+#endif
     while (video_in_vsync() && wait_pending(start)) {}
     outportw(0x3d4, (offset & 0xff00) | 0x0c);
     outportw(0x3d4, ((offset & 0xff) << 8) | 0x0d);
     while (!video_in_vsync() && wait_pending(start)) {}
+#ifdef DOSCRAFT_BENCH
+    dos_bench_wait+=bench_us()-stamp;
+    if(!wait_pending(start)) ++dos_bench_timeouts;
+#endif
     shown_page = next_page;
 }
 

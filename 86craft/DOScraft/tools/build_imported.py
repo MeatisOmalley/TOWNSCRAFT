@@ -234,7 +234,7 @@ def verify_symbols(symbols):
             raise ValueError(f'Missing generated table: {name}')
 
 
-def build(vendor=VENDOR, output=OUTPUT, compiler=COMPILER):
+def build(vendor=VENDOR, output=OUTPUT, compiler=COMPILER, extra_cflags=()):
     vendor, output, compiler = map(lambda p: Path(p).resolve(), (vendor, output, compiler))
     # CLI always uses the ignored checkpoint directory; callers/tests may use
     # private temporary directories. No cleanup of other agents' build files.
@@ -242,7 +242,7 @@ def build(vendor=VENDOR, output=OUTPUT, compiler=COMPILER):
     manifest_path = output / 'build.json'
     report = dict(stage='direct-port compiler/ABI checkpoint only', target='486dx25',
                   status='in_progress', linked=False, executable=False, playable=False,
-                  cflags=list(CFLAGS), commands=[], objects=[])
+                  cflags=list(CFLAGS)+list(extra_cflags), commands=[], objects=[])
 
     def save_report():
         manifest_path.write_bytes((json.dumps(report, indent=2) + '\n').encode('utf-8'))
@@ -291,7 +291,7 @@ def build(vendor=VENDOR, output=OUTPUT, compiler=COMPILER):
             obj = object_dir / (Path(name).stem + '.o')
             if obj.exists():
                 obj.unlink()
-            flags = ASFLAGS if name.endswith('.S') else CFLAGS
+            flags = ASFLAGS if name.endswith('.S') else (*CFLAGS, *extra_cflags)
             run([compiler, *flags, '-c', source_dir / name, '-o', obj], obj.stem)
             metadata = coff_object(obj.read_bytes())
             symbols[obj.name] = parse_nm(run([nm, '-g', obj], obj.stem + '-symbols'))

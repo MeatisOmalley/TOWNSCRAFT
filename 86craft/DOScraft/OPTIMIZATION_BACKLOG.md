@@ -1,5 +1,11 @@
 # DOScraft optimization backlog
 
+**2026-10-10 authorization update:** the user now requests measured optimization
+implementation and independent prioritization beyond this list. That overrides
+the original Phase B timing gate below; it does not declare full port parity
+accepted. See [PERFORMANCE.md](PERFORMANCE.md) for the automated guest replay,
+measurement limitations, independent ranking and retained experiment results.
+
 Recorded 2026-10-09 from the user's complete `Pasted text.txt` attachment and the existing Towns source/retention audit. This is **Phase B research after the user accepts the complete Phase A direct port**, not a list of prerequisites for porting. [PORT_PLAN.md](PORT_PLAN.md) defines the full parity gate. No proposal here is a selected implementation, a measured DOS gain or a promised FPS result.
 
 Latest resolution guidance: the user authorizes choosing whichever resolution makes sense for this PC. The existing 320x240 layout is the direct-port starting point, not a permanent restriction. First candidate: Mode X display, sharp HUD, existing doubled 160x100 3D option. Compare full-resolution rendering and presentation costs once playable; do not infer a winner from the nominal VGA mode alone.
