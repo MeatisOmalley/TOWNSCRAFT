@@ -34,10 +34,12 @@ static int test_atexit(void (*)(void));
 volatile u32 g_ticks;
 static u8 disk[NUM_TRACKS*TRACK_BYTES], protected_bank[NUM_TRACKS/2*TRACK_BYTES];
 static u8 permanent[65536], dst[COLUMN_CELLS], other[COLUMN_CELLS];
+static u8 before_load[NUM_TRACKS*TRACK_BYTES];
 static u32 permanent_top;
 static int failure, live, read_only, reads, writes, commits, short_limit;
 static int commit_error, fail_commit_number, commit_transport_failure;
 static int operation_bytes;
+static int fail_read_number;
 static off_t filepos;
 static void (*cleanup)(void);
 static int write_tracks[1024], write_count;
@@ -70,6 +72,7 @@ static off_t test_lseek(int fd,off_t offset,int whence) {
 static ssize_t test_read(int fd,void *p,size_t n) {
     assert(fd==42 && live && n && n<=TRACK_BYTES && filepos+(off_t)n<=(off_t)sizeof(disk));
     ++reads; if(failure==8) return -1; if(failure==9) return 0;
+    if(fail_read_number && reads==fail_read_number) return -1;
     if(failure==13) return n+1;
     if(operation_bytes && failure==15) return 0;
     if(operation_bytes && failure==16) return -1;
@@ -98,8 +101,19 @@ static void reset_transport(void) {
     page_cancel(); failure=read_only=short_limit=commit_error=fail_commit_number=commit_transport_failure=0;
     reads=writes=commits=write_count=0; fixture_busy=0; fixture_source=-1;
     close_error=0;
+    fail_read_number=0;
 }
 static void reset_disk(void) { reset_transport(); memset(disk,0,sizeof(disk)); }
+static int load_no_disk_mutation(void) {
+    int w=writes,c=commits,result;
+    memcpy(before_load,disk,sizeof(disk)); result=load_world();
+    assert(writes==w && commits==c && !memcmp(before_load,disk,sizeof(disk)));
+    return result;
+}
+static void two_v4_banks(void) {
+    reset_disk(); fixture_seed(32,1); assert(save_world()==SAVE_OK);
+    g_time=9876; assert(save_world()==SAVE_OK);
+}
 int main(int argc, char **argv) {
     int before,status;
     for(int f=1;f<=5;++f) {
@@ -181,6 +195,13 @@ int main(int argc, char **argv) {
     assert(save_world()==SAVE_OK && word_at(BANK_TRACKS*TRACK_BYTES+16)==3);
     assert(!memcmp(protected_bank,disk,sizeof(protected_bank)));
     fixture_clear_state(); assert(load_world()==SAVE_OK && fixture_restored(32,0));
+    /* Both directions preserve the live paging source, independent of the
+     * loader's separate legacy-precedence correction. */
+    { u32 newer=9; memcpy(disk+16,&newer,4); } /* Bank 0 newer than live source 1. */
+    fixture_source=1; memcpy(protected_bank,disk+BANK_TRACKS*TRACK_BYTES,sizeof(protected_bank));
+    assert(save_world()==SAVE_OK && word_at(16)==10);
+    assert(!memcmp(protected_bank,disk+BANK_TRACKS*TRACK_BYTES,sizeof(protected_bank)));
+    fixture_clear_state(); assert(load_world()==SAVE_OK && fixture_restored(32,0));
     fixture_source=-1;
     /* Failed first/payload/final-header commit never publishes RAM records. */
     for(int failed=1;failed<=4;++failed) {
@@ -220,13 +241,13 @@ int main(int argc, char **argv) {
     /* Historical v1/v2 inputs retain their original chest/mob omissions. */
     for(int version=1;version<=2;++version) {
         u32 sum;
-        reset_disk(); fixture_seed(32,0);
+        two_v4_banks(); fixture_seed(32,0);
         assert(fdc_start()); streamBase=0; streamLimit=NUM_TRACKS; stream_begin(1);
         put32(SAVE_MAGIC); put32(version); put32(0); streamSum=0;
         put_state(); put_blocks(); if(version>=2) put_chests();
         sum=streamSum; stream_end_write(); assert(streamOk);
         assert(fdc_track(0,0)); memcpy(trackBuf+8,&sum,4); assert(fdc_track(0,1)); fdc_stop();
-        fixture_clear_state(); assert(load_world()==SAVE_OK && !save_loaded_mobs());
+        fixture_clear_state(); assert(load_no_disk_mutation()==SAVE_OK && !save_loaded_mobs());
         for(int i=0;i<8;++i) assert(!fixture_mobs[i]);
         if(version==1) {
             for(int i=0;i<MAX_CHESTS;++i) assert(!g_chests[i].used);
@@ -237,10 +258,46 @@ int main(int argc, char **argv) {
     }
     reset_disk(); fixture_seed(32,0); assert(load_world()==SAVE_NOT_A_SAVE);
     failure=1; assert(load_world()==SAVE_NO_DISK && save_world()==SAVE_NO_DISK);
-    /* Remaining inherited version-precedence issue; next separate bugfix. */
+    /* Recognized legacy headers win over surviving bank 1, without deleting it. */
     reset_disk(); fixture_seed(32,1); assert(save_world()==SAVE_OK && save_world()==SAVE_OK);
+    memcpy(protected_bank,disk+BANK_TRACKS*TRACK_BYTES,sizeof(protected_bank));
     fixture_seed(256,1); assert(save_world()==SAVE_OK && word_at(4)==3);
-    assert(load_world()==SAVE_WRONG_SIZE); /* Old v4 bank 1 wins over new v3. */
+    fixture_clear_state(); assert(load_no_disk_mutation()==SAVE_OK && fixture_restored(256,1));
+    assert(!memcmp(protected_bank,disk+BANK_TRACKS*TRACK_BYTES,sizeof(protected_bank)));
+    reads=0; fail_read_number=7; /* Width-256 RLE extends beyond its first track. */
+    assert(load_no_disk_mutation()==SAVE_DISK_ERROR); fail_read_number=0;
+    two_v4_banks(); fixture_seed(32,0); g_time=2468; assert(save_world()==SAVE_OK);
+    fixture_clear_state(); assert(load_no_disk_mutation()==SAVE_OK && g_time==2468);
+    g_time=13579; assert(fixture_restored(32,1));
+    /* Recognized but invalid legacy data reports its own error, never stale v4. */
+    g_W=16; assert(load_no_disk_mutation()==SAVE_WRONG_SIZE); g_W=32;
+    disk[8]^=1; assert(load_no_disk_mutation()==SAVE_BAD_DATA); disk[8]^=1;
+    disk[12+136]=0; assert(load_no_disk_mutation()==SAVE_DISK_ERROR); disk[12+136]=100;
+    reads=0; fail_read_number=6; assert(load_no_disk_mutation()==SAVE_DISK_ERROR); fail_read_number=0;
+    /* The new header probe's failure/unknown signature keeps v4 recovery. */
+    reads=0; fail_read_number=5;
+    assert(load_no_disk_mutation()==SAVE_OK && g_time==9876); fail_read_number=0;
+    disk[0]^=1; assert(load_no_disk_mutation()==SAVE_OK && g_time==9876); disk[0]^=1;
+    for(u32 unknown=0;unknown<=5;unknown+=5) {
+        memcpy(disk+4,&unknown,4); assert(load_no_disk_mutation()==SAVE_OK && g_time==9876);
+    }
+    { u32 version=3; memcpy(disk+4,&version,4); }
+    assert(load_no_disk_mutation()==SAVE_OK && g_time==2468);
+    /* Generation order/ties/wrap and invalid opposite-bank recovery unchanged. */
+    two_v4_banks(); assert(load_no_disk_mutation()==SAVE_OK && g_time==9876);
+    { u32 a=1,b=1; memcpy(disk+16,&a,4); memcpy(disk+BANK_TRACKS*TRACK_BYTES+16,&b,4); }
+    assert(load_no_disk_mutation()==SAVE_OK && g_time==13579);
+    { u32 a=0xfffffffeu,b=1; memcpy(disk+16,&a,4); memcpy(disk+BANK_TRACKS*TRACK_BYTES+16,&b,4); }
+    assert(load_no_disk_mutation()==SAVE_OK && g_time==9876);
+    { u32 a=1,b=0xfffffffeu; memcpy(disk+16,&a,4); memcpy(disk+BANK_TRACKS*TRACK_BYTES+16,&b,4); }
+    assert(load_no_disk_mutation()==SAVE_OK && g_time==13579);
+    disk[0]^=1; assert(load_no_disk_mutation()==SAVE_OK && g_time==9876); disk[0]^=1;
+    disk[BANK_TRACKS*TRACK_BYTES+8]^=1;
+    assert(load_no_disk_mutation()==SAVE_OK && g_time==13579);
+    /* Older/unknown-age legacy beside a higher-generation v4 bank is also
+     * legacy-first: these formats cannot encode cross-format chronology. */
+    two_v4_banks(); fixture_seed(32,0); assert(save_world()==SAVE_OK);
+    assert(load_no_disk_mutation()==SAVE_OK && g_time==13579);
     reset_transport(); assert(save_column_read(0,16,dst)==1);
     memcpy(other,dst,16); memset(dst,0x5a,16); /* Represents scratch reuse by terrain. */
     before=reads;
@@ -255,6 +312,9 @@ int main(int argc, char **argv) {
         fixture_clear_state(); assert(load_world()==SAVE_OK && fixture_restored(32,0));
         fixture_seed(32,1); fixture_source=0; assert(save_world()==SAVE_OK);
         fixture_clear_state(); assert(load_world()==SAVE_OK && fixture_restored(32,0));
+        fixture_source=-1; fixture_seed(256,1); g_time=9876; assert(save_world()==SAVE_OK);
+        fixture_clear_state(); assert(load_no_disk_mutation()==SAVE_OK && g_time==9876);
+        g_time=13579; assert(fixture_restored(256,1));
         output=fopen(argv[1],"wb"); assert(output);
         assert(fwrite(disk,1,sizeof(disk),output)==sizeof(disk)); assert(!fclose(output));
     }

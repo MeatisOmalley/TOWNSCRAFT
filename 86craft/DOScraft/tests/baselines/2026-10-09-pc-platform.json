@@ -152,6 +152,7 @@
     "verification": "Read C:/SAVEIO.TXT, compared the entire WORLD.SAV against the independent Python byte oracle, including exact bank headers/checksums/generations, payload/padding and untouched trailing tracks. Transport and retained codec ran with resident game timer/key IRQs on the primary guest. World/mob providers are mocks; no full world/cache/mob save/load, restart, gameplay, power-loss durability or FPS claim. Completed emulator process was stopped after exact executable/private VM identity checks."
   },
   "shared_save_destination_fix": {
+    "source_checkpoint": "0a9ae612",
     "vm": "saveio-486dx25-e0f93k25",
     "exe_sha256": "21ea4c849eb376bdb19d9f4166b759fe813c101934de76a8996e7fab71b09266",
     "raw_report_sha256": "f5bac0d7755dfea6644b7acd0c6872187dff51b122fa211db935f884319343fe",
@@ -161,6 +162,20 @@
     "ELAPSED_100HZ_TICKS": 1071,
     "RESULT": "PASS",
     "verification": "Completed a cross-track saved-column read, overwrote its destination to simulate terrain reuse, then repeated the identical request and verified every word was recopied. Entire save file still matches the independent oracle. All earlier SAVEIO diagnostic gates passed. Mock providers; actual world-cache/mob integration remains untested. Verified finished private VM process stopped."
+  },
+  "legacy_save_precedence_fix": {
+    "native_suite": "86 tests PASS, two environment-dependent symlink skips",
+    "vm": "saveio-486dx25-anqubxwe",
+    "runtime_note": "Private CRT _CRT0_FLAG_LOCK_MEMORY experiment; not yet the normal production build. Default unlocked new fixture crashes in __dpmi_int before diagnostic startup.",
+    "exe_sha256": "d84b2f66bdab63f820a1ee631391cf32842a28857d2b4d63955be5dcdff43088",
+    "raw_report_sha256": "0d6885342fd8fec56afe50c0f5bcb2da04d94b208142fd8909275e30335594b6",
+    "save_after_sha256": "b61f559bef2cd40874d0012b64dee7917c71879a54289e89d7107354d16e92c4",
+    "LEGACY_PRECEDENCE": "PASS",
+    "ALL_SAVEIO_GATES": "PASS",
+    "WHOLE_FILE_BYTE_ORACLE": "PASS",
+    "ELAPSED_100HZ_TICKS": 1652,
+    "REAL_WORLD_MOB_INTEGRATION": "UNTESTED",
+    "verification": "Read the complete private report and independently compared every save byte. All completed test emulator processes closed; original runtime/ROM/production source and user media unchanged. No gameplay/FPS evidence."
   },
   "limitations": [
     "Diagnostics only: no gameplay, renderer FPS, audio, physical mouse/keyboard ingress, full world/save/cache integration or full parity validation.",

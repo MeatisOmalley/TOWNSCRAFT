@@ -7,7 +7,7 @@
 
 int main(void)
 {
-    int blank=1, legacy=0, banks=0, source=0, paging=0, reused=0, cleanup, ok;
+    int blank=1, legacy=0, banks=0, source=0, paging=0, reused=0, priority=0, cleanup, ok;
     u32 elapsed, start;
     u8 bytes[COLUMN_CELLS];
     FILE *report;
@@ -46,20 +46,26 @@ int main(void)
         do { status=save_column_read(BANK_TRACKS*TRACK_BYTES+20+136,COLUMN_CELLS,bytes); } while(!status);
         reused=status==1 && ((u32 *)bytes)[0]==4096;
         for(int i=1;i<COLUMN_CELLS/4;++i) if(((u32 *)bytes)[i]!=0x73610000u+i-1) reused=0;
+        page_cancel(); fixture_source=-1;
+        fixture_seed(256,1); g_time=9876;
+        priority=save_world()==SAVE_OK;
+        fixture_clear_state();
+        priority &= load_world()==SAVE_OK && g_time==9876;
+        g_time=13579; priority &= fixture_restored(256,1);
     }
     dos_save_shutdown();
     cleanup=!dos_save_take_close_error() && save_fd<0;
     elapsed=g_ticks-start;
     dos_system_shutdown();
-    ok=blank && legacy && banks && source && paging && reused && cleanup;
+    ok=blank && legacy && banks && source && paging && reused && priority && cleanup;
     report=fopen("C:\\SAVEIO.TXT","wb");
     if(!report) return 1;
     fprintf(report,"DOScraft persistent save transport/codec fixture\n"
         "BLANK_PRIVATE_MEDIUM=%s\nWIDTH256_V3_ROUNDTRIP=%s\nV4_BANK_ROUNDTRIP=%s\n"
-        "PROTECTED_SOURCE_BACKUP=%s\nCROSS_TRACK_PAGING=%s\nREUSED_DESTINATION=%s\nCLEANUP=%s\nELAPSED_100HZ_TICKS=%u\n"
+        "PROTECTED_SOURCE_BACKUP=%s\nCROSS_TRACK_PAGING=%s\nREUSED_DESTINATION=%s\nLEGACY_PRECEDENCE=%s\nCLEANUP=%s\nELAPSED_100HZ_TICKS=%u\n"
         "REAL_WORLD_MOB_INTEGRATION=UNTESTED\nRESULT=%s\n",
         blank?"PASS":"FAIL",legacy?"PASS":"FAIL",banks?"PASS":"FAIL",
-        source?"PASS":"FAIL",paging?"PASS":"FAIL",reused?"PASS":"FAIL",cleanup?"PASS":"FAIL",elapsed,ok?"PASS":"FAIL");
+        source?"PASS":"FAIL",paging?"PASS":"FAIL",reused?"PASS":"FAIL",priority?"PASS":"FAIL",cleanup?"PASS":"FAIL",elapsed,ok?"PASS":"FAIL");
     if(fclose(report)) return 1;
     puts(ok?"DOS save codec: PASS":"DOS save codec: FAIL (see C:\\SAVEIO.TXT)");
     return !ok;

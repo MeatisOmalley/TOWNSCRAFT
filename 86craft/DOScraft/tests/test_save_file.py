@@ -26,7 +26,9 @@ class SaveFileTests(unittest.TestCase):
         self.assertEqual(replay,portable)
         self.assertEqual(imported.sha256(portable),record['staged_sha256'])
         replacements = [s for s in record['transformations'] if s['before']!='\r\n']
-        self.assertEqual(len(replacements),3)
+        self.assertEqual(len(replacements),4)
+        self.assertIn(b'if(bank==1)',portable)
+        self.assertIn(b'legacyVersion>=1 && legacyVersion<=3',portable)
         self.assertIn(b'world_cache_active() && g_W<256 ? SAVE_VERSION : 3',portable)
         self.assertIn(b'No disk in drive A',portable)
         for token in (b'inb(',b'outb(',b'dma_setup('):

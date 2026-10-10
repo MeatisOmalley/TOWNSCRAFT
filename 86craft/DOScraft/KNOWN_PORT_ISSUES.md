@@ -20,12 +20,34 @@ remain unchanged. They must be considered during real mixed-source parity tests.
 
 2. **Old v4 bank can shadow a later v3 save.** Save version selection is retained:
    cached widths below 256 use two-bank v4; the width-256 baseline uses legacy
-   single-medium v3. Loading prefers a valid v4 bank before testing legacy track
+   single-medium v3. The original loader prefers a valid v4 bank before testing legacy track
    zero. If v4 bank 1 remains valid and a new compressed v3 save fits entirely
    inside bank 0, the old v4 snapshot wins, yielding `SAVE_WRONG_SIZE` for width
    256 despite a successful v3 write. The native reproduction uses precisely
-   this sequence. Do not force v4, invalidate old banks, change selection, or
-   claim legacy saves are transactional without a separate approved fix.
+   this sequence. **Approved DOS loader-only fix:** when bank 1 would win,
+   probe track zero. A readable `SAVE_MAGIC` header with version 1-3 selects
+   the existing legacy loader instead. It performs the original size, RLE and
+   checksum validation and returns its original errors; recognized-but-bad
+   legacy payloads do not silently fall back to an older v4 snapshot. An
+   unreadable probe, bad magic or unknown version retains v4 recovery. Loading
+   never writes, invalidates banks or converts data; saving version selection,
+   source-bank protection and v4 generation comparison remain unchanged.
 
-The user approved separate bugfix commits alongside the port. Version precedence
-is the next separate fix. Neither issue authorizes a renderer/world optimization.
+   **Explicit limitation:** v1-v3 have no generation number. There is no way to
+   determine cross-format chronology from these bytes; recognized legacy track
+   zero wins even beside a genuinely newer/unknown-age v4 bank 1. This rule fixes
+   a successful v3 save being hidden; it does not make legacy writes transactional
+   or promise recovery from an unreadable/partially overwritten legacy header.
+   Native regressions cover different/same widths, distinct old/new state,
+   v1/v2 omissions, invalid legacy payloads, probe failures, v4 generation wrap/
+   ties/recovery, both live-source directions and zero writes during loading.
+
+   The extended guest fixture passes all gates and the independent whole-file
+   byte oracle with a private `_CRT0_FLAG_LOCK_MEMORY` startup experiment
+   (`saveio-486dx25-anqubxwe`). The ordinary unlocked executable instead faults
+   in the DJGPP startup interrupt wrapper before the diagnostic begins. This
+   is recorded separately; the save fix does not include a runtime workaround.
+
+The user approved these separate bugfix commits alongside the port. Both are DOS
+fixes; the immutable Towns reference is unchanged. Neither authorizes a renderer/
+world optimization. Real world-cache/mob integration parity remains pending.

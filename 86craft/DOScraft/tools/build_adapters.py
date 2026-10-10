@@ -42,6 +42,23 @@ def save_codec_source(vendor=imported.VENDOR):
         raise ValueError('Unexpected save/load close-error boundary')
     recipe.append(dict(operation='replace',before=before,after=after,count=2))
     text = text.replace(before,after)
+    # Separately approved correctness fix, not a new format or save policy:
+    # a recognized legacy track-zero header must not be shadowed by stale v4
+    # bank 1. v1-v3 have no generation, so this explicitly defines precedence.
+    before = '\tint bank=choose_bank();\n\tstreamBase=bank>=0 ? bank*BANK_TRACKS : 0;\n'
+    after = '''\tint bank=choose_bank();
+\tif(bank==1)
+\t{
+\t\tstreamBase=0; streamLimit=NUM_TRACKS; stream_begin(0);
+\t\tif(streamOk && get32()==SAVE_MAGIC)
+\t\t{
+\t\t\tu32 legacyVersion=get32();
+\t\t\tif(streamOk && legacyVersion>=1 && legacyVersion<=3) bank=-1;
+\t\t}
+\t}
+\tstreamBase=bank>=0 ? bank*BANK_TRACKS : 0;
+'''
+    text = imported.replace_once(text,before,after,recipe)
     portable = text.encode('utf-8')
     if any(token in portable for token in (b'outb(', b'inb(', b'dma_setup(')):
         raise ValueError('Unexpected hardware dependency in save codec')

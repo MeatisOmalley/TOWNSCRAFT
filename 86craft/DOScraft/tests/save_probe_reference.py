@@ -17,9 +17,9 @@ def checksum(payload):
     return value
 
 
-def state(width):
+def state(width,time=13579):
     fixed=words([width,8*4096+3,20*4096,11*4096+13,19,-21,17,3,
-                 5*4096,19*4096,7*4096,1,2,22,4,13579])
+                 5*4096,19*4096,7*4096,1,2,22,4,time])
     slots=bytes(v for i in range(36) for v in (i,63-i))
     return fixed+slots
 
@@ -46,4 +46,8 @@ def saveio_expected_image():
     for bank in range(2):
         header=words([0x46435354,4,checksum(payload),len(payload),bank+1])
         overlay(bank*BANK_TRACKS*TRACK_BYTES,header+payload)
+    # Approved loader-only precedence regression: later v3 replaces bank 0;
+    # bank 1 remains intact, and the recognized legacy header must win.
+    legacy=state(256,9876)+bytes([100,1,255,0,255,0,255,0,159,0])*3072+suffix()
+    overlay(0,words([0x46435354,3,checksum(legacy)])+legacy)
     return bytes(image)
