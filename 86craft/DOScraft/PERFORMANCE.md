@@ -391,6 +391,13 @@ divisors, both signs, boundaries and fallback inputs; 32,192 actual raster/
 assembly polygon comparisons preserve pixels, guards, counters and occlusion.
 DJGPP audits show the fast core is inline MULL/correction with no divide,
 function/helper call, FPU or SIMD. Explicit source recipes replay exactly and
-fail closed on upstream changes. Low/High guest binaries are prepared; guest
-performance/adoption is still pending at this checkpoint. Default flags and
-the playable ISO remain unchanged.
+fail closed on upstream changes.
+
+Three input-isolated Low guest repeats pass every image hash/readback but do
+not improve performance: walking 58.422 -> 59.478 ms, looking down 137.999 ->
+141.690 ms, house 98.513 -> 99.040 ms, stationary 67.421 -> 72.690 ms; up/edit
+aftermath are neutral. Evidence: `tests/benchmarks/2026-10-10/edge-recip-low.json`.
+This rejects the candidate as a default. A multiplication/table access plus
+exact correction is not inherently cheaper on this target than the original
+division. High is not used to excuse a Low regression. Preserve the selectable
+implementation and tests; default flags and the playable ISO remain unchanged.
