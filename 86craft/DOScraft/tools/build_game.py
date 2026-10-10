@@ -46,7 +46,7 @@ def build(output=OUTPUT):
             objects.append(obj)
         exe=output/'DOSCRAFT.EXE'
         command=[imported.COMPILER,*imported.CFLAGS,*objects,
-            '-Wl,--wrap=gfx_present,--wrap=save_world,--wrap=load_world','-o',exe]
+            '-Wl,--wrap=gfx_present,--wrap=save_world,--wrap=load_world,--wrap=render_frame','-o',exe]
         subprocess.run(list(map(str,command)),check=True)
         report.update(status='linked',linked=True,exe_sha256=imported.sha256(exe.read_bytes()),
             executable_bytes=exe.stat().st_size,link_command=list(map(str,command)))

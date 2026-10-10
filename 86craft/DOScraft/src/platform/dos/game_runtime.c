@@ -21,7 +21,14 @@ static unsigned int until,start;
 static int x0,z0,pitch0,walk_ok,look_ok;
 static int save_busy,save_result=-1,load_result=-1;
 static int placed,broken,torch_before,torch_after,vga_ok=1;
+static int rendered_frames;
 void __real_gfx_present(void);
+void __real_render_frame(u8 *fb,const RenderEnv *env);
+void __wrap_render_frame(u8 *fb,const RenderEnv *env)
+{
+    __real_render_frame(fb,env);
+    if(smoke) ++rendered_frames;
+}
 int __real_save_world(void);
 int __real_load_world(void);
 int __wrap_save_world(void)
@@ -121,14 +128,24 @@ void __wrap_gfx_present(void)
         return;
     }
     /* During generation the actual game's progress screens also present. */
-    if(stage==1 && g_player.body.h>0 && g_player.health>0 && g_meshQuads>0) {
+    if(stage==1 && rendered_frames>0 && !save_busy &&
+       g_player.body.h>0 && g_player.health>0 && g_meshQuads>0) {
         snapshot("C:\\WORLD.RAW",frame);
         x0=g_player.body.x; z0=g_player.body.z; key(0x11); /* W held */
         until=g_ticks+100; stage=2;
     } else if(stage==2 && (int)(g_ticks-until)>=0) {
         key(0x91); walk_ok=g_player.body.x!=x0 || g_player.body.z!=z0;
-        key(0xe0); key(0x50); /* down */ until=g_ticks+100; stage=3;
-    } else if(stage==3 && (int)(g_ticks-until)>=0) {
+        if(!walk_ok) {
+            /* Reload can face the obstruction reached by the first walk.
+             * Test real reverse input rather than teleporting/changing terrain. */
+            key(0x1f); until=g_ticks+100; stage=12;
+        } else {
+            key(0xe0); key(0x50); until=g_ticks+1000; stage=3;
+        }
+    } else if(stage==12 && (int)(g_ticks-until)>=0) {
+        key(0x9f); walk_ok=g_player.body.x!=x0 || g_player.body.z!=z0;
+        key(0xe0); key(0x50); until=g_ticks+1000; stage=3;
+    } else if(stage==3 && (g_player.pitch==-250 || (int)(g_ticks-until)>=0)) {
         key(0xe0); key(0xd0); pitch0=g_player.pitch;
         snapshot("C:\\DOWN.RAW",frame);
         torch_before=torches(); key(0x12); /* E places the original starting torch */
@@ -140,8 +157,8 @@ void __wrap_gfx_present(void)
     } else if(stage==11 && (int)(g_ticks-until)>=0) {
         key(0xa4); broken=placed && torches()<torch_after;
         snapshot("C:\\BREAK.RAW",frame);
-        key(0xe0); key(0x48); /* up */ until=g_ticks+160; stage=4;
-    } else if(stage==4 && (int)(g_ticks-until)>=0) {
+        key(0xe0); key(0x48); /* up */ until=g_ticks+1000; stage=4;
+    } else if(stage==4 && (g_player.pitch==250 || (int)(g_ticks-until)>=0)) {
         key(0xe0); key(0xc8); look_ok=pitch0==-250 && g_player.pitch==250;
         tap(0x0f); /* Tab inventory */ until=g_ticks+30; stage=5;
     } else if(stage==5 && (int)(g_ticks-until)>=0) {
@@ -156,6 +173,7 @@ void __wrap_gfx_present(void)
         stage=9; /* Set before PF9: progress screens reenter this wrapper. */
         if(!load_smoke) tap(0x43); /* F9 -> real game's save_game */
         until=g_ticks+50;
-    } else if(stage==9 && !save_busy && (int)(g_ticks-until)>=0) finish();
+    } else if(stage==9 && !save_busy && (load_smoke || save_result!=-1) &&
+              (int)(g_ticks-until)>=0) finish();
     if(!save_busy && g_ticks-start>60000) { input_ok=0; finish(); }
 }
