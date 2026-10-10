@@ -15,7 +15,7 @@ ROOT=imported.ROOT
 OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c')
-DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE')
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST')
 
 
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None):

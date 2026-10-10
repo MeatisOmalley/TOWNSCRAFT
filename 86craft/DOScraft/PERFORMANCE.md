@@ -144,3 +144,29 @@ our current display is 320x240 including its HUD. An isolated transport probe
 may compare bandwidth/conversion, but cropping/rearranging the UI is not implied
 permission. Also investigate ET4000 banked chunky 320x240 for a like-for-like
 layout. Do not retire the working Mode X/reference path.
+
+## Accepted optimization 3: exact plane broadcast
+
+All three guest runs pass, with every scene's image hash matching both earlier
+checkpoints and the original. `tests/benchmarks/2026-10-10/broadcast.json` retains
+the incremental comparison against optimization 2. Upload plus planning falls
+to about 15–19 ms. The default game builder enables broadcast for the doubled
+view; existing full-resolution rendering takes the earlier exact upload path.
+
+| Replay scene | Original mean ms | All three optimizations mean ms |
+| --- | ---: | ---: |
+| Stationary | 101.142 | 71.806 |
+| Moving | 91.092 | 59.471 |
+| Moving/down | 164.345 | 138.521 |
+| Moving/up | 76.335 | 54.201 |
+| House interior | 120.641 | 98.506 |
+| Edit aftermath | 138.184 | 115.175 |
+
+These are approximately 16–35% shorter replay frames, including an 18% house
+improvement, not an assertion of identical live-play FPS. The architectural
+house/down drawing problem remains. Next: expand timing to include real
+simulation/edit-call latency, then profile raster setup/spans/overdraw and
+compare chunky transport (keeping Mode X). The current replay deliberately
+cannot rank AI or full block-edit latency. Existing fixed math, shared axis
+transforms, greedy meshes, shade LUTs, division reciprocals and assembly are
+retained rather than reimplemented or converted to x87 on speculation.
