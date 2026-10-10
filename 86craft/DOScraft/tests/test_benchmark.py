@@ -3,12 +3,30 @@ import sys
 import unittest
 import subprocess
 import tempfile
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
+import benchmark
 from benchmark import parse
 from game_media import startup
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_production_recipe_uses_current_defaults_without_changing_replay(self):
+        for index,quality in enumerate(('low','medium','high')):
+            with self.subTest(quality=quality), \
+                 patch.object(sys,'argv',['benchmark.py','--candidate','production',
+                     '--quality',quality,'--bios','seed/isa486.nvr','--prepare-only']), \
+                 patch.object(benchmark,'build') as build, \
+                 patch.object(benchmark,'prepare',return_value=(Path('private/vm'),{'exe_sha256':'fixture'})), \
+                 patch.object(benchmark,'validate',return_value=[]), \
+                 patch.object(Path,'read_text',return_value='{"exe_sha256":"fixture"}'), \
+                 patch.object(benchmark.subprocess,'Popen') as launch:
+                benchmark.main()
+                self.assertEqual(build.call_args.kwargs,{'benchmark':True,
+                    'extra_adapter_flags':(*benchmark.DEFAULT_ADAPTER_FLAGS,
+                        '-DDOS_BENCH_QUALITY='+str(index))})
+                launch.assert_not_called()
+
     def test_guest_clock_wrap_resolution(self):
         root=Path(__file__).resolve().parents[1]
         zig=root.parents[1]/'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'

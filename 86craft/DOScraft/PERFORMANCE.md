@@ -1009,3 +1009,9 @@ all pages, changed/stable HUDs and independent VGA byte/readback checks.
 The staged probe is undergoing independent High guest timing against the
 accepted five-flag ET4000 baseline, without raster unrolling or direct rows.
 Neither HUD probe is a production default yet.
+
+`--candidate production` benchmarks the current normal-build flag tuple on
+the same frozen six-scene route and quality settings. Independent variants
+remain unchanged. A recipe test covers all three quality levels and forbids
+an emulator launch during preparation. Use this for the final combined
+regression screen rather than adding isolated percentage gains together.
