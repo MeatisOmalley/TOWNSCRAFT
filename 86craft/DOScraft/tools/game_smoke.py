@@ -16,14 +16,17 @@ def main():
     parser.add_argument('--report',required=True,type=Path)
     parser.add_argument('--omit-frame-pointer',action='store_true',help='Test the explicit codegen candidate before changing production defaults')
     parser.add_argument('--et4000-chunky',action='store_true',help='Test the opt-in banked CPU upload, including graphics-preset transitions')
+    parser.add_argument('--trap-destination',action='store_true',help='Test exact destination-register reuse in the original textured painter')
+    parser.add_argument('--build-output',type=Path,default=OUTPUT,help='Isolated build directory for experimental smoke tests')
     args=parser.parse_args()
     flags=None
-    if args.omit_frame_pointer or args.et4000_chunky:
+    if args.omit_frame_pointer or args.et4000_chunky or args.trap_destination:
         flags=tuple(dict.fromkeys((*DEFAULT_ADAPTER_FLAGS,
             *(('-fomit-frame-pointer',) if args.omit_frame_pointer else ()),
-            *(('-DDOS_ET4000_CHUNKY',) if args.et4000_chunky else ()))))
-    build(extra_adapter_flags=flags)
-    vm,record=prepare(smoke=True,bios=args.bios)
+            *(('-DDOS_ET4000_CHUNKY',) if args.et4000_chunky else ()),
+            *(('-DDOS_TRAP_DESTINATION',) if args.trap_destination else ()))))
+    build(output=args.build_output,extra_adapter_flags=flags)
+    vm,record=prepare(smoke=True,bios=args.bios,output=args.build_output)
     process=subprocess.Popen(validate(vm),cwd=vm)
     print(f'VM={vm}\nPID={process.pid}',flush=True)
     until=time.monotonic()+args.timeout
@@ -43,11 +46,11 @@ def main():
         process.terminate(); process.wait(timeout=30)
         subprocess.run([sys.executable,str(ROOT/'tools/game_report.py'),'--vm',str(vm),
             '--output',str(args.report)],check=True,stdout=subprocess.DEVNULL)
-        manifest=json.loads((OUTPUT/'build.json').read_text())
+        manifest=json.loads((args.build_output/'build.json').read_text())
         if manifest['exe_sha256']!=record['exe_sha256']: raise ValueError('Build changed during smoke')
         manifest['smoke_verified_exe_sha256']=record['exe_sha256']
         manifest['smoke_report']=str((args.report/'report.json').resolve())
-        (OUTPUT/'build.json').write_text(json.dumps(manifest,indent=2)+'\n')
+        (args.build_output/'build.json').write_text(json.dumps(manifest,indent=2)+'\n')
         print(f'PASS={args.report / "report.json"}',flush=True); return
     raise RuntimeError(f'Smoke timeout; private active VM {vm}, PID {process.pid} preserved for diagnosis')
 

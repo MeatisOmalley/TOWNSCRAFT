@@ -681,3 +681,12 @@ offsets, signed UVs, zero/nonzero quantized gradients, widths, clipped/empty
 rows and both scales. Native tests cover each probe independently. Low guest
 measurement is underway, High is prepared but unlaunched. Defaults and
 published ISO remain unchanged pending correctness and target measurements.
+
+Experimental real-game smoke can now use `--build-output` with
+`--trap-destination`, so testing a candidate need not overwrite the released
+build's manifest or VM pointers. Default invocation is unchanged. Mocked
+recipe/failure tests verify both selections and owned-process cleanup; they
+are infrastructure tests, not actual guest acceptance. The complete host
+suite passes 260 tests with two Windows symlink-permission skips; the two new
+smoke-recipe tests pass separately. An isolated ordinary default build remains
+byte-identical to the published executable after both trap overlays were added.
