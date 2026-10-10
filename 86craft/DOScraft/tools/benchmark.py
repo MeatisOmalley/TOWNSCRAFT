@@ -93,7 +93,7 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
     parser.add_argument('--timeout',type=int,help='Host timeout seconds; default 900 for short runs, increased for long runs')
     parser.add_argument('--quality',choices=('low','medium','high'),default='low')
     parser.add_argument('--frames',type=int,default=32,help='Measured frames per scene per repeat (32..10000); 10000 recommended for tail metrics')
@@ -125,6 +125,8 @@ def main():
         'omit-frame':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer'),
         'et4000-chunky':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY'),
         'et4000-strided':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED'),
+        'et4000-hud-words':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_HUD_WORDS'),
+        'et4000-strided-hud-words':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS'),
         'trap-zero-gradient':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_TRAP_ZERO_GRADIENT'),
         'trap-destination':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_TRAP_DESTINATION'),
         'split-reuse':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_SPLIT_REUSE'),

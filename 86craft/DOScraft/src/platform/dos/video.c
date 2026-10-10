@@ -98,6 +98,9 @@ static void et4000_upload_rows(const unsigned char *data,unsigned int pitch,
 #if defined(DOS_ET4000_STRIDED) && !defined(DOS_ET4000_CHUNKY)
 #error Direct pitched upload requires the ET4000 chunky path
 #endif
+#if defined(DOS_ET4000_HUD_WORDS) && (!defined(DOS_ET4000_CHUNKY) || !defined(DOS_VGA_HUD_CACHE))
+#error Word-wise chunky HUD checks require the banked path and accepted HUD helper
+#endif
 
 static int old_mode = -1;
 static unsigned int shown_page;
@@ -241,6 +244,7 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #endif
 #ifndef DOS_ET4000_STRIDED
         for(y=0;y<240;++y) memcpy(packed+y*320,source+(size_t)y*pitch,320);
+#ifndef DOS_ET4000_HUD_WORDS
         changed=!chunky_hud_valid[next_page] ||
             memcmp(packed+200*320,chunky_hud[next_page],40*320)!=0;
         if(changed) {
@@ -249,12 +253,24 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         }
 #else
         changed=!chunky_hud_valid[next_page];
+        for(y=0;y<4;++y)
+            changed|=dos_vga_hud_changed(packed+200*320+y*3200,chunky_hud[next_page]+y*3200,3200);
+        if(changed) bytes=320*240;
+#endif
+#else
+        changed=!chunky_hud_valid[next_page];
+#ifndef DOS_ET4000_HUD_WORDS
         for(y=0;!changed && y<40;++y)
             changed=memcmp(source+(size_t)(y+200)*pitch,chunky_hud[next_page]+y*320,320)!=0;
         if(changed) {
             for(y=0;y<40;++y) memcpy(chunky_hud[next_page]+y*320,source+(size_t)(y+200)*pitch,320);
             bytes=320*240;
         }
+#else
+        for(y=0;y<40;++y)
+            changed|=dos_vga_hud_changed(source+(size_t)(y+200)*pitch,chunky_hud[next_page]+y*320,320);
+        if(changed) bytes=320*240;
+#endif
 #endif
 #ifdef DOSCRAFT_BENCH
         dos_bench_pack+=bench_us()-stamp;

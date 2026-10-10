@@ -989,3 +989,23 @@ accepted five-flag ET4000 path, without four-texel unrolling. Raw paired evidenc
 25.6 -> 27.0 ms. Net gains are modest and retrace-quantized, not a bandwidth
 breakthrough. Low regression screening is running; adoption remains gated by
 that result and normal-game verification with the accepted raster change.
+
+Low screening is now complete: three PASS repeats, all six images matching
+the accepted ET4000 Low build, and essentially unchanged timings (house
+96.932 -> 96.932 ms, walking 58.425 -> 58.425). Paired evidence:
+`tests/benchmarks/2026-10-10/et4000-strided-low.json`. This qualifies the
+direct-row path for adoption under the neutral-Low/useful-High criterion,
+subject to combined normal-game verification; isolated gains are not additive.
+
+## Independent word-wise chunky HUD probe
+
+`et4000-hud-words` and `et4000-strided-hud-words` retain independently selectable
+staged/direct upload paths. `DOS_ET4000_HUD_WORDS` reuses the already tested
+word-wise HUD identity/copy helper, four 3,200-byte segments when staged or
+40 pitched 320-byte rows when direct. Page-invalid state still forces a full
+HUD upload. Low/Medium planar broadcast is unchanged. Native actual-presenter
+tests pass both additions, including pitched/unaligned sources, preset changes,
+all pages, changed/stable HUDs and independent VGA byte/readback checks.
+The staged probe is undergoing independent High guest timing against the
+accepted five-flag ET4000 baseline, without raster unrolling or direct rows.
+Neither HUD probe is a production default yet.
