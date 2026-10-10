@@ -110,6 +110,32 @@ int main(void)
     }
 #ifdef DEPTH_ADAPTIVE_TEST
     assert(savedCases>0 && totalNew<totalOld && qualityChanges>0);
+    /* Independent eight-corner face-bound oracle, including near/ratio edges. */
+    for(i=0;i<4000;++i) {
+        int d=i%6,lo=0x7FFFFFFF,hi=-0x7FFFFFFF,ix,iy,iz;
+        for(j=0;j<8;++j) {
+            candidate_TX[j].c[2]=(int)(next()%4000)-1000;
+            candidate_TY[j].c[2]=(int)(next()%4000)-1000;
+            candidate_TZ[j].c[2]=(int)(next()%4000)-1000;
+        }
+        for(ix=0;ix<2;++ix) for(iy=0;iy<2;++iy) for(iz=0;iz<2;++iz) {
+            if((d==DIR_NX && ix) || (d==DIR_PX && !ix) ||
+               (d==DIR_NY && iy) || (d==DIR_PY && !iy) ||
+               (d==DIR_NZ && iz) || (d==DIR_PZ && !iz)) continue;
+            int depth=candidate_TX[3+ix*2].c[2]+candidate_TY[2+iy].c[2]+candidate_TZ[4+iz*2].c[2];
+            lo=MIN(lo,depth);hi=MAX(hi,depth);
+        }
+        assert(candidate_split_depth_safe(3,2,4,d,2,2)==(lo>=NEAR_Z && hi-lo<=lo/16));
+    }
+    for(j=0;j<8;++j) candidate_TX[j].c[2]=candidate_TY[j].c[2]=candidate_TZ[j].c[2]=0;
+    candidate_TZ[4].c[2]=255;candidate_TZ[6].c[2]=270;
+    assert(candidate_split_depth_safe(3,2,4,DIR_PY,2,2));
+    candidate_TZ[6].c[2]=271;
+    assert(!candidate_split_depth_safe(3,2,4,DIR_PY,2,2));
+    candidate_TZ[4].c[2]=candidate_TZ[6].c[2]=11;
+    assert(!candidate_split_depth_safe(3,2,4,DIR_PY,2,2));
+    candidate_TZ[4].c[2]=candidate_TZ[6].c[2]=12;
+    assert(candidate_split_depth_safe(3,2,4,DIR_PY,2,2));
     printf("PASS: 24000 real adaptive/full/off parents; High/cutout/occlusion/full/off exact, Low opaque bounds preserved; projections %u -> %u, saved cases %u, changed synthetic images %u\n",totalOld,totalNew,savedCases,qualityChanges);
 #else
     assert(savedCases>100 && totalNew<totalOld);

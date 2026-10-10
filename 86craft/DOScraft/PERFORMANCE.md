@@ -821,6 +821,17 @@ performance evidence; the straight-down replay is the targeted workload.
 Guest timing and visual review are required before deciding. Keep this probe
 separate from shared-corner reuse and disabled in production.
 
+The independent Low guest run now completes all three repeats with VGA PASS:
+down 136.420 -> 136.421 ms, house 96.932 -> 96.932 ms, other scenes neutral
+except the same small up/retrace shift to 54.208 ms. Down drawing saves only
+about 0.10 ms; eligibility checks erase much of the intended setup saving.
+Only the down final image hash changes (`cccac37c` -> `2de599c8`), as expected
+for the changed affine leaf mapping; its precise visual extent is not reviewed.
+There is no useful frame/tail gain to justify adopting that quality tradeoff.
+Retain the probe off with raw evidence in
+`tests/benchmarks/2026-10-10/depth-adaptive-low-raw.json`. A dump VM is prepared
+but unused; its diagnostic timings would not be optimization evidence.
+
 ## ET4000 transport adoption
 
 After the independent native bank/plane/page-switch tests, three-repeat High
