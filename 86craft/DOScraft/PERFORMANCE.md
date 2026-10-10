@@ -734,8 +734,38 @@ invisible changes, not imposed on all optimization candidates.
 logical texture-edge pixels already localized across three repeats. Their small
 extent permits timing comparison and proceeding with High testing; it does not
 diagnose the unexplained layout-sensitive difference or adopt the backend.
-Low/Medium still use the accepted planar transport. ET4000 High testing has
-resumed; no graphics menu, default backend or published ISO changed here.
+Low/Medium still use the accepted planar transport. ET4000 High testing resumed;
+no graphics menu, default backend or published ISO changed here.
 The updated host suite runs 264 tests successfully, with two Windows
 symlink-permission skips. Comparison tests cover reviewed hash pairs, retained
 review metadata, repeat instability and unchanged failure/hardware guards.
+
+### ET4000 High result after lifting the exact-image hold
+
+Fresh accepted High reference and banked-chunky candidate complete all three
+fresh-process repeats with PASS VGA readbacks and matching final images in all
+six scenes. Full raw recipes, hashes and repeat/tail samples are retained in
+`tests/benchmarks/2026-10-10/et4000-chunky-high.json`.
+
+| Scene | Reference ms | Candidate ms | Frame-time reduction |
+| --- | ---: | ---: | ---: |
+| Static | 152.268 | 152.268 | neutral |
+| Walk | 110.597 | 107.962 | 2.4% |
+| Walk down | 252.361 | 250.253 | 0.8% |
+| Walk up | 66.330 | 59.479 | 10.3% |
+| House | 175.982 | 173.347 | 1.5% |
+| Block-edit following frame | 193.154 | 193.152 | neutral |
+
+The first repeat's pack/upload stage falls from about 8.52/26.92 ms to
+7.91/25.58 ms; retrace quantization changes how much becomes total-frame gain.
+The larger looking-up reduction is not an equivalent reduction in upload CPU
+time, and dense-house drawing remains the dominant unresolved problem.
+Worst-frame/tail FPS is essentially unchanged; 96 samples/scene remain too few
+for trustworthy 1%/0.1% low claims. This is the frozen simulation replay, not
+complete gameplay FPS. Low's reviewed comparison is effectively neutral.
+
+Decision: retain this candidate for an isolated real-game smoke/save test before
+production adoption. It meets the user's neutral-Low/useful-High investigation
+criterion and should not be discarded over the tiny Low texture-edge difference.
+The compile flag remains off in the published executable/ISO for now; the user's
+HDD was not touched. The completed private diagnostic emulator was closed.

@@ -58,8 +58,11 @@ samples, not proof of which instructions or cache misses dominate.
    must establish correctness and benefit. Low differs on five doubled logical
    texture-edge pixels in the down scene, reproduced in all repeats; root cause
    is not established. This small reviewed difference no longer blocks High
-   testing under the user's clarified visual tolerance. See
-   PERFORMANCE.md; not a default or a measured benefit.
+   testing under the user's clarified visual tolerance. High now completes
+   three PASS repeats with matching images: 2.4% lower walking frame time,
+   10.3% looking up, 1.5% house and 0.8% looking down; static/edits neutral.
+   Retain for isolated real-game smoke before considering a production default.
+   See PERFORMANCE.md; no playable ISO/default changed yet.
 
 Stationary-only reuse and already-rejected edge reciprocal/word transpose
 variants are lower priority. x87 conversion, reduced visible content, spawning
