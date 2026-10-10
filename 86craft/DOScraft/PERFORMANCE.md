@@ -260,3 +260,25 @@ Player VM `runtime/game-play-ns_83t_k` retained the byte-identical HDD hash
 Previous VM and `ISO/DOSCRAFT.before-a191bb04a312.ISO` remain available.
 Launcher `-ValidateOnly` passed. No experimental occlusion, edge division,
 camera reuse or front-to-back code is enabled in that release.
+
+## Retained experiment: exact camera-table reuse, not a default
+
+Reuse the camera/frustum axis tables only when all five camera coordinates,
+view distance, world width and render scale match exactly. Initialization
+invalidates reuse. Mesh edits, lighting and entities still update normally;
+there is no approximate pose matching or change to fixed-point arithmetic.
+The independent native test compares the actual original and candidate tables
+over 12,000 poses, world widths, both scales, key changes and reinitialization.
+
+Three fresh version-2 guest repeats per profile passed with all six scene image
+hashes matching. Low stationary mean falls from 71.981 to 67.415 ms (6.3%);
+High stationary falls from 152.788 to 152.262 ms (0.3%). Moving, down/up, house
+and edit aftermath are effectively unchanged at both profiles. Retrace affects
+the total-frame benefit; this is not a house-overdraw fix or a live FPS promise.
+Raw comparisons and build provenance are retained in
+`tests/benchmarks/2026-10-10/camera-low.json` and `camera-high.json`.
+The user prioritizes moving/house gains over stationary-only improvements.
+Consequently this candidate remains independently selectable, not enabled in
+the normal builder or published ISO. The benchmark's `broadcast` candidate
+remains the independent baseline.
+Occlusion and zero-dx remain selectable losing experiments, not defaults.

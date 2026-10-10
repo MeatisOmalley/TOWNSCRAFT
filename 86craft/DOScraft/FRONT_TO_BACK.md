@@ -33,6 +33,12 @@ opaque: transparency comes from material semantics, not palette index alone.
 Independent pixel-array tests cover overlaps, holes and exact sequence reversal.
 Host correctness tests are not guest performance evidence.
 
+The current assembly's transparent path skips texel zero; it does not perform
+alpha blending. Exact cutout-aware coverage can therefore preserve these holes
+without adding a new blended-transparency pass. This does not excuse changing
+the order of models/cutouts, or treating palette zero as transparent for an
+opaque primitive.
+
 ## Integration sequence and gates
 
 1. Capture/replay actual projected primitives in a diagnostic build. Preserve
