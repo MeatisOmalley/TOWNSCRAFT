@@ -786,7 +786,13 @@ parents, six directions, both scales, adaptive/full/off, near/guard clipping,
 opaque/cutout/flat textures and occlusion fallbacks, every submitted polygon
 packet, image byte, framebuffer guard and pixel/face counter matches. Synthetic
 projection calls fall from 282,424 to 218,688; this is eligibility evidence, not
-a 486 speed claim. Guest timing is running; the production flag remains off.
+a 486 speed claim. Guest Low now completes three PASS repeats with matching
+images: down 136.420 -> 137.475 ms (0.8% worse), up 54.033 -> 54.209 ms
+(0.3% worse), and house/walk/static/edits effectively neutral. Draw-stage costs
+increase slightly (down 81.914 -> 82.982 ms, house 40.713 -> 40.972 ms).
+Cache bookkeeping outweighs saved work on the targeted Low workload. Retain
+the checkpoint off; do not spend High testing on this unchanged losing version.
+Evidence: `tests/benchmarks/2026-10-10/split-reuse-low.json`.
 
 ### ET4000 gameplay smoke
 
@@ -814,3 +820,14 @@ counts on eligible Low opaque cases. Only 24 random synthetic cases coarsen:
 performance evidence; the straight-down replay is the targeted workload.
 Guest timing and visual review are required before deciding. Keep this probe
 separate from shared-corner reuse and disabled in production.
+
+## ET4000 transport adoption
+
+After the independent native bank/plane/page-switch tests, three-repeat High
+timing/readback comparison, neutral Low timing with reviewed tiny texture-edge
+differences, and actual game-loop preset/save/reload smoke, the banked CPU path
+is enabled in normal build defaults. Only High uses it; Low/Medium retain the
+accepted planar/broadcast transport. No renderer precision, layout, resolution,
+view distance, subdivision, palette, HUD or gameplay setting changes.
+Run the exact default executable through the release smoke/publication workflow
+before replacing the player's ISO. The two new subdivision probes stay off.

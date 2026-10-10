@@ -12,7 +12,9 @@ and save/fresh-process reload now pass in 86Box. Full feature acceptance is stil
 pending. Audio is deliberately
 silent under the user's latest priority, not completed Sound Blaster parity.
 Three verified VGA-transport optimizations and the measured i486 frame-register
-compiler optimization are now enabled. The user-authorized
+compiler optimization are now enabled. High also uses the verified ET4000
+banked chunky CPU-upload path; Low/Medium retain planar repeated-pixel broadcast.
+Mode X display timing, sharp HUD and triple buffering remain unchanged. The user-authorized
 DOS graphics settings are grouped into Low/Medium/High; mob policy and gameplay
 remain unchanged. All three presets retain adaptive texture subdivision.
 Earlier diagnostic paragraphs below record their individual historical gates.
