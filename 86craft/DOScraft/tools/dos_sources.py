@@ -10,8 +10,20 @@ from build_imported import replace_once
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
-          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False):
+          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False):
     recipe=[]
+    if sum((trap_stable,trap_four,trap_zero_gradient,trap_destination))>1:
+        raise ValueError('Measure trap probes independently before combining')
+    if trap_four:
+        import dos_trap_four
+        data,steps=dos_trap_four.adapt(name,data)
+        recipe.extend(steps)
+    if trap_stable:
+        if trap_zero_gradient or trap_destination:
+            raise ValueError('Measure row setup probes independently before combining')
+        import dos_trap_stable
+        data,steps=dos_trap_stable.adapt(name,data)
+        recipe.extend(steps)
     if name=='trap.S' and trap_destination:
         text=data.decode('utf-8')
         if '\r\n' in text:

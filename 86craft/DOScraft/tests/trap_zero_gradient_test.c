@@ -46,6 +46,11 @@ int main(void)
             t.ldu=t.rdu=(int)(next()%8193)-4096;
             t.ldv=t.rdv=(int)(next()%8193)-4096;
         }
+        /* Exact stable gradients with moving/slanted edges, clipping and wrap.
+         * Other cases retain mismatched slopes and short/empty-row fallbacks. */
+        if(i%4==0) {
+            t.rdx=t.ldx;t.rdu=t.ldu;t.rdv=t.ldv;
+        }
         memset(a,197,sizeof(a)); memcpy(b,a,sizeof(a));
         reference_raster_set_target(a+16,maxX,80,512,scale);
         raster_set_target(b+16,maxX,80,512,scale);
