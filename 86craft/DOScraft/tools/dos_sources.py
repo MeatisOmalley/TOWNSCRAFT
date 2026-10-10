@@ -9,8 +9,23 @@ from build_imported import replace_once
 
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
-          packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False):
+          packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
+          trap_zero_gradient=False):
     recipe=[]
+    if name=='trap.S' and trap_zero_gradient:
+        text=data.decode('utf-8')
+        if '\r\n' in text:
+            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
+            text=text.replace('\r\n','\n')
+        for field,label in (('DU',31),('DV',32)):
+            before='\tsarl\t$8,%eax\n\timull\t%ecx,%eax\n\tsarl\t$6,%eax\n\tmovl\t%eax,row'+field+'\n'
+            after=('\tsarl\t$8,%eax\n'
+                '\t/* Exact zero shifted delta: no multiply or rounding needed. */\n'
+                '\ttestl\t%eax,%eax\n\tjz\t'+str(label)+'f\n'
+                '\timull\t%ecx,%eax\n\tsarl\t$6,%eax\n'+str(label)+':\n'
+                '\tmovl\t%eax,row'+field+'\n')
+            text=replace_once(text,before,after,recipe)
+        data=text.encode('utf-8')
     if graphics:
         import dos_graphics
         data, steps=dos_graphics.adapt(name,data)

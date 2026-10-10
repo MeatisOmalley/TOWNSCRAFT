@@ -643,3 +643,16 @@ The ET4000 candidate stays disabled and High testing remains held at this
 gate. The published game/ISO and player's disks are unchanged. Continue
 independent row-setup/early-rejection work rather than treating this backend
 experiment as the only optimization avenue.
+
+## Optional zero-gradient multiply probe
+
+`--candidate trap-zero-gradient` adds a replayable assembly-only overlay to
+the accepted transport/codegen baseline. When the original arithmetic's
+**shifted** U or V delta is exactly zero, skip its multiply and final shift;
+all nonzero cases keep the original operations. No UV precision, wrapping,
+clipping or quality change. Each row pays two added tests/branches, so a
+speedup is not assumed. Independently linked original/candidate trap objects
+pass 24,000 full polygon images and 16,000 direct trapezoids, including signed
+deltas, zero/nonzero quantized gradients, skip rows, both scales, clipping,
+cutouts, buffer guards and final mutated Trap state. Guest performance is
+unmeasured, the flag stays off, and this is checkpointed rather than adopted.
