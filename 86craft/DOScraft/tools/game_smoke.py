@@ -17,14 +17,16 @@ def main():
     parser.add_argument('--omit-frame-pointer',action='store_true',help='Test the explicit codegen candidate before changing production defaults')
     parser.add_argument('--et4000-chunky',action='store_true',help='Test the opt-in banked CPU upload, including graphics-preset transitions')
     parser.add_argument('--trap-destination',action='store_true',help='Test exact destination-register reuse in the original textured painter')
+    parser.add_argument('--trap-four',action='store_true',help='Test four-texel opaque loops together with accepted production transport')
     parser.add_argument('--build-output',type=Path,default=OUTPUT,help='Isolated build directory for experimental smoke tests')
     args=parser.parse_args()
     flags=None
-    if args.omit_frame_pointer or args.et4000_chunky or args.trap_destination:
+    if args.omit_frame_pointer or args.et4000_chunky or args.trap_destination or args.trap_four:
         flags=tuple(dict.fromkeys((*DEFAULT_ADAPTER_FLAGS,
             *(('-fomit-frame-pointer',) if args.omit_frame_pointer else ()),
             *(('-DDOS_ET4000_CHUNKY',) if args.et4000_chunky else ()),
-            *(('-DDOS_TRAP_DESTINATION',) if args.trap_destination else ()))))
+            *(('-DDOS_TRAP_DESTINATION',) if args.trap_destination else ()),
+            *(('-DDOS_TRAP_FOUR',) if args.trap_four else ()))))
     build(output=args.build_output,extra_adapter_flags=flags)
     vm,record=prepare(smoke=True,bios=args.bios,output=args.build_output)
     process=subprocess.Popen(validate(vm),cwd=vm)

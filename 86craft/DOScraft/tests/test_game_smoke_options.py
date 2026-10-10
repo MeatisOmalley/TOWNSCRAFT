@@ -38,5 +38,11 @@ class SmokeOptionsTests(unittest.TestCase):
             'extra_adapter_flags':(*game_smoke.DEFAULT_ADAPTER_FLAGS,'-DDOS_TRAP_DESTINATION')})
         self.assertEqual(prepare['output'],Path('private/candidate'))
 
+    def test_four_texel_probe_combines_with_accepted_transport_in_private_output(self):
+        build,prepare=self.recipe(['--trap-four','--build-output','private/four'])
+        self.assertEqual(build,{'output':Path('private/four'),
+            'extra_adapter_flags':tuple(dict.fromkeys((*game_smoke.DEFAULT_ADAPTER_FLAGS,'-DDOS_TRAP_FOUR')))})
+        self.assertEqual(prepare['output'],Path('private/four'))
+
 
 if __name__=='__main__': unittest.main()
