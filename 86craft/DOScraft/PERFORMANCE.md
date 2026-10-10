@@ -66,3 +66,16 @@ Atlas cache conflicts are another code/hardware-specific hypothesis, but
 HDD/FPU/RAM changes are not automatically helpful: select measured bottlenecks.
 Retain unsuccessful candidates as explicitly selectable experiment checkpoints;
 never silently leave an unproven candidate in the default playable build.
+
+## Retained first experiment
+
+`--candidate pack-all` selects a single-pass, four-way unrolled converter;
+`--candidate reference` keeps the original presenter. Neither changes gameplay
+or quality. Its first guest attempt preserved at `runtime/game-play-12ipn3km`
+failed the **diagnostic verifier**, not the image hash: the expanded scratch
+buffer accidentally made `memcmp` read four planes against a one-plane readback
+buffer. The verifier now explicitly compares 19,200 bytes. A native test runs
+the actual presenter against an independent four-plane VGA model, checking
+every pixel across 18 flips with odd pitches/unaligned source. The separate
+converter tests check 448 frames and invalid-input guards. A fresh three-run
+guest retest is required before adopting this candidate.

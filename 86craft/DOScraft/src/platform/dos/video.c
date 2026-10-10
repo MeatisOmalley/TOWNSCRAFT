@@ -37,7 +37,11 @@ static int wait_pending(uclock_t start)
 }
 #define VGA_PAGES 3
 typedef char pages_fit_vga_window[(VGA_PAGES * DOS_VGA_PLANE_BYTES <= 65536) ? 1 : -1];
+#ifdef DOS_VGA_PACK_ALL
+static unsigned char packed[4 * DOS_VGA_PLANE_BYTES];
+#else
 static unsigned char packed[DOS_VGA_PLANE_BYTES];
+#endif
 static unsigned char readback[DOS_VGA_PLANE_BYTES];
 
 static void bios_mode(int number)
@@ -89,7 +93,7 @@ void video_init(void)
     memset(packed, 0, sizeof(packed));
     outportw(0x3c4, 0x0f02);
     for (i = 0; i < VGA_PAGES; ++i)
-        dosmemput(packed, sizeof(packed), 0xa0000 + i * DOS_VGA_PLANE_BYTES);
+        dosmemput(packed, DOS_VGA_PLANE_BYTES, 0xa0000 + i * DOS_VGA_PLANE_BYTES);
 }
 
 void video_set_palette(int index, int red, int green, int blue)
@@ -123,7 +127,19 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOSCRAFT_BENCH
     unsigned int stamp;
 #endif
+#ifdef DOS_VGA_PACK_ALL
+#ifdef DOSCRAFT_BENCH
+    stamp=bench_us();
+#endif
+    if(dos_vga_pack_all(source,pitch,packed,sizeof(packed))) {
+        dos_video_restore(); fputs("Invalid 320x240 framebuffer\n",stderr); exit(1);
+    }
+#ifdef DOSCRAFT_BENCH
+    dos_bench_pack+=bench_us()-stamp;
+#endif
+#endif
     for (plane = 0; plane < 4; ++plane) {
+#ifndef DOS_VGA_PACK_ALL
 #ifdef DOSCRAFT_BENCH
         stamp=bench_us();
 #endif
@@ -133,10 +149,18 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
             exit(1);
         }
 #ifdef DOSCRAFT_BENCH
-        dos_bench_pack+=bench_us()-stamp; stamp=bench_us();
+        dos_bench_pack+=bench_us()-stamp;
+#endif
+#endif
+#ifdef DOSCRAFT_BENCH
+        stamp=bench_us();
 #endif
         outportw(0x3c4, ((1 << plane) << 8) | 2);
-        dosmemput(packed, sizeof(packed), 0xa0000 + offset);
+        dosmemput(packed
+#ifdef DOS_VGA_PACK_ALL
+            +plane*DOS_VGA_PLANE_BYTES
+#endif
+            ,DOS_VGA_PLANE_BYTES,0xa0000 + offset);
 #ifdef DOSCRAFT_BENCH
         dos_bench_upload+=bench_us()-stamp;
 #endif
@@ -175,7 +199,7 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
         if (dos_vga_pack_plane(source, pitch, packed, sizeof(packed), plane)) return -1;
         outportw(0x3ce, (plane << 8) | 4);
         dosmemget(0xa0000 + offset, sizeof(readback), readback);
-        if (memcmp(packed, readback, sizeof(packed))) return -1;
+        if (memcmp(packed, readback, DOS_VGA_PLANE_BYTES)) return -1;
     }
     outportw(0x3ce, 0x0004);
     return 0;

@@ -9,4 +9,7 @@ int dos_vga_pack_plane(const unsigned char *source, unsigned int pitch,
                        unsigned char *destination, unsigned int capacity,
                        unsigned int plane);
 
+/* Experimental all-plane converter; four consecutive destination planes. */
+int dos_vga_pack_all(const unsigned char *source,unsigned int pitch,
+                     unsigned char *destination,unsigned int capacity);
 #endif

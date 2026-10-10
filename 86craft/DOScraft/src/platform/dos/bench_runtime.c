@@ -113,6 +113,9 @@ static void finish(void)
         fprintf(file,"\n");
     }
     if(ferror(file) || fclose(file)) exit(1);
+    path[10]='E'; path[11]='N'; path[12]='D';
+    file=fopen(path,"wb"); if(!file) exit(1);
+    if(fprintf(file,"%s\n",ok?"PASS":"FAIL")<0 || fclose(file)) exit(1);
     puts("DOScraft benchmark complete; safe to close this private VM."); exit(!ok);
 }
 void bench_frame(void)

@@ -6,7 +6,6 @@ is this exact spawned emulator process terminated. A timeout leaves it open
 for diagnosis rather than killing a potentially active guest disk operation.
 """
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import statistics
@@ -54,15 +53,37 @@ def collect(vm):
     return results
 
 
+def write_report(vm,output,manifest,build_record,label,results):
+    report={'manifest':manifest,'build':build_record,'results':results,'note':
+        'Guest PIT timings; frozen deterministic graphics/update replay, not full simulation FPS.',
+        'label':label}
+    (vm/'performance.json').write_text(json.dumps(report,indent=2)+'\n')
+    (output/'latest-report.txt').write_text(str(vm/'performance.json'))
+    return report
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--bios',required=True,type=Path)
+    parser.add_argument('--bios',type=Path)
+    parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--label',default='baseline')
+    parser.add_argument('--candidate',choices=('reference','pack-all'),default='reference')
     parser.add_argument('--timeout',type=int,default=900)
     parser.add_argument('--prepare-only',action='store_true')
     args=parser.parse_args()
     output=OUTPUT/args.label
-    build(output,benchmark=True)
+    if args.collect_vm:
+        vm=args.collect_vm.resolve(strict=True)
+        manifest=json.loads((vm/'build.json').read_text())
+        build_record=json.loads((output/'build.json').read_text())
+        if not manifest.get('benchmark') or manifest['exe_sha256']!=build_record['exe_sha256']:
+            raise ValueError('Collect only a matching private benchmark build')
+        write_report(vm,output,manifest,build_record,args.label,collect(vm))
+        print(f'REPORT={vm / "performance.json"}')
+        return
+    if not args.bios: parser.error('--bios is required to create a new benchmark VM')
+    flags=('-DDOS_VGA_PACK_ALL',) if args.candidate=='pack-all' else ()
+    build(output,benchmark=True,extra_adapter_flags=flags)
     build_record=json.loads((output/'build.json').read_text())
     vm,manifest=prepare(bios=args.bios,output=output,benchmark=True)
     command=validate(vm)
@@ -72,6 +93,18 @@ def main():
     print(f'PID={process.pid}',flush=True)
     until=time.monotonic()+args.timeout
     while time.monotonic()<until:
+        volume=diagnostic_volume((vm/'scratch.img').read_bytes())
+        for n in range(1,4):
+            try: marker=volume.read(f'BENCH{n}.END')
+            except FileNotFoundError: continue
+            if marker==b'FAIL\n':
+                process.terminate(); process.wait(timeout=30)
+                raise RuntimeError(f'Completed guest benchmark {n} FAILED; reports preserved in {vm}')
+        try: completed=volume.read('BENCH3.END')==b'PASS\n'
+        except FileNotFoundError: completed=False
+        if not completed:
+            if process.poll() is not None: raise RuntimeError('Emulator exited before completion marker')
+            time.sleep(2); continue
         try: results=collect(vm)
         except (ValueError,KeyError,FileNotFoundError,UnicodeDecodeError):
             if process.poll() is not None: raise RuntimeError('Emulator exited before reports')
@@ -80,11 +113,7 @@ def main():
         # closed files and restored hardware. Process identity comes directly
         # from our Popen, never a name-based kill of unrelated user windows.
         process.terminate(); process.wait(timeout=30)
-        report={'manifest':manifest,'build':build_record,'results':results,'note':
-            'Guest PIT timings; frozen deterministic graphics/update replay, not full simulation FPS.',
-            'label':args.label}
-        (vm/'performance.json').write_text(json.dumps(report,indent=2)+'\n')
-        (output/'latest-report.txt').write_text(str(vm/'performance.json'))
+        write_report(vm,output,manifest,build_record,args.label,results)
         for scene in range(6):
             rows=[r['scenes'][scene] for r in results]
             print(rows[0]['name'], 'mean_ms=',round(statistics.mean(r['summary_ms']['mean'] for r in rows),3),
