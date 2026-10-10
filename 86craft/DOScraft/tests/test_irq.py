@@ -32,7 +32,10 @@ def mock_headers(directory):
     # All fixture writes stay in private temporary storage. sys.h/common.h are
     # the real hash-verified staged declarations, including the 32-bit ABI.
     headers = {
-        'crt0.h': '#define _CRT0_FLAG_UNIX_SBRK 0x0800\nextern int _crt0_startup_flags;\n',
+        'crt0.h': '#define _CRT0_FLAG_UNIX_SBRK 0x0800\n'
+                  '#define _CRT0_FLAG_NONMOVE_SBRK 0\n'
+                  '#define _CRT0_FLAG_LOCK_MEMORY 0x1000\n'
+                  'extern int _crt0_startup_flags;\n',
         'go32.h': 'unsigned short _my_ds(void);\nunsigned short _my_cs(void);\n',
         'pc.h': 'unsigned char inportb(unsigned short);\n'
                 'void outportb(unsigned short, unsigned char);\n',
@@ -135,6 +138,7 @@ class DJGPPIRQTests(unittest.TestCase):
             self.assertEqual(by_source[name]['format'], 'coff-i386')
             self.assertEqual(by_source[name]['source_sha256'], imported.sha256((DOS / name).read_bytes()))
         c = by_source['irq.c']['symbols']
+        self.assertEqual(c.get('__crt0_startup_flags'), 'D')
         for name in ('dos_irq_init', 'dos_irq_shutdown', 'dos_irq_set_tick_hook',
                      'dos_keyboard_irq_save', 'dos_keyboard_irq_restore',
                      'dos_irq_timer_body', 'dos_irq_keyboard_body'):

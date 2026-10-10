@@ -164,6 +164,7 @@
     "verification": "Completed a cross-track saved-column read, overwrote its destination to simulate terrain reuse, then repeated the identical request and verified every word was recopied. Entire save file still matches the independent oracle. All earlier SAVEIO diagnostic gates passed. Mock providers; actual world-cache/mob integration remains untested. Verified finished private VM process stopped."
   },
   "legacy_save_precedence_fix": {
+    "source_checkpoint": "27ab11cf",
     "native_suite": "86 tests PASS, two environment-dependent symlink skips",
     "vm": "saveio-486dx25-anqubxwe",
     "runtime_note": "Private CRT _CRT0_FLAG_LOCK_MEMORY experiment; not yet the normal production build. Default unlocked new fixture crashes in __dpmi_int before diagnostic startup.",
@@ -176,6 +177,35 @@
     "ELAPSED_100HZ_TICKS": 1652,
     "REAL_WORLD_MOB_INTEGRATION": "UNTESTED",
     "verification": "Read the complete private report and independently compared every save byte. All completed test emulator processes closed; original runtime/ROM/production source and user media unchanged. No gameplay/FPS evidence."
+  },
+  "resident_runtime_save_regression": {
+    "save_fix_checkpoint": "27ab11cf",
+    "vm": "saveio-486dx25-l8bkfbva",
+    "runtime_note": "Normal build: IRQ adapter declares CRT non-moving/resident memory. Explicit checked ISR lock retained; no emulator/ROM/libc patches or CPU overrides.",
+    "exe_sha256": "b787e78d803c23966ba1838ff964272c01d69f4d0632c6a819a4e84ebfbe798a",
+    "raw_report_sha256": "0d6885342fd8fec56afe50c0f5bcb2da04d94b208142fd8909275e30335594b6",
+    "save_after_sha256": "b61f559bef2cd40874d0012b64dee7917c71879a54289e89d7107354d16e92c4",
+    "ALL_SAVEIO_GATES": "PASS",
+    "WHOLE_FILE_BYTE_ORACLE": "PASS",
+    "ELAPSED_100HZ_TICKS": 1652,
+    "REAL_WORLD_MOB_INTEGRATION": "UNTESTED",
+    "verification": "Normal prepared primary VM completed; read report, verified entire save against the oracle and stopped the verified completed VM PID. Native suite: 86 tests PASS, two environment-dependent symlink skips."
+  },
+  "resident_runtime_startup_regression": {
+    "vm": "system-486dx25-u0s9hphf",
+    "exe_sha256": "357d47816815cd47c34981a7a2e61940428a0ecd5aedb8bb0dbc86c6fbd26868",
+    "raw_report_sha256": "342e5d08d1973059aa1e778512f949398e567ba1697d0db9933bf4c6d80eabe2",
+    "TIMER_TICKS": 200,
+    "BIOS_TICKS": 36,
+    "BIOS_CHAINS": 36,
+    "KEYBOARD_IRQS": 10,
+    "PROFILER_SAMPLES": 200,
+    "RAM_MB": 16,
+    "LOW_BYTES": 1048576,
+    "HIGH_BYTES": 8388608,
+    "ALL_SYSTEM_GATES": "PASS",
+    "RESULT": "PASS",
+    "verification": "Normal prepared primary build with resident/non-moving CRT memory passed all original startup/IRQ, profiler, heap, VGA, restoration and reinstallation checks. Its raw report is byte-identical to the earlier successful baseline. Exact completed private VM PID stopped; physical input and gameplay untested."
   },
   "limitations": [
     "Diagnostics only: no gameplay, renderer FPS, audio, physical mouse/keyboard ingress, full world/save/cache integration or full parity validation.",

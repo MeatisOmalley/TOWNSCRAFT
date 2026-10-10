@@ -16,11 +16,14 @@ payload validation and errors; no bank is discarded or format rewritten. Legacy
 has no generation, so cross-format chronology is explicitly unknowable. Vendor remains
 immutable; real mixed-source gameplay parity remains pending.
 
-The extended legacy-precedence guest fixture passes with a private CRT
-initial-memory-lock experiment; the default unlocked build exposes a startup
-interrupt-return fault before the fixture begins. Commit the save correction
-separately, then verify the runtime-lock adaptation through normal builds and
-the startup/IRQ lifecycle gate. This is port infrastructure, not Phase B work.
+The legacy-precedence correction is committed separately (`27ab11cf`). Its
+extended guest fixture first passed with a private CRT initial-memory-lock
+experiment; the default unlocked build exposed a startup interrupt-return
+fault before the fixture began. The normal IRQ adapter now requests resident,
+non-moving CRT memory, with the checked ISR-image lock retained. Normal builds
+pass the extended save fixture/whole-file oracle and all startup/IRQ lifecycle,
+heap, profiler and VGA gates. This separate checkpoint is port infrastructure,
+not Phase B work. Emulator/ROM/libc binaries are unchanged.
 
 Temporary terrain transport checkpoint, 2026-10-09: `hdd_*` now maps to an existing dedicated DOS scratch file without creation/formatting. Native failure/ownership tests and `STORAGE.EXE` pass, including exact host verification of changed slots, bounds, cancellation and checked flush/reopen. DOS I/O remains synchronous even with 2-KiB polling slices; no traversal-hitch or speedup claim. The unchanged `column_hdd.inc` owns the RAM-only directory, alternating slots and edit revisions; world integration is not yet verified. Preserve the pinned version selection: the 16-MiB, width-256 baseline uses legacy v3, while the existing v4 two-bank format requires width below 256. Do not force v4 or introduce a new transactional envelope during the direct port without separately approving that storage-policy adaptation.
 

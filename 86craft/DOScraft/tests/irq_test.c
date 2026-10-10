@@ -22,7 +22,6 @@ static void mock_abort(void);
 /* Match irq.c's undecorated linker-end symbol without modifying its source. */
 char test_image_end __asm__("end");
 char test_code_end __asm__("etext"); /* Mock linker text bound, not host code. */
-int _crt0_startup_flags;
 static const unsigned char initial_mask = 0xA6;
 static unsigned char pic_mask = 0xA6, controller_status, controller_byte;
 static int irq_state = 1, pending, reads, resets, feeds, eois;
@@ -384,7 +383,7 @@ static void test_init_failure(const char *name, int state)
     if (!fails("atexit") && !fails("install_timer") && !fails("install_keyboard"))
         CHECK(set_calls == 0 && first_event(PIC) == -1);
     failure = "";
-    _crt0_startup_flags = 0;
+    _crt0_startup_flags = _CRT0_FLAG_NONMOVE_SBRK | _CRT0_FLAG_LOCK_MEMORY;
     clear_events();
     CHECK(dos_irq_init() == 0); /* Every recoverable failure permits retry. */
     CHECK(exit_calls == (strcmp(name, "atexit") == 0 ? 2 : 1));
@@ -408,6 +407,7 @@ static void test_abort_safety(const char *name)
 }
 int main(int argc, char **argv)
 {
+    CHECK(_crt0_startup_flags == (_CRT0_FLAG_NONMOVE_SBRK | _CRT0_FLAG_LOCK_MEMORY));
     CHECK(argc >= 2);
     if (strcmp(argv[1], "phase") == 0) test_phase();
     else if (strcmp(argv[1], "timer") == 0) test_timer();

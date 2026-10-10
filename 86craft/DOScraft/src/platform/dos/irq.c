@@ -11,6 +11,14 @@
 #include <pc.h>
 #include <stdlib.h>
 
+/* Commit the initial image/CRT stack before its first real-mode DOS call.
+ * The default demand-committed startup exposed an interrupt-frame page-boundary
+ * fault in our pinned 86Box interpreter. This is normal DJGPP resident-memory
+ * policy, not an emulator speed override or a changed game allocation budget.
+ * CRT locking is unchecked: retain the checked ISR-image lock below. Keep
+ * non-moving sbrk; IRQ CS-relative references must never be relocated. */
+int _crt0_startup_flags = _CRT0_FLAG_NONMOVE_SBRK | _CRT0_FLAG_LOCK_MEMORY;
+
 volatile u32 g_ticks;
 u32 g_profSamples[4096], g_profCount;
 int g_profEnable;

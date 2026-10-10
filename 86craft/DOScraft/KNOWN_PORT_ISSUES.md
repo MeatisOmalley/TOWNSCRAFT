@@ -51,3 +51,29 @@ remain unchanged. They must be considered during real mixed-source parity tests.
 The user approved these separate bugfix commits alongside the port. Both are DOS
 fixes; the immutable Towns reference is unchanged. Neither authorizes a renderer/
 world optimization. Real world-cache/mob integration parity remains pending.
+
+## Separate DOS-runtime startup correction
+
+The enlarged save fixture exposed a pre-main `__dpmi_int` / `pop ss` GPF
+(`EIP=bf4a`, error `00a4`) on the pinned interpreter, with unchanged blank
+save media. A fresh run of the previous verified executable still passes.
+Moving the test's 12-KiB buffer to static storage did not resolve the fault.
+The runtime wrapper's stack pointer is eight bytes below its expected value,
+with the expected interrupt-frame write straddling a 4-KiB boundary.
+
+The pinned CPU source separately pushes FLAGS, CS and EIP and does not restore
+the successful partial ESP decrement when a later write faults. A private
+six-byte layout-preserving observation reads `3262` just below the reported
+stack pointer, consistent with retry FLAGS under that explanation. These are
+source/diagnostic evidence, not a captured CR2/page-fault trace; the exact fault
+and retry remain inferred. No emulator, ROM or third-party runtime is patched.
+
+The normal IRQ adapter now defines DJGPP's documented
+`_CRT0_FLAG_NONMOVE_SBRK | _CRT0_FLAG_LOCK_MEMORY` startup policy. This requests
+resident initial image/CRT-stack memory before startup DOS calls and retains
+non-moving image addresses. Normal builds pass every extended `SAVEIO.EXE`
+gate and the independent whole-file oracle, plus the `SYSTEM.EXE` startup/IRQ,
+heap, profiler, VGA, shutdown and reinstallation gates. CRT lock errors are
+unchecked, so the explicit checked ISR-image lock/failure unwind remains
+mandatory. Installed RAM, game heap budgets, CPU accuracy, no-paging policy and
+rendering are unchanged. Full-game memory headroom/parity remains a later gate.
