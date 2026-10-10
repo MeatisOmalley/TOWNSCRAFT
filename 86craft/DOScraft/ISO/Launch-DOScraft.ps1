@@ -1,4 +1,4 @@
-param([switch]$ValidateOnly)
+param([switch]$ValidateOnly, [string]$IsoPath)
 $ErrorActionPreference = 'Stop'
 # A parent PowerShell 7 process can pass a module path lacking Windows
 # PowerShell's own modules to the .cmd child. This is process-local only.
@@ -18,7 +18,7 @@ function Assert-Hash([string]$Path, [string]$Expected) {
 }
 
 try {
-    $taskRoot = $PSScriptRoot
+    $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
     $pointer = Join-Path $taskRoot 'build\game\486dx25\latest-play-vm.txt'
     if (!(Test-Path -LiteralPath $pointer)) {
         throw 'No playable ISO has been prepared. Run tools/build_game.py, then tools/game_media.py.'
@@ -38,7 +38,9 @@ try {
     if ($running -and !$ValidateOnly) {
         throw 'This game VM is already running. Do not open its writable HDD twice.'
     }
-    Assert-Hash (Join-Path $vm 'DOSCRAFT.ISO') $record.iso_sha256
+    if (!$IsoPath) { $IsoPath = Join-Path $PSScriptRoot 'DOSCRAFT.ISO' }
+    $IsoPath = [IO.Path]::GetFullPath($IsoPath)
+    Assert-Hash $IsoPath $record.iso_sha256
     Assert-Hash (Join-Path $vm 'boot.img') $record.boot_sha256
     $roms = Join-Path $taskRoot 'build\deps\86box\roms'
     Assert-Hash $emulator $record.emulator_sha256
@@ -90,7 +92,7 @@ try {
             throw 'External serial passthrough refused.'
         }
     }
-    Write-Host "DOScraft ISO: $(Join-Path $vm 'DOSCRAFT.ISO')"
+    Write-Host "DOScraft ISO: $IsoPath"
     Write-Host '486DX/25, 16 MiB, ET4000. Audio deferred. Existing saves are preserved.'
     if ($ValidateOnly) { exit 0 }
     Start-Process -FilePath $emulator -WorkingDirectory $vm -ArgumentList @('-P', "`"$vm`"", '-R', "`"$roms`"")

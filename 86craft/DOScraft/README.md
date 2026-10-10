@@ -29,7 +29,7 @@ python tools/game_media.py --bios "runtime/<known-good-ISA486-VM>/nvr/isa486.nvr
 
 Omit `--bios` on a new machine and configure CMOS as described below. Each media
 preparation creates a **new private HDD**, never overwriting an old world.
-Double-click `Launch-DOScraft.cmd` afterward; it needs no Python at launch time
+Double-click `ISO/Launch-DOScraft.cmd` afterward; keep its `.ps1` and `DOSCRAFT.ISO` beside it. It needs no Python at launch time
 and works regardless of the current directory. It validates the prepared ISO,
 embedded boot media, emulator/ROM hashes and hardware, refuses a second process
 on the same writable HDD, and reuses that HDD on future launches. `-ValidateOnly`
