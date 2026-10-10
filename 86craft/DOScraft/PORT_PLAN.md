@@ -6,6 +6,13 @@ Direct-port checkpoint, 2026-10-09: DOS startup backing and resident IRQ0/IRQ1 h
 
 ## Recommendation
 
+Separately approved bugfix checkpoint: completed DOS saved-column reads release
+their destination; repeated arguments now recopy instead of accepting stale
+bytes left by terrain reads. Single-/multi-track native regressions and the
+guest `REUSED_DESTINATION` check pass, with unchanged save-file bytes. The other
+approved fix, legacy/v4 precedence, follows in its own commit. Vendor remains
+immutable; real mixed-source gameplay parity remains pending.
+
 Temporary terrain transport checkpoint, 2026-10-09: `hdd_*` now maps to an existing dedicated DOS scratch file without creation/formatting. Native failure/ownership tests and `STORAGE.EXE` pass, including exact host verification of changed slots, bounds, cancellation and checked flush/reopen. DOS I/O remains synchronous even with 2-KiB polling slices; no traversal-hitch or speedup claim. The unchanged `column_hdd.inc` owns the RAM-only directory, alternating slots and edit revisions; world integration is not yet verified. Preserve the pinned version selection: the 16-MiB, width-256 baseline uses legacy v3, while the existing v4 two-bank format requires width below 256. Do not force v4 or introduce a new transactional envelope during the direct port without separately approving that storage-policy adaptation.
 
 Persistent transport/codec checkpoint, 2026-10-09: `C:\WORLD.SAV` is a separate existing raw Towns logical medium, preserving exact capacity, codecs, checksums, save versions and UI wording. Only bounded DOS close-error adaptations alter the provenance-checked codec extraction. `SAVEIO.EXE` passes primary-guest v3/v4 fixture roundtrips, source-bank protection and paging with resident IRQs; native faults cover v1/v2, short/zero/error I/O, all commit boundaries and close failures. Both complete diagnostic save files match an independent byte oracle. World/mob providers are mocks: real mixed-source ownership, mob serialization, edits, dirty eviction, cold restart and gameplay parity are still next, alongside remaining audio/game linking. Two inherited save/cache issues are reproduced in [KNOWN_PORT_ISSUES.md](KNOWN_PORT_ISSUES.md) and await a separate bugfix decision. No Phase B work is included.

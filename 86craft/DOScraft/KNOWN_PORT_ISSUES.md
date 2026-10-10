@@ -1,7 +1,7 @@
-# Inherited storage issues pending a separate bugfix decision
+# Inherited storage issues and separately approved DOS fixes
 
-These are reproduced by `tests/save_file_test.c`, not introduced/fixed as part
-of the DOS transport checkpoint. The vendor snapshot and gameplay/cache bodies
+These are reproduced by `tests/save_file_test.c`, not fixed as part
+of the original DOS transport checkpoint. The vendor snapshot and gameplay/cache bodies
 remain unchanged. They must be considered during real mixed-source parity tests.
 
 1. **Completed save read versus reused scratch destination.** A completed
@@ -10,9 +10,13 @@ remain unchanged. They must be considered during real mixed-source parity tests.
    terrain HDD reads and RAM terrain-cache hits. Reading saved A, preparing
    terrain B, then preparing A again can therefore validate B's overwritten
    bytes as A and report a stream error. This behavior exists in Towns `save.c`
-   and the DOS transport preserves it. The native reproduction overwrites the
+   and the original DOS transport preserved it. The native reproduction overwrites the
    shared destination after completion; a real column-cache integration replay
-   is still required.
+   is still required. **Approved DOS fix:** completion now releases the
+   destination. An identical new request recopies from the retained track or
+   rereads the necessary tracks; only an in-progress request owns the buffer.
+   Regression checks cover both single-track cached recopy and a multi-track
+   destination overwritten between completed reads. The vendor stays unchanged.
 
 2. **Old v4 bank can shadow a later v3 save.** Save version selection is retained:
    cached widths below 256 use two-bank v4; the width-256 baseline uses legacy
@@ -23,5 +27,5 @@ remain unchanged. They must be considered during real mixed-source parity tests.
    this sequence. Do not force v4, invalidate old banks, change selection, or
    claim legacy saves are transactional without a separate approved fix.
 
-The user has been asked whether to fix these in separate bugfix commits or defer
-them to parity testing. Neither issue authorizes a renderer/world optimization.
+The user approved separate bugfix commits alongside the port. Version precedence
+is the next separate fix. Neither issue authorizes a renderer/world optimization.

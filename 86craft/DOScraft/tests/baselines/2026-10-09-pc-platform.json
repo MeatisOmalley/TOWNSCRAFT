@@ -134,6 +134,7 @@
     "verification": "Read C:/STORAGE.TXT from the private HDD, independently compared the entire TERRAIN.TMP with exact expected slot changes and confirmed all other bytes unchanged. Real DOS FAT16 I/O and strict INT21/AX6800 carry-checked commit/reopen ran with resident game timer/key IRQs installed. Diagnostic duration is not a traversal/FPS benchmark. Temporary columns and world ownership are not yet integrated; this is not durable save/load evidence. Finished emulator process was stopped after its exact executable/VM identity was checked."
   },
   "persistent_save_transport_codec": {
+    "source_checkpoint": "b16b8a6a",
     "vm": "saveio-486dx25-m2usq77d",
     "exe_sha256": "8269f3e3e6f7b03db84bf0d3d98890558d9158ace75c6908eae16e3cf8e99e26",
     "raw_report_sha256": "1283d5d7d54591319b6aba45b6f706f7610eeedd90387309e770fe26fafa6ab3",
@@ -149,6 +150,17 @@
     "REAL_WORLD_MOB_INTEGRATION": "UNTESTED",
     "RESULT": "PASS",
     "verification": "Read C:/SAVEIO.TXT, compared the entire WORLD.SAV against the independent Python byte oracle, including exact bank headers/checksums/generations, payload/padding and untouched trailing tracks. Transport and retained codec ran with resident game timer/key IRQs on the primary guest. World/mob providers are mocks; no full world/cache/mob save/load, restart, gameplay, power-loss durability or FPS claim. Completed emulator process was stopped after exact executable/private VM identity checks."
+  },
+  "shared_save_destination_fix": {
+    "vm": "saveio-486dx25-e0f93k25",
+    "exe_sha256": "21ea4c849eb376bdb19d9f4166b759fe813c101934de76a8996e7fab71b09266",
+    "raw_report_sha256": "f5bac0d7755dfea6644b7acd0c6872187dff51b122fa211db935f884319343fe",
+    "save_after_sha256": "a4d2d271c6f77ba6d69653164e07de4982cfe811d7c2e45033c2ebaa07b7c602",
+    "REUSED_DESTINATION": "PASS",
+    "CLEANUP": "PASS",
+    "ELAPSED_100HZ_TICKS": 1071,
+    "RESULT": "PASS",
+    "verification": "Completed a cross-track saved-column read, overwrote its destination to simulate terrain reuse, then repeated the identical request and verified every word was recopied. Entire save file still matches the independent oracle. All earlier SAVEIO diagnostic gates passed. Mock providers; actual world-cache/mob integration remains untested. Verified finished private VM process stopped."
   },
   "limitations": [
     "Diagnostics only: no gameplay, renderer FPS, audio, physical mouse/keyboard ingress, full world/save/cache integration or full parity validation.",

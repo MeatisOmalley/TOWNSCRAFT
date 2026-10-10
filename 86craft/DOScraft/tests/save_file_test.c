@@ -121,7 +121,10 @@ int main(int argc, char **argv) {
     assert(save_column_read(TRACK_BYTES-5,COLUMN_CELLS,dst)==0);
     assert(save_column_read(TRACK_BYTES-5,COLUMN_CELLS,dst)==1);
     assert(!memcmp(dst,disk+TRACK_BYTES-5,COLUMN_CELLS));
-    before=reads; assert(save_column_read(TRACK_BYTES-5,COLUMN_CELLS,dst)==1 && reads==before);
+    before=reads;
+    memset(dst,0x5a,sizeof(dst));
+    do { status=save_column_read(TRACK_BYTES-5,COLUMN_CELLS,dst); } while(!status);
+    assert(status==1 && reads==before+3 && !memcmp(dst,disk+TRACK_BYTES-5,COLUMN_CELLS));
     g_ticks+=201; save_stream_tick(); assert(!live && !pageMotor);
     /* Cache survives idle close, matching the original adjacent-record reuse. */
     before=reads; assert(save_column_read(TRACK_BYTES*2,13,other)==1 && reads==before);
@@ -234,13 +237,14 @@ int main(int argc, char **argv) {
     }
     reset_disk(); fixture_seed(32,0); assert(load_world()==SAVE_NOT_A_SAVE);
     failure=1; assert(load_world()==SAVE_NO_DISK && save_world()==SAVE_NO_DISK);
-    /* Explicit repros of inherited limitations, not authorized port bugfixes. */
+    /* Remaining inherited version-precedence issue; next separate bugfix. */
     reset_disk(); fixture_seed(32,1); assert(save_world()==SAVE_OK && save_world()==SAVE_OK);
     fixture_seed(256,1); assert(save_world()==SAVE_OK && word_at(4)==3);
     assert(load_world()==SAVE_WRONG_SIZE); /* Old v4 bank 1 wins over new v3. */
     reset_transport(); assert(save_column_read(0,16,dst)==1);
     memcpy(other,dst,16); memset(dst,0x5a,16); /* Represents scratch reuse by terrain. */
-    assert(save_column_read(0,16,dst)==1 && memcmp(dst,other,16));
+    before=reads;
+    assert(save_column_read(0,16,dst)==1 && !memcmp(dst,other,16) && reads==before);
     reset_transport(); cleanup(); cleanup(); assert(!live);
     assert(!strcmp(save_error_text(SAVE_NO_DISK),"No disk in drive A"));
     if(argc==2) {

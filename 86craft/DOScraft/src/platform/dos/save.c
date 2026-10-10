@@ -127,8 +127,9 @@ void save_stream_tick(void)
 }
 
 /* Preserve the original one-request destination ownership and track reuse.
- * One poll reads at most one 8-KiB track. Identical completed reads may reuse
- * their result; callers must cancel/reset before changing the owned buffer. */
+ * One poll reads at most one 8-KiB track. Completion releases the destination:
+ * each subsequent request recopies, even when its arguments match. The world
+ * also uses that destination for terrain reads between saved-column reads. */
 static int save_column_read(u32 offset, u32 length, u8 *dst)
 {
     int same, track;
@@ -138,7 +139,6 @@ static int save_column_read(u32 offset, u32 length, u8 *dst)
             length > NUM_TRACKS*TRACK_BYTES-offset) return -1;
     same = pageOffset == offset && pageLength == length && pageDest == dst;
     if (pageState == 1 && !same) return -1;
-    if (same && pageState == 5) { pageIdle = g_ticks; return 1; }
     if (same && pageState < 0 && g_ticks-pageIdle < 100) return -1;
     if (pageState != 1) {
         fdc_buffer();
