@@ -881,3 +881,16 @@ zero UV gradients, slanted/stable edges, clipping, empty/short rows, pixel/frame
 guards and final Trap state. Actual DJGPP COFF checks preserve ABI/callee saves,
 scratch size and integer instructions. These probes cannot be combined with
 other trap probes before independent measurement; neither is a release default.
+
+Stable-gradient Low completes three PASS repeats with matching final images:
+down 136.420 -> 136.421 ms, house 96.932 -> 96.931 ms, other scenes essentially
+neutral except up 54.033 -> 54.209 ms (the recurring small retrace shift).
+Draw-stage means are also nearly neutral; the 976-byte specialization is not
+justified. Retain it off. Raw paired evidence:
+`tests/benchmarks/2026-10-10/trap-stable-low.json`.
+
+Four-texel COFF code is 3,872 bytes (288-byte increase), with unchanged 32-byte
+BSS and eight original callee-save functions. Its Low guest timing is running.
+The updated full host suite runs 271 tests successfully with two Windows
+symlink-permission skips. An isolated default rebuild remains byte-identical to
+the published ET4000 executable after all four renderer probes were added.

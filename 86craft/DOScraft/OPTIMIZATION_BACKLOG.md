@@ -36,7 +36,7 @@ samples put about 53% in opaque trap assembly, 16-18% in polygon setup and
 avoided drawing in both exact reverse-painter prototypes. These are function
 samples, not proof of which instructions or cache misses dominate.
 
-1. **Original trap row setup without altered texture math.** Finer samples
+1. **Opaque texel-loop overhead and useful row invariants.** Finer samples
    attribute about 25% of drawing to trap row setup and 29% to trap texel loops.
    Independently linked assembly parity now protects both. Destination-register
    reuse passes Low images but saves only about 0.5% in the house, mostly neutral
@@ -46,12 +46,15 @@ samples, not proof of which instructions or cache misses dominate.
    scenes; neither is adopted from that result. Wider row-gradient reuse
    needs measured eligibility/hit rates, exact shifted-delta/reciprocal keys and
    accounting for comparison/dispatch/cache costs; no blanket per-face gradient.
+   The new exact constant-gradient entry specialization is effectively neutral
+   on Low and stays off. Four-texel opaque unrolling adds only 288 bytes, passes
+   independent actual assembly parity, and is being guest-timed separately.
 2. **Earlier exact visibility/geometry rejection with cheaper maintenance.**
    Target hidden building geometry before projection/subdivision/setup. Do not
    stack the losing per-pixel coverage backend onto the painter, or invent
    filled coverage from a bounding rectangle. Keep doorway/model/cutout oracles.
-3. **ET4000 banked chunky CPU upload, retaining the Mode X display.** An opt-in
-   High-only probe can remove planar conversion and exercise contiguous VGA
+3. **ET4000 banked chunky CPU upload, now accepted for High.** The independent
+   High-only path removes planar conversion and exercises contiguous VGA
    writes. Low/Medium keep the accepted repeated-pixel broadcast. Same 320x240
    timing, palette, triple buffering and sharp HUD; no Mode13h crop or renderer
    change. Native independent plane/bank tests and actual guest readback/timing
@@ -61,8 +64,9 @@ samples, not proof of which instructions or cache misses dominate.
    testing under the user's clarified visual tolerance. High now completes
    three PASS repeats with matching images: 2.4% lower walking frame time,
    10.3% looking up, 1.5% house and 0.8% looking down; static/edits neutral.
-   Retain for isolated real-game smoke before considering a production default.
-   See PERFORMANCE.md; no playable ISO/default changed yet.
+   Both isolated and exact-release game-loop preset/save/reload smoke pass.
+   It is enabled in normal defaults and the save-preserving published ISO.
+   See PERFORMANCE.md for fingerprints and preserved player HDD/previous ISO.
 
 Stationary-only reuse and already-rejected edge reciprocal/word transpose
 variants are lower priority. x87 conversion, reduced visible content, spawning
@@ -72,16 +76,43 @@ comparison now includes average FPS, slow-tail FPS and sample-support flags;
 
 Next bounded probes should include both invisible and quality-gated options:
 
-- Parent-local reuse of shared projected corners between adjacent adaptive
-  subdivision children. Preserve each child's geometry, UVs, lighting, clipping
-  and painter order; cache pre-guard-clipping positions only within that parent.
-  Measure eligibility and lookup/copy overhead before expecting a benefit.
+- Parent-local shared-corner projection reuse was implemented and tested but
+  worsens Low down timing by 0.8%; preserve its checkpoint off. The bounded
+  depth-aware 2x2 opaque adaptive-leaf quality probe is also neutral; it does not
+  justify a quality tradeoff. Do not retry either unchanged as a top candidate.
 - Low/Medium texture-gradient amortization over short row groups. Unlike exact
   reuse, approximate gradients may slightly change texture samples; retain
   geometry, clipping, cutout semantics and the High reference path. Review
   motion/near-texture artifacts and native bounds tests alongside guest timing.
   Adaptive subdivision remains enabled. This is a candidate, not a selected
   precision rule, implementation or measured gain.
+
+### Next structural candidate: bounded sealed-room visibility proof
+
+The user's house slowdown still needs geometry elimination, not only tiny loop
+savings. A bounded flood of camera-connected passable cells could prove a small
+room completely enclosed by full opaque cubes. Then chunks wholly outside the
+room's conservatively padded bounds could be rejected before face collection/
+projection. Keep boundary/overlapping merged faces, models/entities and the
+original painter initially. This applies while moving indoors, not only when
+stationary. It is a proposed experiment, not implemented or a promised gain.
+
+Source audit exposes important hazards: `wget` returns bedrock for an unloaded
+column, so that must NOT be accepted as an opaque enclosure. Check readiness
+explicitly and abort on unknown/boundary/overflow. Collision solidity is not an
+occlusion predicate; only full `BF_CUBE|BF_OPAQUE` cells can seal the proof.
+Doors/models/glass/leaves/water must not silently seal holes. `world_set` changes
+blocks before deferred meshes increment `g_meshVersion`; mesh version alone is
+NOT enough cache invalidation. Require immediate edit/residency/publication
+invalidation and fail open while boundary geometry is unpublished.
+
+Cheap open-sky/height checks and cached failed traversals are necessary to avoid
+paying a flood every outdoor frame/cell. Measure flood cost and edit latency as
+well as rejected geometry. Test sealed rooms, open doorways/windows, cutouts,
+camera movement, stream seams and edits with an independent visibility oracle.
+Open rooms/caves or inconclusive floods retain the original renderer. A later
+portal system would be a separate, substantially larger candidate; do not
+confuse simple connectivity with a general visibility proof through openings.
 
 - Primary hardware remains 486DX/25 with integrated x87, 16 MB RAM, **ISA Tseng ET4000AX with 1 MB**, WD1007V-SE1 ESDI / desired CDC Wren V 94186-383, and original Sound Blaster 1.x / OPL2. The 386DX/33 compatibility port is deferred until the main demake is satisfactory.
 - Preserve the **320x240 game UI**, including the 200-row view and 40-row HUD, and existing viewport/scale options. The attachment's 320x200 Mode13h examples are useful diagnostic arithmetic, not authority to shrink the game. An 8-bit full 320x240 color image is 76,800 bytes; its full-screen coverage bitset is 9,600 bytes. A 320x200 3D-only image/bitset is 64,000/8,000 bytes; a logical 160x100 image/bitset is 16,000/2,000 bytes. State which surface is measured and account separately for HUD, pitch, planes, buffers and metadata.
