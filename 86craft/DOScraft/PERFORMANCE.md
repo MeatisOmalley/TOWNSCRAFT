@@ -616,3 +616,30 @@ performance comparator, because added disk time can perturb later scheduling.
 view/HUD/palette bytes, and renders unchanged frame dumps into a NEW directory.
 Hash/region tests and diagnostic-timing rejection pass. This infrastructure
 investigates the mismatch; it neither relaxes image gates nor changes gameplay.
+
+### Image mismatch localization (checkpoint, not a fix)
+
+Hash-checked disk dumps from all three fresh-process repeats give the same
+result: only `walk_down` differs, by 20 physical pixels (five doubled logical
+pixels), within x=8..31, y=54..77. All other scene pixels, the complete HUD and
+all palette bytes match. Both VGA readbacks match their respective RAM image.
+The first-repeat images and exact differences are retained in
+`tests/baselines/2026-10-10-et4000-low-frame-diff/`; repeat 2/3 analyses remain
+in the ignored private diagnostic outputs. This localizes a reproducible
+world-image discrepancy, not an upload-only error or a demonstrated cause.
+
+An independent native original-raster probe tests identical texture
+neighborhoods relocated to different 64 KiB address phases, covering 24,000
+polygons, both scales, clipping, subpixel edges, wrapping and cutout paths.
+`tools/audit_atlas_relocation.py` passes with the original pinned C/assembly;
+the address-phase hypothesis was **not reproduced**. This does not cover
+every game-emitted polygon or rule out invalid texture coordinates, layout
+sensitivity elsewhere or other scene state. No raster/game fix is inferred.
+The tool preserves its source pin, compiler command, executable hash and
+stdout in `build/audit/atlas-relocation/report.json`. It is a correctness
+diagnostic, not 486 performance evidence.
+
+The ET4000 candidate stays disabled and High testing remains held at this
+gate. The published game/ISO and player's disks are unchanged. Continue
+independent row-setup/early-rejection work rather than treating this backend
+experiment as the only optimization avenue.

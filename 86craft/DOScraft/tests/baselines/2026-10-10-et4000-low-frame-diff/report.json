@@ -1,0 +1,164 @@
+{
+  "baseline_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-d8df740e",
+  "candidate_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-1l75oc4r",
+  "repeat": 1,
+  "note": "Disk dumps are diagnostic only; no gain or complete-gameplay proof.",
+  "scenes": [
+    {
+      "scene": "open_static",
+      "changed_pixels": 0,
+      "changed_view_pixels": 0,
+      "changed_hud_pixels": 0,
+      "palette_bytes_changed": 0,
+      "bounds": null,
+      "first_changed_pixels": []
+    },
+    {
+      "scene": "walk",
+      "changed_pixels": 0,
+      "changed_view_pixels": 0,
+      "changed_hud_pixels": 0,
+      "palette_bytes_changed": 0,
+      "bounds": null,
+      "first_changed_pixels": []
+    },
+    {
+      "scene": "walk_down",
+      "changed_pixels": 20,
+      "changed_view_pixels": 20,
+      "changed_hud_pixels": 0,
+      "palette_bytes_changed": 0,
+      "bounds": [
+        8,
+        54,
+        31,
+        77
+      ],
+      "first_changed_pixels": [
+        {
+          "x": 30,
+          "y": 54,
+          "baseline": 11,
+          "candidate": 89
+        },
+        {
+          "x": 31,
+          "y": 54,
+          "baseline": 11,
+          "candidate": 89
+        },
+        {
+          "x": 30,
+          "y": 55,
+          "baseline": 11,
+          "candidate": 89
+        },
+        {
+          "x": 31,
+          "y": 55,
+          "baseline": 11,
+          "candidate": 89
+        },
+        {
+          "x": 8,
+          "y": 56,
+          "baseline": 1,
+          "candidate": 81
+        },
+        {
+          "x": 9,
+          "y": 56,
+          "baseline": 1,
+          "candidate": 81
+        },
+        {
+          "x": 8,
+          "y": 57,
+          "baseline": 1,
+          "candidate": 81
+        },
+        {
+          "x": 9,
+          "y": 57,
+          "baseline": 1,
+          "candidate": 81
+        },
+        {
+          "x": 26,
+          "y": 60,
+          "baseline": 10,
+          "candidate": 89
+        },
+        {
+          "x": 27,
+          "y": 60,
+          "baseline": 10,
+          "candidate": 89
+        },
+        {
+          "x": 26,
+          "y": 61,
+          "baseline": 10,
+          "candidate": 89
+        },
+        {
+          "x": 27,
+          "y": 61,
+          "baseline": 10,
+          "candidate": 89
+        },
+        {
+          "x": 22,
+          "y": 66,
+          "baseline": 11,
+          "candidate": 89
+        },
+        {
+          "x": 23,
+          "y": 66,
+          "baseline": 11,
+          "candidate": 89
+        },
+        {
+          "x": 22,
+          "y": 67,
+          "baseline": 11,
+          "candidate": 89
+        },
+        {
+          "x": 23,
+          "y": 67,
+          "baseline": 11,
+          "candidate": 89
+        }
+      ]
+    },
+    {
+      "scene": "walk_up",
+      "changed_pixels": 0,
+      "changed_view_pixels": 0,
+      "changed_hud_pixels": 0,
+      "palette_bytes_changed": 0,
+      "bounds": null,
+      "first_changed_pixels": []
+    },
+    {
+      "scene": "house",
+      "changed_pixels": 0,
+      "changed_view_pixels": 0,
+      "changed_hud_pixels": 0,
+      "palette_bytes_changed": 0,
+      "bounds": null,
+      "first_changed_pixels": []
+    },
+    {
+      "scene": "block_edits",
+      "changed_pixels": 0,
+      "changed_view_pixels": 0,
+      "changed_hud_pixels": 0,
+      "palette_bytes_changed": 0,
+      "bounds": null,
+      "first_changed_pixels": []
+    }
+  ]
+}
