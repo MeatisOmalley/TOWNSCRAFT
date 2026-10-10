@@ -223,3 +223,10 @@ reports/recipes are in `f2b-low-draw-profile-fixed.json`. These are coarse IRQ
 samples including warm frames, not precise cycle attribution or gain evidence.
 This motivates an independent private coverage-kernel experiment; capture is
 not the dominant observed cost. Default renderer/media remain unchanged.
+
+Three matching original-painter draw-only probes capture 785 / 778 / 781
+samples (`broadcast-low-draw-profile.json`, `broadcast-low-profile-functions.json`).
+Opaque trapezoid assembly accounts for about 53% overall, polygon scan setup
+16-18%, and quad generation 11-13%. The function-level samples do not distinguish
+the assembly's scanline setup from its texel loop. This supports targeting
+per-row coverage/setup costs and actual overdraw, rather than a stationary cache.

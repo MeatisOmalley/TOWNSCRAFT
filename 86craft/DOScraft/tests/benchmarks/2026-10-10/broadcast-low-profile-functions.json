@@ -1,0 +1,1072 @@
+{
+  "note": "100Hz guest IRQ0 EIP samples during drawing, including warm frames. Illustrative function attribution, not precise instruction timing or performance proof.",
+  "exe_sha256": "99e2e43f30c9bcec7147dcc365b4c2601d408fc2bd766ab13a404fe34c9ec2b1",
+  "results": [
+    {
+      "sample_count": 785,
+      "functions": [
+        {
+          "symbol": "_trap_opaque2",
+          "samples": 279,
+          "sample_percent": 35.54140127388535
+        },
+        {
+          "symbol": "_poly_scan",
+          "samples": 144,
+          "sample_percent": 18.343949044585987
+        },
+        {
+          "symbol": "_trap_opaque2w",
+          "samples": 135,
+          "sample_percent": 17.197452229299362
+        },
+        {
+          "symbol": "_draw_quad",
+          "samples": 84,
+          "sample_percent": 10.700636942675159
+        },
+        {
+          "symbol": "_trap_transp2",
+          "samples": 43,
+          "sample_percent": 5.477707006369426
+        },
+        {
+          "symbol": "_box_outside",
+          "samples": 33,
+          "sample_percent": 4.203821656050955
+        },
+        {
+          "symbol": "_render_frame",
+          "samples": 31,
+          "sample_percent": 3.949044585987261
+        },
+        {
+          "symbol": "_draw_spoly",
+          "samples": 18,
+          "sample_percent": 2.2929936305732483
+        },
+        {
+          "symbol": "_clip_2d",
+          "samples": 9,
+          "sample_percent": 1.1464968152866242
+        },
+        {
+          "symbol": "_draw_cpoly.constprop.0",
+          "samples": 7,
+          "sample_percent": 0.89171974522293
+        },
+        {
+          "symbol": "_world_light_at",
+          "samples": 1,
+          "sample_percent": 0.12738853503184713
+        },
+        {
+          "symbol": "_raster_poly",
+          "samples": 1,
+          "sample_percent": 0.12738853503184713
+        }
+      ],
+      "scenes": [
+        {
+          "scene": "open_static",
+          "sample_count": 127,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 48,
+              "sample_percent": 37.79527559055118
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 30,
+              "sample_percent": 23.62204724409449
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 13,
+              "sample_percent": 10.236220472440944
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 12,
+              "sample_percent": 9.448818897637794
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 8,
+              "sample_percent": 6.299212598425197
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 6,
+              "sample_percent": 4.724409448818897
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 4,
+              "sample_percent": 3.1496062992125986
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 3,
+              "sample_percent": 2.3622047244094486
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 2,
+              "sample_percent": 1.5748031496062993
+            },
+            {
+              "symbol": "_draw_cpoly.constprop.0",
+              "samples": 1,
+              "sample_percent": 0.7874015748031497
+            }
+          ]
+        },
+        {
+          "scene": "walk",
+          "sample_count": 41,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 14,
+              "sample_percent": 34.146341463414636
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 7,
+              "sample_percent": 17.073170731707318
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 5,
+              "sample_percent": 12.195121951219512
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 5,
+              "sample_percent": 12.195121951219512
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 4,
+              "sample_percent": 9.75609756097561
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 3,
+              "sample_percent": 7.317073170731708
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 1,
+              "sample_percent": 2.4390243902439024
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 1,
+              "sample_percent": 2.4390243902439024
+            },
+            {
+              "symbol": "_draw_cpoly.constprop.0",
+              "samples": 1,
+              "sample_percent": 2.4390243902439024
+            }
+          ]
+        },
+        {
+          "scene": "walk_down",
+          "sample_count": 316,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 79,
+              "sample_percent": 25.0
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 76,
+              "sample_percent": 24.050632911392405
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 68,
+              "sample_percent": 21.518987341772153
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 39,
+              "sample_percent": 12.341772151898734
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 16,
+              "sample_percent": 5.063291139240507
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 11,
+              "sample_percent": 3.481012658227848
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 11,
+              "sample_percent": 3.481012658227848
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 10,
+              "sample_percent": 3.1645569620253164
+            },
+            {
+              "symbol": "_draw_cpoly.constprop.0",
+              "samples": 3,
+              "sample_percent": 0.9493670886075949
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 2,
+              "sample_percent": 0.6329113924050633
+            },
+            {
+              "symbol": "_world_light_at",
+              "samples": 1,
+              "sample_percent": 0.31645569620253167
+            }
+          ]
+        },
+        {
+          "scene": "walk_up",
+          "sample_count": 0,
+          "functions": []
+        },
+        {
+          "scene": "house",
+          "sample_count": 151,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 74,
+              "sample_percent": 49.00662251655629
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 23,
+              "sample_percent": 15.2317880794702
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 15,
+              "sample_percent": 9.933774834437086
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 14,
+              "sample_percent": 9.271523178807946
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 10,
+              "sample_percent": 6.622516556291391
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 7,
+              "sample_percent": 4.635761589403973
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 4,
+              "sample_percent": 2.6490066225165565
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 1,
+              "sample_percent": 0.6622516556291391
+            },
+            {
+              "symbol": "_draw_cpoly.constprop.0",
+              "samples": 1,
+              "sample_percent": 0.6622516556291391
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 1,
+              "sample_percent": 0.6622516556291391
+            },
+            {
+              "symbol": "_raster_poly",
+              "samples": 1,
+              "sample_percent": 0.6622516556291391
+            }
+          ]
+        },
+        {
+          "scene": "block_edits",
+          "sample_count": 150,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 64,
+              "sample_percent": 42.666666666666664
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 27,
+              "sample_percent": 18.0
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 15,
+              "sample_percent": 10.0
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 15,
+              "sample_percent": 10.0
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 10,
+              "sample_percent": 6.666666666666667
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 9,
+              "sample_percent": 6.0
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 4,
+              "sample_percent": 2.6666666666666665
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 3,
+              "sample_percent": 2.0
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 2,
+              "sample_percent": 1.3333333333333333
+            },
+            {
+              "symbol": "_draw_cpoly.constprop.0",
+              "samples": 1,
+              "sample_percent": 0.6666666666666666
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sample_count": 778,
+      "functions": [
+        {
+          "symbol": "_trap_opaque2",
+          "samples": 262,
+          "sample_percent": 33.67609254498715
+        },
+        {
+          "symbol": "_trap_opaque2w",
+          "samples": 155,
+          "sample_percent": 19.922879177377894
+        },
+        {
+          "symbol": "_poly_scan",
+          "samples": 133,
+          "sample_percent": 17.095115681233935
+        },
+        {
+          "symbol": "_draw_quad",
+          "samples": 105,
+          "sample_percent": 13.496143958868895
+        },
+        {
+          "symbol": "_trap_transp2",
+          "samples": 39,
+          "sample_percent": 5.012853470437018
+        },
+        {
+          "symbol": "_box_outside",
+          "samples": 23,
+          "sample_percent": 2.956298200514139
+        },
+        {
+          "symbol": "_render_frame",
+          "samples": 22,
+          "sample_percent": 2.827763496143959
+        },
+        {
+          "symbol": "_draw_spoly",
+          "samples": 15,
+          "sample_percent": 1.9280205655526992
+        },
+        {
+          "symbol": "_clip_2d",
+          "samples": 14,
+          "sample_percent": 1.7994858611825193
+        },
+        {
+          "symbol": "_draw_cpoly.constprop.0",
+          "samples": 5,
+          "sample_percent": 0.6426735218508998
+        },
+        {
+          "symbol": "_raster_poly",
+          "samples": 2,
+          "sample_percent": 0.2570694087403599
+        },
+        {
+          "symbol": "_memset",
+          "samples": 1,
+          "sample_percent": 0.12853470437017994
+        },
+        {
+          "symbol": "_draw_quad_split",
+          "samples": 1,
+          "sample_percent": 0.12853470437017994
+        },
+        {
+          "symbol": "_bench_us",
+          "samples": 1,
+          "sample_percent": 0.12853470437017994
+        }
+      ],
+      "scenes": [
+        {
+          "scene": "open_static",
+          "sample_count": 124,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 45,
+              "sample_percent": 36.29032258064516
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 32,
+              "sample_percent": 25.806451612903224
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 14,
+              "sample_percent": 11.290322580645162
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 11,
+              "sample_percent": 8.870967741935484
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 9,
+              "sample_percent": 7.258064516129032
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 5,
+              "sample_percent": 4.032258064516129
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 4,
+              "sample_percent": 3.225806451612903
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 2,
+              "sample_percent": 1.6129032258064515
+            },
+            {
+              "symbol": "_raster_poly",
+              "samples": 1,
+              "sample_percent": 0.8064516129032258
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 1,
+              "sample_percent": 0.8064516129032258
+            }
+          ]
+        },
+        {
+          "scene": "walk",
+          "sample_count": 38,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 14,
+              "sample_percent": 36.8421052631579
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 10,
+              "sample_percent": 26.31578947368421
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 6,
+              "sample_percent": 15.789473684210526
+            },
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 2,
+              "sample_percent": 5.2631578947368425
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 2,
+              "sample_percent": 5.2631578947368425
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 2,
+              "sample_percent": 5.2631578947368425
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 1,
+              "sample_percent": 2.6315789473684212
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 1,
+              "sample_percent": 2.6315789473684212
+            }
+          ]
+        },
+        {
+          "scene": "walk_down",
+          "sample_count": 314,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 74,
+              "sample_percent": 23.56687898089172
+            },
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 73,
+              "sample_percent": 23.248407643312103
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 67,
+              "sample_percent": 21.337579617834393
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 57,
+              "sample_percent": 18.15286624203822
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 11,
+              "sample_percent": 3.5031847133757963
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 8,
+              "sample_percent": 2.5477707006369426
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 7,
+              "sample_percent": 2.229299363057325
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 7,
+              "sample_percent": 2.229299363057325
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 5,
+              "sample_percent": 1.5923566878980893
+            },
+            {
+              "symbol": "_memset",
+              "samples": 1,
+              "sample_percent": 0.3184713375796178
+            },
+            {
+              "symbol": "_draw_quad_split",
+              "samples": 1,
+              "sample_percent": 0.3184713375796178
+            },
+            {
+              "symbol": "_draw_cpoly.constprop.0",
+              "samples": 1,
+              "sample_percent": 0.3184713375796178
+            },
+            {
+              "symbol": "_raster_poly",
+              "samples": 1,
+              "sample_percent": 0.3184713375796178
+            },
+            {
+              "symbol": "_bench_us",
+              "samples": 1,
+              "sample_percent": 0.3184713375796178
+            }
+          ]
+        },
+        {
+          "scene": "walk_up",
+          "sample_count": 0,
+          "functions": []
+        },
+        {
+          "scene": "house",
+          "sample_count": 149,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 70,
+              "sample_percent": 46.97986577181208
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 23,
+              "sample_percent": 15.436241610738255
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 16,
+              "sample_percent": 10.738255033557047
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 16,
+              "sample_percent": 10.738255033557047
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 11,
+              "sample_percent": 7.382550335570469
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 7,
+              "sample_percent": 4.697986577181208
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 2,
+              "sample_percent": 1.342281879194631
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 2,
+              "sample_percent": 1.342281879194631
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 1,
+              "sample_percent": 0.6711409395973155
+            },
+            {
+              "symbol": "_draw_cpoly.constprop.0",
+              "samples": 1,
+              "sample_percent": 0.6711409395973155
+            }
+          ]
+        },
+        {
+          "scene": "block_edits",
+          "sample_count": 153,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 72,
+              "sample_percent": 47.05882352941177
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 23,
+              "sample_percent": 15.032679738562091
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 19,
+              "sample_percent": 12.418300653594772
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 11,
+              "sample_percent": 7.189542483660131
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 10,
+              "sample_percent": 6.5359477124183005
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 6,
+              "sample_percent": 3.9215686274509802
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 4,
+              "sample_percent": 2.6143790849673203
+            },
+            {
+              "symbol": "_draw_cpoly.constprop.0",
+              "samples": 3,
+              "sample_percent": 1.9607843137254901
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 3,
+              "sample_percent": 1.9607843137254901
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 2,
+              "sample_percent": 1.3071895424836601
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sample_count": 781,
+      "functions": [
+        {
+          "symbol": "_trap_opaque2",
+          "samples": 275,
+          "sample_percent": 35.2112676056338
+        },
+        {
+          "symbol": "_trap_opaque2w",
+          "samples": 140,
+          "sample_percent": 17.92573623559539
+        },
+        {
+          "symbol": "_poly_scan",
+          "samples": 126,
+          "sample_percent": 16.13316261203585
+        },
+        {
+          "symbol": "_draw_quad",
+          "samples": 98,
+          "sample_percent": 12.548015364916774
+        },
+        {
+          "symbol": "_trap_transp2",
+          "samples": 43,
+          "sample_percent": 5.505761843790013
+        },
+        {
+          "symbol": "_box_outside",
+          "samples": 34,
+          "sample_percent": 4.353393085787452
+        },
+        {
+          "symbol": "_draw_spoly",
+          "samples": 27,
+          "sample_percent": 3.4571062740076823
+        },
+        {
+          "symbol": "_clip_2d",
+          "samples": 16,
+          "sample_percent": 2.0486555697823303
+        },
+        {
+          "symbol": "_render_frame",
+          "samples": 14,
+          "sample_percent": 1.792573623559539
+        },
+        {
+          "symbol": "_memset",
+          "samples": 4,
+          "sample_percent": 0.5121638924455826
+        },
+        {
+          "symbol": "_raster_poly",
+          "samples": 2,
+          "sample_percent": 0.2560819462227913
+        },
+        {
+          "symbol": "_draw_cpoly.constprop.0",
+          "samples": 2,
+          "sample_percent": 0.2560819462227913
+        }
+      ],
+      "scenes": [
+        {
+          "scene": "open_static",
+          "sample_count": 126,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 50,
+              "sample_percent": 39.682539682539684
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 26,
+              "sample_percent": 20.634920634920636
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 14,
+              "sample_percent": 11.11111111111111
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 13,
+              "sample_percent": 10.317460317460318
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 8,
+              "sample_percent": 6.349206349206349
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 5,
+              "sample_percent": 3.9682539682539684
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 5,
+              "sample_percent": 3.9682539682539684
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 3,
+              "sample_percent": 2.380952380952381
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 2,
+              "sample_percent": 1.5873015873015872
+            }
+          ]
+        },
+        {
+          "scene": "walk",
+          "sample_count": 38,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 12,
+              "sample_percent": 31.57894736842105
+            },
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 7,
+              "sample_percent": 18.42105263157895
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 6,
+              "sample_percent": 15.789473684210526
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 5,
+              "sample_percent": 13.157894736842104
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 5,
+              "sample_percent": 13.157894736842104
+            },
+            {
+              "symbol": "_raster_poly",
+              "samples": 1,
+              "sample_percent": 2.6315789473684212
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 1,
+              "sample_percent": 2.6315789473684212
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 1,
+              "sample_percent": 2.6315789473684212
+            }
+          ]
+        },
+        {
+          "scene": "walk_down",
+          "sample_count": 316,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 78,
+              "sample_percent": 24.68354430379747
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 70,
+              "sample_percent": 22.151898734177216
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 64,
+              "sample_percent": 20.253164556962027
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 51,
+              "sample_percent": 16.139240506329113
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 16,
+              "sample_percent": 5.063291139240507
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 14,
+              "sample_percent": 4.430379746835443
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 8,
+              "sample_percent": 2.5316455696202533
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 5,
+              "sample_percent": 1.5822784810126582
+            },
+            {
+              "symbol": "_memset",
+              "samples": 4,
+              "sample_percent": 1.2658227848101267
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 3,
+              "sample_percent": 0.9493670886075949
+            },
+            {
+              "symbol": "_draw_cpoly.constprop.0",
+              "samples": 2,
+              "sample_percent": 0.6329113924050633
+            },
+            {
+              "symbol": "_raster_poly",
+              "samples": 1,
+              "sample_percent": 0.31645569620253167
+            }
+          ]
+        },
+        {
+          "scene": "walk_up",
+          "sample_count": 0,
+          "functions": []
+        },
+        {
+          "scene": "house",
+          "sample_count": 150,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 73,
+              "sample_percent": 48.666666666666664
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 21,
+              "sample_percent": 14.0
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 19,
+              "sample_percent": 12.666666666666666
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 17,
+              "sample_percent": 11.333333333333334
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 10,
+              "sample_percent": 6.666666666666667
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 5,
+              "sample_percent": 3.3333333333333335
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 2,
+              "sample_percent": 1.3333333333333333
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 2,
+              "sample_percent": 1.3333333333333333
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 1,
+              "sample_percent": 0.6666666666666666
+            }
+          ]
+        },
+        {
+          "scene": "block_edits",
+          "sample_count": 151,
+          "functions": [
+            {
+              "symbol": "_trap_opaque2",
+              "samples": 67,
+              "sample_percent": 44.370860927152314
+            },
+            {
+              "symbol": "_trap_opaque2w",
+              "samples": 19,
+              "sample_percent": 12.582781456953642
+            },
+            {
+              "symbol": "_poly_scan",
+              "samples": 17,
+              "sample_percent": 11.258278145695364
+            },
+            {
+              "symbol": "_trap_transp2",
+              "samples": 16,
+              "sample_percent": 10.596026490066226
+            },
+            {
+              "symbol": "_draw_quad",
+              "samples": 11,
+              "sample_percent": 7.28476821192053
+            },
+            {
+              "symbol": "_box_outside",
+              "samples": 8,
+              "sample_percent": 5.298013245033113
+            },
+            {
+              "symbol": "_clip_2d",
+              "samples": 6,
+              "sample_percent": 3.9735099337748343
+            },
+            {
+              "symbol": "_draw_spoly",
+              "samples": 5,
+              "sample_percent": 3.3112582781456954
+            },
+            {
+              "symbol": "_render_frame",
+              "samples": 2,
+              "sample_percent": 1.3245033112582782
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
