@@ -401,3 +401,24 @@ This rejects the candidate as a default. A multiplication/table access plus
 exact correction is not inherently cheaper on this target than the original
 division. High is not used to excuse a Low regression. Preserve the selectable
 implementation and tests; default flags and the playable ISO remain unchanged.
+
+## Independent candidate: i486 word transpose packing
+
+`--candidate pack-words` changes only RAM-to-planar conversion, keeping the
+accepted HUD cache, exact repeated-pixel upload planner, Mode X timing,
+three hidden pages, all 320x240 pixels and the original renderer. Its i386
+kernel loads four adjacent source dwords, transposes the bytes using register
+rotates/exchanges, and writes four plane dwords. The original byte packer
+remains independently selectable. GNU alias/alignment annotations permit
+unaligned buffers; byte-only C fallback is independently tested.
+
+Native parity checks 25,900 frames across i386/x86-64 and default/portable
+paths against an independent pixel reference, original all-plane packing and
+plane extraction. Tests cover pitches, all offset pairs modulo 16, all short
+capacities/pitches, null inputs and inaccessible-page exact boundaries. Actual
+DJGPP i486 objects have 31 versus 42 inner-loop instructions per 16 pixels,
+four versus sixteen source loads/stores, and no helper/FPU/SIMD/newer ISA.
+Instruction counts alone do not establish a speedup; Low guest timing and
+image/readback checks are the adoption gate. The normal executable rebuilt
+byte-identically after both new experimental backends; the launcher validates
+from `C:\Windows`. No playable ISO/default flag changes at this checkpoint.

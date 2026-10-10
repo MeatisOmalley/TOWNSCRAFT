@@ -57,6 +57,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             names=(*names,'graphics_presets.c')
         if '-DDOS_VGA_PACK_ALL' in extra_adapter_flags:
             names=(*names,'vga_pack_all.c')
+        if '-DDOS_VGA_PACK_WORDS' in extra_adapter_flags:
+            names=(*names,'vga_pack_words.c')
         if '-DDOS_VGA_HUD_CACHE' in extra_adapter_flags:
             names=(*names,'vga_hud_cache.c')
         if '-DDOS_VGA_BROADCAST' in extra_adapter_flags:

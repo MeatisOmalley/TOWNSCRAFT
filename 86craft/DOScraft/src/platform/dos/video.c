@@ -14,6 +14,12 @@
 #include "vga_pack.h"
 #include "video_backend.h"
 #include "bench_transport.h"
+#ifdef DOS_VGA_PACK_WORDS
+#ifndef DOS_VGA_PACK_ALL
+#error Word packing requires the all-plane framebuffer layout
+#endif
+#include "vga_pack_words.h"
+#endif
 #ifdef DOS_VGA_BROADCAST
 #if !defined(DOS_VGA_PACK_ALL) || !defined(DOS_VGA_HUD_CACHE)
 #error Broadcast requires all-plane packing and exact HUD caching
@@ -156,7 +162,13 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOSCRAFT_BENCH
     stamp=bench_us();
 #endif
-    if(dos_vga_pack_all(source,pitch,packed,sizeof(packed))) {
+    if(
+#ifdef DOS_VGA_PACK_WORDS
+       dos_vga_pack_words(source,pitch,packed,sizeof(packed))
+#else
+       dos_vga_pack_all(source,pitch,packed,sizeof(packed))
+#endif
+       ) {
         dos_video_restore(); fputs("Invalid 320x240 framebuffer\n",stderr); exit(1);
     }
 #ifdef DOSCRAFT_BENCH
