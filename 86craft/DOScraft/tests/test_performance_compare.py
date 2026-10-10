@@ -28,4 +28,16 @@ class CompareTests(unittest.TestCase):
             with self.subTest(change=change),self.assertRaises(ValueError):
                 compare(self.evidence['baseline'],candidate)
 
+    def test_occlusion_investigation_is_explicit_and_still_checks_pixels(self):
+        baseline=self.evidence['baseline']; candidate=copy.deepcopy(self.evidence['candidate'])
+        for run in candidate['results']: run['header']['occlusion']='1'
+        with self.assertRaises(ValueError): compare(baseline,candidate)
+        self.assertEqual(len(compare(baseline,candidate,('occlusion',))),6)
+        candidate['results'][1]['header']['occlusion']='0'
+        with self.assertRaises(ValueError): compare(baseline,candidate,('occlusion',))
+        candidate['results'][1]['header']['occlusion']='1'
+        candidate['results'][2]['scenes'][0]['hash']='wrong'
+        with self.assertRaises(ValueError): compare(baseline,candidate,('occlusion',))
+        with self.assertRaises(ValueError): compare(baseline,candidate,('scale',))
+
 if __name__=='__main__': unittest.main()

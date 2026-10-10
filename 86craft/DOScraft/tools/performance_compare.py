@@ -5,7 +5,8 @@ from pathlib import Path
 import statistics
 
 
-def compare(baseline,candidate):
+def compare(baseline,candidate,allowed_settings=()):
+    if set(allowed_settings)-{'occlusion'}: raise ValueError('Unsupported setting change')
     for report in (baseline,candidate):
         if len(report['results'])!=3: raise ValueError('Need three guest repeats')
         if any(r['header']['result']!='PASS' for r in report['results']):
@@ -20,7 +21,9 @@ def compare(baseline,candidate):
         for report in (baseline,candidate):
             for run in report['results']:
                 for key in ('version','seed','simulation','scale','view','flat','subdiv','occlusion'):
-                    if run['header'][key]!=baseline['results'][0]['header'][key]:
+                    if run['header'][key]!=report['results'][0]['header'][key]:
+                        raise ValueError('Different settings within repeats: '+key)
+                    if key not in allowed_settings and run['header'][key]!=baseline['results'][0]['header'][key]:
                         raise ValueError('Different replay/settings: '+key)
         if any(s['name']!=base_scene['name'] or s['hash']!=base_scene['hash'] for s in old+new):
             raise ValueError('Image mismatch: '+base_scene['name'])
@@ -47,11 +50,13 @@ def main():
     parser.add_argument('--baseline',type=Path,required=True)
     parser.add_argument('--candidate',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--allow-occlusion-change',action='store_true',help='Explicit off/on investigation; image hashes must still match')
     args=parser.parse_args()
     baseline=json.loads(args.baseline.read_text()); candidate=json.loads(args.candidate.read_text())
-    rows=compare(baseline,candidate)
+    allowed=('occlusion',) if args.allow_occlusion_change else ()
+    rows=compare(baseline,candidate,allowed)
     args.output.parent.mkdir(parents=True,exist_ok=True)
-    args.output.write_text(json.dumps({'comparison':rows,'baseline':compact(baseline),
+    args.output.write_text(json.dumps({'comparison':rows,'intentional_setting_changes':list(allowed),'baseline':compact(baseline),
         'candidate':compact(candidate)},indent=2)+'\n')
     for row in rows:
         print(f'{row["scene"]}: {row["baseline_ms"]:.3f} -> {row["candidate_ms"]:.3f} ms '

@@ -202,3 +202,35 @@ Verified SHA-256 fingerprints:
 Generated ISOs and private HDDs remain local/ignored; source, launchers, tests,
 benchmark evidence and smoke screenshots are committed. No gameplay/UI/layout,
 graphics-quality or default-budget changes are included in this checkpoint.
+
+## Follow-up experiments: keep evidence, not losing defaults
+
+The existing optional single-patch occlusion prepass was tested independently
+with all three accepted transport changes. Three repeats passed and the six
+last-frame image hashes matched. It was slower: stationary 1.2%, walking 4.4%,
+down 2.7%, house 2.1%, and edit aftermath 1.4%; up was neutral. Evidence:
+`tests/benchmarks/2026-10-10/occlusion.json`. Occlusion remains off. This does not
+rule out a front-to-back renderer: the existing prepass does not stop general
+pixel overdraw or combine arbitrary opaque coverage into a complete proof.
+
+The selectable `--candidate zero-dx` skips signed edge division when its
+numerator is exactly zero. A native test compares the real original/candidate
+rasterizers and real assembly across 24,000 polygons, both scales, winding,
+clipping, cutout zeros, wrapping, flat spans, guards and occlusion queries.
+Guest pixels also match in three repeats, but there is no meaningful repeatable
+gain in house/down/edit scenes. Walking's third repeat contains a preserved
+5.042-second outlier in presentation; its raw results are not discarded or
+used as optimization evidence. The candidate is not enabled by default.
+Evidence: `tests/benchmarks/2026-10-10/zero-dx.json`. A live FAT snapshot briefly
+caught an in-progress directory/FAT update; the runner now retries such snapshots
+without accepting corrupt/incomplete reports. The completed VM was collected
+and only its identity-verified emulator process closed.
+
+Priority shifts to geometry/setup elimination and ordered opaque coverage,
+not more small arithmetic shortcuts. Cube terrain gives a useful ordering
+structure, but merged face scheduling, cutout holes, models/mob parts and near
+clipping must be proven rather than hidden by a blanket block-center sort.
+The original painter remains the image reference and safe fallback. Introduce
+an independent coverage/depth reference before enabling a larger renderer
+rewrite, and test buildings/doorways, seams, moving models, transparent texels
+and edits. Substantial changes to visible geometry or gameplay need approval.

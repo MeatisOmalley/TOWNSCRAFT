@@ -140,6 +140,9 @@ void bench_frame(void)
     if(phase<0) {
         sx=g_player.body.x/FU; sz=g_player.body.z/FU; sy=world_surface_y(sx,sz);
         g_renderScale=2; g_viewDist=8; g_flatDist=0; g_distanceMode=0;
+#ifdef DOS_BENCH_OCCLUSION
+        g_occlusion=1;
+#endif
         phase=0; frame=-1;
     }
     if(++frame==WARM+FRAMES) {

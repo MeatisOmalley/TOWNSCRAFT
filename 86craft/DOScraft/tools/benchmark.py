@@ -68,7 +68,7 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','pack-all','hud-cache','broadcast','occlusion','zero-dx'),default='reference')
     parser.add_argument('--timeout',type=int,default=900)
     parser.add_argument('--prepare-only',action='store_true')
     args=parser.parse_args()
@@ -84,7 +84,9 @@ def main():
         return
     variants={'reference':(), 'pack-all':('-DDOS_VGA_PACK_ALL',),
         'hud-cache':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE'),
-        'broadcast':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST')}
+        'broadcast':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST'),
+        'occlusion':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_BENCH_OCCLUSION'),
+        'zero-dx':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_RASTER_ZERO_DX')}
     flags=variants[args.candidate]
     if args.run_vm:
         vm=args.run_vm.resolve(strict=True)
@@ -117,12 +119,12 @@ def main():
         volume=diagnostic_volume((vm/'scratch.img').read_bytes())
         for n in range(1,4):
             try: marker=volume.read(f'BENCH{n}.END')
-            except FileNotFoundError: continue
+            except (FileNotFoundError,ValueError): continue # FAT may be mid-update in a live snapshot.
             if marker==b'FAIL\n':
                 process.terminate(); process.wait(timeout=30)
                 raise RuntimeError(f'Completed guest benchmark {n} FAILED; reports preserved in {vm}')
         try: completed=volume.read('BENCH3.END')==b'PASS\n'
-        except FileNotFoundError: completed=False
+        except (FileNotFoundError,ValueError): completed=False
         if not completed:
             if process.poll() is not None: raise RuntimeError('Emulator exited before completion marker')
             time.sleep(2); continue
