@@ -17,6 +17,53 @@ See [the port plan](PORT_PLAN.md) for the direct-port parity gate, and the separ
 
 The emulator checkout at `../86Box` is an independent Git repository. Game work belongs here. Generated builds and mutable runtime images are ignored.
 
+## Build and launch the real game
+
+With the existing pinned dependencies/ROMs present, run from this directory:
+
+```powershell
+python tools/build_game.py
+python tools/game_media.py --bios "runtime/<known-good-ISA486-VM>/nvr/isa486.nvr"
+```
+
+Omit `--bios` on a new machine and configure CMOS as described below. Each media
+preparation creates a **new private HDD**, never overwriting an old world.
+Double-click `Launch-DOScraft.cmd` afterward; it needs no Python at launch time
+and works regardless of the current directory. It validates the prepared ISO,
+embedded boot media, emulator/ROM hashes and hardware, refuses a second process
+on the same writable HDD, and reuses that HDD on future launches. `-ValidateOnly`
+on the PowerShell launcher checks these gates without starting a window.
+An error is shown and kept visible by the `.cmd` launcher.
+
+The exact ISO path is printed at preparation and recorded via
+`build/game/486dx25/latest-play-vm.txt`. The ISO contains the real executable and
+a FreeDOS/CWSDPMI/CuteMouse boot payload. The ISA-486 profile boots **the floppy
+extracted byte-for-byte from that ISO**; it does not claim 1989 BIOS native
+El Torito boot. No CD controller is silently added or ESDI hardware replaced.
+The writable files are `C:\TERRAIN.TMP` and `C:\WORLD.SAV` on a private 20-MiB
+development HDD (not final Wren geometry/timing). Generated media/dependencies
+remain ignored; source/build/launch/test tools are tracked. This is a local
+development package, not a standalone redistribution of DOS/emulator ROMs.
+
+Space starts a world; L loads; WASD walks; arrows look; J breaks/attacks; E
+places/uses; Tab opens inventory; C opens crafting; Escape leaves menus; F9
+saves. Original Towns UI labels, including PF keys and "floppy A", are retained;
+the DOS transport actually uses the HDD save file. Audio is silent even if the
+original audio-option text says enabled. Wait for saving/generation to finish
+before closing the emulator. The unmodified game has no DOS exit hotkey.
+
+`python tools/game_media.py --smoke --bios "<same-machine isa486.nvr>" --launch`
+creates separate test media. It runs the real generator/game loop, drives AT
+controller input, checks movement/full pitch and torch placement/breaking,
+opens inventory/crafting, saves and reloads in a second DOS process. The
+diagnostic must wait for a real rendered gameplay frame, not load progress,
+and must not exit from inside a save callback. VGA snapshots include palette
+and full-plane readback. `tools/game_report.py --vm "<test VM>" --output
+"<new output directory>"` extracts both passing reports, independently checks
+the original v3 save checksum/RLE extent and renders diagnostic PNGs.
+These tests are not comprehensive feature parity, Windows input capture or a
+performance benchmark; audio and broader interactive acceptance remain deferred.
+
 The standalone DOS heap adapter is now implemented under `src/platform/dos/heap.*`. Native tests compare 80,000 allocation/rewind trace steps with the checksum-verified pinned Towns allocator, including alignment, low-to-high fallback and fatal behavior. A DJGPP harness also compiles/links against the imported declarations. The adapter borrows caller-supplied arenas; DOS startup now supplies and tests their backing, but integration into the complete game is still pending. Logical high-heap marks preserve the existing API rather than exposing relocated DOS pointers. No allocator optimization or world-memory policy change is implied.
 
 The game-facing framebuffer adapter now preserves three RAM-page identities and the original drawing/font bodies. Mode X uploads into hidden VGA pages and changes the display start at retrace; this replaces Towns page-presentation hardware, not its renderer. Native tests cover cached HUD/page contents, drawing bounds, row padding and page synchronization. Guest `ADAPTER.EXE` has passed twelve full-plane transfers, page retention/synchronization and heap rewind; this diagnostic is still not the game. AT keyboard translation is tested, including all keys used by the pinned game and the original 32-slot/drop-new queue behavior.
