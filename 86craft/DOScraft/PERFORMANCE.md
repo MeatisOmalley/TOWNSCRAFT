@@ -1015,3 +1015,15 @@ the same frozen six-scene route and quality settings. Independent variants
 remain unchanged. A recipe test covers all three quality levels and forbids
 an emulator launch during preparation. Use this for the final combined
 regression screen rather than adding isolated percentage gains together.
+
+The independent staged word-HUD High probe now completes three PASS repeats
+with matching images: static 152.268 -> 138.037 ms (9.3% time reduction),
+walk 107.962 -> 104.273 (3.4%), down 250.253 -> 246.564 (1.5%),
+up 59.479 -> 57.371 (3.5%), house 173.347 -> 170.185 (1.8%),
+edits 193.152 -> 186.831 (3.3%). Pack/HUD on the first repeat falls about
+7.9 -> 4.05 ms; actual VGA upload is unchanged, around 25.6 ms. Retrace
+quantizes the full frame gains, including the larger static step. Evidence:
+`tests/benchmarks/2026-10-10/et4000-hud-words-high.json`. This is independent
+of four-texel unrolling and direct-row upload. The combined proposed default
+is now undergoing Low/High production replay and normal-game verification;
+the published ISO remains unchanged until those checks pass.
