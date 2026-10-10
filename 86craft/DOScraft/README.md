@@ -4,7 +4,14 @@ IBM-PC port of Townscraft, targeting a 486DX/25-class PC in 86Box.
 
 Primary target: Intel 486DX/25 with its integrated x87 FPU, 16 MB RAM, Tseng ET4000AX ISA with 1 MB video RAM, ESDI HDD and original Sound Blaster. The ASUS ISA-486 motherboard and selected BIOS images are emulator proxies, not an authenticated 1989 Compaq reconstruction. The Everex-class 386DX/33 is a **deferred compatibility/port target**, to revisit only after the main demake meets its agreed correctness/performance goals. The main build may use 486 instructions and x87; 386 compatibility is not a current release gate.
 
-Current stage: direct port first; optimizations later. A pinned 50-file Towns source snapshot is tracked under `vendor/towns`. The unchanged gameplay/fixed-point renderer compiles to 16 DOS-target objects with assembly ABI checks. The 486 guest now boots DOS and passes the platform heap/FPU/no-paging/disk checks. The 320x240 Mode X display probe passes all four VRAM-plane readbacks, restores DOS text mode automatically, and its held test pattern has been visually checked. Physical Escape also completed the held probe successfully; automated key injection remains unverified, and game input/audio and gameplay remain untested. There is no playable DOS game yet. No new renderer optimization has been implemented. See [the recorded diagnostic evidence](tests/baselines/2026-10-09-pc-platform.json).
+Current stage: direct port first; optimizations later. The pinned 50-file Towns
+snapshot remains immutable. The full gameplay/fixed-point renderer now links
+into `DOSCRAFT.EXE` through the original `kmain`, with DOS platform adapters.
+Real procedural generation and AT movement/full-pitch input have run in 86Box;
+complete build/save/reload acceptance is in progress. Audio is deliberately
+silent under the user's latest priority, not completed Sound Blaster parity.
+No new renderer optimization, mob policy, UI or gameplay change is included.
+Earlier diagnostic paragraphs below record their individual historical gates.
 
 See [the port plan](PORT_PLAN.md) for the direct-port parity gate, and the separate [optimization backlog](OPTIMIZATION_BACKLOG.md) for work deferred until port acceptance. [The investigation runner](tools/audit_towns_house.py) builds isolated Towns test snapshots without modifying Towns production sources or ISOs.
 

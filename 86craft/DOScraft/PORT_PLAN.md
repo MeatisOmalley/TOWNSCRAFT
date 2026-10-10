@@ -1,5 +1,13 @@
 # DOScraft: Townscraft-to-IBM-PC port plan
 
+Latest priority, 2026-10-09: the user explicitly defers audio for a later Sound
+Blaster remake. Deliver a functioning game/ISO first, with a clearly labelled
+silent backend. Audio completion is no longer a prerequisite for that playable
+checkpoint. This does not authorize new gameplay/UI changes or Phase B work.
+The complete pinned game now links via its original `kmain`; real procedural
+generation/input/build/save/reload acceptance is in progress. Earlier diagnostic
+status paragraphs below are historical checkpoints, not the current link status.
+
 Research and investigation: 2026-10-09. This is the architecture/measurement phase, not a working DOS game. No production Towns gameplay, UI, renderer or emulator behavior was changed for this plan.
 
 Direct-port checkpoint, 2026-10-09: DOS startup backing and resident IRQ0/IRQ1 handlers now pass the combined `SYSTEM.EXE` guest diagnostic. Installed RAM remains 16 MiB; separate 1-MiB low / 8-MiB high arenas preserve permanent-versus-rewind lifetime boundaries without altering world/cache budgets. The timer remains 100 Hz beneath the unchanged 20 Hz simulation; BIOS clock chaining, AT controller key delivery, nested interrupt guards, sampling profiler, shutdown/reinstallation and Mode X presentation with IRQs active passed. Sampling frame decoding supports the pinned normal CWSDPMI r7 only. `MOUSE.EXE` now passes serial UART loopback/IRQ4/INT33 transport, signed deltas, buttons, 16-bit accumulation and reset parity with pinned CuteMouse 1.9.1 in linear mode. Physical/Windows keyboard and mouse ingress, SB/OPL audio, world/save storage integration and the complete game link still need verification. No Phase B optimization is included.
@@ -41,7 +49,7 @@ Build a real 32-bit DOS executable for the **486DX/25 primary target**, with 16 
 
 For Phase B, the leading research group is **correct opaque front-to-back traversal, uncovered-span coverage and hierarchical screen-tile rejection**, with depth information for cutouts and moving models. These form one architectural investigation, tested incrementally. A depth reference is allowed in Phase A's correctness harness; replacing the production painter renderer is Phase B. Neither architecture nor an FPS gain is promised. See [OPTIMIZATION_BACKLOG.md](OPTIMIZATION_BACKLOG.md) for the attachment-derived priorities and inherited-method audit.
 
-The first playable milestone is a small deterministic world with walking, full up/down looking, block placement/removal, inventory and unchanged controls. It is an intermediate Phase A checkpoint. All existing gameplay, features, audio, menus and storage semantics must follow before parity acceptance; renderer competition and large-world redesign must wait.
+The first playable milestone includes walking, full up/down looking, block placement/removal, inventory and unchanged controls. It is an intermediate Phase A checkpoint. All existing gameplay, features, menus and storage semantics must follow before parity acceptance; audio is explicitly deferred under the latest user priority. Renderer competition and large-world redesign must wait.
 
 ### Phase A scope and acceptance boundary
 
