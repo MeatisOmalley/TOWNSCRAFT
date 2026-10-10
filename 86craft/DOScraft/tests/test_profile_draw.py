@@ -21,7 +21,7 @@ class ProfileTests(unittest.TestCase):
 
     def test_phase_ranges_and_diagnostic_guard(self):
         report={'results':[{'header':{'result':'PASS','draw_profiling':'TIMINGS_DIAGNOSTIC_ONLY',
-            'draw_eip':'1000,2000,2001'},'scenes':[
+            'draw_scope':'POST_GENERATION_SECTION_GATED','draw_eip':'1000,2000,2001'},'scenes':[
                 {'name':'walk','draw_sample_begin':'0','draw_sample_end':'1'},
                 {'name':'house','draw_sample_begin':'1','draw_sample_end':'3'}]}]}
         symbols=[(4096,'a'),(8192,'b')]
@@ -31,6 +31,9 @@ class ProfileTests(unittest.TestCase):
         with self.assertRaises(ValueError): analyze(report,symbols)
         report['results'][0]['scenes']=[]
         self.assertEqual(analyze(report,symbols)[0]['sample_count'],3)
+        report['results'][0]['header'].pop('draw_scope')
+        with self.assertRaises(ValueError): analyze(report,symbols)
+        report['results'][0]['header']['draw_scope']='POST_GENERATION_SECTION_GATED'
         report['results'][0]['header']['draw_profiling']=''
         with self.assertRaises(ValueError): analyze(report,symbols)
 

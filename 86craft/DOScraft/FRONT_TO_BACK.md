@@ -209,3 +209,17 @@ and rejects mismatched binaries or invalid sampling ranges. Per-scene ranges
 separate stationary/walking/down/house samples in new profiling builds. IRQ0
 sampling is illustrative attribution, not exact per-instruction timing; the
 performance comparator refuses profiling runs as gain evidence.
+
+The first aggregate draw probe was contaminated by inherited `new_game`
+generation sampling filling its bounded sample ring. Preserve
+`f2b-low-draw-profile.json` as a failed diagnostic, NOT drawing-cost evidence.
+The fixed diagnostic disables/reset samples before generation and requires
+`DRAW_SCOPE=POST_GENERATION_SECTION_GATED`; the analyzer rejects legacy reports.
+Three corrected guest repeats capture 1,139 / 1,129 / 1,126 drawing samples.
+Across scenes, run discovery accounts for about 23-24% of samples, with span
+marking about 7%, trap orchestration 23-26% and opaque assembly 15-17%.
+Per-scene attribution is retained in `f2b-low-profile-functions.json`; raw
+reports/recipes are in `f2b-low-draw-profile-fixed.json`. These are coarse IRQ
+samples including warm frames, not precise cycle attribution or gain evidence.
+This motivates an independent private coverage-kernel experiment; capture is
+not the dominant observed cost. Default renderer/media remain unchanged.

@@ -85,7 +85,15 @@ u32 bench_us(void)
     acc+=dos_bench_clock_delta(tick,tick0,lo,lo0); lo0=lo; tick0=tick;
     return (u32)((unsigned long long)acc*1000000u/1193182u);
 }
-void bench_gen_begin(void) { g_benchOut[BO_GEN_MS]=bench_us(); }
+void bench_gen_begin(void) {
+    g_benchOut[BO_GEN_MS]=bench_us();
+#ifdef DOS_BENCH_PROFILE_DRAW
+    /* new_game inherited an unconditional generation-profiler enable.
+     * This diagnostic owns drawing samples, not generation; disable before
+     * generation and reset its bounded ring before any frame starts. */
+    g_profEnable=0; g_profCount=0;
+#endif
+}
 void bench_gen_end(void) { g_benchOut[BO_GEN_MS]=(bench_us()-g_benchOut[BO_GEN_MS])/1000; }
 void bench_update_begin(void) {}
 void bench_update_end(void) {}
@@ -165,7 +173,7 @@ static void finish(void)
     fprintf(file,"F2B_VERIFICATION=TIMINGS_INVALID\nF2B_VERIFY_FRAMES=%u\nF2B_VERIFY_FAILURES=%u\nF2B_VERIFY_FALLBACKS=%u\n",dos_f2b_verify_frames,dos_f2b_verify_failures,dos_f2b_verify_fallbacks);
 #endif
 #ifdef DOS_BENCH_PROFILE_DRAW
-    fprintf(file,"DRAW_PROFILING=TIMINGS_DIAGNOSTIC_ONLY\nDRAW_EIP=");
+    fprintf(file,"DRAW_PROFILING=TIMINGS_DIAGNOSTIC_ONLY\nDRAW_SCOPE=POST_GENERATION_SECTION_GATED\nDRAW_EIP=");
     for(s=0;s<(int)g_profCount;++s) fprintf(file,"%s%08x",s?",":"",g_profSamples[s]);
     fprintf(file,"\n");
 #endif

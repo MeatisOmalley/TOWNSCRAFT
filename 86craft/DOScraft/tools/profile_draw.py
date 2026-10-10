@@ -38,6 +38,8 @@ def analyze(report,symbols):
         header=run['header']
         if header.get('result')!='PASS' or not header.get('draw_profiling'):
             raise ValueError('Requires a completed guest draw-sampling diagnostic')
+        if header.get('draw_scope')!='POST_GENERATION_SECTION_GATED':
+            raise ValueError('Legacy generation samples can contaminate this draw diagnostic')
         samples=[int(x,16) for x in header['draw_eip'].split(',') if x]
         if not samples: raise ValueError('No guest code samples captured')
         scenes=[]
