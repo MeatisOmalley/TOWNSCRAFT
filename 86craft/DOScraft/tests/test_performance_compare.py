@@ -69,4 +69,30 @@ class CompareTests(unittest.TestCase):
         candidate['results'][0]['header']['frame_dumps']='TIMINGS_DIAGNOSTIC_ONLY'
         with self.assertRaises(ValueError): compare(self.evidence['baseline'],candidate)
 
+    def test_explicit_visual_review_keeps_hash_and_repeat_guards(self):
+        baseline=self.evidence['baseline']; candidate=copy.deepcopy(self.evidence['candidate'])
+        name=candidate['results'][0]['scenes'][0]['name']
+        for run in candidate['results']: run['scenes'][0]['hash']='reviewed'
+        review={name:{'baseline_hash':baseline['results'][0]['scenes'][0]['hash'],
+            'candidate_hash':'reviewed','note':'Small texture-edge change permitted at Low',
+            'evidence':'retained/pixel-difference-report.json'}}
+        with self.assertRaises(ValueError): compare(baseline,candidate)
+        rows=compare(baseline,candidate,image_review=review)
+        self.assertFalse(rows[0]['image_match'])
+        self.assertEqual(rows[0]['candidate_hash'],'reviewed')
+        self.assertEqual(rows[0]['image_review'],review[name])
+        self.assertTrue(all(r['image_match'] for r in rows[1:]))
+        for change in ('hash','unstable','unreviewed','hardware','fail','note','unknown'):
+            modified=copy.deepcopy(candidate); approval=copy.deepcopy(review)
+            if change=='hash': approval[name]['candidate_hash']='other'
+            if change=='unstable': modified['results'][1]['scenes'][0]['hash']='other'
+            if change=='unreviewed':
+                for run in modified['results']: run['scenes'][1]['hash']='other'
+            if change=='hardware': modified['manifest']['profile_sha256']='other'
+            if change=='fail': modified['results'][0]['header']['result']='FAIL'
+            if change=='note': approval[name]['note']=' '
+            if change=='unknown': approval['unknown']=approval[name]
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                compare(baseline,modified,image_review=approval)
+
 if __name__=='__main__': unittest.main()

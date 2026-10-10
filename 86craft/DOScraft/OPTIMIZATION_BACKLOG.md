@@ -11,6 +11,14 @@ considered; substantial visual/gameplay changes require approval first. Invisibl
 changes are slightly preferred, not a reason to ignore larger measured gains.
 See [FRONT_TO_BACK.md](FRONT_TO_BACK.md) for the ordered-coverage experiment.
 
+**Visual-tolerance clarification (2026-10-10):** bit-identical output is not a
+blanket optimization requirement. Small, even slightly noticeable image-quality
+tradeoffs are authorized, and may be gated behind Low/Medium; High can retain the
+cleaner reference path. Adaptive subdivision remains selected for all profiles.
+Evaluate measured moving-scene gains against the actual visual differences.
+Keep reviewed image evidence, hardware readback, memory safety and gameplay
+correctness checks. Major visual/functionality changes still require asking.
+
 Recorded 2026-10-09 from the user's complete `Pasted text.txt` attachment and the existing Towns source/retention audit. This is **Phase B research after the user accepts the complete Phase A direct port**, not a list of prerequisites for porting. [PORT_PLAN.md](PORT_PLAN.md) defines the full parity gate. No proposal here is a selected implementation, a measured DOS gain or a promised FPS result.
 
 Latest resolution guidance: the user authorizes choosing whichever resolution makes sense for this PC. The existing 320x240 layout is the direct-port starting point, not a permanent restriction. First candidate: Mode X display, sharp HUD, existing doubled 160x100 3D option. Compare full-resolution rendering and presentation costs once playable; do not infer a winner from the nominal VGA mode alone.
@@ -32,8 +40,10 @@ samples, not proof of which instructions or cache misses dominate.
    attribute about 25% of drawing to trap row setup and 29% to trap texel loops.
    Independently linked assembly parity now protects both. Destination-register
    reuse passes Low images but saves only about 0.5% in the house, mostly neutral
-   elsewhere; High is being checked. The separate exact-zero gradient probe
-   passes native images and still needs guest timing. Wider row-gradient reuse
+   elsewhere; High house saves only 0.2%, with other scenes nearly neutral.
+   The separate exact-zero gradient probe
+   also saves about 0.5% in the Low house, with neutral/slightly slower other
+   scenes; neither is adopted from that result. Wider row-gradient reuse
    needs measured eligibility/hit rates, exact shifted-delta/reciprocal keys and
    accounting for comparison/dispatch/cache costs; no blanket per-face gradient.
 2. **Earlier exact visibility/geometry rejection with cheaper maintenance.**
@@ -45,9 +55,10 @@ samples, not proof of which instructions or cache misses dominate.
    writes. Low/Medium keep the accepted repeated-pixel broadcast. Same 320x240
    timing, palette, triple buffering and sharp HUD; no Mode13h crop or renderer
    change. Native independent plane/bank tests and actual guest readback/timing
-   must establish correctness and benefit. The Low gate currently fails on five
-   doubled logical world pixels in the down scene, reproduced in all repeats;
-   root cause is not established, and High testing/adoption is held. See
+   must establish correctness and benefit. Low differs on five doubled logical
+   texture-edge pixels in the down scene, reproduced in all repeats; root cause
+   is not established. This small reviewed difference no longer blocks High
+   testing under the user's clarified visual tolerance. See
    PERFORMANCE.md; not a default or a measured benefit.
 
 Stationary-only reuse and already-rejected edge reciprocal/word transpose
@@ -55,6 +66,19 @@ variants are lower priority. x87 conversion, reduced visible content, spawning
 changes and world-storage redesign are not incidental fixes. Every measured
 comparison now includes average FPS, slow-tail FPS and sample-support flags;
 32-frame screens cannot establish statistically useful 0.1% lows.
+
+Next bounded probes should include both invisible and quality-gated options:
+
+- Parent-local reuse of shared projected corners between adjacent adaptive
+  subdivision children. Preserve each child's geometry, UVs, lighting, clipping
+  and painter order; cache pre-guard-clipping positions only within that parent.
+  Measure eligibility and lookup/copy overhead before expecting a benefit.
+- Low/Medium texture-gradient amortization over short row groups. Unlike exact
+  reuse, approximate gradients may slightly change texture samples; retain
+  geometry, clipping, cutout semantics and the High reference path. Review
+  motion/near-texture artifacts and native bounds tests alongside guest timing.
+  Adaptive subdivision remains enabled. This is a candidate, not a selected
+  precision rule, implementation or measured gain.
 
 - Primary hardware remains 486DX/25 with integrated x87, 16 MB RAM, **ISA Tseng ET4000AX with 1 MB**, WD1007V-SE1 ESDI / desired CDC Wren V 94186-383, and original Sound Blaster 1.x / OPL2. The 386DX/33 compatibility port is deferred until the main demake is satisfactory.
 - Preserve the **320x240 game UI**, including the 200-row view and 40-row HUD, and existing viewport/scale options. The attachment's 320x200 Mode13h examples are useful diagnostic arithmetic, not authority to shrink the game. An 8-bit full 320x240 color image is 76,800 bytes; its full-screen coverage bitset is 9,600 bytes. A 320x200 3D-only image/bitset is 64,000/8,000 bytes; a logical 160x100 image/bitset is 16,000/2,000 bytes. State which surface is measured and account separately for HUD, pitch, planes, buffers and metadata.

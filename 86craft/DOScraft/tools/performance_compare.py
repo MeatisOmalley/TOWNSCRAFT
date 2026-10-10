@@ -6,8 +6,9 @@ import statistics
 from frame_metrics import frame_metrics
 
 
-def compare(baseline,candidate,allowed_settings=()):
+def compare(baseline,candidate,allowed_settings=(),image_review=None):
     if set(allowed_settings)-{'occlusion'}: raise ValueError('Unsupported setting change')
+    image_review={} if image_review is None else image_review
     for report in (baseline,candidate):
         if len(report['results'])!=3: raise ValueError('Need three guest repeats')
         if any(r['header'].get('f2b_verification') for r in report['results']):
@@ -18,6 +19,13 @@ def compare(baseline,candidate,allowed_settings=()):
             raise ValueError('Disk-dump diagnostic timings are not performance evidence')
         if any(r['header']['result']!='PASS' for r in report['results']):
             raise ValueError('A failed guest run cannot establish a gain')
+    scene_names={s['name'] for s in baseline['results'][0]['scenes']}
+    if not isinstance(image_review,dict) or set(image_review)-scene_names:
+        raise ValueError('Image review must map known scenes')
+    for review in image_review.values():
+        if not isinstance(review,dict) or not all(isinstance(review.get(k),str) and review[k].strip()
+                for k in ('baseline_hash','candidate_hash','note','evidence')):
+            raise ValueError('Image review needs explicit hashes, note and evidence')
     for key in ('emulator_sha256','rom_sha256','profile_sha256','bios_seed_sha256'):
         if baseline['manifest'][key]!=candidate['manifest'][key]:
             raise ValueError('Different hardware/runtime: '+key)
@@ -39,7 +47,15 @@ def compare(baseline,candidate,allowed_settings=()):
                         raise ValueError('Different sampling workload: '+key)
         if any(len(s['frames'])!=len(base_scene['frames']) for s in old+new):
             raise ValueError('Different frame sample counts')
-        if any(s['name']!=base_scene['name'] or s['hash']!=base_scene['hash'] for s in old+new):
+        if any(s['name']!=base_scene['name'] for s in old+new):
+            raise ValueError('Different scene identity: '+base_scene['name'])
+        if any(s['hash']!=old[0]['hash'] for s in old) or any(s['hash']!=new[0]['hash'] for s in new):
+            raise ValueError('Unstable images within repeats: '+base_scene['name'])
+        image_match=old[0]['hash']==new[0]['hash']
+        review=image_review.get(base_scene['name'])
+        if review and (review['baseline_hash']!=old[0]['hash'] or review['candidate_hash']!=new[0]['hash']):
+            raise ValueError('Image review does not match measured hashes: '+base_scene['name'])
+        if not image_match and not review:
             raise ValueError('Image mismatch: '+base_scene['name'])
         before=statistics.mean(r['summary_ms']['mean'] for r in old)
         after=statistics.mean(r['summary_ms']['mean'] for r in new)
@@ -53,7 +69,8 @@ def compare(baseline,candidate,allowed_settings=()):
             'candidate_fps':frame_metrics([x for r in new for x in r['frames']]),
             'baseline_repeat_fps':[frame_metrics(r['frames']) for r in old],
             'candidate_repeat_fps':[frame_metrics(r['frames']) for r in new],
-            'hash':base_scene['hash']})
+            'hash':base_scene['hash'],'candidate_hash':new[0]['hash'],
+            'image_match':image_match,'image_review':review})
     return rows
 
 
@@ -80,16 +97,19 @@ def main():
     parser.add_argument('--candidate',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--allow-occlusion-change',action='store_true',help='Explicit off/on investigation; image hashes must still match')
+    parser.add_argument('--image-review',type=Path,help='JSON scene-to-review mapping with baseline_hash, candidate_hash, note and evidence; permits only those reviewed differences')
     args=parser.parse_args()
     baseline=json.loads(args.baseline.read_text()); candidate=json.loads(args.candidate.read_text())
     allowed=('occlusion',) if args.allow_occlusion_change else ()
-    rows=compare(baseline,candidate,allowed)
+    review=json.loads(args.image_review.read_text()) if args.image_review else None
+    rows=compare(baseline,candidate,allowed,review)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps({'comparison':rows,'intentional_setting_changes':list(allowed),'baseline':compact(baseline),
         'candidate':compact(candidate)},indent=2)+'\n')
     for row in rows:
         print(f'{row["scene"]}: {row["baseline_ms"]:.3f} -> {row["candidate_ms"]:.3f} ms '
-              f'({row["frame_time_reduction_percent"]:.1f}% reduction, matching image)')
+              f'({row["frame_time_reduction_percent"]:.1f}% reduction, '
+              f'{"matching image" if row["image_match"] else "reviewed visual difference"})')
         print('  baseline FPS:',row['baseline_fps'],'candidate FPS:',row['candidate_fps'])
 
 

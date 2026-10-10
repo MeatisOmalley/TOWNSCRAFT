@@ -592,11 +592,15 @@ sampling/interrupt-boundary bias remains, not exact instruction cycles.
 Setup deserves investigation alongside texel-loop/visibility improvements.
 One invisible hypothesis is reusing row gradients only when their **exact**
 rounded span width and shifted U/V deltas match; projected-row widths/UVs can
-change, so a blanket once-per-face gradient changes images and is unacceptable.
+change, so a blanket once-per-face gradient is a distinct visual tradeoff, not
+an exact reuse. It may be investigated under the user's visual-tolerance policy.
 Any cache checks, spills and code footprint must earn their cost on moving/
 house/down scenes. This is prioritization evidence, not an implemented gain.
 
 ### Low gate failure retained before High testing
+
+Historical checkpoint: the exact-image hold described below was subsequently
+lifted by the user's visual-tolerance clarification. See the updated policy below.
 
 The fresh `codegen-current-low-v1` and `et4000-chunky-low-v1` runs both complete
 three PASS repeats with VGA readback and essentially identical timings. However,
@@ -639,8 +643,8 @@ The tool preserves its source pin, compiler command, executable hash and
 stdout in `build/audit/atlas-relocation/report.json`. It is a correctness
 diagnostic, not 486 performance evidence.
 
-The ET4000 candidate stays disabled and High testing remains held at this
-gate. The published game/ISO and player's disks are unchanged. Continue
+At this checkpoint the ET4000 candidate stayed disabled and High testing was
+held at this gate. The published game/ISO and player's disks are unchanged. Continue
 independent row-setup/early-rejection work rather than treating this backend
 experiment as the only optimization avenue.
 
@@ -654,8 +658,12 @@ clipping or quality change. Each row pays two added tests/branches, so a
 speedup is not assumed. Independently linked original/candidate trap objects
 pass 24,000 full polygon images and 16,000 direct trapezoids, including signed
 deltas, zero/nonzero quantized gradients, skip rows, both scales, clipping,
-cutouts, buffer guards and final mutated Trap state. Guest performance is
-unmeasured, the flag stays off, and this is checkpointed rather than adopted.
+cutouts, buffer guards and final mutated Trap state. Low now completes three
+PASS repeats with all six image hashes matching: house 96.932 -> 96.405 ms
+(0.5% gain), down 136.420 -> 136.596 ms and up 54.033 -> 54.209 ms slightly
+slower; other scenes effectively neutral. No meaningful tail improvement.
+Evidence: `tests/benchmarks/2026-10-10/trap-zero-gradient-low.json`. The flag
+stays off; this small mixed result is checkpointed rather than adopted.
 
 ## Independent row-setup experiment: destination register reuse
 
@@ -690,8 +698,12 @@ P95/worst tails are unchanged. Draw-stage means decrease slightly: down
 81.914 -> 81.582 ms, house 40.713 -> 40.531 ms, edits 41.215 -> 41.030 ms.
 Much of this saving is absorbed by presentation waits; it is not a house-hitch
 fix or a broad FPS gain. Raw comparison, recipes, repeat/tail samples and hashes:
-`tests/benchmarks/2026-10-10/trap-destination-low.json`. High is now running;
-the Low result alone is insufficient justification to adopt the probe.
+`tests/benchmarks/2026-10-10/trap-destination-low.json`. Fresh High reference
+and candidate also complete three PASS repeats with matching images: house
+175.982 -> 175.631 ms (0.2%), down 252.361 -> 252.185 ms (0.07%), and the other
+four scenes effectively neutral. No meaningful tail improvement. High evidence:
+`tests/benchmarks/2026-10-10/trap-destination-high.json`. These tiny improvements
+do not justify adoption; retain the independently selectable checkpoint off.
 
 Experimental real-game smoke can now use `--build-output` with
 `--trap-destination`, so testing a candidate need not overwrite the released
@@ -701,3 +713,29 @@ are infrastructure tests, not actual guest acceptance. The complete host
 suite passes 260 tests with two Windows symlink-permission skips; the two new
 smoke-recipe tests pass separately. An isolated ordinary default build remains
 byte-identical to the published executable after both trap overlays were added.
+
+## Visual tolerance and graphics-quality gates (2026-10-10 clarification)
+
+The user explicitly permits small image changes, including slightly noticeable
+quality reductions. Low/Medium are appropriate gates for useful visual tradeoffs;
+High can preserve the cleaner rendering. Bit-identical output is not a blanket
+adoption requirement. Adaptive subdivision remains enabled in all profiles;
+substantial visual/gameplay changes still need approval. Hardware readback,
+memory safety, saves and gameplay correctness are not image-quality settings.
+
+`performance_compare.py --image-review PATH` permits a specific reviewed pair
+of scene hashes with a note and retained visual evidence. It reports both hashes
+and marks differing images as reviewed, never matching. Repeat instability,
+unreviewed differences, hardware/settings mismatches, failed runs and diagnostic
+dump/profiling timings remain rejected. The default exact oracle is retained for
+invisible changes, not imposed on all optimization candidates.
+
+`tests/benchmarks/2026-10-10/et4000-low-image-review.json` documents the five
+logical texture-edge pixels already localized across three repeats. Their small
+extent permits timing comparison and proceeding with High testing; it does not
+diagnose the unexplained layout-sensitive difference or adopt the backend.
+Low/Medium still use the accepted planar transport. ET4000 High testing has
+resumed; no graphics menu, default backend or published ISO changed here.
+The updated host suite runs 264 tests successfully, with two Windows
+symlink-permission skips. Comparison tests cover reviewed hash pairs, retained
+review metadata, repeat instability and unchanged failure/hardware guards.

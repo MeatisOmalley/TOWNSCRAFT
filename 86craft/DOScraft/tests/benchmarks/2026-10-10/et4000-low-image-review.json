@@ -1,0 +1,8 @@
+{
+  "walk_down": {
+    "baseline_hash": "cccac37c",
+    "candidate_hash": "e76ff760",
+    "note": "User permits small visual differences and Low/Medium quality tradeoffs. All three diagnostic repeats show 20 physical pixels (five doubled logical texture-edge pixels), with identical HUD and palette and matching VGA readbacks. Accepted for timing comparison and continued High investigation, not a diagnosed fix or shipping approval. Cause remains unexplained.",
+    "evidence": "tests/baselines/2026-10-10-et4000-low-frame-diff/report.json"
+  }
+}
