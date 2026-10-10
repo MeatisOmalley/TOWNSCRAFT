@@ -28,20 +28,27 @@ samples put about 53% in opaque trap assembly, 16-18% in polygon setup and
 avoided drawing in both exact reverse-painter prototypes. These are function
 samples, not proof of which instructions or cache misses dominate.
 
-1. **ET4000 banked chunky CPU upload, retaining the Mode X display.** An opt-in
+1. **Original trap row setup without altered texture math.** Finer samples
+   attribute about 25% of drawing to trap row setup and 29% to trap texel loops.
+   Independently linked assembly parity now protects both. Destination-register
+   reuse passes Low images but saves only about 0.5% in the house, mostly neutral
+   elsewhere; High is being checked. The separate exact-zero gradient probe
+   passes native images and still needs guest timing. Wider row-gradient reuse
+   needs measured eligibility/hit rates, exact shifted-delta/reciprocal keys and
+   accounting for comparison/dispatch/cache costs; no blanket per-face gradient.
+2. **Earlier exact visibility/geometry rejection with cheaper maintenance.**
+   Target hidden building geometry before projection/subdivision/setup. Do not
+   stack the losing per-pixel coverage backend onto the painter, or invent
+   filled coverage from a bounding rectangle. Keep doorway/model/cutout oracles.
+3. **ET4000 banked chunky CPU upload, retaining the Mode X display.** An opt-in
    High-only probe can remove planar conversion and exercise contiguous VGA
    writes. Low/Medium keep the accepted repeated-pixel broadcast. Same 320x240
    timing, palette, triple buffering and sharp HUD; no Mode13h crop or renderer
    change. Native independent plane/bank tests and actual guest readback/timing
-   must establish correctness and benefit. See PERFORMANCE.md; not a default.
-2. **Opaque trap row/setup versus actual texel-loop cost.** Narrow profiling
-   before another assembly rewrite; retain original texture phase, clipping,
-   cutout behavior, subdivision and integer precision. Avoid interpreting
-   fewer instructions as a target speedup (the word-packing experiment lost).
-3. **Earlier exact visibility/geometry rejection with cheaper maintenance.**
-   Target hidden building geometry before projection/subdivision/setup. Do not
-   stack the losing per-pixel coverage backend onto the painter, or invent
-   filled coverage from a bounding rectangle. Keep doorway/model/cutout oracles.
+   must establish correctness and benefit. The Low gate currently fails on five
+   doubled logical world pixels in the down scene, reproduced in all repeats;
+   root cause is not established, and High testing/adoption is held. See
+   PERFORMANCE.md; not a default or a measured benefit.
 
 Stationary-only reuse and already-rejected edge reciprocal/word transpose
 variants are lower priority. x87 conversion, reduced visible content, spawning
