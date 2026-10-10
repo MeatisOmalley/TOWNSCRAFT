@@ -7,8 +7,9 @@ Primary target: Intel 486DX/25 with its integrated x87 FPU, 16 MB RAM, Tseng ET4
 Current stage: direct port first; optimizations later. The pinned 50-file Towns
 snapshot remains immutable. The full gameplay/fixed-point renderer now links
 into `DOSCRAFT.EXE` through the original `kmain`, with DOS platform adapters.
-Real procedural generation and AT movement/full-pitch input have run in 86Box;
-complete build/save/reload acceptance is in progress. Audio is deliberately
+Real procedural generation, AT movement/full-pitch input, torch placement/removal
+and save/fresh-process reload now pass in 86Box. Full feature acceptance is still
+pending. Audio is deliberately
 silent under the user's latest priority, not completed Sound Blaster parity.
 No new renderer optimization, mob policy, UI or gameplay change is included.
 Earlier diagnostic paragraphs below record their individual historical gates.
@@ -63,6 +64,19 @@ and full-plane readback. `tools/game_report.py --vm "<test VM>" --output
 the original v3 save checksum/RLE extent and renders diagnostic PNGs.
 These tests are not comprehensive feature parity, Windows input capture or a
 performance benchmark; audio and broader interactive acceptance remain deferred.
+
+The completed 2026-10-09 real-game run passes both phases at width256 with 25
+resident columns, actual mobs/inventory/world state and zero stream errors.
+The full save's checksum independently verifies 409,724 terrain RLE runs;
+its used payload ends at byte821,145 within the unchanged raw save capacity.
+World/inventory/crafting/placement snapshots were visually inspected. All 165
+host tests pass (two environment-dependent symlink skips), and all 50 vendor
+files still verify. [Guest reports, build hashes and snapshots](tests/baselines/2026-10-09-game/report.json)
+are tracked. The normal `.cmd` actually opened 86Box and reached the title;
+an attempted duplicate launch was refused. Tests are closed, their disks kept.
+Synthesized Windows Space remained unreliable even after explicit focus/capture;
+this is not evidence that a physical keyboard fails, nor a passed physical
+ingress test. Please verify physical Space/mouse capture when playing.
 
 The standalone DOS heap adapter is now implemented under `src/platform/dos/heap.*`. Native tests compare 80,000 allocation/rewind trace steps with the checksum-verified pinned Towns allocator, including alignment, low-to-high fallback and fatal behavior. A DJGPP harness also compiles/links against the imported declarations. The adapter borrows caller-supplied arenas; DOS startup now supplies and tests their backing, but integration into the complete game is still pending. Logical high-heap marks preserve the existing API rather than exposing relocated DOS pointers. No allocator optimization or world-memory policy change is implied.
 

@@ -5,7 +5,12 @@ Blaster remake. Deliver a functioning game/ISO first, with a clearly labelled
 silent backend. Audio completion is no longer a prerequisite for that playable
 checkpoint. This does not authorize new gameplay/UI changes or Phase B work.
 The complete pinned game now links via its original `kmain`; real procedural
-generation/input/build/save/reload acceptance is in progress. Earlier diagnostic
+generation/input/torch edits/save/fresh-process reload now pass in the primary
+guest. World/inventory/crafting output was visually inspected, 165 host tests
+pass (two skips), and the generated v3 save independently passes checksum/RLE
+validation. [Game evidence](tests/baselines/2026-10-09-game/report.json).
+Broader feature/physical-input/performance acceptance remains pending, so this
+is a playable checkpoint, not A4 acceptance. Earlier diagnostic
 status paragraphs below are historical checkpoints, not the current link status.
 
 Research and investigation: 2026-10-09. This is the architecture/measurement phase, not a working DOS game. No production Towns gameplay, UI, renderer or emulator behavior was changed for this plan.
