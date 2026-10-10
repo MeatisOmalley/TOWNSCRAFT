@@ -435,3 +435,21 @@ C XOR/shift swaps instead of register exchanges. It additionally passes all
 i386 native parity/boundary tests. The DJGPP loop has 51 instructions and 11
 stack accesses per 16 pixels: register spills are a concern, not a demonstrated
 improvement. Guest performance remains unmeasured; this is a recoverable probe.
+
+## Independent candidate: release the frame register
+
+`--candidate omit-frame` adds only `-fomit-frame-pointer` to portable C and DOS
+adapter compilation. The existing DJGPP i486 `-O2` configuration explicitly
+reports this option disabled. Freeing EBP is a register-allocation/codegen
+experiment, not a renderer, world, floating-point, resolution or UI change.
+All integer/i486/FPU-SIMD restrictions remain. Compiler commands and resulting
+object hashes are retained in the benchmark's manifest; defaults remain unchanged
+until measured acceptance and real-game smoke testing.
+
+Target object checks confirm removal of the frame setup while retaining the
+callee-save EBP push/pop ABI. Native presenter tests pass with the option.
+IRQ entries save the complete register context and inspect an explicitly
+identified interrupt frame through saved SS:ESP; they do not walk a C EBP
+frame chain. Diagnostic C stack backtraces may be less informative with the
+option, which is distinct from gameplay correctness. Low and High guest builds
+are prepared, and the isolated Low comparison is underway.

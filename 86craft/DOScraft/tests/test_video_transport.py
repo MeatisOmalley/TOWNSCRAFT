@@ -9,7 +9,8 @@ class VideoTransportTests(unittest.TestCase):
     def test_real_presenter_reference_and_all_plane_candidate(self):
         for flags in ([],['-DDOS_VGA_PACK_ALL'],['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE'],
                       ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST'],
-                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_VGA_PACK_WORDS']):
+                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_VGA_PACK_WORDS'],
+                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer']):
             with self.subTest(flags=flags),tempfile.TemporaryDirectory(prefix='doscraft-present-test-') as directory:
                 exe=Path(directory)/'test.exe'
                 command=[str(ZIG),'cc','-target','x86-windows-gnu','-O2','-Wall','-Wextra','-Werror',*flags,

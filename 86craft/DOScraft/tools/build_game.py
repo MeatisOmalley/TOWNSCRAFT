@@ -17,6 +17,11 @@ OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c')
 DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST')
+PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer')
+
+
+def portable_experiment_flags(flags):
+    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS)
 
 
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):
@@ -45,7 +50,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster,
             early_split_cull=early_split_cull,front_to_back=front_to_back,edge_recip=edge_recip)
         portable=imported.build(output=output/'imported',
-            extra_cflags=(*extra,*(flag for flag in extra_adapter_flags if flag in ('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS')),
+            extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
         platform=adapters.stage(output/'platform')
         report['imported']=portable
