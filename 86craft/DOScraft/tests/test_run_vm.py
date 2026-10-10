@@ -13,6 +13,7 @@ from run_vm import validate_vm, launch_command, main
 from fat_image import populate, scratch_hdd
 from build_pc import guest_startup
 from terrain_fixture import terrain_image
+from save_fixture import save_image
 
 
 class LauncherTests(unittest.TestCase):
@@ -179,6 +180,44 @@ class LauncherTests(unittest.TestCase):
             record['terrain_fixture_sha256'] = 'unknown fixture'
             (path / 'build.json').write_text(json.dumps(record))
             with self.assertRaisesRegex(ValueError, 'fixture does not match'):
+                validate_vm(path)
+
+    def test_saveio_requires_blank_private_medium_and_exact_startup(self):
+        with tempfile.TemporaryDirectory() as name:
+            path=Path(name)
+            record=self.make_vm(path)
+            executable,save=b'save codec diagnostic fixture',save_image()
+            record.update(probe='saveio',exe_sha256=hashlib.sha256(executable).hexdigest(),
+                          save_fixture_sha256=hashlib.sha256(save).hexdigest())
+            (path/'build.json').write_text(json.dumps(record))
+            boot=bytearray(512)
+            boot[:11]=b'\xeb\x3c\x90DOSCRAFT'
+            struct.pack_into('<HBHBHHBH',boot,11,512,1,1,2,224,2880,0xf0,9)
+            boot[510:512]=b'\x55\xaa'
+            shell=(ROOT/'guest/FDCONFIG.SYS').read_text().replace('\n','\r\n').encode('ascii')
+            def media(contents=save,startup=guest_startup('saveio')):
+                (path/'boot.img').write_bytes(populate(boot,
+                    [('SAVEIO.EXE',executable),('AUTOEXEC.BAT',startup),('FDCONFIG.SYS',shell)]))
+                disk=scratch_hdd()
+                start=struct.unpack_from('<I',disk,454)[0]*512
+                disk[start:]=populate(disk[start:start+512],[('WORLD.SAV',contents)])
+                (path/'scratch.img').write_bytes(disk)
+            media()
+            self.assertEqual(validate_vm(path)[1]['probe'],'saveio')
+            for offset in (0,len(save)//2,len(save)-1):
+                altered=bytearray(save); altered[offset]=1; media(altered)
+                with self.assertRaisesRegex(ValueError,'blank private medium'):
+                    validate_vm(path)
+            media(save[:-512])
+            with self.assertRaisesRegex(ValueError,'blank private medium'):
+                validate_vm(path)
+            media(startup=guest_startup('saveio').replace(b'SAVEIO.EXE',b'REM SAVEIO.EXE'))
+            with self.assertRaisesRegex(ValueError,'startup sequence'):
+                validate_vm(path)
+            media()
+            record['save_fixture_sha256']='wrong'
+            (path/'build.json').write_text(json.dumps(record))
+            with self.assertRaisesRegex(ValueError,'blank private medium'):
                 validate_vm(path)
 
 

@@ -110,6 +110,7 @@
     "verification": "Assistant read C:/MOUSE.TXT and observed return to DOS with PASS. UART loopback packets exercise real driver IRQ4 delivery with Mode X and the custom PIT active. Includes one-count deltas, signed packet extrema, all left/right masks, multi-packet +381/-384 totals and linear response after reset. Does not verify Windows capture or physical mouse ingress. CuteMouse 2.1 beta 4 was rejected after measured (127,127) packets returned (381,381); inspected 1.9.1 source and guest evidence confirm /R11 linear counters."
   },
   "temporary_terrain_transport": {
+    "source_checkpoint": "80d61981",
     "vm": "storage-486dx25-61le4nwj",
     "exe_sha256": "e5c46fd93856e472af72b5559abdee45e69be386c3855f17f6567a38fedf56cd",
     "raw_report_sha256": "29481301dcfb8f0bc2a36236519c3d8aa64463ffa62451149c849fc04c15b706",
@@ -131,6 +132,23 @@
     "WORLD_SAVE_LOAD": "UNTESTED",
     "RESULT": "PASS",
     "verification": "Read C:/STORAGE.TXT from the private HDD, independently compared the entire TERRAIN.TMP with exact expected slot changes and confirmed all other bytes unchanged. Real DOS FAT16 I/O and strict INT21/AX6800 carry-checked commit/reopen ran with resident game timer/key IRQs installed. Diagnostic duration is not a traversal/FPS benchmark. Temporary columns and world ownership are not yet integrated; this is not durable save/load evidence. Finished emulator process was stopped after its exact executable/VM identity was checked."
+  },
+  "persistent_save_transport_codec": {
+    "vm": "saveio-486dx25-m2usq77d",
+    "exe_sha256": "8269f3e3e6f7b03db84bf0d3d98890558d9158ace75c6908eae16e3cf8e99e26",
+    "raw_report_sha256": "1283d5d7d54591319b6aba45b6f706f7610eeedd90387309e770fe26fafa6ab3",
+    "save_after_sha256": "a4d2d271c6f77ba6d69653164e07de4982cfe811d7c2e45033c2ebaa07b7c602",
+    "SAVE_BYTES": 1261568,
+    "BLANK_PRIVATE_MEDIUM": "PASS",
+    "WIDTH256_V3_ROUNDTRIP": "PASS",
+    "V4_BANK_ROUNDTRIP": "PASS",
+    "PROTECTED_SOURCE_BACKUP": "PASS",
+    "CROSS_TRACK_PAGING": "PASS",
+    "CLEANUP": "PASS",
+    "ELAPSED_100HZ_TICKS": 1064,
+    "REAL_WORLD_MOB_INTEGRATION": "UNTESTED",
+    "RESULT": "PASS",
+    "verification": "Read C:/SAVEIO.TXT, compared the entire WORLD.SAV against the independent Python byte oracle, including exact bank headers/checksums/generations, payload/padding and untouched trailing tracks. Transport and retained codec ran with resident game timer/key IRQs on the primary guest. World/mob providers are mocks; no full world/cache/mob save/load, restart, gameplay, power-loss durability or FPS claim. Completed emulator process was stopped after exact executable/private VM identity checks."
   },
   "limitations": [
     "Diagnostics only: no gameplay, renderer FPS, audio, physical mouse/keyboard ingress, full world/save/cache integration or full parity validation.",

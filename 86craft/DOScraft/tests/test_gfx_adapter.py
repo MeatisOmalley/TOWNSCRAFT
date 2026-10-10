@@ -59,6 +59,12 @@ class GfxAdapterTests(unittest.TestCase):
                          'rect', 'frame', 'darken', 'char', 'text', 'text_shadow', 'text_center'):
                 self.assertEqual(gfx['symbols']['_gfx_' + name], 'T')
             self.assertEqual(gfx['symbols']['_dos_video_present'], 'U')
+            save = next(obj for obj in report['objects'] if obj['path']=='obj/save.o')
+            for name in ('save_world','load_world','save_loaded_mobs','save_stream_tick',
+                         'save_error_text','dos_save_shutdown'):
+                self.assertEqual(save['symbols']['_'+name],'T')
+            for name in ('world_commit_columns','mobs_save','mobs_load','__dpmi_int'):
+                self.assertEqual(save['symbols']['_'+name],'U')
             self.assertFalse(report['playable'])
             self.assertFalse(report['linked'])
 

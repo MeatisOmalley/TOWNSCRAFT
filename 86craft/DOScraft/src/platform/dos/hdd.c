@@ -5,7 +5,7 @@
  * Missing files are never created, resized, formatted or silently replaced. */
 #include "hdd.h"
 #include "hdd_backend.h"
-#include <dpmi.h>
+#include "file_commit.h"
 #include <fcntl.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -74,18 +74,6 @@ static int fail_transfer(int error)
     return -1;
 }
 
-static int commit_file(int fd)
-{
-    __dpmi_regs regs = {0};
-    /* Ordinary DOS open() handles are used, not DJGPP FSEXT virtual files.
-     * libc fsync masks DOS errors 1/6; neither is a successful commit here. */
-    if (fd < 0 || fd > 0xFFFF) return -1;
-    regs.x.ax = 0x6800;
-    regs.x.bx = fd;
-    if (__dpmi_int(0x21,&regs) || (regs.x.flags & 1)) return -1;
-    return 0;
-}
-
 int hdd_transfer(u32 lba, u32 count, int write_request, u8 *buffer)
 {
     u32 bytes, amount, offset;
@@ -132,7 +120,7 @@ int hdd_transfer(u32 lba, u32 count, int write_request, u8 *buffer)
     if (request.copied < bytes) return 0;
     /* Caller must not publish a new slot after a failed DOS commit. This is a
      * DOS ordering boundary, not proof of physical power-loss durability. */
-    if (write_request && commit_file(terrain_fd)) return fail_transfer(HDD_ERROR_STATUS);
+    if (write_request && dos_file_commit(terrain_fd)) return fail_transfer(HDD_ERROR_STATUS);
     request.active = 0;
     last_error = HDD_ERROR_NONE;
     return 1;

@@ -21,7 +21,7 @@ def argument_parser():
     parser.add_argument('--target', choices=TARGETS, default='486dx25',
                         help='default: 486 primary; 386 is only a retained diagnostic scaffold')
     parser.add_argument('--prepare-vm', action='store_true')
-    parser.add_argument('--probe', choices=('platform', 'display', 'adapter', 'system', 'mouse', 'storage'), default='platform',
+    parser.add_argument('--probe', choices=('platform', 'display', 'adapter', 'system', 'mouse', 'storage', 'saveio'), default='platform',
                         help='standalone platform, display, framebuffer adapters, or startup/IRQ gate')
     parser.add_argument('--hold-display', action='store_true',
                         help='display probe only: hold the test pattern until Escape for visual inspection')
@@ -90,7 +90,7 @@ def main():
         if args.probe == 'storage':
             sources.insert(-1, ROOT / 'src/platform/dos/hdd.c')
     flags = compiler_flags(args.target)
-    if args.probe in ('system', 'mouse', 'storage'):
+    if args.probe in ('system', 'mouse', 'storage', 'saveio'):
         # No interrupt can corrupt an interrupted x87 operation.
         flags = [flag for flag in flags if flag not in ('-m80387', '-mfpmath=387')]
         flags += ['-mno-80387', '-mgeneral-regs-only']
@@ -110,6 +110,10 @@ def main():
     if adapter_record is not None:
         manifest['imported_drawing'] = adapter_record['gfx_selection']
         manifest['imported_font_sha256'] = hashlib.sha256(sources[-1].read_bytes()).hexdigest()
+        if args.probe == 'saveio':
+            manifest['imported_save_codec'] = adapter_record['save_selection']
+            manifest['save_transport_sha256'] = hashlib.sha256((ROOT/'src/platform/dos/save.c').read_bytes()).hexdigest()
+            manifest['mock_state_fixture_sha256'] = hashlib.sha256((ROOT/'tests/save_state_fixture.inc').read_bytes()).hexdigest()
     if args.target == '386dx33':
         manifest['fpu_note'] = 'Actual emulator model is Intel 387, not Cyrix FasMath. 386 game port is deferred.'
     mouse_driver = None
@@ -149,6 +153,13 @@ def main():
                 volume = populate(disk[start:start+512], [('TERRAIN.TMP', terrain)])
                 disk[start:] = volume
                 manifest['terrain_fixture_sha256'] = hashlib.sha256(terrain).hexdigest()
+            elif args.probe == 'saveio':
+                from save_fixture import save_image
+                save = save_image()
+                start = struct.unpack_from('<I', disk, 454)[0] * 512
+                volume = populate(disk[start:start+512], [('WORLD.SAV', save)])
+                disk[start:] = volume
+                manifest['save_fixture_sha256'] = hashlib.sha256(save).hexdigest()
             f.write(disk)
         config = profile.read_text()
         if args.probe == 'mouse':

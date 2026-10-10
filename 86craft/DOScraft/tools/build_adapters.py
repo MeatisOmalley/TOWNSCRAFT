@@ -7,7 +7,49 @@ import build_imported as imported
 
 ROOT = imported.ROOT
 OUTPUT = ROOT / 'build/pc/486dx25/adapters'
-ADAPTERS = ('gfx.c', 'heap.c', 'video.c', 'vga_pack.c', 'keyboard.c', 'irq.c', 'irq_entry.S', 'system.c', 'input.c', 'hdd.c')
+ADAPTERS = ('gfx.c', 'heap.c', 'video.c', 'vga_pack.c', 'keyboard.c', 'irq.c', 'irq_entry.S', 'system.c', 'input.c', 'hdd.c', 'save.c')
+
+
+def save_codec_source(vendor=imported.VENDOR):
+    """Retain the exact codec tail, with explicit DOS finish-error adaptations."""
+    vendor = Path(vendor)
+    manifest = json.loads((vendor / 'MANIFEST.json').read_bytes())
+    data = (vendor / 'src/save.c').read_bytes()
+    entry = next(e for e in manifest['files'] if e['path'] == 'src/save.c')
+    if (manifest['source_commit'] != imported.PINNED_COMMIT or
+            imported.sha256(data) != entry['sha256'] or len(data) != entry['size']):
+        raise ValueError('Pinned save.c provenance mismatch')
+    marker = b'/* ---------------- Byte stream over tracks ---------------- */'
+    if data.count(marker) != 1:
+        raise ValueError('Unexpected save codec boundary')
+    start = data.index(marker)
+    selected = data[start:]
+    text = selected.decode('utf-8')
+    recipe = []
+    if '\r\n' in text:
+        recipe.append(dict(operation='replace', before='\r\n', after='\n',
+                           count=text.count('\r\n')))
+        text = text.replace('\r\n', '\n')
+    text = imported.replace_once(text,
+        '\tfdc_stop();\n\tpageState=pageMotor=0;\n',
+        '\tif(!dos_save_finish()) ok=0;\n\tpageState=pageMotor=0;\n', recipe)
+    text = imported.replace_once(text,
+        '\tfdc_stop();\n\tif(version<4)\n',
+        '\tif(!dos_save_finish()) streamOk=0;\n\tif(version<4)\n', recipe)
+    before = '\tpage_cancel();\n\tif(!fdc_start())\n'
+    after = '\tpage_cancel();\n\tif(dos_save_take_close_error()) return SAVE_DISK_ERROR;\n\tif(!fdc_start())\n'
+    if text.count(before) != 2:
+        raise ValueError('Unexpected save/load close-error boundary')
+    recipe.append(dict(operation='replace',before=before,after=after,count=2))
+    text = text.replace(before,after)
+    portable = text.encode('utf-8')
+    if any(token in portable for token in (b'outb(', b'inb(', b'dma_setup(')):
+        raise ValueError('Unexpected hardware dependency in save codec')
+    return portable, dict(source='src/save.c', source_sha256=entry['sha256'],
+                         staged='src/towns_save_codec.inc',
+                         staged_sha256=imported.sha256(portable),
+                         selections=[[start, len(data)]], transformations=recipe,
+                         transformations_sha256=imported.sha256(imported.canonical_json(recipe)))
 
 
 def gfx_drawing_source(vendor=imported.VENDOR):
@@ -35,9 +77,12 @@ def stage(output, vendor=imported.VENDOR):
     output = Path(output)
     # Verify all inputs before creating a compile result. The vendor is read-only.
     portable, selection = gfx_drawing_source(vendor)
+    codec, save_selection = save_codec_source(vendor)
     record = imported.stage_sources(vendor, output)
     (output / selection['staged']).write_bytes(portable)
     record['gfx_selection'] = selection
+    (output / save_selection['staged']).write_bytes(codec)
+    record['save_selection'] = save_selection
     return record
 
 
