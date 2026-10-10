@@ -249,3 +249,14 @@ or span-marking functions. Three Low guest verification repeats additionally
 match all 684 frames, with zero mismatches/fallbacks; evidence is retained in
 `f2b-fast-low-every-frame-verify.json`. Verification timings remain invalid.
 The separate unprofiled timing comparison is still the adoption gate.
+
+Three fresh Low timed repeats match all hashes/readbacks, but do not beat the
+original painter: walking 58.422 -> 68.436 ms, down 137.999 -> 147.485 ms,
+house 98.513 -> 99.038 ms, edits 115.159 -> 116.211 ms, stationary 67.421 ->
+101.147 ms; up is neutral. `f2b-fast-low.json` retains full comparison evidence.
+Compared with the first coverage backend, this lowers down time by about
+19.5 ms and house time by 11.4 ms. That is a useful experimental cost reduction,
+NOT an improvement over the playable baseline, so it remains disabled.
+An earlier timing VM (`game-play-uv5nephb`) exited after one complete repeat;
+its private disk is preserved, and its partial report is not comparison evidence.
+The accepted comparison instead uses three completed repeats in a fresh VM.
