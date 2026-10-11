@@ -5,6 +5,9 @@
 
 #define VIEW_ROWS 200u
 #define ROW_BYTES 80u
+#ifdef DOS_VERY_LOW
+extern int dos_very_low_mode;
+#endif
 #if (defined(__GNUC__) || defined(__clang__)) && UINT_MAX == 0xffffffffu && \
     CHAR_BIT == 8 && !defined(DOS_VGA_PROVEN_PORTABLE)
 typedef unsigned int ProvenWord __attribute__((__may_alias__, __aligned__(1)));
@@ -26,22 +29,53 @@ static int row_equal(const unsigned char *a, const unsigned char *b)
     return 1;
 }
 
-int dos_vga_proven_pack_plan(const unsigned char *source, unsigned int pitch,
+static int pack_plan(const unsigned char *source, unsigned int pitch,
                              unsigned char *planes, unsigned int capacity,
                              const unsigned char *proven,
-                             struct DosVgaRun *runs, unsigned int run_capacity)
+                             struct DosVgaRun *runs, unsigned int run_capacity,
+                             int view_only)
 {
     unsigned char masks[4][VIEW_ROWS];
     unsigned int y,x,p,count=0;
     if (!source || !planes || !proven || !runs || pitch<320 ||
         capacity<4u*DOS_VGA_PLANE_BYTES || run_capacity<4u*VIEW_ROWS)
         return -1;
-    for (y=0; y<240; ++y) {
+    for (y=0; y<(view_only ? VIEW_ROWS : 240u); ++y) {
         const unsigned char *src=source+(size_t)y*pitch;
         unsigned char *a=planes+y*ROW_BYTES;
         unsigned char *b=a+DOS_VGA_PLANE_BYTES;
         unsigned char *c=b+DOS_VGA_PLANE_BYTES;
         unsigned char *d=c+DOS_VGA_PLANE_BYTES;
+#ifdef DOS_VERY_LOW
+        if (dos_very_low_mode && y<VIEW_ROWS && (proven[y]&1u)) {
+#ifdef DOS_VGA_PROVEN_VERTICAL
+            if (y+1<VIEW_ROWS && (proven[y+1]&3u)==3u) {
+                unsigned char *a2=a+ROW_BYTES;
+                for (x=0; x<ROW_BYTES; x+=4) {
+#define PACK_VLOW_PAIR(i) do { unsigned char color=src[4*(x+i)]; \
+                               a[x+i]=a2[x+i]=color; } while (0)
+                    PACK_VLOW_PAIR(0); PACK_VLOW_PAIR(1);
+                    PACK_VLOW_PAIR(2); PACK_VLOW_PAIR(3);
+#undef PACK_VLOW_PAIR
+                }
+                masks[0][y]=15;
+                masks[0][y+1]=15;
+                masks[1][y]=masks[2][y]=masks[3][y]=0;
+                masks[1][y+1]=masks[2][y+1]=masks[3][y+1]=0;
+                ++y;
+            } else
+#endif
+            {
+                for (x=0; x<ROW_BYTES; x+=4) {
+#define PACK_VLOW(i) a[x+i]=src[4*(x+i)]
+                    PACK_VLOW(0); PACK_VLOW(1); PACK_VLOW(2); PACK_VLOW(3);
+#undef PACK_VLOW
+                }
+                masks[0][y]=15;
+                masks[1][y]=masks[2][y]=masks[3][y]=0;
+            }
+        } else
+#endif
 #ifdef DOS_VGA_PROVEN_VERTICAL
         if (y+1<VIEW_ROWS && !(y&1u) && (proven[y]&1u) &&
             (proven[y+1]&3u)==3u) {
@@ -123,4 +157,20 @@ int dos_vga_proven_pack_plan(const unsigned char *source, unsigned int pitch,
         }
     }
     return (int)count;
+}
+
+int dos_vga_proven_pack_plan(const unsigned char *source, unsigned int pitch,
+                             unsigned char *planes, unsigned int capacity,
+                             const unsigned char *proven,
+                             struct DosVgaRun *runs, unsigned int run_capacity)
+{
+    return pack_plan(source,pitch,planes,capacity,proven,runs,run_capacity,0);
+}
+
+int dos_vga_proven_pack_plan_view(const unsigned char *source, unsigned int pitch,
+                             unsigned char *planes, unsigned int capacity,
+                             const unsigned char *proven,
+                             struct DosVgaRun *runs, unsigned int run_capacity)
+{
+    return pack_plan(source,pitch,planes,capacity,proven,runs,run_capacity,1);
 }

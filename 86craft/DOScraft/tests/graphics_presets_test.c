@@ -18,16 +18,17 @@ static void check_settings(int index, int scale, int view, int flat)
 
 int main(void)
 {
-    static const int invalid[]={INT_MIN,-100,-1,3,4,100,INT_MAX};
-    static const char *const names[]={"Graphics: Low","Graphics: Medium","Graphics: High"};
+    static const int invalid[]={INT_MIN,-100,-1,4,5,100,INT_MAX};
+    static const char *const names[]={"Graphics: Low","Graphics: Medium","Graphics: High","Graphics: Very Low"};
     int i,index=DOS_GRAPHICS_DEFAULT;
-    assert(DOS_GRAPHICS_COUNT==3 && DOS_GRAPHICS_DEFAULT==DOS_GRAPHICS_LOW);
+    assert(DOS_GRAPHICS_COUNT==4 && DOS_GRAPHICS_DEFAULT==DOS_GRAPHICS_LOW);
     check_settings(DOS_GRAPHICS_LOW,2,8,0);
     check_settings(DOS_GRAPHICS_MEDIUM,2,12,10);
     check_settings(DOS_GRAPHICS_HIGH,1,12,10);
+    check_settings(DOS_GRAPHICS_VERY_LOW,2,8,0);
     for(i=0;i<300;++i) {
-        assert(index==i%3 && dos_graphics_index(index)==index);
-        assert(!strcmp(dos_graphics_message(index),names[i%3]));
+        assert(index==i%4 && dos_graphics_index(index)==index);
+        assert(!strcmp(dos_graphics_message(index),names[i%4]));
         index=dos_graphics_next(index);
     }
     for(i=0;i<(int)(sizeof(invalid)/sizeof(invalid[0]));++i) {

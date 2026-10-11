@@ -1,0 +1,725 @@
+{
+  "note": "100Hz guest IRQ0 EIP samples during presentation, including warm frames. Temporary diagnostic gating only; illustrative instruction attribution, not precise instruction timing or performance proof.",
+  "exe_sha256": "a563aeef4fa3d6afaa7036304236c802b6e8b4cd199f3a1f5d7ff67649354baf",
+  "results": [
+    {
+      "sample_count": 614,
+      "functions": [
+        {
+          "symbol": "big_move",
+          "samples": 274,
+          "sample_percent": 44.62540716612378
+        },
+        {
+          "symbol": "_dos_video_present",
+          "samples": 181,
+          "sample_percent": 29.478827361563518
+        },
+        {
+          "symbol": "_dos_vga_proven_pack_plan",
+          "samples": 113,
+          "sample_percent": 18.403908794788272
+        },
+        {
+          "symbol": "_dos_vga_hud_changed",
+          "samples": 39,
+          "sample_percent": 6.351791530944626
+        },
+        {
+          "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+          "samples": 3,
+          "sample_percent": 0.48859934853420195
+        },
+        {
+          "symbol": "_bench_us",
+          "samples": 2,
+          "sample_percent": 0.3257328990228013
+        },
+        {
+          "symbol": "small_move",
+          "samples": 1,
+          "sample_percent": 0.16286644951140064
+        },
+        {
+          "symbol": "___dosmemput",
+          "samples": 1,
+          "sample_percent": 0.16286644951140064
+        }
+      ],
+      "scenes": [
+        {
+          "scene": "open_static",
+          "sample_count": 108,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 48,
+              "sample_percent": 44.44444444444444
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 31,
+              "sample_percent": 28.703703703703702
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 19,
+              "sample_percent": 17.59259259259259
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 9,
+              "sample_percent": 8.333333333333334
+            },
+            {
+              "symbol": "small_move",
+              "samples": 1,
+              "sample_percent": 0.9259259259259259
+            }
+          ]
+        },
+        {
+          "scene": "walk",
+          "sample_count": 95,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 34,
+              "sample_percent": 35.78947368421053
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 32,
+              "sample_percent": 33.68421052631579
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 20,
+              "sample_percent": 21.05263157894737
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 8,
+              "sample_percent": 8.421052631578947
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 1.0526315789473684
+            }
+          ]
+        },
+        {
+          "scene": "walk_down",
+          "sample_count": 110,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 51,
+              "sample_percent": 46.36363636363637
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 36,
+              "sample_percent": 32.72727272727273
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 19,
+              "sample_percent": 17.272727272727273
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 4,
+              "sample_percent": 3.6363636363636362
+            }
+          ]
+        },
+        {
+          "scene": "walk_up",
+          "sample_count": 94,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 42,
+              "sample_percent": 44.680851063829785
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 24,
+              "sample_percent": 25.53191489361702
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 18,
+              "sample_percent": 19.148936170212767
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 7,
+              "sample_percent": 7.446808510638298
+            },
+            {
+              "symbol": "_bench_us",
+              "samples": 2,
+              "sample_percent": 2.127659574468085
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 1.0638297872340425
+            }
+          ]
+        },
+        {
+          "scene": "house",
+          "sample_count": 105,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 47,
+              "sample_percent": 44.76190476190476
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 30,
+              "sample_percent": 28.571428571428573
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 21,
+              "sample_percent": 20.0
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 5,
+              "sample_percent": 4.761904761904762
+            },
+            {
+              "symbol": "___dosmemput",
+              "samples": 1,
+              "sample_percent": 0.9523809523809523
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 0.9523809523809523
+            }
+          ]
+        },
+        {
+          "scene": "block_edits",
+          "sample_count": 102,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 52,
+              "sample_percent": 50.98039215686274
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 28,
+              "sample_percent": 27.45098039215686
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 16,
+              "sample_percent": 15.686274509803921
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 6,
+              "sample_percent": 5.882352941176471
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sample_count": 619,
+      "functions": [
+        {
+          "symbol": "big_move",
+          "samples": 288,
+          "sample_percent": 46.52665589660743
+        },
+        {
+          "symbol": "_dos_video_present",
+          "samples": 184,
+          "sample_percent": 29.72536348949919
+        },
+        {
+          "symbol": "_dos_vga_proven_pack_plan",
+          "samples": 111,
+          "sample_percent": 17.932148626817447
+        },
+        {
+          "symbol": "_dos_vga_hud_changed",
+          "samples": 27,
+          "sample_percent": 4.361873990306947
+        },
+        {
+          "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+          "samples": 5,
+          "sample_percent": 0.8077544426494345
+        },
+        {
+          "symbol": "_dos_video_prove_low_row_pairs",
+          "samples": 2,
+          "sample_percent": 0.32310177705977383
+        },
+        {
+          "symbol": "_dos_video_prove_low_rows",
+          "samples": 1,
+          "sample_percent": 0.16155088852988692
+        },
+        {
+          "symbol": "___udivdi3",
+          "samples": 1,
+          "sample_percent": 0.16155088852988692
+        }
+      ],
+      "scenes": [
+        {
+          "scene": "open_static",
+          "sample_count": 111,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 55,
+              "sample_percent": 49.549549549549546
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 34,
+              "sample_percent": 30.63063063063063
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 18,
+              "sample_percent": 16.216216216216218
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 2,
+              "sample_percent": 1.8018018018018018
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 0.9009009009009009
+            },
+            {
+              "symbol": "_dos_video_prove_low_rows",
+              "samples": 1,
+              "sample_percent": 0.9009009009009009
+            }
+          ]
+        },
+        {
+          "scene": "walk",
+          "sample_count": 95,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 37,
+              "sample_percent": 38.94736842105263
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 34,
+              "sample_percent": 35.78947368421053
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 19,
+              "sample_percent": 20.0
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 4,
+              "sample_percent": 4.2105263157894735
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 1.0526315789473684
+            }
+          ]
+        },
+        {
+          "scene": "walk_down",
+          "sample_count": 106,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 48,
+              "sample_percent": 45.283018867924525
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 33,
+              "sample_percent": 31.132075471698112
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 15,
+              "sample_percent": 14.150943396226415
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 8,
+              "sample_percent": 7.547169811320755
+            },
+            {
+              "symbol": "___udivdi3",
+              "samples": 1,
+              "sample_percent": 0.9433962264150944
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 0.9433962264150944
+            }
+          ]
+        },
+        {
+          "scene": "walk_up",
+          "sample_count": 98,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 47,
+              "sample_percent": 47.95918367346939
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 25,
+              "sample_percent": 25.510204081632654
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 19,
+              "sample_percent": 19.387755102040817
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 4,
+              "sample_percent": 4.081632653061225
+            },
+            {
+              "symbol": "_dos_video_prove_low_row_pairs",
+              "samples": 2,
+              "sample_percent": 2.0408163265306123
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 1.0204081632653061
+            }
+          ]
+        },
+        {
+          "scene": "house",
+          "sample_count": 107,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 51,
+              "sample_percent": 47.66355140186916
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 31,
+              "sample_percent": 28.97196261682243
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 20,
+              "sample_percent": 18.69158878504673
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 4,
+              "sample_percent": 3.7383177570093458
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 0.9345794392523364
+            }
+          ]
+        },
+        {
+          "scene": "block_edits",
+          "sample_count": 102,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 50,
+              "sample_percent": 49.01960784313726
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 27,
+              "sample_percent": 26.470588235294116
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 20,
+              "sample_percent": 19.607843137254903
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 5,
+              "sample_percent": 4.901960784313726
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sample_count": 619,
+      "functions": [
+        {
+          "symbol": "big_move",
+          "samples": 288,
+          "sample_percent": 46.52665589660743
+        },
+        {
+          "symbol": "_dos_video_present",
+          "samples": 184,
+          "sample_percent": 29.72536348949919
+        },
+        {
+          "symbol": "_dos_vga_proven_pack_plan",
+          "samples": 111,
+          "sample_percent": 17.932148626817447
+        },
+        {
+          "symbol": "_dos_vga_hud_changed",
+          "samples": 27,
+          "sample_percent": 4.361873990306947
+        },
+        {
+          "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+          "samples": 5,
+          "sample_percent": 0.8077544426494345
+        },
+        {
+          "symbol": "_dos_video_prove_low_row_pairs",
+          "samples": 2,
+          "sample_percent": 0.32310177705977383
+        },
+        {
+          "symbol": "_dos_video_prove_low_rows",
+          "samples": 1,
+          "sample_percent": 0.16155088852988692
+        },
+        {
+          "symbol": "___udivdi3",
+          "samples": 1,
+          "sample_percent": 0.16155088852988692
+        }
+      ],
+      "scenes": [
+        {
+          "scene": "open_static",
+          "sample_count": 111,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 55,
+              "sample_percent": 49.549549549549546
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 34,
+              "sample_percent": 30.63063063063063
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 18,
+              "sample_percent": 16.216216216216218
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 2,
+              "sample_percent": 1.8018018018018018
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 0.9009009009009009
+            },
+            {
+              "symbol": "_dos_video_prove_low_rows",
+              "samples": 1,
+              "sample_percent": 0.9009009009009009
+            }
+          ]
+        },
+        {
+          "scene": "walk",
+          "sample_count": 95,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 37,
+              "sample_percent": 38.94736842105263
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 34,
+              "sample_percent": 35.78947368421053
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 19,
+              "sample_percent": 20.0
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 4,
+              "sample_percent": 4.2105263157894735
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 1.0526315789473684
+            }
+          ]
+        },
+        {
+          "scene": "walk_down",
+          "sample_count": 106,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 48,
+              "sample_percent": 45.283018867924525
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 33,
+              "sample_percent": 31.132075471698112
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 15,
+              "sample_percent": 14.150943396226415
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 8,
+              "sample_percent": 7.547169811320755
+            },
+            {
+              "symbol": "___udivdi3",
+              "samples": 1,
+              "sample_percent": 0.9433962264150944
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 0.9433962264150944
+            }
+          ]
+        },
+        {
+          "scene": "walk_up",
+          "sample_count": 98,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 47,
+              "sample_percent": 47.95918367346939
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 25,
+              "sample_percent": 25.510204081632654
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 19,
+              "sample_percent": 19.387755102040817
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 4,
+              "sample_percent": 4.081632653061225
+            },
+            {
+              "symbol": "_dos_video_prove_low_row_pairs",
+              "samples": 2,
+              "sample_percent": 2.0408163265306123
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 1.0204081632653061
+            }
+          ]
+        },
+        {
+          "scene": "house",
+          "sample_count": 107,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 51,
+              "sample_percent": 47.66355140186916
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 31,
+              "sample_percent": 28.97196261682243
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 20,
+              "sample_percent": 18.69158878504673
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 4,
+              "sample_percent": 3.7383177570093458
+            },
+            {
+              "symbol": "___dpmi_get_and_set_virtual_interrupt_state",
+              "samples": 1,
+              "sample_percent": 0.9345794392523364
+            }
+          ]
+        },
+        {
+          "scene": "block_edits",
+          "sample_count": 102,
+          "functions": [
+            {
+              "symbol": "big_move",
+              "samples": 50,
+              "sample_percent": 49.01960784313726
+            },
+            {
+              "symbol": "_dos_video_present",
+              "samples": 27,
+              "sample_percent": 26.470588235294116
+            },
+            {
+              "symbol": "_dos_vga_proven_pack_plan",
+              "samples": 20,
+              "sample_percent": 19.607843137254903
+            },
+            {
+              "symbol": "_dos_vga_hud_changed",
+              "samples": 5,
+              "sample_percent": 4.901960784313726
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

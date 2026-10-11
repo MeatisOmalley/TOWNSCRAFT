@@ -35,6 +35,13 @@ class CompareTests(unittest.TestCase):
             with self.subTest(change=change),self.assertRaises(ValueError):
                 compare(self.evidence['baseline'],candidate)
 
+    def test_reject_reused_fixture_against_fresh_world(self):
+        candidate=copy.deepcopy(self.evidence['candidate'])
+        for run in candidate['results']:
+            run['header']['replay_context']='POST_FIXTURE'
+        with self.assertRaisesRegex(ValueError,'Different replay context'):
+            compare(self.evidence['baseline'],candidate)
+
     def test_reject_different_images_hardware_settings_or_failed_runs(self):
         for change in ('hash','hardware','scale','fail','repeats'):
             candidate=copy.deepcopy(self.evidence['candidate'])

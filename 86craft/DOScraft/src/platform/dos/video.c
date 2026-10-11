@@ -21,6 +21,9 @@
 #include "vga_proven.h"
 static unsigned char low_row_proven[200];
 static int low_rows_active;
+#ifdef DOS_RASTER_FINISH_SKIP
+static int last_proven_present;
+#endif
 void dos_video_prove_low_rows(unsigned int begin, unsigned int end)
 {
     unsigned int y;
@@ -49,6 +52,19 @@ void dos_video_prove_low_row_pairs(unsigned int begin, unsigned int end)
 }
 #endif
 #endif
+#if defined(DOS_VGA_HUD_PROOF) && (!defined(DOS_VGA_PROVEN_ROWS) || !defined(DOS_VGA_BROADCAST) || !defined(DOS_ET4000_CHUNKY))
+#error HUD proof requires proven rows, broadcast, and ET4000 page-path tracking
+#endif
+static int hud_proof_page=-1;
+void dos_video_prove_hud_unchanged(int page)
+{
+#ifdef DOS_VGA_HUD_PROOF
+    hud_proof_page=page;
+#else
+    (void)page;
+#endif
+}
+void dos_video_unprove_hud(void) { hud_proof_page=-1; }
 #ifdef DOS_VGA_PACK_WORDS
 #ifndef DOS_VGA_PACK_ALL
 #error Word packing requires the all-plane framebuffer layout
@@ -62,6 +78,10 @@ void dos_video_prove_low_row_pairs(unsigned int begin, unsigned int end)
 #include "vga_upload_plan.h"
 static struct DosVgaRun upload_runs[DOS_VGA_UPLOAD_MAX_RUNS];
 static int repeated_pixel_hint=1;
+#ifdef DOS_VERY_LOW
+extern int dos_very_low_mode;
+static int last_very_low_present;
+#endif
 #endif
 void dos_video_set_repeated_pixel_hint(int enabled)
 {
@@ -150,10 +170,55 @@ static int old_mode = -1;
 static unsigned int shown_page;
 static volatile unsigned int *irq_clock;
 static unsigned int irq_rate;
+#ifdef DOS_VGA_ASYNC_FLIP
+static uclock_t last_flip_at, prev_flip_at;
+static unsigned int flip_count;
+static int latch_pending;
+/* Sub-tick page-reuse guard. A 100 Hz tick alone cannot tell 17 ms from
+ * 29 ms, so moving frames waited for a retrace they did not need. PIT
+ * channel 2 (gate on, speaker output off) runs mode 2 modulo 65536 counts
+ * (54.9 ms); the benchmark's bench_us() owns the identical setup. SB/OPL
+ * audio does not use channel 2; PC-speaker output would need another clock. */
+#define FLIP_SETTLED_COUNTS 20881u /* 17.5 ms: one 59.94 Hz refresh + margin */
+static unsigned int flip_tick, flip_count2, prev_flip_tick, prev_flip_count2, flip_settled_ticks;
+static int fine_guard, flip_fine_valid, pit2_on;
+#ifndef DOSCRAFT_BENCH
+static int saved_61;
+#endif
+static unsigned int pit2_count(void)
+{
+    unsigned int count;
+    if(!pit2_on) {
+#ifdef DOSCRAFT_BENCH
+        (void)bench_us();
+#else
+        saved_61=inportb(0x61); outportb(0x61,(saved_61|1)&~2);
+        outportb(0x43,0xb4); outportb(0x42,0); outportb(0x42,0);
+#endif
+        pit2_on=1;
+    }
+    outportb(0x43,0x80);
+    count=inportb(0x42);
+    count|=inportb(0x42)<<8;
+    return count;
+}
+static void pit2_snapshot(unsigned int *ticks,unsigned int *count)
+{
+    do { *ticks=*irq_clock; *count=pit2_count(); } while(*ticks!=*irq_clock);
+}
+#endif
 void dos_video_set_tick_clock(volatile unsigned int *ticks, unsigned int rate)
 {
     irq_clock = rate >= 10 ? ticks : 0;
     irq_rate = rate;
+#ifdef DOS_VGA_ASYNC_FLIP
+    /* Fewer than flip_settled_ticks tick edges may span up to that many tick
+     * periods; the fine count is exact only while that stays under 54.9 ms.
+     * At least flip_settled_ticks edges always span >= 17.5 ms. */
+    flip_settled_ticks=(rate*35u+1999u)/2000u+1u;
+    fine_guard=irq_clock && flip_settled_ticks*10000u<rate*549u;
+    flip_fine_valid=0;
+#endif
 }
 static uclock_t wait_clock(void)
 {
@@ -166,6 +231,25 @@ static int wait_pending(uclock_t start)
     return irq_clock ? (unsigned int)(*irq_clock - (unsigned int)start) < irq_rate / 10 :
                        uclock() - start < UCLOCKS_PER_SEC / 10;
 }
+#ifdef DOS_VGA_ASYNC_FLIP
+/* The page about to be written was last shown before the SECOND most recent
+ * flip; the display leaves it at the first retrace after that flip (latching
+ * either start). Only two flips within one refresh can require a wait. */
+static int flip_may_be_pending(void)
+{
+    uclock_t now=wait_clock();
+    if(fine_guard && flip_fine_valid>=2) {
+        unsigned int ticks,count;
+        pit2_snapshot(&ticks,&count);
+        if(ticks-prev_flip_tick>=flip_settled_ticks) return 0;
+        return ((prev_flip_count2-count)&65535u)<FLIP_SETTLED_COUNTS;
+    }
+    /* Crossing three 100 Hz ticks guarantees at least 20 ms elapsed, longer
+     * than one 60 Hz display refresh. On a faster clock use the same margin. */
+    return irq_clock ? (unsigned int)(now-(unsigned int)prev_flip_at)<=irq_rate/60+1 :
+                       now-prev_flip_at<UCLOCKS_PER_SEC/50;
+}
+#endif
 #define VGA_PAGES 3
 typedef char pages_fit_vga_window[(VGA_PAGES * DOS_VGA_PLANE_BYTES <= 65536) ? 1 : -1];
 #ifdef DOS_VGA_PACK_ALL
@@ -188,6 +272,14 @@ void dos_video_restore(void)
     if (old_mode >= 0) {
         bios_mode(old_mode);
         old_mode = -1;
+        hud_proof_page=-1;
+#ifdef DOS_VGA_ASYNC_FLIP
+        flip_count=0;
+        latch_pending=0;
+#ifndef DOSCRAFT_BENCH
+        if(pit2_on) { outportb(0x61,saved_61); pit2_on=0; }
+#endif
+#endif
     }
 }
 
@@ -206,6 +298,11 @@ void video_init(void)
     __dpmi_int(0x10, &r);
     old_mode = r.h.al;
     shown_page = 0;
+    hud_proof_page=-1;
+#ifdef DOS_VGA_ASYNC_FLIP
+    flip_count=0;
+    latch_pending=0;
+#endif
     atexit(dos_video_restore);
     bios_mode(0x13);
     outportw(0x3c4, 0x0604); /* No chain-4, extended memory. */
@@ -269,7 +366,9 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
     unsigned int plane;
     unsigned int next_page = (shown_page + 1) % VGA_PAGES;
     unsigned int offset = next_page * DOS_VGA_PLANE_BYTES;
+#ifndef DOS_VGA_ASYNC_FLIP
     uclock_t start;
+#endif
 #ifdef DOS_VGA_FUSED
     int fused_count=-1;
 #endif
@@ -277,9 +376,34 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
     int proven_count=-1;
     int use_proven=low_rows_active && repeated_pixel_hint;
     low_rows_active=0;
+#ifdef DOS_RASTER_FINISH_SKIP
+    last_proven_present=use_proven;
 #endif
+#endif
+#ifdef DOS_VERY_LOW
+    last_very_low_present=use_proven && dos_very_low_mode;
+#endif
+#ifdef DOS_VGA_HUD_PROOF
+    int skip_hud=use_proven && hud_proof_page==(int)next_page && planar_hud_valid[next_page];
+#endif
+    hud_proof_page=-1;
 #ifdef DOSCRAFT_BENCH
     unsigned int stamp;
+#endif
+#ifdef DOS_VGA_ASYNC_FLIP
+    /* Before reusing a page, ensure a retrace has passed since the flip that
+     * replaced it (the second most recent); see flip_may_be_pending. */
+    if(flip_count>=2 && flip_may_be_pending()) {
+#ifdef DOSCRAFT_BENCH
+        stamp=bench_us();
+#endif
+        video_wait_vsync();
+#ifdef DOSCRAFT_BENCH
+        dos_bench_wait+=bench_us()-stamp;
+        if(!video_in_vsync()) ++dos_bench_timeouts;
+#endif
+        latch_pending=0;
+    }
 #endif
 #ifdef DOS_ET4000_CHUNKY
     /* Low/Medium keep repeated-pixel broadcast. High uses row-gathered bytes,
@@ -357,7 +481,12 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #endif
 #ifdef DOS_VGA_PROVEN_ROWS
     if(use_proven) {
-        proven_count=dos_vga_proven_pack_plan(source,pitch,packed,sizeof(packed),
+        proven_count=
+#ifdef DOS_VGA_HUD_PROOF
+            skip_hud ? dos_vga_proven_pack_plan_view(source,pitch,packed,sizeof(packed),
+                                               low_row_proven,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS) :
+#endif
+            dos_vga_proven_pack_plan(source,pitch,packed,sizeof(packed),
                                                low_row_proven,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);
         if(proven_count<0) {
             dos_video_restore(); fputs("Invalid proven framebuffer\n",stderr); exit(1);
@@ -401,11 +530,15 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         }
         for(plane=0;plane<4;++plane) {
             const unsigned char *hud=packed+plane*DOS_VGA_PLANE_BYTES+200*80;
-            if(dos_vga_hud_changed(hud,hud_shadow[next_page][plane],DOS_VGA_HUD_CACHE_MAX_BYTES)
+            if(
+#ifdef DOS_VGA_HUD_PROOF
+               !skip_hud &&
+#endif
+               (dos_vga_hud_changed(hud,hud_shadow[next_page][plane],DOS_VGA_HUD_CACHE_MAX_BYTES)
 #ifdef DOS_ET4000_CHUNKY
                || !planar_hud_valid[next_page]
 #endif
-               ) {
+               )) {
                 outportw(0x3c4,((1u<<plane)<<8)|2);
                 dosmemput(hud,DOS_VGA_HUD_CACHE_MAX_BYTES,0xa0000+offset+200*80);
             }
@@ -461,10 +594,22 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 page_flip:
 #endif
     outportw(0x3c4, 0x0f02);
-    /* Preserve hidden-page presentation, not four planes fading onto the
-     * visible page. Mode X CRTC start addresses are bytes per plane. Leave
-     * the current retrace before programming the next start, then wait for
-     * the retrace that latches it. Both waits are bounded on broken hardware. */
+    /* All three page starts are multiples of 256 bytes per plane, so the
+     * low CRTC start register stays zero. One high-register write programs
+     * the next page; the display latches it at its next frame boundary. */
+#ifdef DOS_VGA_ASYNC_FLIP
+    outportw(0x3d4, (offset & 0xff00) | 0x0c);
+    prev_flip_at=last_flip_at;
+    last_flip_at=wait_clock();
+    if(fine_guard) {
+        prev_flip_tick=flip_tick; prev_flip_count2=flip_count2;
+        pit2_snapshot(&flip_tick,&flip_count2);
+        if(flip_fine_valid<2) ++flip_fine_valid;
+    }
+    ++flip_count;
+    latch_pending=1;
+#else
+    /* Legacy synchronous reference: wait for the retrace that latches it. */
     start = wait_clock();
 #ifdef DOSCRAFT_BENCH
     stamp=bench_us();
@@ -477,6 +622,7 @@ page_flip:
     dos_bench_wait+=bench_us()-stamp;
     if(!wait_pending(start)) ++dos_bench_timeouts;
 #endif
+#endif
     shown_page = next_page;
 }
 
@@ -485,6 +631,12 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
     unsigned int plane;
     unsigned int offset = shown_page * DOS_VGA_PLANE_BYTES;
     unsigned int display_start;
+#ifdef DOS_VGA_ASYNC_FLIP
+    if(latch_pending) {
+        video_wait_vsync();
+        latch_pending=0;
+    }
+#endif
     outportb(0x3d4, 0x0c);
     display_start = inportb(0x3d5) << 8;
     outportb(0x3d4, 0x0d);
@@ -492,6 +644,23 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
     if (display_start != offset) return -1;
     for (plane = 0; plane < 4; ++plane) {
         if (dos_vga_pack_plane(source, pitch, packed, sizeof(packed), plane)) return -1;
+#ifdef DOS_RASTER_FINISH_SKIP
+        if (last_proven_present) {
+            unsigned int y;
+            for (y=1; y<200; y+=2)
+                if ((low_row_proven[y]&3u)==3u)
+                    memcpy(packed+y*80,packed+(y-1)*80,80);
+        }
+#endif
+#ifdef DOS_VERY_LOW
+        if (last_very_low_present) {
+            unsigned int y,x;
+            for (y=0; y<200; ++y) if (low_row_proven[y]&1u) {
+                const unsigned char *src=source+(size_t)((y&1u) && (low_row_proven[y]&2u) ? y-1 : y)*pitch;
+                for (x=0; x<80; ++x) packed[y*80+x]=src[x*4];
+            }
+        }
+#endif
         outportw(0x3ce, (plane << 8) | 4);
         dosmemget(0xa0000 + offset, sizeof(readback), readback);
         if (memcmp(packed, readback, DOS_VGA_PLANE_BYTES)) return -1;
@@ -499,3 +668,19 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
     outportw(0x3ce, 0x0004);
     return 0;
 }
+
+#ifdef DOS_VERY_LOW
+void dos_video_complete_very_low_source(unsigned char *source, unsigned int pitch)
+{
+    unsigned int y,x;
+    if (!last_very_low_present || !source || pitch<320) return;
+    for (y=0; y<200; ++y) if (low_row_proven[y]&1u) {
+        unsigned char *dst=source+(size_t)y*pitch;
+        const unsigned char *src=source+(size_t)((y&1u) && (low_row_proven[y]&2u) ? y-1 : y)*pitch;
+        for (x=0; x<80; ++x) {
+            unsigned char c=src[4*x];
+            dst[4*x]=dst[4*x+1]=dst[4*x+2]=dst[4*x+3]=c;
+        }
+    }
+}
+#endif

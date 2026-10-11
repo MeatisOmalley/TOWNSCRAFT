@@ -42,6 +42,8 @@ def compare(baseline,candidate,allowed_settings=(),image_review=None):
                         raise ValueError('Different settings within repeats: '+key)
                     if key not in allowed_settings and run['header'][key]!=baseline['results'][0]['header'][key]:
                         raise ValueError('Different replay/settings: '+key)
+                if run['header'].get('replay_context','FRESH_WORLD')!=baseline['results'][0]['header'].get('replay_context','FRESH_WORLD'):
+                    raise ValueError('Different replay context: fresh world versus reused fixture')
                 for key,default in (('samples_per_scene','32'),('motion_policy','REPEAT_32_MEASURED_POSES')):
                     if run['header'].get(key,default)!=baseline['results'][0]['header'].get(key,default):
                         raise ValueError('Different sampling workload: '+key)

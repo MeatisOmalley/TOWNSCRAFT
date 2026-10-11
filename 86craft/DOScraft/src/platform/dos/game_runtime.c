@@ -11,6 +11,9 @@
 #include "save_backend.h"
 #include "hdd_backend.h"
 #include "video_backend.h"
+#ifdef DOS_GRAPHICS_PRESETS
+#include "graphics_presets.h"
+#endif
 #include "save.h"
 #include <pc.h>
 #include <stdio.h>
@@ -61,11 +64,21 @@ static int torches(void)
         if(BLK_ID(g_blocks[i])==B_TORCH) ++count;
     return count;
 }
+#ifdef DOS_RASTER_FINISH_SKIP
+extern void raster_complete_odd_rows(void);
+#endif
 static void snapshot(const char *path,const u8 *frame)
 {
     unsigned char palette[768];
     int i,row,ok=1;
     if(dos_video_verify(frame,512)) vga_ok=0;
+#ifdef DOS_RASTER_FINISH_SKIP
+    /* Capture the displayed image after verifying the optimized source. */
+    raster_complete_odd_rows();
+#endif
+#ifdef DOS_VERY_LOW
+    dos_video_complete_very_low_source((u8 *)frame,512);
+#endif
     outportb(0x3c7,0);
     for(i=0;i<768;++i) palette[i]=(inportb(0x3c9)&63)*255/63;
     FILE *file=fopen(path,"wb");
@@ -200,7 +213,11 @@ void __wrap_gfx_present(void)
         tap(0x3c); until=g_ticks+30; stage=8;
     } else if(stage==8 && (int)(g_ticks-until)>=0) {
 #ifdef DOS_GRAPHICS_PRESETS
-        presets_ok=presets_ok && preset_matches(2,8,0);
+        presets_ok=presets_ok && preset_matches(2,8,0) && dos_very_low_mode;
+        snapshot("C:\\VERYLOW.RAW",frame);
+        tap(0x3c); until=g_ticks+30; stage=16;
+    } else if(stage==16 && (int)(g_ticks-until)>=0) {
+        presets_ok=presets_ok && preset_matches(2,8,0) && !dos_very_low_mode;
         snapshot("C:\\LOW.RAW",frame);
 #endif
         stage=9; /* Set before PF9: progress screens reenter this wrapper. */

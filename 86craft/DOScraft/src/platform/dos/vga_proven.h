@@ -12,5 +12,9 @@ int dos_vga_proven_pack_plan(const unsigned char *source, unsigned int pitch,
                              unsigned char *planes, unsigned int capacity,
                              const unsigned char *proven,
                              struct DosVgaRun *runs, unsigned int run_capacity);
+int dos_vga_proven_pack_plan_view(const unsigned char *source, unsigned int pitch,
+                             unsigned char *planes, unsigned int capacity,
+                             const unsigned char *proven,
+                             struct DosVgaRun *runs, unsigned int run_capacity);
 
 #endif

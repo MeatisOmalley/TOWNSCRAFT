@@ -1,4 +1,4 @@
-"""Build/autoboot three guest graphics replays; no host keyboard needed.
+"""Build/autoboot three guest graphics replays in one generated world.
 
 Every run gets a NEW private HDD/VM. Never touches the player's ISO or disk.
 Completion files are written after DOS storage/IRQ/display shutdown; only then
@@ -73,10 +73,14 @@ def collect(vm):
 def write_report(vm,output,manifest,build_record,label,results,archive=None):
     report={'manifest':manifest,'build':build_record,'results':results,'note':
         'Guest PIT timings; frozen deterministic graphics/update replay, not full simulation FPS.',
-        'label':label,
-        'fps_by_scene':{results[0]['scenes'][i]['name']:frame_metrics(
-            [x for run in results for x in run['scenes'][i]['frames']]) for i in range(6)},
-        'fps_overall':frame_metrics([x for run in results for scene in run['scenes'] for x in scene['frames']])}
+        'label':label}
+    if manifest['benchmark']=='sweep':
+        report['quality_sweep']={quality:{scene['name']:scene['fps'] for scene in run['scenes']}
+            for quality,run in zip(('low','medium','high'),results)}
+    else:
+        report['fps_by_scene']={results[0]['scenes'][i]['name']:frame_metrics(
+            [x for run in results for x in run['scenes'][i]['frames']]) for i in range(6)}
+        report['fps_overall']=frame_metrics([x for run in results for scene in run['scenes'] for x in scene['frames']])
     (vm/'performance.json').write_text(json.dumps(report,indent=2)+'\n')
     (output/'latest-report.txt').write_text(str(vm/'performance.json'))
     if archive:
@@ -93,9 +97,11 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','production','proven-rows','proven-vertical','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','production','async-flip','sync-flip','proven-rows','proven-vertical','hud-proof','raster-finish-skip','very-low','very-low-texels','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
     parser.add_argument('--timeout',type=int,help='Host timeout seconds; default 900 for short runs, increased for long runs')
-    parser.add_argument('--quality',choices=('low','medium','high'),default='low')
+    parser.add_argument('--quality',choices=('low','medium','high','very-low'),default='low')
+    parser.add_argument('--quality-sweep',action='store_true',help='Run Low, Medium, High in one guest process and world')
+    parser.add_argument('--separate-processes',action='store_true',help='Legacy independent-world repeats')
     parser.add_argument('--frames',type=int,default=32,help='Measured frames per scene per repeat (32..10000); 10000 recommended for tail metrics')
     parser.add_argument('--prepare-only',action='store_true')
     parser.add_argument('--verify-f2b',action='store_true',help='Redraw every frame with the original painter; correctness only, timings invalid')
@@ -105,6 +111,11 @@ def main():
     parser.add_argument('--dump-frames',action='store_true',help='Capture final scene frames to the private HDD; diagnostic timings only')
     parser.add_argument('--archive',type=Path,help='Retain compact raw evidence and source recipes in a tracked report path')
     args=parser.parse_args()
+    if args.quality_sweep and args.separate_processes: parser.error('Choose a quality sweep or separate processes')
+    if args.quality_sweep and args.quality!='low': parser.error('--quality-sweep starts at Low; omit --quality')
+    if args.quality_sweep and args.archive: parser.error('Quality sweeps are not comparable three-repeat archives')
+    diagnostic=any((args.verify_f2b,args.verify_wall,args.f2b_stress,args.profile_draw,args.dump_frames))
+    if args.quality_sweep and diagnostic: parser.error('Quality sweep is for timing runs; use separate diagnostic processes')
     if not 32<=args.frames<=10000: parser.error('--frames must be between 32 and 10000')
     if args.timeout is None: args.timeout=900 if args.frames==32 else 900+args.frames*6
     output=OUTPUT/args.label
@@ -117,11 +128,20 @@ def main():
         write_report(vm,output,manifest,build_record,args.label,collect(vm),args.archive)
         print(f'REPORT={vm / "performance.json"}')
         return
-    pre_proven_flags=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS
-                           if flag not in ('-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL'))
+    pre_very_low_flags=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS
+                             if flag not in ('-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW',
+                                             '-DDOS_VERY_LOW_TEXELS'))
+    pre_proven_flags=tuple(flag for flag in pre_very_low_flags
+                           if flag not in ('-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_HUD_PROOF'))
     variants={'reference':(), 'production':DEFAULT_ADAPTER_FLAGS,
-        'proven-rows':tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag!='-DDOS_VGA_PROVEN_VERTICAL'),
+        'async-flip':DEFAULT_ADAPTER_FLAGS,
+        'sync-flip':tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag!='-DDOS_VGA_ASYNC_FLIP'),
+        'proven-rows':tuple(flag for flag in pre_very_low_flags if flag!='-DDOS_VGA_PROVEN_VERTICAL'),
         'proven-vertical':DEFAULT_ADAPTER_FLAGS,
+        'hud-proof':DEFAULT_ADAPTER_FLAGS,
+        'raster-finish-skip':(*pre_very_low_flags,'-DDOS_RASTER_FINISH_SKIP'),
+        'very-low':(*pre_very_low_flags,'-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW'),
+        'very-low-texels':DEFAULT_ADAPTER_FLAGS,
         'fused-low':(*pre_proven_flags,'-DDOS_VGA_FUSED'),
         'fused-words':(*pre_proven_flags,'-DDOS_VGA_FUSED','-DDOS_VGA_FUSED_TRANSPOSE'),
         'group-facing':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_GROUP_FACING'), 'pack-all':('-DDOS_VGA_PACK_ALL',),
@@ -149,7 +169,7 @@ def main():
         'front-to-back':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_FRONT_TO_BACK'),
         'front-to-back-fast':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_FRONT_TO_BACK','-DDOS_F2B_FAST_COVERAGE'),
         'edge-recip':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_EDGE_RECIP')}
-    flags=(*variants[args.candidate],'-DDOS_BENCH_QUALITY='+str(('low','medium','high').index(args.quality)))
+    flags=(*variants[args.candidate],'-DDOS_BENCH_QUALITY='+str(('low','medium','high','very-low').index(args.quality)))
     if args.frames!=32: flags=(*flags,'-DDOS_BENCH_FRAMES='+str(args.frames))
     if args.verify_f2b:
         if args.candidate not in ('front-to-back','front-to-back-fast'): parser.error('--verify-f2b needs a front-to-back candidate')
@@ -174,7 +194,8 @@ def main():
     else:
         if not args.bios: parser.error('--bios is required to create a new benchmark VM')
         build(output,benchmark=True,extra_adapter_flags=flags)
-        vm,manifest=prepare(bios=args.bios,output=output,benchmark=True)
+        benchmark_mode='sweep' if args.quality_sweep else 'separate' if args.separate_processes or diagnostic else True
+        vm,manifest=prepare(bios=args.bios,output=output,benchmark=benchmark_mode)
     build_record=json.loads((output/'build.json').read_text())
     if manifest['exe_sha256']!=build_record['exe_sha256']:
         raise ValueError('Prepared VM and build manifest differ')
@@ -213,9 +234,14 @@ def main():
         write_report(vm,output,manifest,build_record,args.label,results,args.archive)
         for scene in range(6):
             rows=[r['scenes'][scene] for r in results]
-            print(rows[0]['name'], 'mean_ms=',round(statistics.mean(r['summary_ms']['mean'] for r in rows),3),
-                  'transport=',rows[0]['transport_mean_ms'],flush=True)
-            print('FPS=',frame_metrics([x for r in rows for x in r['frames']]),flush=True)
+            if manifest['benchmark']=='sweep':
+                for quality,row in zip(('low','medium','high'),rows):
+                    print(quality,row['name'],'mean_ms=',round(row['summary_ms']['mean'],3),
+                          'transport=',row['transport_mean_ms'],flush=True)
+            else:
+                print(rows[0]['name'], 'mean_ms=',round(statistics.mean(r['summary_ms']['mean'] for r in rows),3),
+                      'transport=',rows[0]['transport_mean_ms'],flush=True)
+                print('FPS=',frame_metrics([x for r in rows for x in r['frames']]),flush=True)
         print(f'REPORT={vm / "performance.json"}',flush=True)
         return
     raise RuntimeError(f'No complete reports by timeout. Private VM {vm}, PID {process.pid} left for diagnosis.')

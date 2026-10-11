@@ -15,9 +15,12 @@ class CodegenTests(unittest.TestCase):
         self.assertEqual(DEFAULT_ADAPTER_FLAGS,('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE',
             '-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR',
             '-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS',
-            '-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL'))
+            '-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP',
+            '-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW',
+            '-DDOS_VERY_LOW_TEXELS'))
         self.assertEqual(portable_experiment_flags(DEFAULT_ADAPTER_FLAGS),
-            ('-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL'))
+            ('-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL',
+             '-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS'))
 
     def test_explicit_allowlist_preserves_order_and_integer_target(self):
         self.assertEqual(portable_experiment_flags(('-DDOS_VGA_PACK_ALL',)),())

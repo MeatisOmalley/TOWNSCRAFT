@@ -29,7 +29,8 @@ class BenchmarkTests(unittest.TestCase):
                 benchmark.main()
                 defaults=tuple(flag for flag in benchmark.DEFAULT_ADAPTER_FLAGS
                     if candidate=='group-facing' or flag not in
-                    ('-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL'))
+                    ('-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_HUD_PROOF',
+                     '-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS'))
                 self.assertEqual(build.call_args.kwargs,{'benchmark':True,
                     'extra_adapter_flags':(*defaults,*extra,
                         '-DDOS_BENCH_QUALITY=0')})
@@ -52,7 +53,9 @@ class BenchmarkTests(unittest.TestCase):
                  patch.object(benchmark.subprocess,'Popen') as launch:
                     benchmark.main()
                     defaults=tuple(flag for flag in benchmark.DEFAULT_ADAPTER_FLAGS
-                        if candidate!='proven-rows' or flag!='-DDOS_VGA_PROVEN_VERTICAL')
+                        if candidate!='proven-rows' or flag not in
+                        ('-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP',
+                         '-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS'))
                     self.assertEqual(build.call_args.kwargs,{'benchmark':True,
                         'extra_adapter_flags':(*defaults,
                             '-DDOS_BENCH_QUALITY='+str(index))})
@@ -125,11 +128,12 @@ class BenchmarkTests(unittest.TestCase):
         with self.assertRaises(ValueError): parse(text.replace('EDIT_CALLS=0','EDIT_CALLS=2000',1))
         with self.assertRaises(ValueError): parse('VERSION=2\n'+self.fixture())
 
-    def test_no_keyboard_three_guarded_processes(self):
+    def test_one_process_reuses_generated_world(self):
         script=startup(benchmark=True)
-        self.assertIn(b'DOSCRAFT /1\r\nIF ERRORLEVEL 1',script)
-        self.assertIn(b'DOSCRAFT /2\r\nIF ERRORLEVEL 1',script)
-        self.assertIn(b'DOSCRAFT /3\r\n',script)
+        self.assertEqual(script.count(b'DOSCRAFT'),1)
+        self.assertIn(b'DOSCRAFT /ALL\r\n',script)
+        self.assertIn(b'DOSCRAFT /SWEEP\r\n',startup(benchmark='sweep'))
+        self.assertIn(b'DOSCRAFT /2\r\n',startup(benchmark='separate'))
 
 
 if __name__=='__main__': unittest.main()

@@ -6,6 +6,9 @@ void dos_video_set_tick_clock(volatile unsigned int *ticks, unsigned int rate);
 /* Performance hint only. Broadcast always proves exact row equality; disable
  * planning for full-resolution views where adjacent pixels usually differ. */
 void dos_video_set_repeated_pixel_hint(int enabled);
+/* One-present proof from the UI's destination-page HUD cache. */
+void dos_video_prove_hud_unchanged(int page);
+void dos_video_unprove_hud(void);
 #ifdef DOS_VGA_PROVEN_ROWS
 /* Exact row proof for the next scale-2 view. End is exclusive.
  * A presentation consumes the proof; no later page can inherit it. */
@@ -23,6 +26,9 @@ int video_in_vsync(void);
 void video_wait_vsync(void);
 void dos_video_restore(void);
 void dos_video_present(const unsigned char *source, unsigned int pitch);
+#ifdef DOS_VERY_LOW
+void dos_video_complete_very_low_source(unsigned char *source, unsigned int pitch);
+#endif
 /* Diagnostic only, deliberately reads VRAM; not a rendering hot path. */
 int dos_video_verify(const unsigned char *source, unsigned int pitch);
 

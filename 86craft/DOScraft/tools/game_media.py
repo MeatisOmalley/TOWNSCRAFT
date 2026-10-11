@@ -30,8 +30,12 @@ def startup(smoke=False, benchmark=False):
     lines=['@ECHO OFF','SET PATH=A:\\','CTMOUSE /S14 /R11 /W /Y',
            'CWSDPMI -p -s-']
     if benchmark:
-        lines += ['DOSCRAFT /1','IF ERRORLEVEL 1 GOTO DONE','DOSCRAFT /2',
-                  'IF ERRORLEVEL 1 GOTO DONE','DOSCRAFT /3',':DONE','ECHO Benchmark finished.']
+        if benchmark == 'separate':
+            lines += ['DOSCRAFT /1','IF ERRORLEVEL 1 GOTO DONE','DOSCRAFT /2',
+                      'IF ERRORLEVEL 1 GOTO DONE','DOSCRAFT /3']
+        else:
+            lines += ['DOSCRAFT /SWEEP' if benchmark == 'sweep' else 'DOSCRAFT /ALL']
+        lines += [':DONE','ECHO Benchmark finished.']
     elif smoke:
         lines += ['DOSCRAFT /SMOKE','IF ERRORLEVEL 1 GOTO DONE',
                   'DOSCRAFT /SMOKELOAD',':DONE','ECHO Game test finished.']

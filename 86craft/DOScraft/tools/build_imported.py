@@ -148,7 +148,12 @@ def abi_probe():
     for index, field in enumerate(fields):
         lines.append(f'typedef char trap_offset_{field}['
                      f'(offsetof(Trap,{field})=={index * 4}) ? 1 : -1];')
+    lines.append('#ifdef DOS_VERY_LOW_TEXELS')
+    lines.append('typedef char trap_offset_rowIndex[(offsetof(Trap,rowIndex)==72) ? 1 : -1];')
+    lines.append('typedef char trap_size[(sizeof(Trap)==76) ? 1 : -1];')
+    lines.append('#else')
     lines.append('typedef char trap_size[(sizeof(Trap)==72) ? 1 : -1];')
+    lines.append('#endif')
     return ('\n'.join(lines) + '\n').encode('ascii')
 
 

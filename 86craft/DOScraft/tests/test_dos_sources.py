@@ -11,10 +11,18 @@ ZIG=ROOT.parents[1]/'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zi
 
 
 class DosSourcesTests(unittest.TestCase):
-    def test_default_is_immutable_and_changes_are_replayable(self):
+    def test_default_preserves_vendor_and_changes_are_replayable(self):
         for name in imported.SELECTED:
             data=(imported.VENDOR/'src'/name).read_bytes()
-            self.assertEqual(dos_sources.adapt(name,data),(data,[]))
+            default,default_recipe=dos_sources.adapt(name,data)
+            if name=='game.c':
+                self.assertIn(b'#include "craft_grid.h"',default)
+                self.assertTrue(default_recipe)
+            elif name=='world.c':
+                self.assertIn(b'if(cacheAllocated && cache_light_pending()) cache_light_pump(0);',default)
+                self.assertTrue(default_recipe)
+            else:
+                self.assertEqual((default,default_recipe),(data,[]))
             result,recipe=dos_sources.adapt(name,data,raster_zero_dx=True)
             replay=data
             for step in recipe:
@@ -22,7 +30,7 @@ class DosSourcesTests(unittest.TestCase):
                 self.assertEqual(replay.count(old),step['count'])
                 replay=replay.replace(old,new)
             self.assertEqual(replay,result)
-            if name!='raster.c': self.assertFalse(recipe)
+            if name not in ('raster.c','game.c','world.c'): self.assertFalse(recipe)
         with self.assertRaises(ValueError):
             dos_sources.adapt('raster.c',b'unexpected source',raster_zero_dx=True)
 

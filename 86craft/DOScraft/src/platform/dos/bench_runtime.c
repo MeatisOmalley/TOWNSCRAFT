@@ -16,12 +16,16 @@
 #include "hdd_backend.h"
 #include "save_backend.h"
 #include "video_backend.h"
+#ifdef DOS_RASTER_FINISH_SKIP
+extern void raster_complete_odd_rows(void);
+#endif
 #ifdef DOS_BENCH_QUALITY
 #include "graphics_presets.h"
 #endif
 #include <pc.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #ifdef DOS_BENCH_PROFILE_DRAW
 extern u32 g_profSamples[4096],g_profCount;
 extern int g_profEnable;
@@ -85,7 +89,8 @@ static unsigned profile_begin[PHASES],profile_end[PHASES];
 #endif
 static unsigned int tick0,lo0,secmark,last;
 static BenchTotal acc;
-static int clock_on,old61,phase=-1,frame,measured,run=1,vga_ok=1,sx,sy,sz;
+static int clock_on,old61,phase=-1,frame,measured,run=1,suite,sweep,suite_warmup,vga_ok=1,sx,sy,sz;
+static u8 house_saved[5][7][7];
 static const char *names[PHASES]={"open_static","walk","walk_down","walk_up","house","block_edits"};
 
 u32 bench_us(void)
@@ -133,6 +138,8 @@ void bench_mark(int section)
 void dos_game_options(int argc,char **argv)
 {
     if(argc==2 && argv[1][0]=='/' && argv[1][1]>='1' && argv[1][1]<='3') run=argv[1][1]-'0';
+    if(argc==2 && !strcmp(argv[1],"/ALL")) suite=suite_warmup=1;
+    if(argc==2 && !strcmp(argv[1],"/SWEEP")) suite=sweep=suite_warmup=1;
 }
 void __real_gfx_present(void);
 void __wrap_gfx_present(void)
@@ -144,7 +151,13 @@ void __wrap_gfx_present(void)
         /* Correctness readback/hash is after the timing boundary; excluded
          * from this and next frame. All three hidden pages cycle normally. */
         bench_mark(S_PRESENT);
+#ifdef DOS_RASTER_FINISH_SKIP
+        raster_complete_odd_rows();
+#endif
         if(dos_video_verify(fb,512)) vga_ok=0;
+#ifdef DOS_VERY_LOW
+        dos_video_complete_very_low_source((u8 *)fb,512);
+#endif
         for(y=0;y<240;++y) for(x=0;x<320;++x) h=(h^fb[y*512+x])*16777619u;
         hashes[phase]=h;
         measured=0;
@@ -177,6 +190,7 @@ static void house(void)
      * rules and real world_set incremental edit/mesh invalidations. */
     for(y=sy;y<sy+5;++y) for(z=sz-3;z<=sz+3;++z) for(x=sx-3;x<=sx+3;++x) {
         int solid=y==sy || y==sy+4 || x==sx-3 || x==sx+3 || z==sz-3 || z==sz+3;
+        if(run==1) house_saved[y-sy][z-sz+3][x-sx+3]=wget(x,y,z);
         if(z==sz-3 && x==sx && y>sy && y<sy+3) solid=0;
         world_set(x,y,z,solid?B_STONE:B_AIR);
     }
@@ -191,6 +205,40 @@ static void house(void)
     world_set(sx+3,sy+2,sz,B_LEAVES);
     world_set(sx-3,sy+1,sz,MKBLK(B_DOOR_LOWER,2));
     world_set(sx-3,sy+2,sz,MKBLK(B_DOOR_UPPER,2));
+#endif
+}
+static void restore_house(void)
+{
+    int x,y,z;
+    for(y=sy;y<sy+5;++y) for(z=sz-3;z<=sz+3;++z) for(x=sx-3;x<=sx+3;++x)
+        world_set(x,y,z,house_saved[y-sy][z-sz+3][x-sx+3]);
+}
+static void select_quality(int index)
+{
+    g_renderScale=2; g_viewDist=8; g_flatDist=0; g_distanceMode=0;
+#ifdef DOS_BENCH_QUALITY
+    const DosGraphicsSettings *quality=dos_graphics_settings(index);
+    g_renderScale=quality->render_scale; g_viewDist=quality->view_distance;
+    g_flatDist=quality->flat_distance; g_distanceMode=quality->distance_mode;
+    g_textureSubdivision=quality->texture_subdivision;
+    dos_very_low_mode=index==DOS_GRAPHICS_VERY_LOW;
+#else
+    (void)index;
+#endif
+}
+static void clear_samples(void)
+{
+    memset(times,0,sizeof(times)); memset(sections,0,sizeof(sections));
+    memset(edit_calls,0,sizeof(edit_calls)); memset(packs,0,sizeof(packs));
+    memset(uploads,0,sizeof(uploads)); memset(waits,0,sizeof(waits));
+    memset(timeouts,0,sizeof(timeouts)); memset(pixels,0,sizeof(pixels));
+    memset(faces,0,sizeof(faces)); memset(items,0,sizeof(items));
+    memset(hashes,0,sizeof(hashes));
+#ifdef DOS_WALL_VISIBILITY
+    memset(wall_stats,0,sizeof(wall_stats));
+#endif
+#ifdef DOS_FRONT_TO_BACK
+    memset(f2b_stats,0,sizeof(f2b_stats));
 #endif
 }
 static void finish(void)
@@ -209,12 +257,25 @@ static void finish(void)
     ok=ok && !dos_f2b_verify_fallbacks;
 #endif
 #endif
+    if(suite_warmup && ok) {
+        /* The house/edit fixture leaves streamed mesh work behind. Do one
+         * unreported pass, then all three measured runs share that state. */
+        restore_house();
+        while(world_update_dirty_chunks(1000)) {}
+        world_stream(sx,sz-6,g_viewDist+8,1000);
+        clear_samples();
+        phase=0; frame=0; suite_warmup=0;
+        return;
+    }
     unsigned int ticks=g_ticks;
-    dos_save_shutdown(); dos_hdd_shutdown(); dos_system_shutdown(); dos_video_restore();
-    outportb(0x61,old61);
+    if(!suite || run==3 || !ok) {
+        dos_save_shutdown(); dos_hdd_shutdown(); dos_system_shutdown(); dos_video_restore();
+        outportb(0x61,old61);
+    }
     path[8]=(char)('0'+run); file=fopen(path,"wb"); if(!file) exit(1);
     fprintf(file,"VERSION=2\nEDIT_TIMING=CALL_PLUS_FOLLOWING_FRAME\nSEED=4242\nSIMULATION=FROZEN_GRAPHICS_REPLAY\nSCALE=%d\nVIEW=%d\nFLAT=%d\nSUBDIV=%d\nOCCLUSION=%d\nGEN_MS=%u\nTICKS=%u\nRESULT=%s\n",
         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
+    fprintf(file,"REPLAY_CONTEXT=%s\n",suite?"POST_FIXTURE":"FRESH_WORLD");
     fprintf(file,"SAMPLES_PER_SCENE=%d\nMOTION_POLICY=REPEAT_32_MEASURED_POSES\n",FRAMES);
 #ifdef DOS_WALL_VERIFY
     fprintf(file,"WALL_VERIFICATION=TIMINGS_INVALID\nWALL_VERIFY_FRAMES=%u\nWALL_VERIFY_FAILURES=%u\n",dos_wall_verify_frames,dos_wall_verify_failures);
@@ -259,7 +320,18 @@ static void finish(void)
     path[10]='E'; path[11]='N'; path[12]='D';
     file=fopen(path,"wb"); if(!file) exit(1);
     if(fprintf(file,"%s\n",ok?"PASS":"FAIL")<0 || fclose(file)) exit(1);
-    puts("DOScraft benchmark complete; safe to close this private VM."); exit(!ok);
+    if(!ok || !suite || run==3) {
+        puts("DOScraft benchmark complete; safe to close this private VM."); exit(!ok);
+    }
+    restore_house();
+    /* Restoration dirties meshes. Drain that work outside measured frames so
+     * later repeats start with the same clean fixture as the first run. */
+    while(world_update_dirty_chunks(1000)) {}
+    world_stream(sx,sz-6,g_viewDist+8,1000);
+    ++run;
+    if(sweep) select_quality(run-1);
+    clear_samples();
+    phase=0; frame=0;
 }
 void bench_frame(void)
 {
@@ -295,12 +367,10 @@ void bench_frame(void)
     }
     if(phase<0) {
         sx=g_player.body.x/FU; sz=g_player.body.z/FU; sy=world_surface_y(sx,sz);
-        g_renderScale=2; g_viewDist=8; g_flatDist=0; g_distanceMode=0;
 #ifdef DOS_BENCH_QUALITY
-        const DosGraphicsSettings *quality=dos_graphics_settings(DOS_BENCH_QUALITY);
-        g_renderScale=quality->render_scale; g_viewDist=quality->view_distance;
-        g_flatDist=quality->flat_distance; g_distanceMode=quality->distance_mode;
-        g_textureSubdivision=quality->texture_subdivision;
+        select_quality(sweep?0:DOS_BENCH_QUALITY);
+#else
+        select_quality(0);
 #endif
 #ifdef DOS_BENCH_OCCLUSION
         g_occlusion=1;

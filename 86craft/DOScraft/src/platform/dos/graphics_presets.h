@@ -6,6 +6,7 @@ enum {
     DOS_GRAPHICS_LOW,
     DOS_GRAPHICS_MEDIUM,
     DOS_GRAPHICS_HIGH,
+    DOS_GRAPHICS_VERY_LOW,
     DOS_GRAPHICS_COUNT,
     DOS_GRAPHICS_DEFAULT = DOS_GRAPHICS_LOW
 };
@@ -17,6 +18,8 @@ typedef struct {
     int distance_mode;
     int texture_subdivision; /* Imported render.h SUBDIV_* value. */
 } DosGraphicsSettings;
+
+extern int dos_very_low_mode;
 
 /* Invalid indices resolve to Low. Invalid next indices also return Low. */
 int dos_graphics_index(int index);

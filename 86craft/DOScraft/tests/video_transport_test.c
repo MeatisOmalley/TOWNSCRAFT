@@ -11,18 +11,32 @@
 static unsigned char vram[4][65536],source[512*240+4];
 static unsigned char before[4][65536];
 static unsigned int mask=15,readplane,index,start_hi,start_lo,retrace,bytes_written;
+static unsigned int vsync_reads,start_lo_writes;
+static uclock_t test_clock;
 static unsigned int chain4,bank,bank_writes;
+/* PIT channel 2 (mode 2, modulo 65536) and the 100 Hz tick, in PIT counts. */
+static unsigned int pit_now,pit2_base,pit2_latch,pit2_byte;
+#ifdef DOS_VGA_ASYNC_FLIP
+static volatile unsigned int test_ticks;
+static void pit_advance(unsigned int counts) { pit_now+=counts; test_ticks=pit_now/11932u; }
+#endif
+#ifdef DOS_VERY_LOW
+int dos_very_low_mode=1;
+#endif
 int __dpmi_int(int n,__dpmi_regs *r) { assert(n==0x10); r->h.al=3; return 0; }
-uclock_t uclock(void) { static uclock_t t; return ++t; }
+uclock_t uclock(void) { return ++test_clock; }
 unsigned char inportb(unsigned int p)
 {
-    if(p==0x3da) return (retrace++&1)?8:0;
+    if(p==0x3da) { ++vsync_reads; return (retrace++&1)?8:0; }
     if(p==0x3d5 && index==0x0c) return start_hi;
     if(p==0x3d5 && index==0x0d) return start_lo;
+    if(p==0x42) return (pit2_latch>>(8*(pit2_byte++&1)))&255;
     return 0;
 }
 void outportb(unsigned int p,unsigned int v) {
     if(p==0x3d4) index=v;
+    if(p==0x43 && v==0xb4) pit2_base=pit_now;
+    if(p==0x43 && v==0x80) { pit2_latch=(pit2_base-pit_now)&65535u; pit2_byte=0; }
     if(p==0x3cd) { assert(v<4); bank=v; ++bank_writes; }
 }
 void outportw(unsigned int p,unsigned int v)
@@ -31,7 +45,7 @@ void outportw(unsigned int p,unsigned int v)
     if(p==0x3c4 && (v&255)==4) chain4=(v>>8)&8;
     if(p==0x3ce && (v&255)==4) readplane=v>>8;
     if(p==0x3d4 && (v&255)==0x0c) start_hi=v>>8;
-    if(p==0x3d4 && (v&255)==0x0d) start_lo=v>>8;
+    if(p==0x3d4 && (v&255)==0x0d) { start_lo=v>>8; ++start_lo_writes; }
 }
 void dosmemput(const void *s,unsigned int n,unsigned int a)
 {
@@ -55,6 +69,9 @@ void dosmemget(unsigned int a,unsigned int n,void *d)
 int main(void)
 {
     unsigned int frame,y,x,p,pitch,offset,hint;
+#ifdef DOS_VGA_ASYNC_FLIP
+    unsigned int reads_before;
+#endif
     video_init();
     for(frame=0;frame<180;++frame) {
         pitch=frame%2?331:512;
@@ -72,6 +89,10 @@ int main(void)
         hint=(frame/7)%2==0;
 #endif
         dos_video_set_repeated_pixel_hint(hint);
+#ifdef DOS_VGA_HUD_PROOF
+        if(frame%9>=3 && hint && frame%3==0)
+            dos_video_prove_hud_unchanged((frame+1)%3);
+#endif
 #ifdef DOS_VGA_PROVEN_ROWS
         if(frame%3==0) {
             dos_video_prove_low_rows(0,200);
@@ -84,7 +105,17 @@ int main(void)
         bytes_written=0;
         bank_writes=0;
         memcpy(before,vram,sizeof(before));
+#ifdef DOS_VGA_ASYNC_FLIP
+        if(frame%4==1) test_clock+=UCLOCKS_PER_SEC/30;
+        reads_before=vsync_reads;
+#endif
         dos_video_present(source+1,pitch);
+#ifdef DOS_VGA_ASYNC_FLIP
+        assert(start_lo_writes==1);
+        /* Wait only when neither of the last two gaps spans a refresh. */
+        if(frame>=2 && (frame%4==3 || frame%4==0)) assert(vsync_reads>reads_before);
+        else assert(vsync_reads==reads_before);
+#endif
         assert(!chain4 && !bank);
 #ifdef DOS_ET4000_STRIDED
         if(!hint) assert(bank_writes<=3); /* Not a bank switch per scanline. */
@@ -107,8 +138,16 @@ int main(void)
 #endif
         offset=((frame+1)%3)*DOS_VGA_PLANE_BYTES;
         assert((start_hi<<8|start_lo)==offset);
-        for(p=0;p<4;++p) for(y=0;y<240;++y) for(x=0;x<80;++x)
-            assert(vram[p][offset+y*80+x]==source[1+y*pitch+x*4+p]);
+        for(p=0;p<4;++p) for(y=0;y<240;++y) for(x=0;x<80;++x) {
+            unsigned int expected=source[1+y*pitch+x*4+p];
+#ifdef DOS_VERY_LOW
+            if(frame%3==0 && hint && y<200 && y!=110) {
+                unsigned int source_row=(y&1u) && y!=111 ? y-1 : y;
+                expected=source[1+source_row*pitch+x*4];
+            }
+#endif
+            assert(vram[p][offset+y*80+x]==expected);
+        }
         for(p=0;p<4;++p) {
             unsigned int page;
             for(page=0;page<3;++page) if(page*DOS_VGA_PLANE_BYTES!=offset)
@@ -128,6 +167,24 @@ int main(void)
     dos_video_restore(); video_init();
     dos_video_present(source+1,pitch);
     assert(dos_video_verify(source+1,pitch)==0);
+#ifdef DOS_VGA_ASYNC_FLIP
+    /* Sub-tick page-reuse guard with the 100 Hz clock: wait only while the
+     * second most recent flip is under 17.5 ms old, across tick phases and
+     * channel-2 wraps. */
+    {
+        static const unsigned int gap_us[]={0,0,8000,8000,9600,7800,30000,2000,15000,2600,54000,70000,1000,16000,19000};
+        static const unsigned int must_wait[]={0,0,1,1,0,1,0,0,1,0,0,0,0,1,0};
+        dos_video_restore(); video_init();
+        dos_video_set_tick_clock(&test_ticks,100);
+        for(frame=0;frame<sizeof(gap_us)/sizeof(gap_us[0]);++frame) {
+            pit_advance((unsigned int)(gap_us[frame]*1193182ull/1000000u));
+            reads_before=vsync_reads;
+            dos_video_present(source+1,pitch);
+            assert((vsync_reads>reads_before)==must_wait[frame]);
+        }
+        dos_video_set_tick_clock(0,0);
+    }
+#endif
     dos_video_restore(); puts("PASS: real presenter, all pages/pixels and independent VGA model");
     return 0;
 }

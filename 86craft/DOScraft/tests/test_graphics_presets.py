@@ -112,7 +112,7 @@ class TransformTests(unittest.TestCase):
         old_lines = re.findall(r'^\t\t"(.*)",$', old, re.M)
         new_lines = re.findall(r'^\t\t"(.*)",$', new, re.M)
         expected = old_lines[:]
-        expected[11] = 'F2 Graphics: Low/Medium/High'
+        expected[11] = 'F2 Graphics: Low/Med/High/Very Low'
         expected[13] = 'PF4 Debug'
         self.assertEqual(new_lines, expected)
         self.assertIn('gfx_text_shadow(g_fb,132,206,dos_graphics_message(graphicsPresetSel)', new)
@@ -148,10 +148,10 @@ static void check(int scale,int view,int flat) {
 int main(void) {
     int cycle,key,old_count;
     static const int disabled[]={KEY_PF3,KEY_PF8,KEY_PF10};
-    static const char *const expected[]={"Graphics: Medium","Graphics: High","Graphics: Low"};
+    static const char *const expected[]={"Graphics: Medium","Graphics: High","Graphics: Very Low","Graphics: Low"};
     g_renderScale=g_viewDist=g_flatDist=g_distanceMode=g_occlusion=g_textureSubdivision=99;
     init_graphics_quality(); check(2,8,0);
-    assert(graphicsPresetSel==DOS_GRAPHICS_LOW && cpuSpeedIndex>0 && !message_count);
+    assert(graphicsPresetSel==DOS_GRAPHICS_LOW && !dos_very_low_mode && cpuSpeedIndex>0 && !message_count);
     for(cycle=0;cycle<30;++cycle) {
         for(key=0;key<3;++key) {
             old_count=message_count; settings_key(disabled[key]);
@@ -168,9 +168,12 @@ int main(void) {
             old_count=message_count; settings_key(disabled[key]);
             check(1,12,10); assert(message_count==old_count);
         }
-        settings_key(KEY_PF2); check(2,8,0); assert(!strcmp(message,expected[2]));
+        settings_key(KEY_PF2); check(2,8,0); assert(dos_very_low_mode);
+        assert(!strcmp(message,expected[2]));
+        settings_key(KEY_PF2); check(2,8,0); assert(!dos_very_low_mode);
+        assert(!strcmp(message,expected[3]));
     }
-    assert(message_count==90);
+    assert(message_count==120);
     settings_key(KEY_PF4); assert(showDebug); settings_key(KEY_PF4); assert(!showDebug);
     g_profCount=123; settings_key(KEY_PF5); assert(g_profEnable && !g_profCount);
     assert(!strcmp(message,"Profiler on"));

@@ -66,7 +66,7 @@ def main():
     args.output.mkdir(parents=True,exist_ok=False)
     for name in ('TITLE','WORLD','DOWN','PLACE','BREAK','INV','CRAFT'):
         (args.output/(name+'.png')).write_bytes(frame_png(volume.read(name+'.RAW')))
-    for name in ('FULL','MEDIUM','LOW'):
+    for name in ('FULL','MEDIUM','VERYLOW','LOW'):
         try: raw=volume.read(name+'.RAW')
         except FileNotFoundError: pass # Historical smoke reports predate these gates.
         else: (args.output/(name+'.png')).write_bytes(frame_png(raw))

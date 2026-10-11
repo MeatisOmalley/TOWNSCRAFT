@@ -10,8 +10,12 @@ from build_imported import replace_once
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
-          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False):
+          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False):
     recipe=[]
+    if raster_finish_skip:
+        import dos_raster_finish_skip
+        data,steps=dos_raster_finish_skip.adapt(name,data)
+        recipe.extend(steps)
     if proven_rows:
         import dos_proven_rows
         data,steps=dos_proven_rows.adapt(name,data)
@@ -33,6 +37,10 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     if trap_four:
         import dos_trap_four
         data,steps=dos_trap_four.adapt(name,data)
+        recipe.extend(steps)
+    if very_low_texels:
+        import dos_very_low_texels
+        data,steps=dos_very_low_texels.adapt(name,data)
         recipe.extend(steps)
     if trap_stable:
         if trap_zero_gradient or trap_destination:
@@ -187,5 +195,20 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
             raise ValueError('Front-to-back and packed-raster target layouts cannot be combined')
         import dos_front_to_back
         data,steps=dos_front_to_back.adapt(name,data)
+        recipe.extend(steps)
+    if name=='game.c':
+        import dos_plant_placement
+        data,steps=dos_plant_placement.adapt(name,data)
+        recipe.extend(steps)
+        import dos_crafting
+        data,steps=dos_crafting.adapt(name,data)
+        recipe.extend(steps)
+    if hud_proof and name in ('game.c','ui.c'):
+        import dos_hud_proof
+        data,steps=dos_hud_proof.adapt(name,data)
+        recipe.extend(steps)
+    if name=='world.c':
+        import dos_immediate_edit_light
+        data,steps=dos_immediate_edit_light.adapt(name,data)
         recipe.extend(steps)
     return data,recipe

@@ -29,6 +29,7 @@ static void apply_graphics_preset(int i)
 {
 	const DosGraphicsSettings *settings=dos_graphics_settings(i);
 	graphicsPresetSel=dos_graphics_index(i);
+	dos_very_low_mode=graphicsPresetSel==DOS_GRAPHICS_VERY_LOW;
 	g_renderScale=settings->render_scale;
 	g_viewDist=settings->view_distance;
 	g_flatDist=settings->flat_distance;
@@ -100,7 +101,7 @@ static void apply_graphics_preset(int i)
 		break;
 ''', ''),
     ('\t\t"PF2 Res.  PF3 View  PF4 Debug",\n',
-     '\t\t"F2 Graphics: Low/Medium/High",\n'),
+     '\t\t"F2 Graphics: Low/Med/High/Very Low",\n'),
     ('\t\t"PF10 Near texture quality",\n', '\t\t"PF4 Debug",\n'),
     ('''		gfx_text_shadow(g_fb,30,24+i*14,lines[i],i==0 ? C_YELLOW : C_WHITE,C_BLACK);
 	}

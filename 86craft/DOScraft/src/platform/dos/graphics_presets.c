@@ -4,12 +4,15 @@
 static const DosGraphicsSettings presets[DOS_GRAPHICS_COUNT] = {
     {2, 8, 0, 0, SUBDIV_ADAPTIVE},
     {2, 12, 10, 0, SUBDIV_ADAPTIVE},
-    {1, 12, 10, 0, SUBDIV_ADAPTIVE}
+    {1, 12, 10, 0, SUBDIV_ADAPTIVE},
+    {2, 8, 0, 0, SUBDIV_ADAPTIVE}
 };
 
 static const char *const messages[DOS_GRAPHICS_COUNT] = {
-    "Graphics: Low", "Graphics: Medium", "Graphics: High"
+    "Graphics: Low", "Graphics: Medium", "Graphics: High", "Graphics: Very Low"
 };
+
+int dos_very_low_mode;
 
 int dos_graphics_index(int index)
 {
