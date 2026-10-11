@@ -1035,3 +1035,17 @@ static neutral; up 54.208 -> 53.858 is a small retrace-quantized shift.
 Evidence: `tests/benchmarks/2026-10-10/combined-release-low.json`.
 This is the actual combined eight-flag build, not a sum of independent gains.
 High combined timing and the exact normal executable's smoke remain pending.
+
+Combined High production screening also completes three PASS repeats with all
+images matching the current ET4000 release. Static 152.268 -> 136.458 ms
+(10.4% time reduction), walking 107.962 -> 102.692 (4.9%), down
+250.253 -> 240.241 (4.0%), up 59.479 -> 55.790 (6.2%), house
+173.347 -> 163.861 (5.5%), edits 193.152 -> 181.560 (6.0%).
+Evidence: `tests/benchmarks/2026-10-10/combined-release-high.json`.
+First-repeat pack/HUD drops roughly 7.9 -> 1.4 ms; upload rises 25.6 -> 27.0
+due to pitched row calls. Combined gains are measured, not added predictions.
+Low house average replay FPS is only 10.32 -> 10.43; High house is
+5.77 -> 6.10. These modest improvements do not resolve the user's building
+slowdown. Frozen replay averages are not full simulation/play FPS, and 96
+samples per scene do not support strong 1%/0.1% low claims.
+The doorway, house layout, camera route and all other fixtures remain unchanged.
