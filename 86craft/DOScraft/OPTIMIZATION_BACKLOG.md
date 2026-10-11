@@ -103,6 +103,16 @@ Next bounded probes should include both invisible and quality-gated options:
   cost of validation/fallback versus avoided stores/scans; the prior losing
   word-transpose probe is not evidence that this fusion helps. This targets
   Low's remaining roughly 8.5 ms pack section, not just stationary reuse.
+  The exact fused v1 is now measured and rejected: Low walking is 6.3% slower,
+  house 3.8% slower, despite matching images. Packing/classification fusion alone
+  does not guarantee fewer instructions. An independently selectable 16-pixel
+  owner-word transpose revision is under test; neither is a normal default.
+- Early first-plane group-facing rejection is now tested independently. It
+  preserves the complete collected list in 6,000 native scenes and matches all
+  Low guest images. House/walking are unchanged; down and edits save only about
+  0.5 ms. Keep it as a disabled checkpoint while prioritizing larger gains.
+  This is backface collection work, not occlusion. The group feasibility audit
+  calls for an eligibility/cost census before another expensive wall proof.
 - The word-wise chunky HUD identity probe is **completed and accepted**,
   not an outstanding candidate. Independently it lowers High walking frame
   time 3.4%, house 1.8% and edits 3.3%, with matching images; combined direct
