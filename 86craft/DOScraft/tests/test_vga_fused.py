@@ -15,11 +15,14 @@ class FusedTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory(prefix='doscraft-fused-')
         cls.addClassCleanup(temporary.cleanup)
         cls.exes=[]
-        for arch,portable in (('x86_64',False),('x86_64',True),('x86',False)):
-            exe=Path(temporary.name)/f'{arch}-{portable}.exe'
+        for arch,portable,transpose in (('x86_64',False,False),('x86_64',True,False),
+                ('x86',False,False),('x86_64',False,True),('x86_64',True,True),
+                ('x86',False,True),('x86',True,True)):
+            exe=Path(temporary.name)/f'{arch}-{portable}-{transpose}.exe'
             args=[str(ZIG),'cc','-target',arch+'-windows-gnu','-O2','-fstrict-aliasing',
                   '-Wall','-Wextra','-Werror',
                   *(['-DDOS_VGA_FUSED_PORTABLE'] if portable else []),
+                  *(['-DDOS_VGA_FUSED_TRANSPOSE'] if transpose else []),
                   '-I',str(ROOT/'src/platform/dos'),str(ROOT/'tests/vga_fused_test.c'),
                   str(ROOT/'src/platform/dos/vga_fused.c'),'-o',str(exe)]
             result=subprocess.run(args,capture_output=True,text=True,timeout=120)
@@ -42,17 +45,19 @@ class FusedTests(unittest.TestCase):
         gcc=build_imported.COMPILER
         with tempfile.TemporaryDirectory(prefix='doscraft-fused-coff-') as directory:
             obj=Path(directory)/'fused.o'
-            result=subprocess.run([str(gcc),*build_imported.CFLAGS,'-fomit-frame-pointer',
-                '-Werror','-I',str(ROOT/'src/platform/dos'),'-c',
-                str(ROOT/'src/platform/dos/vga_fused.c'),'-o',str(obj)],capture_output=True,text=True)
-            self.assertEqual(result.returncode,0,result.stderr)
-            self.assertEqual(build_imported.coff_object(obj.read_bytes())['format'],'coff-i386')
-            nm=gcc.with_name(gcc.name.replace('gcc','nm'))
-            names=build_imported.parse_nm(subprocess.check_output([str(nm),'-g',str(obj)],text=True))
-            self.assertEqual(names.get('_dos_vga_pack_fused'),'T')
-            self.assertNotIn('U',names.values())
-            dump=gcc.with_name(gcc.name.replace('gcc','objdump'))
-            asm=subprocess.check_output([str(dump),'-dr',str(obj)],text=True)
-            self.assertNotRegex(asm,r'%(?:[xyz]mm|mm|st)\d?')
+            for flags in ([],['-DDOS_VGA_FUSED_TRANSPOSE']):
+                result=subprocess.run([str(gcc),*build_imported.CFLAGS,'-fomit-frame-pointer',*flags,
+                    '-Werror','-I',str(ROOT/'src/platform/dos'),'-c',
+                    str(ROOT/'src/platform/dos/vga_fused.c'),'-o',str(obj)],capture_output=True,text=True)
+                self.assertEqual(result.returncode,0,result.stderr)
+                self.assertEqual(build_imported.coff_object(obj.read_bytes())['format'],'coff-i386')
+                nm=gcc.with_name(gcc.name.replace('gcc','nm'))
+                names=build_imported.parse_nm(subprocess.check_output([str(nm),'-g',str(obj)],text=True))
+                self.assertEqual(names.get('_dos_vga_pack_fused'),'T')
+                self.assertNotIn('U',names.values())
+                dump=gcc.with_name(gcc.name.replace('gcc','objdump'))
+                asm=subprocess.check_output([str(dump),'-dr',str(obj)],text=True)
+                self.assertNotRegex(asm,r'%(?:[xyz]mm|mm|st)\d?')
+                if flags: self.assertRegex(asm,r'xchg\s+%ah,%bl')
 
 if __name__=='__main__': unittest.main()

@@ -1146,3 +1146,22 @@ up 53.858 -> 53.681 ms, edits 112.527 -> 111.995 ms. Evidence:
 collection saving, not a demonstrated house/overdraw improvement. Keep the
 checkpoint independently selectable and off while screening larger candidates;
 no production/ISO change or strong tail-FPS claim follows from this short run.
+
+## Fused packing revision 2 (experimental)
+
+`--candidate fused-words` adds `DOS_VGA_FUSED_TRANSPOSE` to fused v1. It reuses
+the independently validated 16-pixel integer transpose, stores owner plane
+words 0/2, and compares four packed bytes at once while registers are live.
+The original v1 remains independently available. Sharp row exceptions, full
+HUD planes, exact masks/runs and arbitrary pitches retain their checked paths.
+This changes neither the image nor ISA transfer volume. Fewer source-word
+comparisons/spills is a hypothesis, not evidence of a 486 gain; the standalone
+transpose was previously unhelpful.
+
+Seven native x86/x64, assembly/C and byte-fallback variants pass the pattern,
+single-bit exception, invalid-argument and protected-memory suites. Actual
+presenter tests pass changing sharp overlays/HUDs and page/path transitions.
+Both i486 COFF variants have no external helper/FPU/SIMD use. The actual
+transpose loop has two owner DWORD stores and three equality accumulators,
+but its rotate/exchange cost still requires unchanged Low guest timing.
+Neither fused flag is enabled in the production defaults or published ISO.

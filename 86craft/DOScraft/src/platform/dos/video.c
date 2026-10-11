@@ -46,6 +46,9 @@ static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
 #endif
 #include "vga_fused.h"
 #endif
+#if defined(DOS_VGA_FUSED_TRANSPOSE) && !defined(DOS_VGA_FUSED)
+#error Fused transpose requires fused packing
+#endif
 #ifdef DOS_ET4000_CHUNKY
 #if !defined(DOS_VGA_PACK_ALL) || !defined(DOS_VGA_BROADCAST)
 #error ET4000 experiment requires the accepted all-plane/HUD/broadcast path
