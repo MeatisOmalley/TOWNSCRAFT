@@ -106,7 +106,11 @@ Next bounded probes should include both invisible and quality-gated options:
   The exact fused v1 is now measured and rejected: Low walking is 6.3% slower,
   house 3.8% slower, despite matching images. Packing/classification fusion alone
   does not guarantee fewer instructions. An independently selectable 16-pixel
-  owner-word transpose revision is under test; neither is a normal default.
+  owner-word transpose revision also loses: walking 6.3% slower and house 3.8%
+  slower, with matching images. Both checkpoints remain off; stop retrying this
+  exact fusion unchanged. Producer-side repeated-pixel metadata is a different
+  possible approach, but requires auditing every sharp view writer/overlay and
+  exact invalidation/fallback; a render-scale hint alone is insufficient.
 - Early first-plane group-facing rejection is now tested independently. It
   preserves the complete collected list in 6,000 native scenes and matches all
   Low guest images. House/walking are unchanged; down and edits save only about

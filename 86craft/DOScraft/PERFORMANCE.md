@@ -1165,3 +1165,21 @@ Both i486 COFF variants have no external helper/FPU/SIMD use. The actual
 transpose loop has two owner DWORD stores and three equality accumulators,
 but its rotate/exchange cost still requires unchanged Low guest timing.
 Neither fused flag is enabled in the production defaults or published ISO.
+
+Revision 2 also completes three Low PASS repeats with matching images/readbacks,
+but loses against the accepted release: walking 58.424 -> 62.115 ms (+6.3%),
+down 136.422 -> 139.057 (+1.9%), house 95.878 -> 99.568 (+3.8%),
+edits 112.527 -> 115.685 (+2.8%), up 53.858 -> 54.736 (+1.6%),
+static 67.420 -> 84.286 (+25.0%). Evidence:
+`tests/benchmarks/2026-10-10/fused-words-low-v2.json`. Pack/classification is
+about 16.0 ms rather than v1's 16.6; that small CPU reduction does not rescue
+the whole frame, which also includes retrace waiting. The owner transpose and
+equality work still cost more than the accepted separate packing/planning.
+Reject revision 2 as a default; do not use High to justify a clear Low loss.
+
+Final validation: the 285-test full suite passes with two existing Windows
+symlink-permission skips. The eight benchmark tests also pass separately after
+adding explicit independence/default-off checks for all three new probes.
+All owned diagnostic VMs are closed, reports/disks retained, and the playable
+ISO SHA256 remains `37dc703776a574b6dad1db87af55151c13203444d4190060d8fa515e06108fd6`.
+No player disk, game/UI logic, benchmark doorway/route or production flag changed.
