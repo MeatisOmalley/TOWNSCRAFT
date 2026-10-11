@@ -10,8 +10,12 @@ from build_imported import replace_once
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
-          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False):
+          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False):
     recipe=[]
+    if group_facing:
+        import dos_group_facing
+        data,steps=dos_group_facing.adapt(name,data)
+        recipe.extend(steps)
     if wall_verify and not wall_visibility:
         raise ValueError('Wall verification requires its candidate')
     if wall_visibility:

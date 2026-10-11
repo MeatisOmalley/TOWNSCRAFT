@@ -1118,3 +1118,23 @@ and actual i486 code has numerous temporary/accumulator/pointer stack accesses.
 Keep v1 off; do not pursue High to excuse the clear Low loss. Protected-memory
 tests additionally pass each source row ending at an inaccessible page, read-only
 source pages, exact destination/run end bounds and inaccessible invalid arguments.
+
+## Independent group-facing checkpoint
+
+The group audit in `research/group_visibility/FEASIBILITY.md` finds existing
+group frustum/distance rejection and very poor same-cone occlusion eligibility.
+Do not build a larger wall-check loop just to run fewer instances of a weak
+proof. `--candidate group-facing` instead moves the existing first-quad
+backface test before group box decoding/distance/frustum work. Published
+group planes already sort facing-first, and the original inner loop already
+stops at that first backface. Painter order, models, the cached-list reuse
+policy, opacity and drawing are unchanged. This is collection-cost rejection,
+not a new overdraw/occlusion renderer or a promise to fix the house.
+
+Both actual original and overlaid collector bodies pass 6,000 independently
+generated scenes with identical complete Items/keys/capacity tails: all six
+directions, ordered planes, sub-cell camera positions, loose partial-rebuild
+boxes, floors/sealed chunks, both nesting axes, view 8/12, frustum/distance
+paths, model cells, remapped/missing residency and truncated Item capacity.
+Recipe replay preserves the immutable pin. Guest Low timing is the next gate;
+this candidate is separate from fused VGA and remains off in normal defaults.

@@ -54,12 +54,13 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         trap_four='-DDOS_TRAP_FOUR' in extra_adapter_flags
         wall_visibility='-DDOS_WALL_VISIBILITY' in extra_adapter_flags
         wall_verify='-DDOS_WALL_VERIFY' in extra_adapter_flags
+        group_facing='-DDOS_GROUP_FACING' in extra_adapter_flags
         transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
             raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster,
             early_split_cull=early_split_cull,front_to_back=front_to_back,edge_recip=edge_recip,
             trap_zero_gradient=trap_zero_gradient,trap_destination=trap_destination,
             split_reuse=split_reuse,depth_adaptive=depth_adaptive,trap_stable=trap_stable,trap_four=trap_four,
-            wall_visibility=wall_visibility,wall_verify=wall_verify)
+            wall_visibility=wall_visibility,wall_verify=wall_verify,group_facing=group_facing)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
