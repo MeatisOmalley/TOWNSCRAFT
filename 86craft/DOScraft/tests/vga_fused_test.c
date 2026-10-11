@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include "vga_pack.h"
 #include "vga_fused.h"
 #define GUARD 32
@@ -88,6 +91,53 @@ static void check(unsigned int pitch,unsigned int offset) {
     assert(!memcmp(output.runs+count,untouched.runs+count,
                    sizeof(output.runs)-count*sizeof(output.runs[0])));
 }
+static void protected_bounds(void) {
+#ifdef _WIN32
+    SYSTEM_INFO info;
+    unsigned int page,y,x,p,i;
+    unsigned char *input,*destination,*run_store,*s,*d;
+    struct DosVgaRun *runs;
+    DWORD old;
+    int count;
+    GetSystemInfo(&info);page=info.dwPageSize;assert(page>=320);
+    input=VirtualAlloc(NULL,480u*page,MEM_RESERVE,PAGE_NOACCESS);
+    destination=VirtualAlloc(NULL,20u*page,MEM_RESERVE,PAGE_NOACCESS);
+    run_store=VirtualAlloc(NULL,3u*page,MEM_RESERVE,PAGE_NOACCESS);
+    assert(input && destination && run_store && 19u*page>=76800 && 2u*page>=800*sizeof(*runs));
+    s=input+page-320;
+    for(y=0;y<240;++y) {
+        assert(VirtualAlloc(input+2u*y*page,page,MEM_COMMIT,PAGE_READWRITE));
+        for(x=0;x<320;++x) s[2u*y*page+x]=(unsigned char)(x/2+y);
+        s[2u*y*page+319]^=1; /* Last source word includes a sharp exception. */
+        assert(VirtualProtect(input+2u*y*page,page,PAGE_READONLY,&old));
+    }
+    assert(VirtualAlloc(destination,19u*page,MEM_COMMIT,PAGE_READWRITE));
+    assert(VirtualAlloc(run_store,2u*page,MEM_COMMIT,PAGE_READWRITE));
+    d=destination+19u*page-76800;
+    runs=(struct DosVgaRun *)(void *)(run_store+2u*page-800*sizeof(*runs));
+    /* Invalid calls must not even inspect inaccessible inputs/outputs. */
+    assert(dos_vga_pack_fused(input+page,2u*page,d,76799,runs,800)==-1);
+    assert(dos_vga_pack_fused(s,2u*page,destination+19u*page,76800,runs,799)==-1);
+    count=dos_vga_pack_fused(s,2u*page,d,76800,runs,800);
+    assert(count>0 && count<=800);
+    memset(vram,0,sizeof(vram));
+    for(i=0;i<(unsigned int)count;++i) {
+        const struct DosVgaRun *r=runs+i;
+        assert(r->plane<4 && r->rows && r->row+r->rows<=200);
+        for(p=0;p<4;++p) if(r->mask&(1u<<p))
+            memcpy(vram[p]+r->row*80,d+r->plane*19200+r->row*80,r->rows*80);
+    }
+    for(p=0;p<4;++p) {
+        memcpy(vram[p]+16000,d+p*19200+16000,3200);
+        for(y=0;y<240;++y) for(x=0;x<80;++x)
+            assert(vram[p][y*80+x]==s[2u*y*page+4*x+p]);
+    }
+    assert(VirtualFree(input,0,MEM_RELEASE));
+    assert(VirtualFree(destination,0,MEM_RELEASE));
+    assert(VirtualFree(run_store,0,MEM_RELEASE));
+#endif
+    puts("PASS: protected row ends/source immutability/destination/run bounds");
+}
 int main(int argc,char **argv) {
     unsigned int p,o,k,x,bit;
     const unsigned int pitches[]={320,321,331,512};
@@ -104,6 +154,8 @@ int main(int argc,char **argv) {
             check(331,1);
         }
         puts("PASS: 2560 individual sharp pixel/bit exceptions");
+    } else if(!strcmp(argv[1],"protected")) {
+        protected_bounds();
     } else {
         unsigned char before[sizeof(packed)];
         fill(320,0,0);memset(packed,0xcd,sizeof(packed));memcpy(before,packed,sizeof(packed));

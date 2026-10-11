@@ -1104,3 +1104,17 @@ pages, changing HUDs, access-path transitions and sharp overlays. DJGPP i486
 COFF exports the helper with no external helpers/FPU/SIMD. Guest Low timing
 against the current combined release is the next gate; it remains disabled
 in normal defaults and the published ISO.
+
+Fused v1 completes three Low PASS repeats with matching images, but loses:
+walking 58.424 -> 62.115 ms (+6.3% time), down 136.422 -> 139.056 (+1.9%),
+house 95.878 -> 99.568 (+3.8%), edits 112.527 -> 116.038 (+3.1%),
+static 67.420 -> 84.286 (+25.0%), up 53.858 -> 55.263 (+2.6%).
+Evidence: `tests/benchmarks/2026-10-10/fused-low-v1.json`. First-repeat fused
+pack/classification is about 16.6 ms; the old pack is 8.5 ms plus classification
+inside upload. The candidate upload section falls about 18.1 -> 14.4 ms because
+classification moved, not because ISA traffic decreased. Total CPU work rises.
+Source-word equality takes more arithmetic than comparing packed plane words,
+and actual i486 code has numerous temporary/accumulator/pointer stack accesses.
+Keep v1 off; do not pursue High to excuse the clear Low loss. Protected-memory
+tests additionally pass each source row ending at an inaccessible page, read-only
+source pages, exact destination/run end bounds and inaccessible invalid arguments.

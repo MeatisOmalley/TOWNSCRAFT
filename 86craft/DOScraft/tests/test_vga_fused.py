@@ -36,6 +36,7 @@ class FusedTests(unittest.TestCase):
     def test_arbitrary_images_pitch_alignment_sharp_hud_and_canaries(self): self.check('matrix')
     def test_individual_sharp_bit_exceptions(self): self.check('bits')
     def test_invalid_arguments_preserve_output(self): self.check('invalid')
+    def test_protected_each_source_row_and_output_boundaries(self): self.check('protected')
 
     def test_actual_i486_object_integer_only_no_external_helpers(self):
         gcc=build_imported.COMPILER
