@@ -1027,3 +1027,11 @@ quantizes the full frame gains, including the larger static step. Evidence:
 of four-texel unrolling and direct-row upload. The combined proposed default
 is now undergoing Low/High production replay and normal-game verification;
 the published ISO remains unchanged until those checks pass.
+
+Combined Low production screening completes three PASS repeats with all
+images matching the accepted ET4000 build: house 96.932 -> 95.878 ms (1.1%),
+walking 58.425 -> 58.424, down 136.421 -> 136.422, edits 112.526 -> 112.527,
+static neutral; up 54.208 -> 53.858 is a small retrace-quantized shift.
+Evidence: `tests/benchmarks/2026-10-10/combined-release-low.json`.
+This is the actual combined eight-flag build, not a sum of independent gains.
+High combined timing and the exact normal executable's smoke remain pending.
