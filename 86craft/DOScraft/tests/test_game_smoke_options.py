@@ -35,7 +35,7 @@ class SmokeOptionsTests(unittest.TestCase):
     def test_explicit_destination_probe_uses_only_requested_flag_and_private_output(self):
         build,prepare=self.recipe(['--trap-destination','--build-output','private/candidate'])
         self.assertEqual(build,{'output':Path('private/candidate'),
-            'extra_adapter_flags':(*game_smoke.DEFAULT_ADAPTER_FLAGS,'-DDOS_TRAP_DESTINATION')})
+            'extra_adapter_flags':(*(flag for flag in game_smoke.DEFAULT_ADAPTER_FLAGS if flag!='-DDOS_TRAP_FOUR'),'-DDOS_TRAP_DESTINATION')})
         self.assertEqual(prepare['output'],Path('private/candidate'))
 
     def test_four_texel_probe_combines_with_accepted_transport_in_private_output(self):
@@ -43,6 +43,14 @@ class SmokeOptionsTests(unittest.TestCase):
         self.assertEqual(build,{'output':Path('private/four'),
             'extra_adapter_flags':tuple(dict.fromkeys((*game_smoke.DEFAULT_ADAPTER_FLAGS,'-DDOS_TRAP_FOUR')))})
         self.assertEqual(prepare['output'],Path('private/four'))
+
+    def test_alternate_raster_probes_cannot_be_combined(self):
+        args=['game_smoke.py','--bios','seed/isa486.nvr','--report','unused/report',
+              '--trap-four','--trap-destination']
+        with patch.object(sys,'argv',args),patch.object(game_smoke,'build') as build:
+            with self.assertRaises(SystemExit) as error: game_smoke.main()
+            self.assertEqual(error.exception.code,2)
+            build.assert_not_called()
 
 
 if __name__=='__main__': unittest.main()

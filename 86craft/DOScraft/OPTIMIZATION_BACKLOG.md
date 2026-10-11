@@ -50,7 +50,8 @@ samples, not proof of which instructions or cache misses dominate.
    on Low and stays off. Four-texel opaque unrolling adds only 288 bytes, passes
    independent actual assembly parity, and now saves about 1.1% Low house frame
    time and 2.7% High house / 1.4% High walking in isolated guest repeats.
-   Combined normal-game verification/publication remains a separate gate.
+   Combined Low/High replay, exact normal-game smoke and publication now pass;
+   four-texel unrolling is enabled in the save-preserving release.
 2. **Earlier exact visibility/geometry rejection with cheaper maintenance.**
    Target hidden building geometry before projection/subdivision/setup. Do not
    stack the losing per-pixel coverage backend onto the painter, or invent
@@ -78,7 +79,11 @@ samples, not proof of which instructions or cache misses dominate.
    gathering while switching banks only at real crossings. Native presenter
    tests pass; three High repeats save about 0.5-1.6% in moving/edit scenes,
    with neutral Low timing and matching images in both profiles. Combined
-   production timing and normal-game verification remain adoption gates.
+   production timing and normal-game verification now pass. Direct rows and
+   independently measured word-wise HUD comparison are enabled in the release.
+   Together with four-texel unrolling, the combined High build reduces walking
+   frame time 4.9%, house 5.5% and edits 6.0% versus the prior ET4000 release;
+   Low house improves 1.1%, with other Low scenes essentially neutral.
 
 Stationary-only reuse and already-rejected edge reciprocal/word transpose
 variants are lower priority. x87 conversion, reduced visible content, spawning
@@ -98,14 +103,12 @@ Next bounded probes should include both invisible and quality-gated options:
   cost of validation/fallback versus avoided stores/scans; the prior losing
   word-transpose probe is not evidence that this fusion helps. This targets
   Low's remaining roughly 8.5 ms pack section, not just stationary reuse.
-- Independently reuse the accepted word-wise HUD identity helper for the
-  banked High path. The current chunky HUD check uses the imported byte-loop
-  `memcmp` over 12,800 bytes; direct-row timing still spends about 5.2 ms in
-  the pack/HUD section on its first repeat. Four 3,200-byte helper calls for
-  the staged path (or 40 exact 320-byte row calls for a pitched path) could
-  reduce that cost without visual or hardware changes. Do not combine it with
-  the direct-row trial before independent measurement. Existing helper tests
-  cover unaligned loads, no-overread guards, changed bytes and exact shadows.
+- The word-wise chunky HUD identity probe is **completed and accepted**,
+  not an outstanding candidate. Independently it lowers High walking frame
+  time 3.4%, house 1.8% and edits 3.3%, with matching images; combined direct
+  rows reduce first-repeat pack/HUD cost to about 1.4 ms. Keep staged and
+  direct variants independently selectable as reference checkpoints. Native
+  unaligned/no-overread/shadow tests and normal-game preset/VGA/save gates pass.
 - Parent-local shared-corner projection reuse was implemented and tested but
   worsens Low down timing by 0.8%; preserve its checkpoint off. The bounded
   depth-aware 2x2 opaque adaptive-leaf quality probe is also neutral; it does not

@@ -13,7 +13,12 @@ pending. Audio is deliberately
 silent under the user's latest priority, not completed Sound Blaster parity.
 Three verified VGA-transport optimizations and the measured i486 frame-register
 compiler optimization are now enabled. High also uses the verified ET4000
-banked chunky CPU-upload path; Low/Medium retain planar repeated-pixel broadcast.
+banked chunky CPU-upload path, now with direct pitched rows and word-wise HUD
+comparisons. The opaque raster loop uses verified four-texel unrolling.
+Low/Medium retain planar repeated-pixel broadcast. Combined release replays
+show about 1.1% lower Low house frame time, with other Low scenes essentially
+neutral; High moving/edit scenes improve roughly 4-6% versus the prior ET4000
+release. These are frozen replay measurements, not full gameplay FPS promises.
 Mode X display timing, sharp HUD and triple buffering remain unchanged. The user-authorized
 DOS graphics settings are grouped into Low/Medium/High; mob policy and gameplay
 remain unchanged. All three presets retain adaptive texture subdivision.

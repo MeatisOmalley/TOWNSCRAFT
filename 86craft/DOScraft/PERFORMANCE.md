@@ -9,6 +9,12 @@ grouping graphics options into Low/Medium/High and modest visual tradeoffs, with
 adaptive subdivision in all three. Substantial visual/gameplay changes still
 require approval before experimentation. See the preset table in README.md.
 
+Current published release: accepted ET4000 transport plus direct pitched rows,
+word-wise chunky HUD comparison and four-texel opaque loops. Low/Medium retain
+planar broadcast; losing wall/coverage/gradient/reuse probes remain disabled.
+See the final release section below; intermediate paragraphs are chronological
+checkpoints, not the current adoption state.
+
 ## Automated guest benchmark
 
 Run `tools/benchmark.py --bios <known-good isa486.nvr> --label baseline` with
@@ -1049,3 +1055,31 @@ Low house average replay FPS is only 10.32 -> 10.43; High house is
 slowdown. Frozen replay averages are not full simulation/play FPS, and 96
 samples per scene do not support strong 1%/0.1% low claims.
 The doorway, house layout, camera route and all other fixtures remain unchanged.
+
+## Verified combined release (2026-10-10 local date)
+
+All eight proposed normal flags are now accepted. The exact executable passes
+new-world and fresh-process save reload, actual AT movement/full down/up look,
+torch place/break, stream error zero, High/Medium/Low transitions, full-resolution
+option and VGA readback. The saved v3 checksum is independently parsed. Evidence
+and ten unedited framebuffer PNGs: `tests/baselines/2026-10-10-combined-release/`.
+High doorway and torch snapshots were inspected. Final full suite: 278 tests,
+two Windows symlink-permission skips, no failures. Audio remains deliberately
+silent; this is not comprehensive feature-parity acceptance.
+
+Published through the existing save-preserving workflow; launcher validation
+passes. All owned diagnostic emulator processes are closed. No gameplay/UI,
+mob spawning, save format, world storage, resolution or subdivision-policy changes.
+
+- EXE: `b366a4da0e4bb6ec33507c6daff9433f7fa1dac543f482f024f2ae2f149afa13`.
+- ISO: `37dc703776a574b6dad1db87af55151c13203444d4190060d8fa515e06108fd6`.
+- New player VM: `runtime/game-play-r8bo9zf9`.
+- Previous player VM retained untouched: `runtime/game-play-_qx41hi7`.
+- Actual current player HDD copied byte-for-byte, SHA256:
+  `752258afab47330814718fc950e2df855a7942c72050b34f12f689d550ef05e7`.
+- Previous ISO retained as `ISO/DOSCRAFT.before-f92eb4c1a257.ISO`.
+
+Next: independently test fused Low packing/broadcast classification, and design
+cheap group-level visibility rejection only with measured eligibility and a
+doorway-aware correctness/fallback strategy. Do not retry the losing per-item
+wall checks or change the benchmark fixture to create an artificial win.

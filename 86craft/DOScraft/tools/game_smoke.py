@@ -20,9 +20,13 @@ def main():
     parser.add_argument('--trap-four',action='store_true',help='Test four-texel opaque loops together with accepted production transport')
     parser.add_argument('--build-output',type=Path,default=OUTPUT,help='Isolated build directory for experimental smoke tests')
     args=parser.parse_args()
+    if args.trap_destination and args.trap_four:
+        parser.error('Measure alternate trap probes separately')
     flags=None
     if args.omit_frame_pointer or args.et4000_chunky or args.trap_destination or args.trap_four:
-        flags=tuple(dict.fromkeys((*DEFAULT_ADAPTER_FLAGS,
+        defaults=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS
+            if not (args.trap_destination and flag=='-DDOS_TRAP_FOUR'))
+        flags=tuple(dict.fromkeys((*defaults,
             *(('-fomit-frame-pointer',) if args.omit_frame_pointer else ()),
             *(('-DDOS_ET4000_CHUNKY',) if args.et4000_chunky else ()),
             *(('-DDOS_TRAP_DESTINATION',) if args.trap_destination else ()),
