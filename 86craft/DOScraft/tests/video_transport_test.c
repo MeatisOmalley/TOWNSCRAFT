@@ -60,6 +60,10 @@ int main(void)
         pitch=frame%2?331:512;
         for(y=0;y<240;++y) for(x=0;x<320;++x)
             source[1+y*pitch+x]=(unsigned char)((y<200 && frame%3==0?x/2:x)*13+y*17+(y<200?frame:frame/9));
+#ifdef DOS_VGA_PROVEN_VERTICAL
+        if(frame%3==0) for(y=0;y<200;y+=2)
+            memcpy(source+1+(y+1)*pitch,source+1+y*pitch,320);
+#endif
         if(frame%3==0) source[1+110*pitch+127]^=1; /* Sharp one-pixel overlay. */
         hint=frame%3!=2;
 #ifdef DOS_ET4000_CHUNKY
@@ -71,6 +75,9 @@ int main(void)
 #ifdef DOS_VGA_PROVEN_ROWS
         if(frame%3==0) {
             dos_video_prove_low_rows(0,200);
+#ifdef DOS_VGA_PROVEN_VERTICAL
+            dos_video_prove_low_row_pairs(0,200);
+#endif
             dos_video_unprove_low_rows(110,111); /* One sharp view pixel. */
         }
 #endif

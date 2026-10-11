@@ -44,6 +44,12 @@ class SmokeOptionsTests(unittest.TestCase):
             'extra_adapter_flags':tuple(dict.fromkeys((*game_smoke.DEFAULT_ADAPTER_FLAGS,'-DDOS_TRAP_FOUR')))})
         self.assertEqual(prepare['output'],Path('private/four'))
 
+    def test_vertical_probe_adds_only_its_flag_in_private_output(self):
+        build,prepare=self.recipe(['--proven-vertical','--build-output','private/vertical'])
+        self.assertEqual(build,{'output':Path('private/vertical'),
+            'extra_adapter_flags':game_smoke.DEFAULT_ADAPTER_FLAGS})
+        self.assertEqual(prepare['output'],Path('private/vertical'))
+
     def test_alternate_raster_probes_cannot_be_combined(self):
         args=['game_smoke.py','--bios','seed/isa486.nvr','--report','unused/report',
               '--trap-four','--trap-destination']

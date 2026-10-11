@@ -1225,3 +1225,40 @@ The save-preserving publication copied the current player HDD byte-for-byte
 to `runtime/game-play-0lp6w98j`, retained the prior VM, and saved the prior ISO
 as `ISO/DOSCRAFT.before-b366a4da0e4b.ISO`. Launcher validation passes. No
 gameplay, UI, save-format or Towns vendor source change was made.
+
+## Exact vertical row reuse after the proven-row release
+
+The first producer-proven release still gathered both source rows of each
+scale-2 pair. `DOS_VGA_PROVEN_VERTICAL` now marks the odd row only when the
+renderer copied its even predecessor and both survived sharp-overlay
+exclusions. The packer gathers one source row and writes both packed rows.
+An overlay invalidates its pair proof, so that row uses the ordinary complete
+path. The feature is compiled into the Low/Medium production path; High uses
+the existing full-resolution transport.
+
+Against the preceding proven-row executable, three Low guest repeats pass
+with all six image hashes exactly matching. Packing falls about 1.0–1.4 ms
+per frame. Total frame time: walking 54.209 -> 52.629 ms (2.9% reduction),
+down 130.098 -> 129.044 (0.8%), up 42.616 -> 41.561 (2.5%), edits 103.566
+-> 103.036 (0.5%); static and house remain neutral because retrace waiting
+absorbs the pack saving. Three High repeats pass with matching images and
+effectively unchanged frame time. The isolated real-game smoke passes graphics
+presets, VGA readback and new-world/fresh-process reload. Native helper tests
+cover byte and word comparisons, paired and unpaired rows, and the actual
+presenter across page and overlay transitions. Evidence:
+`tests/benchmarks/2026-10-11/proven-vertical-{low,high}*.json` and
+`tests/baselines/2026-10-11-proven-vertical-smoke/`.
+
+The production-default build is byte-identical to that isolated smoke build.
+Its own release smoke also passes. The save-preserving publication verifies
+EXE SHA256 `658afdf13a4d3cc84c73c4c3a3bd982f7f3f32bb981d21afd3b0cbe91b7c5b08`
+and ISO SHA256 `d2d68ab687344bd761ddae4db7d345c8f67ab3af774d017b283e58b549c847d5`.
+The current player HDD was copied byte-for-byte (SHA256
+`616357f0efc938478b8e4219cd5417dc4c0ebea51b599232f5464c0a9e14d7c7`)
+to `runtime/game-play-6kvsljso`; the previous VM remains intact and its ISO
+is retained as `ISO/DOSCRAFT.before-bbbeacf3f1e3.ISO`. Launcher validation
+passes. The earlier full-suite raster parity access violations remain an
+unresolved host-test limitation; focused VGA and recipe tests pass.
+The 289-test full run also exposed one stale expected-flags assertion, now
+updated and passing in isolation; the other three failures are the same
+unchanged native raster parity crashes, with two symlink-permission skips.

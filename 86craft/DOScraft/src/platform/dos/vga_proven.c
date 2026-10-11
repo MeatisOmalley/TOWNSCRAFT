@@ -42,7 +42,37 @@ int dos_vga_proven_pack_plan(const unsigned char *source, unsigned int pitch,
         unsigned char *b=a+DOS_VGA_PLANE_BYTES;
         unsigned char *c=b+DOS_VGA_PLANE_BYTES;
         unsigned char *d=c+DOS_VGA_PLANE_BYTES;
+#ifdef DOS_VGA_PROVEN_VERTICAL
+        if (y+1<VIEW_ROWS && !(y&1u) && (proven[y]&1u) &&
+            (proven[y+1]&3u)==3u) {
+            unsigned char *a2=a+ROW_BYTES;
+            unsigned char *c2=c+ROW_BYTES;
+            for (x=0; x<ROW_BYTES; x+=4) {
+#define PACK_PAIR(i) do { unsigned char v0=src[4*(x+i)]; \
+                             unsigned char v2=src[4*(x+i)+2]; \
+                             a[x+i]=a2[x+i]=v0; c[x+i]=c2[x+i]=v2; } while (0)
+                PACK_PAIR(0); PACK_PAIR(1); PACK_PAIR(2); PACK_PAIR(3);
+#undef PACK_PAIR
+            }
+            if (row_equal(a,c)) {
+                masks[0][y]=masks[0][y+1]=15;
+                masks[1][y]=masks[1][y+1]=0;
+                masks[2][y]=masks[2][y+1]=0;
+                masks[3][y]=masks[3][y+1]=0;
+            } else {
+                masks[0][y]=masks[0][y+1]=3;
+                masks[1][y]=masks[1][y+1]=0;
+                masks[2][y]=masks[2][y+1]=12;
+                masks[3][y]=masks[3][y+1]=0;
+            }
+            ++y;
+        } else
+#endif
+#ifdef DOS_VGA_PROVEN_VERTICAL
+        if (y<VIEW_ROWS && (proven[y]&1u)) {
+#else
         if (y<VIEW_ROWS && proven[y]) {
+#endif
             for (x=0; x<ROW_BYTES; x+=4) {
 #define PACK_OWNER(i) do { a[x+i]=src[4*(x+i)]; c[x+i]=src[4*(x+i)+2]; } while (0)
                 PACK_OWNER(0); PACK_OWNER(1); PACK_OWNER(2); PACK_OWNER(3);

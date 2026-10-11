@@ -32,8 +32,22 @@ void dos_video_unprove_low_rows(unsigned int begin, unsigned int end)
 {
     unsigned int y;
     if (begin>end || end>200) return;
-    for (y=begin; y<end; ++y) low_row_proven[y]=0;
+    for (y=begin; y<end; ++y) {
+        low_row_proven[y]=0;
+#ifdef DOS_VGA_PROVEN_VERTICAL
+        if (!(y&1u) && y+1<200) low_row_proven[y+1]&=(unsigned char)~2u;
+#endif
+    }
 }
+#ifdef DOS_VGA_PROVEN_VERTICAL
+void dos_video_prove_low_row_pairs(unsigned int begin, unsigned int end)
+{
+    unsigned int y;
+    if (begin>end || end>200) return;
+    for (y=(begin+1u)|1u; y<end; y+=2)
+        if (low_row_proven[y-1] && low_row_proven[y]) low_row_proven[y]|=2u;
+}
+#endif
 #endif
 #ifdef DOS_VGA_PACK_WORDS
 #ifndef DOS_VGA_PACK_ALL

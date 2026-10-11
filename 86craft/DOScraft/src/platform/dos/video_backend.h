@@ -11,6 +11,10 @@ void dos_video_set_repeated_pixel_hint(int enabled);
  * A presentation consumes the proof; no later page can inherit it. */
 void dos_video_prove_low_rows(unsigned int begin, unsigned int end);
 void dos_video_unprove_low_rows(unsigned int begin, unsigned int end);
+#ifdef DOS_VGA_PROVEN_VERTICAL
+/* The producer also copied each even view row into its odd partner. */
+void dos_video_prove_low_row_pairs(unsigned int begin, unsigned int end);
+#endif
 #endif
 
 void video_init(void);

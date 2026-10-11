@@ -24,6 +24,9 @@ def adapt(name, data):
         if(provenPlayFrame && state==GS_PLAY && g_renderScale==2 && rainLevel<=0)
         {
             dos_video_prove_low_rows(0,200);
+#ifdef DOS_VGA_PROVEN_VERTICAL
+            dos_video_prove_low_row_pairs(0,200);
+#endif
             dos_video_unprove_low_rows(96,105); /* Sharp crosshair. */
             if(mineProgress>0 && mineX>=0) dos_video_unprove_low_rows(110,114);
             if(g_ticks<itemNameUntil) dos_video_unprove_low_rows(188,200);

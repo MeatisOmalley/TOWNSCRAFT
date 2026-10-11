@@ -38,6 +38,14 @@ int main(void)
             if ((case_no&7u)==0 && y<200 && proof[y] && y%13u==0)
                 memset(row,17,320);
         }
+#ifdef DOS_VGA_PROVEN_VERTICAL
+        for (y=0; y<200; y+=2) if (proof[y] && proof[y+1] &&
+                                         (case_no+y)%3u!=0) {
+            memcpy(source+(case_no&7u)+(y+1)*337,
+                   source+(case_no&7u)+y*337,320);
+            proof[y+1]|=2u;
+        }
+#endif
         count=dos_vga_proven_pack_plan(src,337,dst,4*DOS_VGA_PLANE_BYTES,
                                         proof,runs,DOS_VGA_UPLOAD_MAX_RUNS);
         if (count<0 || (unsigned)count>DOS_VGA_UPLOAD_MAX_RUNS) return 1;

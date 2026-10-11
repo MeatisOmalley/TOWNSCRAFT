@@ -1,0 +1,59 @@
+{
+  "vm_directory": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-_gai2xlf",
+  "build": {
+    "stage": "Real game; silent audio; interactive acceptance pending",
+    "smoke": true,
+    "benchmark": false,
+    "target": "486dx25",
+    "vm_directory": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-_gai2xlf",
+    "source_commit": "d706a67db6242627c6233e5593fd1a1e1ddc69af",
+    "exe_sha256": "658afdf13a4d3cc84c73c4c3a3bd982f7f3f32bb981d21afd3b0cbe91b7c5b08",
+    "iso_sha256": "9466ebfa41aa959bc7955c773845c24a7a146753f08ada59114c9ccc734d3cdf",
+    "boot_sha256": "7e455dddd10378e54a4d9e71b1d91ab16cf895ff93406f33934e34f54adc9481",
+    "profile_sha256": "4a55e9d55bf587808bd75542d618b0f6b72dde58e08f8ff2b6b364b2780064d1",
+    "bios_seed_sha256": "9e9e81e955fbf1d726fb64680e68403ff75cad94048d706e1780fac10c0d1d27",
+    "emulator_sha256": "dc236a27e5fccb07d20a60f471e5c1252fbcd82d0505542dd8e4a15c1689e885",
+    "rom_sha256": {
+      "machines\\isa486\\ISA-486.BIN": "3b6e985cb94a6d37963f481a07cd6b1c84a698d6ba41fe4166298532b7c9a2be",
+      "video\\et4000\\ET4000_V8_06.BIN": "db2f8461274922026acc8b2a4fe1b0675d8ce7d6430108b74196527f36ed2c09",
+      "hdd\\esdi_at\\62-000279-061.bin": "dc9888282bd5e37262b9607d2c5ba6ca1a7ce5810588a4d1d03f517adc8c0c4d"
+    },
+    "disk_note": "New 20 MiB FAT16 development HDD; 1989_3500rpm timing proxy, not final Wren V",
+    "boot_note": "Floppy extracted from ISO; no native CD boot claim",
+    "audio": "SILENT_DEFERRED"
+  },
+  "reports": {
+    "PLAYNEW.TXT": "DOScraft real game-loop smoke\nMODE=NEW\nWORLD_WIDTH=256\nRESIDENT_COLUMNS=25\nMESH_QUADS=6996\nPRESENTED_FRAMES=149\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=9587\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nSAVE_RESULT=0\nLOAD_RESULT=-1\nAUDIO=SILENT_DEFERRED\nRESULT=PASS\nGRAPHICS_PRESETS=PASS\n",
+    "PLAYLOAD.TXT": "DOScraft real game-loop smoke\nMODE=LOAD\nWORLD_WIDTH=256\nRESIDENT_COLUMNS=25\nMESH_QUADS=5494\nPRESENTED_FRAMES=152\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=4314\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nSAVE_RESULT=-1\nLOAD_RESULT=0\nAUDIO=SILENT_DEFERRED\nRESULT=PASS\nGRAPHICS_PRESETS=PASS\n"
+  },
+  "save": {
+    "version": 3,
+    "width": 256,
+    "player_xyz": [
+      516436,
+      73728,
+      512407
+    ],
+    "yaw_pitch": [
+      928,
+      250
+    ],
+    "health": 20,
+    "selected": 0,
+    "rle_runs": 409007,
+    "chests": 0,
+    "active_mobs": 5,
+    "dormant_mobs": 0,
+    "region_seed": 3176311788,
+    "payload_end": 819627,
+    "checksum": 2952353088,
+    "sha256": "652c303d9a58e61b9b4868b3e83809fd81be1194d2505a97ef81a66ee64f7f4b"
+  },
+  "limitations": [
+    "Silent audio",
+    "AT-controller diagnostic input, not proof of Windows ingress",
+    "Snapshots after reload replace new-world images",
+    "No comprehensive feature parity or performance acceptance claim",
+    "Floppy extracted from ISO; no native optical boot claim"
+  ]
+}

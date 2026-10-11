@@ -93,7 +93,7 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','production','proven-rows','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','production','proven-rows','proven-vertical','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
     parser.add_argument('--timeout',type=int,help='Host timeout seconds; default 900 for short runs, increased for long runs')
     parser.add_argument('--quality',choices=('low','medium','high'),default='low')
     parser.add_argument('--frames',type=int,default=32,help='Measured frames per scene per repeat (32..10000); 10000 recommended for tail metrics')
@@ -117,9 +117,11 @@ def main():
         write_report(vm,output,manifest,build_record,args.label,collect(vm),args.archive)
         print(f'REPORT={vm / "performance.json"}')
         return
-    pre_proven_flags=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag!='-DDOS_VGA_PROVEN_ROWS')
+    pre_proven_flags=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS
+                           if flag not in ('-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL'))
     variants={'reference':(), 'production':DEFAULT_ADAPTER_FLAGS,
-        'proven-rows':DEFAULT_ADAPTER_FLAGS,
+        'proven-rows':tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag!='-DDOS_VGA_PROVEN_VERTICAL'),
+        'proven-vertical':DEFAULT_ADAPTER_FLAGS,
         'fused-low':(*pre_proven_flags,'-DDOS_VGA_FUSED'),
         'fused-words':(*pre_proven_flags,'-DDOS_VGA_FUSED','-DDOS_VGA_FUSED_TRANSPOSE'),
         'group-facing':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_GROUP_FACING'), 'pack-all':('-DDOS_VGA_PACK_ALL',),

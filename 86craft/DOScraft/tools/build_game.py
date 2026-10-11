@@ -16,8 +16,8 @@ ROOT=imported.ROOT
 OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c')
-DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS')
-PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS')
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL')
+PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL')
 
 
 def portable_experiment_flags(flags):
@@ -56,6 +56,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         wall_verify='-DDOS_WALL_VERIFY' in extra_adapter_flags
         group_facing='-DDOS_GROUP_FACING' in extra_adapter_flags
         proven_rows='-DDOS_VGA_PROVEN_ROWS' in extra_adapter_flags
+        if '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags and not proven_rows:
+            raise ValueError('Vertical row proof requires proven rows')
         if proven_rows and ('-DDOS_VGA_FUSED' in extra_adapter_flags or
                             '-DDOS_VGA_FUSED_TRANSPOSE' in extra_adapter_flags):
             raise ValueError('Measure proven rows independently of fused packing')
