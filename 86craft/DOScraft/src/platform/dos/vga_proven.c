@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <string.h>
 #include <limits.h>
 #include "vga_proven.h"
 #include "vga_pack.h"
@@ -33,7 +34,7 @@ static int pack_plan(const unsigned char *source, unsigned int pitch,
                              unsigned char *planes, unsigned int capacity,
                              const unsigned char *proven,
                              struct DosVgaRun *runs, unsigned int run_capacity,
-                             int view_only)
+                             int view_only, const unsigned char *planar)
 {
     unsigned char masks[4][VIEW_ROWS];
     unsigned int y,x,p,count=0;
@@ -46,6 +47,26 @@ static int pack_plan(const unsigned char *source, unsigned int pitch,
         unsigned char *b=a+DOS_VGA_PLANE_BYTES;
         unsigned char *c=b+DOS_VGA_PLANE_BYTES;
         unsigned char *d=c+DOS_VGA_PLANE_BYTES;
+#ifdef DOS_LOW_PLANAR
+        if (planar && y<VIEW_ROWS && !(y&1u) && planar[y>>1]) {
+            /* The renderer wrote this row of planes 0 and 2 directly. */
+            memcpy(a+ROW_BYTES,a,ROW_BYTES);
+            memcpy(c+ROW_BYTES,c,ROW_BYTES);
+            if (row_equal(a,c)) {
+                masks[0][y]=masks[0][y+1]=15;
+                masks[2][y]=masks[2][y+1]=0;
+            } else {
+                masks[0][y]=masks[0][y+1]=3;
+                masks[2][y]=masks[2][y+1]=12;
+            }
+            masks[1][y]=masks[1][y+1]=0;
+            masks[3][y]=masks[3][y+1]=0;
+            ++y;
+            continue;
+        }
+#else
+        (void)planar;
+#endif
 #ifdef DOS_VERY_LOW
         if (dos_very_low_mode && y<VIEW_ROWS && (proven[y]&1u)) {
 #ifdef DOS_VGA_PROVEN_VERTICAL
@@ -164,7 +185,7 @@ int dos_vga_proven_pack_plan(const unsigned char *source, unsigned int pitch,
                              const unsigned char *proven,
                              struct DosVgaRun *runs, unsigned int run_capacity)
 {
-    return pack_plan(source,pitch,planes,capacity,proven,runs,run_capacity,0);
+    return pack_plan(source,pitch,planes,capacity,proven,runs,run_capacity,0,0);
 }
 
 int dos_vga_proven_pack_plan_view(const unsigned char *source, unsigned int pitch,
@@ -172,5 +193,16 @@ int dos_vga_proven_pack_plan_view(const unsigned char *source, unsigned int pitc
                              const unsigned char *proven,
                              struct DosVgaRun *runs, unsigned int run_capacity)
 {
-    return pack_plan(source,pitch,planes,capacity,proven,runs,run_capacity,1);
+    return pack_plan(source,pitch,planes,capacity,proven,runs,run_capacity,1,0);
 }
+
+#ifdef DOS_LOW_PLANAR
+int dos_vga_proven_pack_plan_planar(const unsigned char *source, unsigned int pitch,
+                             unsigned char *planes, unsigned int capacity,
+                             const unsigned char *proven, const unsigned char *planar,
+                             struct DosVgaRun *runs, unsigned int run_capacity,
+                             int view_only)
+{
+    return pack_plan(source,pitch,planes,capacity,proven,runs,run_capacity,view_only,planar);
+}
+#endif

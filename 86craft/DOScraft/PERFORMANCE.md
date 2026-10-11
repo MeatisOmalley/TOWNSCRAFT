@@ -1262,3 +1262,32 @@ unresolved host-test limitation; focused VGA and recipe tests pass.
 The 289-test full run also exposed one stale expected-flags assertion, now
 updated and passing in isolation; the other three failures are the same
 unchanged native raster parity crashes, with two symlink-permission skips.
+
+## Sub-tick flip guard, Very Low isolation and planar Low (2026-10-11)
+
+Short three-repeat Low replays (32 frames per scene); every candidate keeps
+all six scene hashes identical to the preceding build.
+
+- **Flip guard.** The async flip waited for retrace whenever fewer than three
+  100 Hz ticks had passed since the latest flip. It now reads PIT channel 2
+  (speaker gate on, output off; the benchmark clock's setup) and checks the
+  second most recent flip, which is the one that freed the page about to be
+  written. walk 41.9 -> 38.2 ms, walk_up 37.2 -> 30.8 ms, retrace wait 0 in
+  every scene. Native tests cover gaps around the 17.5 ms threshold, tick
+  phases and channel-2 wraps. PC-speaker audio would need a different clock.
+- **Very Low isolation.** The Very Low texel skip had been inserted into the
+  shared scale-2 trapezoid loops, costing Low/Medium a load, compare and
+  increment per scanline (Low still 62.1 -> 62.7 ms). It now uses separate
+  entry points selected once per frame; Low drawing returns to 32.3 ms and
+  Very Low hashes are unchanged.
+- **Planar Low (DOS_LOW_PLANAR, now default).** Scale-2 play frames render
+  straight into the presenter's Mode X plane rows. Against the isolated
+  production build: still 62.1 -> 58.2, walk 38.1 -> 35.6, down 116.7 ->
+  111.8, walk_up 30.8 -> 28.9, house 75.1 -> 70.6, edits 81.2 -> 76.6 ms.
+  Pack falls 3.5 -> 1.8 ms and drawing about 2 ms. Native presenter tests
+  scramble the chunky rows of planar frames to prove they are not read.
+
+Evidence: `tests/benchmarks/2026-10-11/flip-fine-v2-low.json`,
+`vl-isolated-low.json`, `low-planar-low.json`, `very-low-planar-build.json`.
+Medium uses the same scale-2 path but was not benchmarked separately. The
+real-input gameplay smoke has not been rerun on the planar build.

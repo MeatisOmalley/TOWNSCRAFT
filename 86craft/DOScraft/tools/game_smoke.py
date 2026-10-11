@@ -20,12 +20,13 @@ def main():
     parser.add_argument('--trap-four',action='store_true',help='Test four-texel opaque loops together with accepted production transport')
     parser.add_argument('--proven-rows',action='store_true',help='Explicitly include the scale-2 row proof (already in current defaults)')
     parser.add_argument('--proven-vertical',action='store_true',help='Explicitly include even/odd row reuse (already in current defaults)')
+    parser.add_argument('--low-planar',action='store_true',help='Test scale-2 rendering straight into Mode X plane rows')
     parser.add_argument('--build-output',type=Path,default=OUTPUT,help='Isolated build directory for experimental smoke tests')
     args=parser.parse_args()
     if args.trap_destination and args.trap_four:
         parser.error('Measure alternate trap probes separately')
     flags=None
-    if args.omit_frame_pointer or args.et4000_chunky or args.trap_destination or args.trap_four or args.proven_rows or args.proven_vertical:
+    if args.omit_frame_pointer or args.et4000_chunky or args.trap_destination or args.trap_four or args.proven_rows or args.proven_vertical or args.low_planar:
         defaults=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS
             if not (args.trap_destination and flag=='-DDOS_TRAP_FOUR'))
         flags=tuple(dict.fromkeys([*defaults,
@@ -34,7 +35,8 @@ def main():
             *(('-DDOS_TRAP_DESTINATION',) if args.trap_destination else ()),
             *(('-DDOS_TRAP_FOUR',) if args.trap_four else ()),
             *(('-DDOS_VGA_PROVEN_ROWS',) if args.proven_rows else ()),
-            *(('-DDOS_VGA_PROVEN_VERTICAL',) if args.proven_vertical else ())]))
+            *(('-DDOS_VGA_PROVEN_VERTICAL',) if args.proven_vertical else ()),
+            *(('-DDOS_LOW_PLANAR',) if args.low_planar else ())]))
     build(output=args.build_output,extra_adapter_flags=flags)
     vm,record=prepare(smoke=True,bios=args.bios,output=args.build_output)
     process=subprocess.Popen(validate(vm),cwd=vm)

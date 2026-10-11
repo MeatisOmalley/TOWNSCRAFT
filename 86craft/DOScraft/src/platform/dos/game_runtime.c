@@ -71,6 +71,10 @@ static void snapshot(const char *path,const u8 *frame)
 {
     unsigned char palette[768];
     int i,row,ok=1;
+#ifdef DOS_LOW_PLANAR
+    /* Planar view rows live in presenter scratch that verification reuses. */
+    raster_complete_odd_rows();
+#endif
     if(dos_video_verify(frame,512)) vga_ok=0;
 #ifdef DOS_RASTER_FINISH_SKIP
     /* Capture the displayed image after verifying the optimized source. */

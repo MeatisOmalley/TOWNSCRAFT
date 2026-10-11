@@ -29,6 +29,13 @@ void dos_video_present(const unsigned char *source, unsigned int pitch);
 #ifdef DOS_VERY_LOW
 void dos_video_complete_very_low_source(unsigned char *source, unsigned int pitch);
 #endif
+#ifdef DOS_LOW_PLANAR
+/* Planar Low: the scale-2 renderer writes logical rows into these Mode X
+ * plane rows (planes 0/2, 160 bytes per logical row). rows[y] marks logical
+ * rows held there for the next presentation only. */
+unsigned char *dos_video_planar_target(void);
+void dos_video_planar_frame(const unsigned char *rows);
+#endif
 /* Diagnostic only, deliberately reads VRAM; not a rendering hot path. */
 int dos_video_verify(const unsigned char *source, unsigned int pitch);
 

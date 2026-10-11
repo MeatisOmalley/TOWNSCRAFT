@@ -10,7 +10,7 @@ from build_imported import replace_once
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
-          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False):
+          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False,low_planar=False):
     recipe=[]
     if raster_finish_skip:
         import dos_raster_finish_skip
@@ -41,6 +41,12 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     if very_low_texels:
         import dos_very_low_texels
         data,steps=dos_very_low_texels.adapt(name,data)
+        recipe.extend(steps)
+    if low_planar:
+        if not raster_finish_skip:
+            raise ValueError('Planar Low expands the raster-finish-skip overlay bands')
+        import dos_low_planar
+        data,steps=dos_low_planar.adapt(name,data)
         recipe.extend(steps)
     if trap_stable:
         if trap_zero_gradient or trap_destination:

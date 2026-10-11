@@ -17,4 +17,16 @@ int dos_vga_proven_pack_plan_view(const unsigned char *source, unsigned int pitc
                              const unsigned char *proven,
                              struct DosVgaRun *runs, unsigned int run_capacity);
 
+#ifdef DOS_LOW_PLANAR
+/* planar[y/2] marks view row pairs whose planes 0 and 2 the renderer already
+ * wrote at row y (even) of planes; they are doubled and classified, never
+ * gathered from source. Other rows follow the proof rules above. view_only
+ * leaves the HUD rows untouched. */
+int dos_vga_proven_pack_plan_planar(const unsigned char *source, unsigned int pitch,
+                             unsigned char *planes, unsigned int capacity,
+                             const unsigned char *proven, const unsigned char *planar,
+                             struct DosVgaRun *runs, unsigned int run_capacity,
+                             int view_only);
+#endif
+
 #endif

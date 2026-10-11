@@ -97,7 +97,7 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','production','async-flip','sync-flip','proven-rows','proven-vertical','hud-proof','raster-finish-skip','very-low','very-low-texels','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','production','async-flip','sync-flip','proven-rows','proven-vertical','hud-proof','raster-finish-skip','very-low','very-low-texels','low-planar','pre-planar','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
     parser.add_argument('--timeout',type=int,help='Host timeout seconds; default 900 for short runs, increased for long runs')
     parser.add_argument('--quality',choices=('low','medium','high','very-low'),default='low')
     parser.add_argument('--quality-sweep',action='store_true',help='Run Low, Medium, High in one guest process and world')
@@ -130,7 +130,7 @@ def main():
         return
     pre_very_low_flags=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS
                              if flag not in ('-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW',
-                                             '-DDOS_VERY_LOW_TEXELS'))
+                                             '-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR'))
     pre_proven_flags=tuple(flag for flag in pre_very_low_flags
                            if flag not in ('-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_HUD_PROOF'))
     variants={'reference':(), 'production':DEFAULT_ADAPTER_FLAGS,
@@ -142,6 +142,8 @@ def main():
         'raster-finish-skip':(*pre_very_low_flags,'-DDOS_RASTER_FINISH_SKIP'),
         'very-low':(*pre_very_low_flags,'-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW'),
         'very-low-texels':DEFAULT_ADAPTER_FLAGS,
+        'low-planar':DEFAULT_ADAPTER_FLAGS,
+        'pre-planar':tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag!='-DDOS_LOW_PLANAR'),
         'fused-low':(*pre_proven_flags,'-DDOS_VGA_FUSED'),
         'fused-words':(*pre_proven_flags,'-DDOS_VGA_FUSED','-DDOS_VGA_FUSED_TRANSPOSE'),
         'group-facing':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_GROUP_FACING'), 'pack-all':('-DDOS_VGA_PACK_ALL',),

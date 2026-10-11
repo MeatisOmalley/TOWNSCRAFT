@@ -10,6 +10,10 @@
 #include "vga_pack.h"
 static unsigned char vram[4][65536],source[512*240+4];
 static unsigned char before[4][65536];
+#ifdef DOS_LOW_PLANAR
+static unsigned char saved_source[sizeof(source)];
+static unsigned char planar_rows[100];
+#endif
 static unsigned int mask=15,readplane,index,start_hi,start_lo,retrace,bytes_written;
 static unsigned int vsync_reads,start_lo_writes;
 static uclock_t test_clock;
@@ -94,12 +98,36 @@ int main(void)
             dos_video_prove_hud_unchanged((frame+1)%3);
 #endif
 #ifdef DOS_VGA_PROVEN_ROWS
+#ifdef DOS_LOW_PLANAR
+        if(frame%3==0 && frame%6!=0) {
+#else
         if(frame%3==0) {
+#endif
             dos_video_prove_low_rows(0,200);
 #ifdef DOS_VGA_PROVEN_VERTICAL
             dos_video_prove_low_row_pairs(0,200);
 #endif
             dos_video_unprove_low_rows(110,111); /* One sharp view pixel. */
+        }
+#endif
+#ifdef DOS_LOW_PLANAR
+        /* The renderer's planar rows, then scrambled source rows: correct
+         * VRAM proves those rows came from the plane buffer. Logical row 55
+         * (rows 110/111, the sharp pixel) stays chunky; frames divisible by
+         * six carry no row proof at all. */
+        memcpy(saved_source,source,sizeof(source));
+        if(frame%3==0 && hint) {
+            unsigned char *planes=dos_video_planar_target();
+            for(y=0;y<100;++y) {
+                planar_rows[y]=y!=55;
+                for(x=0;x<160;++x)
+                    planes[y*160+(x&1)*38400+(x>>1)]=source[1+2*y*pitch+2*x];
+                if(planar_rows[y]) for(x=0;x<320;++x) {
+                    source[1+2*y*pitch+x]^=0x5a;
+                    source[1+(2*y+1)*pitch+x]^=0xa5;
+                }
+            }
+            dos_video_planar_frame(planar_rows);
         }
 #endif
         bytes_written=0;
@@ -110,6 +138,9 @@ int main(void)
         reads_before=vsync_reads;
 #endif
         dos_video_present(source+1,pitch);
+#ifdef DOS_LOW_PLANAR
+        memcpy(source,saved_source,sizeof(source));
+#endif
 #ifdef DOS_VGA_ASYNC_FLIP
         assert(start_lo_writes==1);
         /* Wait only when neither of the last two gaps spans a refresh. */

@@ -258,6 +258,19 @@ static unsigned char packed[4 * DOS_VGA_PLANE_BYTES];
 static unsigned char packed[DOS_VGA_PLANE_BYTES];
 #endif
 static unsigned char readback[DOS_VGA_PLANE_BYTES];
+#ifdef DOS_LOW_PLANAR
+#if !defined(DOS_VGA_PROVEN_ROWS) || !defined(DOS_VGA_PROVEN_VERTICAL)
+#error Planar Low requires the producer-proven vertical presenter
+#endif
+/* The scale-2 renderer writes planar view rows straight into packed planes
+ * 0 and 2 (low_planar.S, PLANE_C=38400). planar_rows marks, per logical row,
+ * which view rows the packed planes already hold for this frame. */
+typedef char planar_plane_offset[(2*DOS_VGA_PLANE_BYTES==38400) ? 1 : -1];
+static const unsigned char *planar_rows;
+static const unsigned char no_row_proof[200];
+unsigned char *dos_video_planar_target(void) { return packed; }
+void dos_video_planar_frame(const unsigned char *rows) { planar_rows=rows; }
+#endif
 
 static void bios_mode(int number)
 {
@@ -375,6 +388,14 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOS_VGA_PROVEN_ROWS
     int proven_count=-1;
     int use_proven=low_rows_active && repeated_pixel_hint;
+#ifdef DOS_LOW_PLANAR
+    /* Planar frames always come from the scale-2 renderer (repeated pixels). */
+    const unsigned char *planar=repeated_pixel_hint ? planar_rows : 0;
+    int use_pack_plan=use_proven || planar;
+    planar_rows=0;
+#else
+    int use_pack_plan=use_proven;
+#endif
     low_rows_active=0;
 #ifdef DOS_RASTER_FINISH_SKIP
     last_proven_present=use_proven;
@@ -480,8 +501,19 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
     } else
 #endif
 #ifdef DOS_VGA_PROVEN_ROWS
-    if(use_proven) {
+    if(use_pack_plan) {
         proven_count=
+#ifdef DOS_LOW_PLANAR
+            planar ? dos_vga_proven_pack_plan_planar(source,pitch,packed,sizeof(packed),
+                         use_proven ? low_row_proven : no_row_proof,planar,
+                         upload_runs,DOS_VGA_UPLOAD_MAX_RUNS,
+#ifdef DOS_VGA_HUD_PROOF
+                         skip_hud
+#else
+                         0
+#endif
+                         ) :
+#endif
 #ifdef DOS_VGA_HUD_PROOF
             skip_hud ? dos_vga_proven_pack_plan_view(source,pitch,packed,sizeof(packed),
                                                low_row_proven,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS) :
@@ -515,7 +547,7 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOS_VGA_FUSED
         count=fused_count;
 #elif defined(DOS_VGA_PROVEN_ROWS)
-        count=use_proven ? proven_count :
+        count=use_pack_plan ? proven_count :
             dos_vga_upload_plan(packed,DOS_VGA_PLANE_BYTES,200,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);
 #else
         count=dos_vga_upload_plan(packed,DOS_VGA_PLANE_BYTES,200,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);

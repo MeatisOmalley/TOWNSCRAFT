@@ -17,8 +17,8 @@ OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c',
     'craft_grid.c')
-DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS')
-PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS')
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR')
+PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR')
 
 
 def portable_experiment_flags(flags):
@@ -60,6 +60,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         raster_finish_skip='-DDOS_RASTER_FINISH_SKIP' in extra_adapter_flags
         very_low='-DDOS_VERY_LOW' in extra_adapter_flags
         very_low_texels='-DDOS_VERY_LOW_TEXELS' in extra_adapter_flags
+        low_planar='-DDOS_LOW_PLANAR' in extra_adapter_flags
         if '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags and not proven_rows:
             raise ValueError('Vertical row proof requires proven rows')
         if raster_finish_skip and not (proven_rows and '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags):
@@ -68,6 +69,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             raise ValueError('Very Low output requires the repeated-row raster finish path')
         if very_low_texels and not very_low:
             raise ValueError('Very Low texels require Very Low output')
+        if low_planar and not (raster_finish_skip and '-DDOS_VGA_PACK_ALL' in extra_adapter_flags and
+                               '-DDOS_VGA_BROADCAST' in extra_adapter_flags):
+            raise ValueError('Planar Low requires the finish-skip bands and all-plane broadcast presenter')
         if proven_rows and ('-DDOS_VGA_FUSED' in extra_adapter_flags or
                             '-DDOS_VGA_FUSED_TRANSPOSE' in extra_adapter_flags):
             raise ValueError('Measure proven rows independently of fused packing')
@@ -79,7 +83,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             wall_visibility=wall_visibility,wall_verify=wall_verify,group_facing=group_facing,
             hud_proof='-DDOS_VGA_HUD_PROOF' in extra_adapter_flags,
             proven_rows=proven_rows,raster_finish_skip=raster_finish_skip,
-            very_low_texels=very_low_texels)
+            very_low_texels=very_low_texels,low_planar=low_planar)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
@@ -105,6 +109,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             names=(*names,'vga_proven.c')
         if packed_raster:
             names=(*names,'packed_raster.c')
+        if low_planar:
+            names=(*names,'low_planar.S')
         if front_to_back:
             names=(*names,'coverage_spans.c','f2b_capture.c','f2b_texel.c','f2b_raster.c','f2b_span.S')
         if edge_recip: names=(*names,'edge_recip.c')

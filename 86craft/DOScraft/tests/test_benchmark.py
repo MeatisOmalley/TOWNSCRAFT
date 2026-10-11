@@ -30,7 +30,7 @@ class BenchmarkTests(unittest.TestCase):
                 defaults=tuple(flag for flag in benchmark.DEFAULT_ADAPTER_FLAGS
                     if candidate=='group-facing' or flag not in
                     ('-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_HUD_PROOF',
-                     '-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS'))
+                     '-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR'))
                 self.assertEqual(build.call_args.kwargs,{'benchmark':True,
                     'extra_adapter_flags':(*defaults,*extra,
                         '-DDOS_BENCH_QUALITY=0')})
@@ -55,7 +55,7 @@ class BenchmarkTests(unittest.TestCase):
                     defaults=tuple(flag for flag in benchmark.DEFAULT_ADAPTER_FLAGS
                         if candidate!='proven-rows' or flag not in
                         ('-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP',
-                         '-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS'))
+                         '-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR'))
                     self.assertEqual(build.call_args.kwargs,{'benchmark':True,
                         'extra_adapter_flags':(*defaults,
                             '-DDOS_BENCH_QUALITY='+str(index))})
