@@ -76,8 +76,9 @@ samples, not proof of which instructions or cache misses dominate.
    See PERFORMANCE.md for fingerprints and preserved player HDD/previous ISO.
    A separate direct pitched-row upload prototype avoids full-frame RAM
    gathering while switching banks only at real crossings. Native presenter
-   tests pass; High guest timing is running. It remains off pending benefit,
-   Low screening and normal-game verification.
+   tests pass; three High repeats save about 0.5-1.6% in moving/edit scenes,
+   with neutral Low timing and matching images in both profiles. Combined
+   production timing and normal-game verification remain adoption gates.
 
 Stationary-only reuse and already-rejected edge reciprocal/word transpose
 variants are lower priority. x87 conversion, reduced visible content, spawning
@@ -87,6 +88,16 @@ comparison now includes average FPS, slow-tail FPS and sample-support flags;
 
 Next bounded probes should include both invisible and quality-gated options:
 
+- Independently investigate **fused Low plane packing/broadcast classification**.
+  `gfx_present` supplies only a render-scale hint, not a proof that every
+  view pixel is doubled: menus, crosshairs and sharp text may violate it.
+  The current presenter packs all four planes with `dos_vga_pack_all`, then
+  scans packed rows again with `dos_vga_upload_plan`. Detect equal pairs
+  during packing, retaining exact arbitrary-pixel row fallbacks and the sharp
+  per-page HUD, rather than blindly discarding planes/odd rows. Measure the
+  cost of validation/fallback versus avoided stores/scans; the prior losing
+  word-transpose probe is not evidence that this fusion helps. This targets
+  Low's remaining roughly 8.5 ms pack section, not just stationary reuse.
 - Independently reuse the accepted word-wise HUD identity helper for the
   banked High path. The current chunky HUD check uses the imported byte-loop
   `memcmp` over 12,800 bytes; direct-row timing still spends about 5.2 ms in
