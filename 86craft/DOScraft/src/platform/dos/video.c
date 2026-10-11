@@ -14,6 +14,27 @@
 #include "vga_pack.h"
 #include "video_backend.h"
 #include "bench_transport.h"
+#ifdef DOS_VGA_PROVEN_ROWS
+#if !defined(DOS_VGA_BROADCAST) || !defined(DOS_VGA_PACK_ALL)
+#error Proven rows require accepted all-plane packing and broadcast
+#endif
+#include "vga_proven.h"
+static unsigned char low_row_proven[200];
+static int low_rows_active;
+void dos_video_prove_low_rows(unsigned int begin, unsigned int end)
+{
+    unsigned int y;
+    if (begin>end || end>200) return;
+    for (y=begin; y<end; ++y) low_row_proven[y]=1;
+    low_rows_active=1;
+}
+void dos_video_unprove_low_rows(unsigned int begin, unsigned int end)
+{
+    unsigned int y;
+    if (begin>end || end>200) return;
+    for (y=begin; y<end; ++y) low_row_proven[y]=0;
+}
+#endif
 #ifdef DOS_VGA_PACK_WORDS
 #ifndef DOS_VGA_PACK_ALL
 #error Word packing requires the all-plane framebuffer layout
@@ -238,6 +259,11 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOS_VGA_FUSED
     int fused_count=-1;
 #endif
+#ifdef DOS_VGA_PROVEN_ROWS
+    int proven_count=-1;
+    int use_proven=low_rows_active && repeated_pixel_hint;
+    low_rows_active=0;
+#endif
 #ifdef DOSCRAFT_BENCH
     unsigned int stamp;
 #endif
@@ -315,6 +341,15 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         }
     } else
 #endif
+#ifdef DOS_VGA_PROVEN_ROWS
+    if(use_proven) {
+        proven_count=dos_vga_proven_pack_plan(source,pitch,packed,sizeof(packed),
+                                               low_row_proven,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);
+        if(proven_count<0) {
+            dos_video_restore(); fputs("Invalid proven framebuffer\n",stderr); exit(1);
+        }
+    } else
+#endif
     if(
 #ifdef DOS_VGA_PACK_WORDS
        dos_vga_pack_words(source,pitch,packed,sizeof(packed))
@@ -336,6 +371,9 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #endif
 #ifdef DOS_VGA_FUSED
         count=fused_count;
+#elif defined(DOS_VGA_PROVEN_ROWS)
+        count=use_proven ? proven_count :
+            dos_vga_upload_plan(packed,DOS_VGA_PLANE_BYTES,200,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);
 #else
         count=dos_vga_upload_plan(packed,DOS_VGA_PLANE_BYTES,200,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);
 #endif

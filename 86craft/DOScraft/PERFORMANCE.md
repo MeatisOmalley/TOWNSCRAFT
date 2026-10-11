@@ -1183,3 +1183,45 @@ adding explicit independence/default-off checks for all three new probes.
 All owned diagnostic VMs are closed, reports/disks retained, and the playable
 ISO SHA256 remains `37dc703776a574b6dad1db87af55151c13203444d4190060d8fa515e06108fd6`.
 No player disk, game/UI logic, benchmark doorway/route or production flag changed.
+
+## Producer-proven Low/Medium VGA rows
+
+The renderer's scale-2 view writes doubled horizontal pixels and copies each
+even view row to its odd partner. The DOS-only gameplay overlay now marks only
+those rows as proven for the next presentation. Crosshair, mining, item-name,
+message and debug overlays remove their affected rows from that proof; rain,
+other screens and full-resolution views use the existing complete path. The
+packer reads owner pixels into planes 0/2 for proven rows and broadcasts each
+exact pair. Sharp rows and the 40-row HUD retain all four planes. No pixels are
+approximated, and the proof is consumed after each presentation.
+
+The final `proven-rows-low-v2.json` replay has three PASS repeats and VGA
+readback. Relative to the published combined release, static is neutral
+(67.420 -> 67.421 ms); walking improves 58.424 -> 54.209 ms (7.2% frame-time
+reduction), full-down 136.422 -> 130.098 (4.6%), full-up 53.858 -> 42.616
+(20.9%, retrace-quantized), house 95.878 -> 86.921 (9.3%), and edits 112.527
+-> 103.566 (8.0%). High's three PASS repeats have exact matching images and
+essentially neutral times; its full-resolution transport does not use the new
+proof. Evidence: `tests/benchmarks/2026-10-10/proven-rows-{low-v2,high}.json`
+and their comparison JSONs.
+
+Low `walk_down` has the already reviewed ET4000 texture-edge image difference
+in reverse: 20 doubled physical pixels, five logical samples, with identical
+HUD/palette bytes. All six raw candidate scenes match the preserved pre-ET4000
+diagnostic byte-for-byte in all three repeats. The review and PNGs are in
+`tests/baselines/2026-10-10-proven-rows-frame-diff/`. Native helper and actual
+presenter parity tests pass, and the real-game new-world/fresh-process reload
+smoke passes with graphics presets and VGA readback. The full 287-test host
+suite reports three persistent Windows access-violation failures in older
+native raster parity executables; the isolated rerun reproduces them, while
+the new VGA tests pass. This is a remaining host-suite limitation, not a
+passing full-suite claim.
+
+The exact smoke-verified executable is now the playable build. EXE SHA256:
+`bbbeacf3f1e370a6f760f7c94542b43404b1871fca5bcab3553e11bc879cd168`;
+ISO SHA256: `1cb93ea7a05c485fe1ade840cbd091acf9e4c544ed7eab768aec697e625f384e`.
+The save-preserving publication copied the current player HDD byte-for-byte
+(SHA256 `9ae1e5d033fda32bd5cb73cf715a56023735e822b43aaa93f9770e21f7f1b4b7`)
+to `runtime/game-play-0lp6w98j`, retained the prior VM, and saved the prior ISO
+as `ISO/DOSCRAFT.before-b366a4da0e4b.ISO`. Launcher validation passes. No
+gameplay, UI, save-format or Towns vendor source change was made.

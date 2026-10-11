@@ -16,7 +16,8 @@ class VideoTransportTests(unittest.TestCase):
                       ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_HUD_WORDS'],
                       ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS'],
                       ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_FUSED'],
-                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_FUSED','-DDOS_VGA_FUSED_TRANSPOSE']):
+                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_FUSED','-DDOS_VGA_FUSED_TRANSPOSE'],
+                      ['-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS']):
             with self.subTest(flags=flags),tempfile.TemporaryDirectory(prefix='doscraft-present-test-') as directory:
                 exe=Path(directory)/'test.exe'
                 command=[str(ZIG),'cc','-target','x86-windows-gnu','-O2','-Wall','-Wextra','-Werror',*flags,
@@ -26,6 +27,7 @@ class VideoTransportTests(unittest.TestCase):
                     str(ROOT/'src/platform/dos/vga_hud_cache.c'),
                     str(ROOT/'src/platform/dos/vga_upload_plan.c'),
                     str(ROOT/'src/platform/dos/vga_fused.c'),
+                    str(ROOT/'src/platform/dos/vga_proven.c'),
                     str(ROOT/'src/platform/dos/vga_pack_words.c'),
                     '-o',str(exe)]
                 process=subprocess.run(command,capture_output=True,text=True,timeout=120)

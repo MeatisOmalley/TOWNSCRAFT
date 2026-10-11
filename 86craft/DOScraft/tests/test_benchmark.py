@@ -27,28 +27,32 @@ class BenchmarkTests(unittest.TestCase):
                  patch.object(Path,'read_text',return_value='{"exe_sha256":"fixture"}'), \
                  patch.object(benchmark.subprocess,'Popen') as launch:
                 benchmark.main()
+                defaults=tuple(flag for flag in benchmark.DEFAULT_ADAPTER_FLAGS
+                    if candidate=='group-facing' or flag!='-DDOS_VGA_PROVEN_ROWS')
                 self.assertEqual(build.call_args.kwargs,{'benchmark':True,
-                    'extra_adapter_flags':(*benchmark.DEFAULT_ADAPTER_FLAGS,*extra,
+                    'extra_adapter_flags':(*defaults,*extra,
                         '-DDOS_BENCH_QUALITY=0')})
                 launch.assert_not_called()
         for flag in ('-DDOS_VGA_FUSED','-DDOS_VGA_FUSED_TRANSPOSE','-DDOS_GROUP_FACING'):
             self.assertNotIn(flag,benchmark.DEFAULT_ADAPTER_FLAGS)
+        self.assertIn('-DDOS_VGA_PROVEN_ROWS',benchmark.DEFAULT_ADAPTER_FLAGS)
 
     def test_production_recipe_uses_current_defaults_without_changing_replay(self):
         for index,quality in enumerate(('low','medium','high')):
-            with self.subTest(quality=quality), \
-                 patch.object(sys,'argv',['benchmark.py','--candidate','production',
+            for candidate in ('production','proven-rows'):
+                with self.subTest(quality=quality,candidate=candidate), \
+                 patch.object(sys,'argv',['benchmark.py','--candidate',candidate,
                      '--quality',quality,'--bios','seed/isa486.nvr','--prepare-only']), \
                  patch.object(benchmark,'build') as build, \
                  patch.object(benchmark,'prepare',return_value=(Path('private/vm'),{'exe_sha256':'fixture'})), \
                  patch.object(benchmark,'validate',return_value=[]), \
                  patch.object(Path,'read_text',return_value='{"exe_sha256":"fixture"}'), \
                  patch.object(benchmark.subprocess,'Popen') as launch:
-                benchmark.main()
-                self.assertEqual(build.call_args.kwargs,{'benchmark':True,
-                    'extra_adapter_flags':(*benchmark.DEFAULT_ADAPTER_FLAGS,
-                        '-DDOS_BENCH_QUALITY='+str(index))})
-                launch.assert_not_called()
+                    benchmark.main()
+                    self.assertEqual(build.call_args.kwargs,{'benchmark':True,
+                        'extra_adapter_flags':(*benchmark.DEFAULT_ADAPTER_FLAGS,
+                            '-DDOS_BENCH_QUALITY='+str(index))})
+                    launch.assert_not_called()
 
     def test_guest_clock_wrap_resolution(self):
         root=Path(__file__).resolve().parents[1]

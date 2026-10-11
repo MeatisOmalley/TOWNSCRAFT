@@ -68,6 +68,12 @@ int main(void)
         hint=(frame/7)%2==0;
 #endif
         dos_video_set_repeated_pixel_hint(hint);
+#ifdef DOS_VGA_PROVEN_ROWS
+        if(frame%3==0) {
+            dos_video_prove_low_rows(0,200);
+            dos_video_unprove_low_rows(110,111); /* One sharp view pixel. */
+        }
+#endif
         bytes_written=0;
         bank_writes=0;
         memcpy(before,vram,sizeof(before));

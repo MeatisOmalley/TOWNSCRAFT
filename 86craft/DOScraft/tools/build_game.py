@@ -16,8 +16,8 @@ ROOT=imported.ROOT
 OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c')
-DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS')
-PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer')
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS')
+PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS')
 
 
 def portable_experiment_flags(flags):
@@ -55,12 +55,17 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         wall_visibility='-DDOS_WALL_VISIBILITY' in extra_adapter_flags
         wall_verify='-DDOS_WALL_VERIFY' in extra_adapter_flags
         group_facing='-DDOS_GROUP_FACING' in extra_adapter_flags
+        proven_rows='-DDOS_VGA_PROVEN_ROWS' in extra_adapter_flags
+        if proven_rows and ('-DDOS_VGA_FUSED' in extra_adapter_flags or
+                            '-DDOS_VGA_FUSED_TRANSPOSE' in extra_adapter_flags):
+            raise ValueError('Measure proven rows independently of fused packing')
         transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
             raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster,
             early_split_cull=early_split_cull,front_to_back=front_to_back,edge_recip=edge_recip,
             trap_zero_gradient=trap_zero_gradient,trap_destination=trap_destination,
             split_reuse=split_reuse,depth_adaptive=depth_adaptive,trap_stable=trap_stable,trap_four=trap_four,
-            wall_visibility=wall_visibility,wall_verify=wall_verify,group_facing=group_facing)
+            wall_visibility=wall_visibility,wall_verify=wall_verify,group_facing=group_facing,
+            proven_rows=proven_rows)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
@@ -82,6 +87,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             names=(*names,'vga_upload_plan.c')
         if '-DDOS_VGA_FUSED' in extra_adapter_flags:
             names=(*names,'vga_fused.c')
+        if proven_rows:
+            names=(*names,'vga_proven.c')
         if packed_raster:
             names=(*names,'packed_raster.c')
         if front_to_back:

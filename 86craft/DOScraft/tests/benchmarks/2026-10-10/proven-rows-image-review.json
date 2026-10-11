@@ -1,0 +1,8 @@
+{
+  "walk_down": {
+    "baseline_hash": "e76ff760",
+    "candidate_hash": "cccac37c",
+    "note": "The candidate returns to the previously reviewed pre-ET4000 image. The 20 changed physical pixels are five doubled texture-edge samples at x=8..31, y=54..77; HUD and palette bytes match. All three candidate diagnostic repeats match the preserved pre-ET4000 raw images byte-for-byte in all six scenes. This is the known tiny image difference in reverse, not an output error introduced by the new VGA row proof.",
+    "evidence": "tests/baselines/2026-10-10-proven-rows-frame-diff/report.json; tests/baselines/2026-10-10-et4000-low-frame-diff/report.json"
+  }
+}
