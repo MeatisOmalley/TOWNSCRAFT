@@ -1138,3 +1138,11 @@ boxes, floors/sealed chunks, both nesting axes, view 8/12, frustum/distance
 paths, model cells, remapped/missing residency and truncated Item capacity.
 Recipe replay preserves the immutable pin. Guest Low timing is the next gate;
 this candidate is separate from fused VGA and remains off in normal defaults.
+
+Three unchanged Low guest repeats pass all images/readbacks. Walking and house
+are unchanged (58.424 and 95.878 ms); down improves 136.422 -> 135.894 ms,
+up 53.858 -> 53.681 ms, edits 112.527 -> 111.995 ms. Evidence:
+`tests/benchmarks/2026-10-10/group-facing-low-v1.json`. This is at most a small
+collection saving, not a demonstrated house/overdraw improvement. Keep the
+checkpoint independently selectable and off while screening larger candidates;
+no production/ISO change or strong tail-FPS claim follows from this short run.
