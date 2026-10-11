@@ -1083,3 +1083,24 @@ Next: independently test fused Low packing/broadcast classification, and design
 cheap group-level visibility rejection only with measured eligibility and a
 doorway-aware correctness/fallback strategy. Do not retry the losing per-item
 wall checks or change the benchmark fixture to create an artificial win.
+
+## Fused Low packing/broadcast checkpoint (not adopted)
+
+`--candidate fused-low` adds only `DOS_VGA_FUSED` to the current eight-flag
+release. One input pass packs view owner planes 0/2 and accumulates exact
+0/1, 2/3 and cross-pair equality; unequal pairs fill their missing plane in
+row-local byte fallbacks. It then coalesces the same exact masks/runs as the
+accepted planner. Unreferenced duplicate view planes are intentionally not
+authoritative; all four sharp HUD planes are complete. No skipped source
+pixels, trusted doubling assumption, vertical-row approximation or ISA byte
+reduction. High retains its existing pitched chunky path. The hypothesis is
+avoiding redundant stores and the separate equality scan, not faster VRAM.
+
+Independent input-to-VGA reconstruction passes 448 pattern/pitch/alignment
+images and 2,560 individual sharp pixel/bit exceptions per implementation,
+on x86/x64 native word loads and a byte fallback; invalid arguments preserve
+outputs/guards. The actual-presenter matrix additionally verifies all three
+pages, changing HUDs, access-path transitions and sharp overlays. DJGPP i486
+COFF exports the helper with no external helpers/FPU/SIMD. Guest Low timing
+against the current combined release is the next gate; it remains disabled
+in normal defaults and the published ISO.

@@ -40,6 +40,12 @@ void dos_video_set_repeated_pixel_hint(int enabled)
 #include "vga_hud_cache.h"
 static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
 #endif
+#ifdef DOS_VGA_FUSED
+#if !defined(DOS_VGA_BROADCAST) || !defined(DOS_VGA_PACK_ALL)
+#error Fused packing requires accepted all-plane broadcast transport
+#endif
+#include "vga_fused.h"
+#endif
 #ifdef DOS_ET4000_CHUNKY
 #if !defined(DOS_VGA_PACK_ALL) || !defined(DOS_VGA_BROADCAST)
 #error ET4000 experiment requires the accepted all-plane/HUD/broadcast path
@@ -226,6 +232,9 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
     unsigned int next_page = (shown_page + 1) % VGA_PAGES;
     unsigned int offset = next_page * DOS_VGA_PLANE_BYTES;
     uclock_t start;
+#ifdef DOS_VGA_FUSED
+    int fused_count=-1;
+#endif
 #ifdef DOSCRAFT_BENCH
     unsigned int stamp;
 #endif
@@ -294,6 +303,15 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOSCRAFT_BENCH
     stamp=bench_us();
 #endif
+#ifdef DOS_VGA_FUSED
+    if(repeated_pixel_hint) {
+        fused_count=dos_vga_pack_fused(source,pitch,packed,sizeof(packed),
+                                      upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);
+        if(fused_count<0) {
+            dos_video_restore(); fputs("Invalid fused framebuffer\n",stderr); exit(1);
+        }
+    } else
+#endif
     if(
 #ifdef DOS_VGA_PACK_WORDS
        dos_vga_pack_words(source,pitch,packed,sizeof(packed))
@@ -313,7 +331,11 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #ifdef DOSCRAFT_BENCH
         stamp=bench_us();
 #endif
+#ifdef DOS_VGA_FUSED
+        count=fused_count;
+#else
         count=dos_vga_upload_plan(packed,DOS_VGA_PLANE_BYTES,200,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);
+#endif
         if(count<0) { dos_video_restore(); fputs("Invalid VGA upload plan\n",stderr); exit(1); }
         for(r=0;r<count;++r) {
             const struct DosVgaRun *run=&upload_runs[r];

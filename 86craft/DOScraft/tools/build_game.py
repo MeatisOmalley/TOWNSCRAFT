@@ -79,6 +79,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             names=(*names,'vga_hud_cache.c')
         if '-DDOS_VGA_BROADCAST' in extra_adapter_flags:
             names=(*names,'vga_upload_plan.c')
+        if '-DDOS_VGA_FUSED' in extra_adapter_flags:
+            names=(*names,'vga_fused.c')
         if packed_raster:
             names=(*names,'packed_raster.c')
         if front_to_back:
