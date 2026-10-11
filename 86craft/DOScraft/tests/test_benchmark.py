@@ -11,6 +11,29 @@ from game_media import startup
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_new_probes_remain_independent_of_current_release(self):
+        variants={
+            'fused-low':('-DDOS_VGA_FUSED',),
+            'fused-words':('-DDOS_VGA_FUSED','-DDOS_VGA_FUSED_TRANSPOSE'),
+            'group-facing':('-DDOS_GROUP_FACING',),
+        }
+        for candidate,extra in variants.items():
+            with self.subTest(candidate=candidate), \
+                 patch.object(sys,'argv',['benchmark.py','--candidate',candidate,
+                     '--quality','low','--bios','seed/isa486.nvr','--prepare-only']), \
+                 patch.object(benchmark,'build') as build, \
+                 patch.object(benchmark,'prepare',return_value=(Path('private/vm'),{'exe_sha256':'fixture'})), \
+                 patch.object(benchmark,'validate',return_value=[]), \
+                 patch.object(Path,'read_text',return_value='{"exe_sha256":"fixture"}'), \
+                 patch.object(benchmark.subprocess,'Popen') as launch:
+                benchmark.main()
+                self.assertEqual(build.call_args.kwargs,{'benchmark':True,
+                    'extra_adapter_flags':(*benchmark.DEFAULT_ADAPTER_FLAGS,*extra,
+                        '-DDOS_BENCH_QUALITY=0')})
+                launch.assert_not_called()
+        for flag in ('-DDOS_VGA_FUSED','-DDOS_VGA_FUSED_TRANSPOSE','-DDOS_GROUP_FACING'):
+            self.assertNotIn(flag,benchmark.DEFAULT_ADAPTER_FLAGS)
+
     def test_production_recipe_uses_current_defaults_without_changing_replay(self):
         for index,quality in enumerate(('low','medium','high')):
             with self.subTest(quality=quality), \
