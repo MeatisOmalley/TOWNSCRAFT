@@ -128,7 +128,7 @@ The historical hardware evidence already lives in the hardware document; this pl
 
 ### Current target decision: 486 primary; 386 port deferred
 
-Hardware update, 2026-10-11: the cutoff moved to **June 30, 1990** and the primary CPU to the **486DX/33** (same ASUS ISA-486 proxy board, ET4000AX, peripherals). Benchmarks continue on the official pinned 86Box v6.0 runtime (see README).
+Hardware update, 2026-10-11: the cutoff moved to **June 30, 1990** and the primary CPU to the **486DX/33** (same ASUS ISA-486 proxy board, ET4000AX, peripherals). Benchmarks and player VMs use the DOScraft 86Box v6.0 runtime: 16-bit ET4000AX ISA memory, 11.1 MHz ISA bus, single bus charge for planar word/dword VGA accesses (see README).
 
 Latest user decision, 2026-10-09, supersedes the earlier 386-primary and immediate dual-support decisions: **486DX/25 is the primary demake target**. Complete and accept its direct port first, then optimize separately. The Everex-class **386DX/33 remains a long-term compatibility/port target**, but work on it begins only after the main demake's correctness/performance is satisfactory. It is not a Phase A or Phase B release gate; a separate later build or backend is allowed if necessary.
 

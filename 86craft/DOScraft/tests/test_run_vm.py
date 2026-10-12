@@ -214,8 +214,8 @@ class LauncherTests(unittest.TestCase):
     def test_replaced_emulator_is_rejected_before_launch(self):
         with tempfile.TemporaryDirectory() as name:
             path = Path(name)
-            (path / 'build/deps/86box').mkdir(parents=True)
-            (path / 'build/deps/86box/86Box.exe').write_bytes(b'replaced emulator')
+            (path / 'build/deps/86box-doscraft').mkdir(parents=True)
+            (path / 'build/deps/86box-doscraft/86Box.exe').write_bytes(b'replaced emulator')
             with patch('run_vm.ROOT', path):
                 with self.assertRaisesRegex(ValueError, 'executable checksum mismatch'):
                     launch_command(path)

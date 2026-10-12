@@ -4,6 +4,8 @@ A **ranked research backlog**, not a set of enabled changes or promised FPS gain
 
 ## Current cost (published planar build, Low)
 
+> **Hardware update (2026-10-11, later):** the target is now a 486DX/33 with an 11.1 MHz ISA bus, on an 86Box runtime that treats the ET4000AX as the 16-bit card it is. Low still 39.0 ms, walk 23.4, down 79.2, clouds 17.5, house 48.3 ms; upload ~5 ms instead of ~13. The table below is the earlier 25 MHz build; re-rank upload-cutting items (A2, A6, part of B2) against the smaller upload. [Details](PERFORMANCE.md)
+
 486DX/25, 16 MiB, ET4000AX ISA, Mode X. Short three-repeat replay; the harness replays after its house/edit fixtures, so every scene carries leftover mesh/light work in "world update". [Report](tests/benchmarks/2026-10-11/low-planar-low.json)
 
 | Scene | Frame | Draw | VGA upload | Pack | World update | Collect/sort | Sky |

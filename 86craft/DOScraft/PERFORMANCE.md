@@ -1312,7 +1312,7 @@ identical to the 25 MHz build:
 Draw, world update, collect and pack scale with the clock (draw 30.3 -> 22.7
 ms still); the VGA upload stays almost constant in emulated time.
 
-**VGA timing hypothesis: rejected.** Source reading showed 86Box's SVGA slow
+**VGA timing hypothesis: first test inconclusive (superseded below).** Source reading showed 86Box's SVGA slow
 path (unchained Mode X) splitting each 32-bit write into four byte writes,
 each charged the ET4000 ISA byte timing. A locally built v6.0 that charges
 the word/dword timing once (fork branch `doscraft-isa-timing`, kept local)
@@ -1323,5 +1323,40 @@ the emulated upload cost in this CPU configuration; the ~1.6 us per uploaded
 dword comes from another part of 86Box's timing model, not yet identified.
 Do not assume real hardware is 2x faster at uploads on this evidence.
 
+**Correction, same day:** the patch above sat on a path the ET4000 never used. v6.0 registers the ET4000AX ISA as an 8-bit `DEVICE_ISA` card, so its memory mapping has byte handlers only and 86Box splits every 32-bit CPU write into four 8-bit transfers before the SVGA code sees it. See the next section.
+
 Evidence: `tests/benchmarks/2026-10-11/dx33-official-low.json`,
 `dx33-isa-timing-low.json`.
+
+## DOScraft 86Box runtime: 16-bit ET4000 and 11.1 MHz ISA (2026-10-11)
+
+Root cause of the slow emulated upload: v6.0 flags the ET4000AX ISA as an
+8-bit card (`DEVICE_ISA`), giving it byte-only memory handlers. Every 32-bit
+`rep movsd` store to VGA became four 8-bit ISA transfers at 3 ISA clocks each,
+~12 ISA clocks per dword. The real board is a 16-bit ISA card: two 16-bit
+cycles, ~6 ISA clocks. The fork branch `doscraft-isa-timing` (v6.0 plus four
+commits) registers it as `DEVICE_ISA16`, keeps the single word/dword charge
+in planar paths, and runs the i486DX/33 ISA bus at 11.1 MHz (divider 3; the
+requested 12 MHz is not an integer division of 33.33 MHz). VMs now launch this
+runtime from `build/deps/86box-doscraft`.
+
+Short three-repeat Low replays at 486DX/33, production flags, all six scene
+hashes identical in every run:
+
+| Scene | Official v6.0 | + ISA 11.1 MHz | + 16-bit ET4000 | Upload (ms) |
+| --- | ---: | ---: | ---: | --- |
+| still | 46.6 ms | 43.5 | 39.0 | 12.9 -> 9.8 -> 5.3 |
+| walk | 28.9 | 26.7 | 23.4 | 9.3 -> 7.1 -> 3.9 |
+| looking down | 86.8 | 83.7 | 79.2 | 12.9 -> 9.8 -> 5.3 |
+| clouds (walk_up) | 24.4 | 21.6 | 17.5 | 11.9 -> 9.1 -> 5.0 |
+| house | 55.9 | 52.8 | 48.3 | 12.9 -> 9.8 -> 5.3 |
+| edits | 60.4 | 57.4 | 52.9 | 12.9 -> 9.8 -> 5.3 |
+
+Video memory was already the ET4000AX maximum (1 MB). BIOS shadow RAM was not
+changed: 86Box charges ROM and RAM reads alike, so shadowing cannot change
+emulated timing (on real hardware it would only speed up BIOS calls, which
+this game makes for disk I/O and the 18.2 Hz timer chain).
+
+Evidence: `tests/benchmarks/2026-10-11/dx33-official-low.json`,
+`dx33-isa11-low.json`, `dx33-isa11-16bit-low.json`. The benchmarked binary
+differs from the pinned runtime only in its embedded build tag.

@@ -2,7 +2,7 @@
 
 Scope: the historical 86Box v6.0 Windows executable (`dc236a27…e885`), the DOScraft 486/ET4000 diagnostic profile, and the local 86Box v6.0 source. During this audit, another worker completed a locally patched runtime (`bd6d874b…2031`, source commit `079bc829…3632`) for the 32-bit-to-16-bit VGA write charge, and changed the profile to 33 MHz. This audit does not modify or benchmark that runtime. Previously published 25 MHz frame times must not be compared directly to future 33 MHz results. The VGA dword-write charge is excluded from the ranking below.
 
-**Update after this audit (2026-10-11):** the patched runtime was benchmarked against the official one at 33 MHz and every Low frame, stage and upload mean was identical (see [PERFORMANCE.md](PERFORMANCE.md)). The dword-split charge does not set the emulated upload cost in this configuration, so rows that assume a fixed VGA charge (#3, #5) describe the timing table, not the observed ~1.6 µs per uploaded dword. VMs remain on the official runtime; the patch stays on a local fork branch.
+**Update after this audit (2026-10-11):** the patched runtime was benchmarked against the official one at 33 MHz and every Low frame, stage and upload mean was identical (see [PERFORMANCE.md](PERFORMANCE.md)). The dword-split charge does not set the emulated upload cost in this configuration, so rows that assume a fixed VGA charge (#3, #5) describe the timing table, not the observed ~1.6 µs per uploaded dword. Follow-up: the real cause was that v6.0 registers the ET4000AX ISA as an 8-bit card (byte-only handlers). The DOScraft runtime fixes that and runs an 11.1 MHz ISA bus; upload fell 12.9 -> 5.3 ms (see PERFORMANCE.md).
 
 ## Finding that affects the June 30, 1990 hardware cutoff
 

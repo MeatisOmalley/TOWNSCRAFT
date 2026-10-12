@@ -14,7 +14,7 @@ import subprocess
 import sys
 from fat_image import FatImage
 from fetch_roms import PATHS
-from fetch_dependencies import CTMOUSE_EXE_SHA256, EMULATOR_EXE_SHA256
+from fetch_dependencies import CTMOUSE_EXE_SHA256, PATCHED_EMULATOR_DIR, PATCHED_EMULATOR_EXE_SHA256
 from build_pc import guest_startup
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -126,11 +126,11 @@ def validate_vm(vm):
 
 
 def launch_command(vm):
-    executable = ROOT / 'build/deps/86box/86Box.exe'
+    executable = ROOT / PATCHED_EMULATOR_DIR / '86Box.exe'
     roms = ROOT / 'build/deps/86box/roms'
     if not executable.is_file():
         raise FileNotFoundError(f'86Box missing: {executable}')
-    if hashlib.sha256(executable.read_bytes()).hexdigest() != EMULATOR_EXE_SHA256:
+    if hashlib.sha256(executable.read_bytes()).hexdigest() != PATCHED_EMULATOR_EXE_SHA256:
         raise ValueError('86Box executable checksum mismatch')
     for relative in ('machines/isa486/ISA-486.BIN', 'video/et4000/ET4000_V8_06.BIN',
                      'hdd/esdi_at/62-000279-061.bin'):

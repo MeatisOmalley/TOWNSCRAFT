@@ -25,8 +25,9 @@ def running(vm):
         check=True,capture_output=True,text=True)
     processes=json.loads(result.stdout) if result.stdout.strip() else []
     if isinstance(processes,dict): processes=[processes]
-    emulator=str(ROOT/'build/deps/86box/86Box.exe').casefold()
-    return any(str(p.get('ExecutablePath','')).casefold()==emulator and
+    emulators={str(ROOT/'build/deps/86box/86Box.exe').casefold(),
+               str(ROOT/'build/deps/86box-doscraft/86Box.exe').casefold()}
+    return any(str(p.get('ExecutablePath','')).casefold() in emulators and
                str(vm).casefold() in str(p.get('CommandLine','')).casefold() for p in processes)
 
 
