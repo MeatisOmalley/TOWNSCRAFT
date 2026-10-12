@@ -1,8 +1,8 @@
 # DOScraft
 
-IBM-PC port of Townscraft, targeting a 486DX/25-class PC in 86Box.
+IBM-PC port of Townscraft, targeting a 486DX/33-class PC (June 30, 1990 hardware cutoff) in 86Box.
 
-Primary target: Intel 486DX/25 with its integrated x87 FPU, 16 MB RAM, Tseng ET4000AX ISA with 1 MB video RAM, ESDI HDD and original Sound Blaster. The ASUS ISA-486 motherboard and selected BIOS images are emulator proxies, not an authenticated 1989 Compaq reconstruction. The Everex-class 386DX/33 is a **deferred compatibility/port target**, to revisit only after the main demake meets its agreed correctness/performance goals. The main build may use 486 instructions and x87; 386 compatibility is not a current release gate.
+Primary target: Intel 486DX/33 with its integrated x87 FPU (moved from the 486DX/25 on 2026-10-11 when the hardware cutoff became June 30, 1990; Intel introduced the 33 MHz 486 in May 1990), 16 MB RAM, Tseng ET4000AX ISA with 1 MB video RAM, ESDI HDD and original Sound Blaster. The ASUS ISA-486 motherboard and selected BIOS images are emulator proxies, not an authenticated 1989 Compaq reconstruction. The Everex-class 386DX/33 is a **deferred compatibility/port target**, to revisit only after the main demake meets its agreed correctness/performance goals. The main build may use 486 instructions and x87; 386 compatibility is not a current release gate.
 
 Current stage: direct port working, measured platform optimization underway. The pinned 50-file Towns
 snapshot remains immutable. The full gameplay/fixed-point renderer now links
@@ -188,6 +188,8 @@ python tools/import_towns.py --verify
 python tools/build_imported.py
 python tools/build_adapters.py
 ```
+
+The build target keeps its historical name `486dx25` (it selects i486 code generation; the VM profile `profiles/486dx25-platform.cfg` now runs the CPU at 33.33 MHz). VMs still run the official pinned 86Box v6.0 b9001. A locally built v6.0 that charged planar VGA word/dword writes as single bus transfers produced byte-identical benchmark timings (see PERFORMANCE.md), so the ET4000 write-timing table is not what sets the emulated Mode X upload cost and the official runtime remains the reference. Results measured before 2026-10-11 ran at 25 MHz and are not directly comparable.
 
 The default target is `486dx25`: compiler flags include `-march=i486 -mtune=i486 -m80387 -mfpmath=387`, with no fast-math option. This permits native 486/x87 code; it does not rewrite the integer renderer or establish a speedup. Builds are isolated under `build/pc/486dx25`, whose `build.json` records the compiler command, CPU floor, profile hash, executable hash and VM path.
 

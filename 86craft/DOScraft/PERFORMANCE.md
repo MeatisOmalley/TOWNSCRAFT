@@ -1291,3 +1291,37 @@ Evidence: `tests/benchmarks/2026-10-11/flip-fine-v2-low.json`,
 `vl-isolated-low.json`, `low-planar-low.json`, `very-low-planar-build.json`.
 Medium uses the same scale-2 path but was not benchmarked separately. The
 real-input gameplay smoke has not been rerun on the planar build.
+
+## 486DX/33 target and the 86Box VGA-timing hypothesis (2026-10-11)
+
+The hardware cutoff moved to June 30, 1990, so the primary VM now runs the
+same ASUS ISA-486 proxy at 33.33 MHz (`profiles/486dx25-platform.cfg`; the
+build target name is unchanged because it selects i486 code generation).
+Short three-repeat Low replay, production flags, all six scene hashes
+identical to the 25 MHz build:
+
+| Scene | 486DX/25 | 486DX/33 | Upload 25 -> 33 |
+| --- | ---: | ---: | ---: |
+| still | 58.2 ms | 46.6 ms | 13.1 -> 12.9 |
+| walk | 35.6 | 28.9 | 9.5 -> 9.3 |
+| looking down | 111.8 | 86.8 | 13.1 -> 12.9 |
+| clouds (walk_up) | 28.9 | 24.4 | 12.2 -> 11.9 |
+| house | 70.6 | 55.9 | 13.1 -> 12.9 |
+| edits | 76.6 | 60.4 | 13.1 -> 12.9 |
+
+Draw, world update, collect and pack scale with the clock (draw 30.3 -> 22.7
+ms still); the VGA upload stays almost constant in emulated time.
+
+**VGA timing hypothesis: rejected.** Source reading showed 86Box's SVGA slow
+path (unchained Mode X) splitting each 32-bit write into four byte writes,
+each charged the ET4000 ISA byte timing. A locally built v6.0 that charges
+the word/dword timing once (fork branch `doscraft-isa-timing`, kept local)
+was compiled, its disassembly verified, and benchmarked against the official
+runtime at 33 MHz: **every frame, stage and upload mean was identical** to
+the reported precision. The ET4000 timing table therefore does not determine
+the emulated upload cost in this CPU configuration; the ~1.6 us per uploaded
+dword comes from another part of 86Box's timing model, not yet identified.
+Do not assume real hardware is 2x faster at uploads on this evidence.
+
+Evidence: `tests/benchmarks/2026-10-11/dx33-official-low.json`,
+`dx33-isa-timing-low.json`.

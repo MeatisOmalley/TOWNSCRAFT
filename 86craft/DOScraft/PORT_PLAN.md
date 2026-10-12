@@ -128,6 +128,8 @@ The historical hardware evidence already lives in the hardware document; this pl
 
 ### Current target decision: 486 primary; 386 port deferred
 
+Hardware update, 2026-10-11: the cutoff moved to **June 30, 1990** and the primary CPU to the **486DX/33** (same ASUS ISA-486 proxy board, ET4000AX, peripherals). Benchmarks continue on the official pinned 86Box v6.0 runtime (see README).
+
 Latest user decision, 2026-10-09, supersedes the earlier 386-primary and immediate dual-support decisions: **486DX/25 is the primary demake target**. Complete and accept its direct port first, then optimize separately. The Everex-class **386DX/33 remains a long-term compatibility/port target**, but work on it begins only after the main demake's correctness/performance is satisfactory. It is not a Phase A or Phase B release gate; a separate later build or backend is allowed if necessary.
 
 The default scaffold builds with `-march=i486 -mtune=i486 -m80387 -mfpmath=387`, enabling 486-specific instructions and x87 code generation. Do not expect that executable to run on a 386. Keep existing integer/fixed-point algorithms initially; compiler permission is not a request to replace rendering arithmetic wholesale. Use no blanket fast-math option. The 486DX has integrated x87 and does not accept a separate Cyrix FasMath as an upgrade.

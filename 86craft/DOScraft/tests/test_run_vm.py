@@ -135,7 +135,7 @@ class LauncherTests(unittest.TestCase):
             path = Path(name)
             self.make_vm(path)
             original = (path / '86box.cfg').read_text()
-            for before, after in (('1989_3500rpm', 'ramdisk'), ('25000000', '100000000'),
+            for before, after in (('1989_3500rpm', 'ramdisk'), ('33333333', '100000000'),
                                   ('scratch.img', '../unknown.img'), ('16384', '65536')):
                 (path / '86box.cfg').write_text(original.replace(before, after))
                 with self.assertRaisesRegex(ValueError, 'hardware setting'):
