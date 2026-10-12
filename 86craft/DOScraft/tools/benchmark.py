@@ -97,7 +97,7 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','production','async-flip','sync-flip','proven-rows','proven-vertical','hud-proof','raster-finish-skip','very-low','very-low-texels','low-planar','pre-planar','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','production','a3-ceiling','a1-census','async-flip','sync-flip','proven-rows','proven-vertical','hud-proof','raster-finish-skip','very-low','very-low-texels','low-planar','pre-planar','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip'),default='reference')
     parser.add_argument('--timeout',type=int,help='Host timeout seconds; default 900 for short runs, increased for long runs')
     parser.add_argument('--quality',choices=('low','medium','high','very-low'),default='low')
     parser.add_argument('--quality-sweep',action='store_true',help='Run Low, Medium, High in one guest process and world')
@@ -134,6 +134,8 @@ def main():
     pre_proven_flags=tuple(flag for flag in pre_very_low_flags
                            if flag not in ('-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_HUD_PROOF'))
     variants={'reference':(), 'production':DEFAULT_ADAPTER_FLAGS,
+        'a3-ceiling':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_BENCH_A3_CEILING'),
+        'a1-census':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_BENCH_A1_CENSUS'),
         'async-flip':DEFAULT_ADAPTER_FLAGS,
         'sync-flip':tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag!='-DDOS_VGA_ASYNC_FLIP'),
         'proven-rows':tuple(flag for flag in pre_very_low_flags if flag!='-DDOS_VGA_PROVEN_VERTICAL'),

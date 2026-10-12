@@ -1,0 +1,90 @@
+{
+  "vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-h3vvdp9k",
+  "method": "Analyze A1's visible coplanar-rectangle opportunity from a private replay.\n\nThe plane-wide packing is an optimistic geometry bound: it ignores painter\ninterleaving, composited-texture cost, near clipping, and affine subdivision.\nThe consecutive-item count is a stricter bound that keeps painter order.\n",
+  "scenes": {
+    "open_static": {
+      "static_items": 143,
+      "terrain_items": 137,
+      "visible_terrain_items": 57,
+      "visible_terrain_faces_after_subdivision": 60,
+      "coplanar_direction_groups": 17,
+      "groups_with_multiple_texture_or_light_keys": 6,
+      "visible_surface_cells": 113,
+      "overlapping_same_direction_cells": 0,
+      "optimistic_plane_rectangles": 36,
+      "optimistic_items_removed": 21,
+      "consecutive_order_rectangles": 44,
+      "consecutive_items_removed": 13
+    },
+    "walk": {
+      "static_items": 104,
+      "terrain_items": 93,
+      "visible_terrain_items": 13,
+      "visible_terrain_faces_after_subdivision": 13,
+      "coplanar_direction_groups": 8,
+      "groups_with_multiple_texture_or_light_keys": 0,
+      "visible_surface_cells": 82,
+      "overlapping_same_direction_cells": 0,
+      "optimistic_plane_rectangles": 13,
+      "optimistic_items_removed": 0,
+      "consecutive_order_rectangles": 13,
+      "consecutive_items_removed": 0
+    },
+    "walk_down": {
+      "static_items": 397,
+      "terrain_items": 381,
+      "visible_terrain_items": 285,
+      "visible_terrain_faces_after_subdivision": 289,
+      "coplanar_direction_groups": 47,
+      "groups_with_multiple_texture_or_light_keys": 26,
+      "visible_surface_cells": 515,
+      "overlapping_same_direction_cells": 0,
+      "optimistic_plane_rectangles": 188,
+      "optimistic_items_removed": 97,
+      "consecutive_order_rectangles": 270,
+      "consecutive_items_removed": 15
+    },
+    "walk_up": {
+      "static_items": 0,
+      "terrain_items": 0,
+      "visible_terrain_items": 0,
+      "visible_terrain_faces_after_subdivision": 0,
+      "coplanar_direction_groups": 0,
+      "groups_with_multiple_texture_or_light_keys": 0,
+      "visible_surface_cells": 0,
+      "overlapping_same_direction_cells": 0,
+      "optimistic_plane_rectangles": 0,
+      "optimistic_items_removed": 0,
+      "consecutive_order_rectangles": 0,
+      "consecutive_items_removed": 0
+    },
+    "house": {
+      "static_items": 190,
+      "terrain_items": 184,
+      "visible_terrain_items": 88,
+      "visible_terrain_faces_after_subdivision": 88,
+      "coplanar_direction_groups": 20,
+      "groups_with_multiple_texture_or_light_keys": 13,
+      "visible_surface_cells": 159,
+      "overlapping_same_direction_cells": 0,
+      "optimistic_plane_rectangles": 51,
+      "optimistic_items_removed": 37,
+      "consecutive_order_rectangles": 66,
+      "consecutive_items_removed": 22
+    },
+    "block_edits": {
+      "static_items": 190,
+      "terrain_items": 184,
+      "visible_terrain_items": 88,
+      "visible_terrain_faces_after_subdivision": 88,
+      "coplanar_direction_groups": 20,
+      "groups_with_multiple_texture_or_light_keys": 13,
+      "visible_surface_cells": 159,
+      "overlapping_same_direction_cells": 0,
+      "optimistic_plane_rectangles": 51,
+      "optimistic_items_removed": 37,
+      "consecutive_order_rectangles": 66,
+      "consecutive_items_removed": 22
+    }
+  }
+}

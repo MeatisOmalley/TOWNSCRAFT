@@ -61,6 +61,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         very_low='-DDOS_VERY_LOW' in extra_adapter_flags
         very_low_texels='-DDOS_VERY_LOW_TEXELS' in extra_adapter_flags
         low_planar='-DDOS_LOW_PLANAR' in extra_adapter_flags
+        a1_census='-DDOS_BENCH_A1_CENSUS' in extra_adapter_flags
         if '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags and not proven_rows:
             raise ValueError('Vertical row proof requires proven rows')
         if raster_finish_skip and not (proven_rows and '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags):
@@ -83,7 +84,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             wall_visibility=wall_visibility,wall_verify=wall_verify,group_facing=group_facing,
             hud_proof='-DDOS_VGA_HUD_PROOF' in extra_adapter_flags,
             proven_rows=proven_rows,raster_finish_skip=raster_finish_skip,
-            very_low_texels=very_low_texels,low_planar=low_planar)
+            very_low_texels=very_low_texels,low_planar=low_planar,a1_census=a1_census)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)

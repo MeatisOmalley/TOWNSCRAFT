@@ -222,6 +222,10 @@ static void select_quality(int index)
     g_flatDist=quality->flat_distance; g_distanceMode=quality->distance_mode;
     g_textureSubdivision=quality->texture_subdivision;
     dos_very_low_mode=index==DOS_GRAPHICS_VERY_LOW;
+#ifdef DOS_BENCH_A3_CEILING
+    /* A3's best possible geometry saving, before paying for perspective UVs. */
+    g_textureSubdivision=SUBDIV_OFF;
+#endif
 #else
     (void)index;
 #endif
@@ -336,6 +340,9 @@ static void finish(void)
 void bench_frame(void)
 {
     extern u32 g_statPixels;
+#ifdef DOS_BENCH_A1_CENSUS
+    extern int render_a1_dump(int scene,int sample);
+#endif
     unsigned int now=bench_us();
 #ifdef DOS_WALL_VISIBILITY
     if(phase>=0 && frame>=WARM && frame<WARM+FRAMES) {
@@ -377,6 +384,14 @@ void bench_frame(void)
 #endif
         phase=0; frame=-1;
     }
+#ifdef DOS_BENCH_A1_CENSUS
+    if(phase>=0 && frame>=WARM && run==1 && !suite_warmup) {
+        int measured_frame=frame-WARM;
+        int sample=measured_frame==0 ? 0 : measured_frame==FRAMES/3 ? 1 :
+                   measured_frame==(2*FRAMES)/3 ? 2 : measured_frame==FRAMES-1 ? 3 : -1;
+        if(sample>=0 && render_a1_dump(phase,sample)) vga_ok=0;
+    }
+#endif
     if(++frame==WARM+FRAMES) {
 #ifdef DOS_BENCH_PROFILE_DRAW
         profile_end[phase]=g_profCount;
