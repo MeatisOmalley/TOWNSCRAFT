@@ -11,7 +11,7 @@ OUTPUT = ROOT / 'build/pc/486dx25/adapters'
 ADAPTERS = ('gfx.c', 'heap.c', 'video.c', 'vga_pack.c', 'keyboard.c', 'irq.c', 'irq_entry.S', 'system.c', 'input.c', 'hdd.c', 'save.c', 'sound_assets.c', 'sb_pcm.c', 'sb_entry.S', 'sound_mixer.c')
 
 
-def save_codec_source(vendor=imported.VENDOR):
+def save_codec_source(vendor=imported.VENDOR, large_world=False):
     """Retain the exact codec tail, with explicit DOS finish-error adaptations."""
     vendor = Path(vendor)
     manifest = json.loads((vendor / 'MANIFEST.json').read_bytes())
@@ -60,6 +60,9 @@ def save_codec_source(vendor=imported.VENDOR):
 \tstreamBase=bank>=0 ? bank*BANK_TRACKS : 0;
 '''
     text = imported.replace_once(text,before,after,recipe)
+    if large_world:
+        import dos_large_world
+        text = dos_large_world.adapt_save_codec(text, recipe)
     portable = text.encode('utf-8')
     if any(token in portable for token in (b'outb(', b'inb(', b'dma_setup(')):
         raise ValueError('Unexpected hardware dependency in save codec')
@@ -91,11 +94,11 @@ def gfx_drawing_source(vendor=imported.VENDOR):
                          selections=[[clear_start, clear_end], [draw_start, len(data)]])
 
 
-def stage(output, vendor=imported.VENDOR):
+def stage(output, vendor=imported.VENDOR, large_world=False):
     output = Path(output)
     # Verify all inputs before creating a compile result. The vendor is read-only.
     portable, selection = gfx_drawing_source(vendor)
-    codec, save_selection = save_codec_source(vendor)
+    codec, save_selection = save_codec_source(vendor, large_world=large_world)
     audio, audio_selection = audio_assets.asset_source(vendor)
     record = imported.stage_sources(vendor, output)
     (output / selection['staged']).write_bytes(portable)

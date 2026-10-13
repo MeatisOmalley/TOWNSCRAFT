@@ -1360,3 +1360,206 @@ this game makes for disk I/O and the 18.2 Hz timer chain).
 Evidence: `tests/benchmarks/2026-10-11/dx33-official-low.json`,
 `dx33-isa11-low.json`, `dx33-isa11-16bit-low.json`. The benchmarked binary
 differs from the pinned runtime only in its embedded build tag.
+
+## 486DX/40 overclock with patched 16-bit ET4000 (2026-10-11)
+
+The custom 86Box runtime adds a 40 MHz setting for the period i486DX/33 part.
+It uses a 10 MHz ISA bus (divider 4) and seven modeled memory cycles, versus
+11.1 MHz ISA (divider 3) and six memory cycles at 33 MHz. This is an overclock
+profile, not a claim that a factory DX/40 was available by June 1990. The
+40 MHz emulator was rebuilt separately in `build/deps/86box-doscraft-40`;
+the 33 MHz runtime was retained while the old player VM was active.
+
+Three-repeat Low replay with the same game EXE and identical image hashes in
+all six scenes, compared with the preceding 33 MHz/16-bit-card report:
+
+| Scene | 33 MHz | 40 MHz | Saved |
+| --- | ---: | ---: | ---: |
+| Still | 39.03 ms | 33.75 ms | 5.27 ms (13.5%) |
+| Walk | 23.42 | 20.41 | 3.01 (12.8%) |
+| Looking down | 79.20 | 67.20 | 12.00 (15.1%) |
+| Clouds/up | 17.51 | 15.73 | 1.78 (10.2%) |
+| House | 48.32 | 41.49 | 6.83 (14.1%) |
+| Edits | 52.85 | 45.27 | 7.58 (14.4%) |
+
+Dense-scene VGA upload rises from about 5.3 to 5.7 ms because the selected
+ISA clock is slower; CPU-side work still improves enough to lower total frame
+time. These are frozen-simulation guest PIT measurements, not live-play FPS.
+The comparison changes CPU and ISA timing together and uses separate emulator
+builds, so it does not isolate the CPU clock alone. Raw evidence:
+`tests/benchmarks/2026-10-11/dx33-isa11-16bit-low.json` and
+`dx40-16bit-low.json`.
+
+The rebuilt normal game passed private new-world and fresh-process reload
+smoke at 40 MHz, including AT input, torch placement/removal, graphics presets,
+VGA readback and save/reload (`build/smoke-dx40-20261011/report.json`). It was
+published via a byte-for-byte player-HDD copy; the prior ISO and VM remain
+available. The playable launcher now selects the 40 MHz patched runtime from
+the published manifest.
+
+## Collect, sort, and world-update profile on June 1990 VM (2026-10-12)
+
+Benchmark-only PIT timers and invalidation counters were added without changing
+the normal game renderer or simulation. The test used three Low replays in one
+generated world on the upgraded 8 MiB 486DX/40, ISA ET4000AX, SCSI profile.
+Means below are milliseconds per measured frame across 96 frames per scene.
+The `world` and `collect stage` columns are parent timings; the remaining
+columns are suboperations and should not be added to those parent timings.
+
+| Scene | Frame | World | Dirty mesh | Streaming | Collect stage | Actual collect | Sort |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Still | 33.85 | 4.69 | 4.62 | 0.05 | 1.82 | 0.67 | 0.18 |
+| Walk | 20.55 | 4.59 | 1.35 | 3.21 | 2.53 | 1.25 | 0.28 |
+| Walk, down | 67.34 | 5.39 | 1.77 | 3.59 | 4.31 | 2.25 | 0.93 |
+| Walk, up | 15.86 | 4.21 | 4.14 | 0.05 | 1.48 | 0.37 | 0.11 |
+| House | 41.66 | 4.15 | 1.55 | 2.58 | 5.26 | 3.33 | 0.92 |
+| Block edits | 45.45 | 7.67 | 7.55 | 0.10 | 5.25 | 3.33 | 0.92 |
+
+In the still scene, dirty-mesh scanning is 4.11 ms/frame. The benchmark's
+post-generation mesh queue is still being drained: the global mesh version
+invalidates the draw list on 24 of 96 frames; 72 frames hit the cache. This
+is **not** the cost of a fully settled still world. Walking spends 3.19 ms
+inside cache streaming, of which 2.64 ms is light pumping (sky initialization
+0.45, seeding 1.17, flood fill 1.00). These light subtimings overlap the
+streaming total. The six column-load calls add only 0.50 ms/frame, and the
+replay issued no disk-write polls, so this does not establish real disk-I/O
+cost. Walking recollects on 54/96 frames (42 yaw-threshold, 12 X-cell, three
+Y-cell and six mesh-version triggers, with overlaps). In the house scene the
+scripted yaw step exceeds the eight-unit threshold every frame, causing
+96/96 recollects. Actual collect plus sort there costs 4.25 ms/frame. Block
+edits spend 4.78 ms/frame in mesh scans and 2.55 ms in mesh publication;
+their separate edit call adds about 1.93 ms outside the reported frame.
+
+The first optimization targets from this profile are dirty-mesh scan work
+during queue drain and incremental lighting during column streaming. Cache
+invalidation itself is cheap, but avoiding needless global-version-triggered
+recollects could save work when the changed mesh is outside the camera's
+visible set. Any such change needs image/correctness verification. Raw
+evidence: `tests/benchmarks/2026-10-12/cw-profile-1990-scsi.json` and the
+full guest report in `runtime/game-play-ilia272v/performance.json`. These are
+frozen-simulation graphics/update replays, not live-play FPS.
+
+"Flatter distant faces" means replacing a distant opaque textured quad with
+one light-adjusted average color for that texture. The game already does this
+for opaque faces that project under six logical pixels in both dimensions;
+Medium/High also flatten faces beyond ten blocks, while Low currently has its
+distance threshold disabled. Flattening keeps the same face geometry, filled
+pixels, painter ordering and VGA upload, but avoids per-pixel texture lookup
+and some texture span setup. A shorter threshold on Low could save raster time
+at a visible quality cost. The current distance rule also turns leaves solid,
+so any Low-preset experiment needs image comparison; no distance-LOD change
+was made during this profiling work.
+
+## Large-world FAT-seek hitch fix (2026-10-12)
+
+The 151,011,840-byte `TERRAIN.TMP` exposed a different cost from the earlier
+RAM/cache replay. FreeDOS's [FAT cluster mapper](https://github.com/FDOS/kernel/blob/master/kernel/fatfs.c)
+walks backward seeks from the start of the file. Neighboring world columns
+often request such seeks. A dedicated PIT-timed DOS probe on the June 1990
+DX/40, 8 MB, SCSI VM measured 12 KB column transfers on a private disk copy:
+
+| Request | File transport | Validated sector transport |
+| --- | ---: | ---: |
+| Backward read near spawn | 585.89 ms | 1.42 ms |
+| Cold read of last column | 1150.29 ms | 1.38 ms |
+| Largest read in the 16-request probe | 1150.29 ms | 1.48 ms |
+
+The new path verifies the FAT16 directory, complete contiguous file chain,
+file size, and terrain header once at startup. It then uses DOS INT 25h/26h
+through the existing DOS block driver and SCSI BIOS. It never accesses the
+controller directly. Writes are confined to the two edit slots; the base
+terrain, terrain header, FAT, directory and save file are excluded. Existing
+checksums, alternate-slot publication, and DOS commit errors remain enforced.
+Fragmented/unrecognized media keep the ordinary file transport. The additional
+DOS transfer buffer is 2,080 bytes. Transfers still progress in at most 2 KB
+slices per poll: this is synchronous I/O, not a background SCSI driver or a
+hard mechanical-latency guarantee.
+
+All sampled candidate reads took 1.38-1.48 ms; their largest individual poll
+took 0.321 ms. The edit-slot write/readback passed, with the write taking
+1.576 ms and its largest poll 0.362 ms. These are disk-request measurements,
+not whole-game frame times or promises that every remaining hitch is gone.
+Native fault tests cover malformed FAT extents, fragmentation, file identity,
+read errors and write bounds. The exact game executable passed new-world and
+fresh-process reload smoke on both 1990 and 1992 hardware, including torch
+edits, graphics presets, VGA readback, cold corner streaming, dirty eviction,
+and V5 edit persistence. The shared ISO was published with the 1990 player's
+existing disk copied exactly, and the 1992 boot floppy was synchronized without
+changing its disk or CMOS. Evidence:
+[`hdd-streaming-extents.json`](tests/benchmarks/2026-10-12/hdd-streaming-extents.json).
+
+## Orientation reuse and streamed lighting (2026-10-13)
+
+The shared release now includes the wider orientation cache, checked prebaked
+skylight, computed-light reuse, and the separately requested main/pause menus.
+All measurements below use the June 1990 DX/40, 8 MB, SCSI profile. Low,
+Medium and High run in one process/world; no host key injection is used.
+
+Collection uses doubled frustum half-extents only when the mesh is stable;
+drawing retains the original tight planes and projection. The list may be
+reused across a combined yaw/pitch change of 32 angle units (11.25 degrees).
+Cell, mesh, floor, view, scale and painter-axis changes still invalidate it.
+A collect exactly on a grid boundary also invalidates on subsequent subcell
+movement: otherwise strict back-face tests omit a newly visible face. A full
+list falls back to original collection/margins. The first boundary-unsafe
+version failed pixel comparison and was discarded. Final comparison against
+a forced tight-frustum redraw passed 912 cumulative frames with zero pixel
+differences across Low, Medium and High. Diagnostic redraw timings are invalid.
+
+The bake appends a checksum index and 4-bit skylight/height records without
+changing base/edit offsets or the V5 save identity. Untouched columns restore
+their whole-world skylight solution. Edited computed light uses a 32-column
+RAM cache, captured at eviction, rather than copying nine affected columns
+after every edit. Edits invalidate a 3x3 revision neighborhood; dirty or
+uncached records use the exact existing relight path. Cached dirty borders
+reconcile both light channels with arriving neighbors, within the existing
+seeding budget. Fully clean baked neighborhoods need no new flood fill.
+Terrain remains checked once before installation; a separate pending light
+read no longer repeatedly hashes the same 12 KB terrain scratch buffer.
+
+| Low replay | Before | Combined release | Saving |
+| --- | ---: | ---: | ---: |
+| Standing | 23.49 ms | 21.96 ms | 1.53 ms |
+| Walking | 34.33 ms | 34.20 ms | 0.13 ms |
+| Walking, looking down | 43.56 ms | 42.78 ms | 0.78 ms |
+| Walking, looking up | 23.25 ms | 23.63 ms | -0.39 ms |
+| Turning in the house | 33.00 ms | 31.73 ms | 1.27 ms |
+| Edit frame, excluding edit call | 31.50 ms | 34.07 ms | -2.57 ms |
+
+The edit call itself fell from 2.90 to 1.56 ms. Including that call, mean
+edit-cycle cost increased 34.40 -> 35.63 ms, p95 increased 35.51 -> 58.79 ms,
+and the worst sampled cycle improved 106.76 -> 59.59 ms. Do not describe this
+as a uniform FPS win. The replay warmup builds and dismantles a house, so its
+walking phases reuse previously edited terrain and are not a fresh-bake test.
+Background lighting completion also changes when seam meshes become ready.
+
+A separate PIT-timed cache/light probe walks six fresh 16-block strips and
+then backtracks, requiring each 5x5 resident region to become ready. It does
+not render or simulate mobs. Fresh five-column strip preparation averaged
+313.67 -> 135.62 ms (57% less total work including terrain I/O), with 90 -> 45
+polls per strip. The largest poll across forward/backward travel fell from
+58.56 -> 18.56 ms. These are readiness and polling costs, not per-frame FPS
+or a guarantee of mechanical-disk latency. Initial lighting record I/O remains
+synchronous through DOS; cached backtracking avoids that read.
+
+The exact release passed new-world and fresh-process save/reload smoke on
+8 MB, including torches, full pitch, cold corners, edited-column persistence,
+all graphics presets, VGA readback and the new menus. Native tests compare
+baked/polled light with the pinned flood fill and cover seam torch removal,
+roof removal, and corrupt light records/index rejection. Migration checks
+retain every base/edit byte, save and root file; the previous player VM and
+ISO remain recovery copies. Evidence:
+[`collect-stream-light.json`](tests/benchmarks/2026-10-12/collect-stream-light.json).
+Two unrelated pre-existing native raster harness cases still exit with a
+Win32 access violation; they do not enable these overlays. The actual DOS
+renderer comparison and release smoke are the completed correctness gates.
+
+The final menu-integrated executable also passed new/reload, lighting, menus
+and VGA readback on the 1992 W32 VM. A diagnostic-only failure there was
+localized to `SAVED.RAW`: capture code completed the previous 3D raster's odd
+rows even when a new title/menu frame had just been uploaded, corrupting that
+RAM page according to its rotation timing. Source completion now checks the
+presenter's actual proven-upload flag. Reload smoke likewise waits for a
+rendered game frame before finishing, preventing completion inside a loading
+progress callback. The 20-variant native presenter matrix still passes.
+These are capture/acceptance fixes; normal game presentation is unchanged.

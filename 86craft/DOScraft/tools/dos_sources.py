@@ -10,7 +10,7 @@ from build_imported import replace_once
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
-          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False,low_planar=False,a1_census=False):
+          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False,low_planar=False,a1_census=False,profile_cw=False,large_world=False,collect_margin=False,stream_light=False):
     recipe=[]
     if raster_finish_skip:
         import dos_raster_finish_skip
@@ -217,8 +217,33 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         import dos_immediate_edit_light
         data,steps=dos_immediate_edit_light.adapt(name,data)
         recipe.extend(steps)
+    if name=='mobs.c':
+        import dos_mob_despawn
+        data,steps=dos_mob_despawn.adapt(name,data)
+        recipe.extend(steps)
+    if large_world:
+        import dos_large_world
+        data,steps=dos_large_world.adapt(name,data)
+        recipe.extend(steps)
+    if stream_light:
+        if not large_world: raise ValueError('Baked light requires the large-world overlay')
+        import dos_stream_light
+        data,steps=dos_stream_light.adapt(name,data)
+        recipe.extend(steps)
     if a1_census:
         import dos_a1_census
         data,steps=dos_a1_census.adapt(name,data)
+        recipe.extend(steps)
+    if profile_cw:
+        import dos_profile_collect_world
+        data,steps=dos_profile_collect_world.adapt(name,data)
+        recipe.extend(steps)
+    if collect_margin:
+        import dos_collect_margin
+        data,steps=dos_collect_margin.adapt(name,data)
+        recipe.extend(steps)
+    if graphics:
+        import dos_menus
+        data,steps=dos_menus.adapt(name,data)
         recipe.extend(steps)
     return data,recipe

@@ -10,6 +10,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from run_vm import validate_vm, launch_command, main
+from fetch_dependencies import PATCHED_EMULATOR_DIR
 from fat_image import populate, scratch_hdd
 from build_pc import guest_startup
 from terrain_fixture import terrain_image
@@ -135,7 +136,7 @@ class LauncherTests(unittest.TestCase):
             path = Path(name)
             self.make_vm(path)
             original = (path / '86box.cfg').read_text()
-            for before, after in (('1989_3500rpm', 'ramdisk'), ('33333333', '100000000'),
+            for before, after in (('1989_3500rpm', 'ramdisk'), ('40000000', '100000000'),
                                   ('scratch.img', '../unknown.img'), ('16384', '65536')):
                 (path / '86box.cfg').write_text(original.replace(before, after))
                 with self.assertRaisesRegex(ValueError, 'hardware setting'):
@@ -214,8 +215,8 @@ class LauncherTests(unittest.TestCase):
     def test_replaced_emulator_is_rejected_before_launch(self):
         with tempfile.TemporaryDirectory() as name:
             path = Path(name)
-            (path / 'build/deps/86box-doscraft').mkdir(parents=True)
-            (path / 'build/deps/86box-doscraft/86Box.exe').write_bytes(b'replaced emulator')
+            (path / PATCHED_EMULATOR_DIR).mkdir(parents=True)
+            (path / PATCHED_EMULATOR_DIR / '86Box.exe').write_bytes(b'replaced emulator')
             with patch('run_vm.ROOT', path):
                 with self.assertRaisesRegex(ValueError, 'executable checksum mismatch'):
                     launch_command(path)

@@ -29,10 +29,27 @@ try {
         throw 'Game VM must be a private DOScraft runtime directory.'
     }
     $record = Get-Content -LiteralPath (Join-Path $vm 'build.json') -Raw | ConvertFrom-Json
+    $largeWorld = $record.large_world -eq $true
     if ($record.smoke -or $record.benchmark -or $record.target -ne '486dx25' -or $record.vm_directory -ne $vm) {
         throw 'Expected the prepared playable 486 ISO, not diagnostic media.'
     }
-    $emulator = Join-Path $taskRoot 'build\deps\86box\86Box.exe'
+    # Keep the published 33 MHz player VM launchable while its 40 MHz
+    # replacement is tested on private media.
+    $emulator = Join-Path $taskRoot 'build\deps\86box-doscraft\86Box.exe'
+    $cpuSpeed = '33333333'
+    $cpuLabel = '486DX/33'
+    $memory = '16384'
+    if ($record.emulator_sha256 -eq 'cd80d8691bca79fadf40c3c453479d5a377731422e1e0eaacb07adc286717c12') {
+        $emulator = Join-Path $taskRoot 'build\deps\86box-doscraft-40\86Box.exe'
+        $cpuSpeed = '40000000'
+        $cpuLabel = '486DX/40 overclock'
+    }
+    if ($record.hardware_era -eq '1990-06-30') {
+        $emulator = Join-Path $taskRoot 'build\deps\86box-doscraft-1990\86Box.exe'
+        $cpuSpeed = '40000000'
+        $cpuLabel = '486DX/40 overclock'
+        $memory = '8192'
+    }
     $running = Get-CimInstance Win32_Process -Filter "Name = '86Box.exe'" |
         Where-Object { $_.ExecutablePath -eq $emulator -and $_.CommandLine -like "*$vm*" }
     if ($running -and !$ValidateOnly) {
@@ -49,8 +66,9 @@ try {
     }
     # Existing HDD content is intentionally NOT checksummed or regenerated:
     # saves/terrain change during normal play and must survive every launch.
-    $disk = Join-Path $vm 'scratch.img'
-    if (!(Test-Path -LiteralPath $disk) -or (Get-Item -LiteralPath $disk).Length -ne 21411840) {
+    $disk = Join-Path $vm $(if ($largeWorld) { 'scratch-large.img' } else { 'scratch.img' })
+    $diskBytes = if ($largeWorld) { 206438400 } else { 21411840 }
+    if (!(Test-Path -LiteralPath $disk) -or (Get-Item -LiteralPath $disk).Length -ne $diskBytes) {
         throw 'Prepared writable game HDD is missing or has unexpected geometry.'
     }
     $settings = @{}
@@ -63,17 +81,26 @@ try {
     }
     $required = @{
         'Machine/machine'='isa486'; 'Machine/cpu_family'='i486dx';
-        'Machine/cpu_speed'='25000000'; 'Machine/cpu_use_dynarec'='0';
-        'Machine/fpu_type'='internal'; 'Machine/mem_size'='16384';
+        'Machine/cpu_speed'=$cpuSpeed; 'Machine/cpu_use_dynarec'='0';
+        'Machine/fpu_type'='internal'; 'Machine/mem_size'=$memory;
         'Video/gfxcard'='et4000ax'; 'Tseng Labs ET4000AX (ISA)/bios'='v8_06';
         'Tseng Labs ET4000AX (ISA)/memory'='1024';
-        'Storage controllers/hdc_1'='esdi_at';
-        'Hard disks/hdd_01_fn'='scratch.img';
-        'Hard disks/hdd_01_parameters'='17, 4, 615, 0, esdi';
-        'Hard disks/hdd_01_speed'='1989_3500rpm';
+        'Hard disks/hdd_01_fn'=$(if ($largeWorld) { 'scratch-large.img' } else { 'scratch.img' });
         'Floppy and CD-ROM drives/fdd_01_fn'='boot.img';
         'Floppy and CD-ROM drives/fdd_01_type'='35_2hd';
         'Input devices/mouse_type'='msserial'
+    }
+    if ($record.hardware_era -eq '1990-06-30') {
+        $required['Storage controllers/scsicard_1'] = 'aha154xa'
+        $required['Adaptec AHA-154xA #1/base'] = '330'
+        $required['Adaptec AHA-154xA #1/bios_addr'] = 'C8000'
+        $required['Hard disks/hdd_01_parameters'] = $(if ($largeWorld) { '63, 8, 800, 0, scsi' } else { '17, 4, 615, 0, scsi' })
+        $required['Hard disks/hdd_01_scsi_location'] = '0:00'
+        $required['Hard disks/hdd_01_speed'] = 'st4385n_1990'
+    } else {
+        $required['Storage controllers/hdc_1'] = 'esdi_at'
+        $required['Hard disks/hdd_01_parameters'] = '17, 4, 615, 0, esdi'
+        $required['Hard disks/hdd_01_speed'] = '1989_3500rpm'
     }
     foreach ($key in $required.Keys) {
         if ($settings[$key] -ne $required[$key]) { throw "Unexpected hardware: $key" }
@@ -93,7 +120,12 @@ try {
         }
     }
     Write-Host "DOScraft ISO: $IsoPath"
-    Write-Host '486DX/25, 16 MiB, ET4000. Audio deferred. Existing saves are preserved.'
+    if ($record.hardware_era -eq '1990-06-30') {
+        $worldLabel = if ($largeWorld) { '1024-block prebaked HDD world' } else { 'existing world' }
+        Write-Host "$cpuLabel, 8 MiB, ET4000AX, AHA-1542A SCSI and ST4385N timing; $worldLabel."
+    } else {
+        Write-Host "$cpuLabel, 16 MiB, patched 16-bit ET4000. Audio deferred. Existing saves are preserved."
+    }
     if ($ValidateOnly) { exit 0 }
     Start-Process -FilePath $emulator -WorkingDirectory $vm -ArgumentList @('-P', "`"$vm`"", '-R', "`"$roms`"")
     exit 0

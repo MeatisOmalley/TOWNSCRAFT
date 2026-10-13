@@ -107,6 +107,8 @@ static void menu_right(int id)
 static void inventory_mouse(int pressed,int released,int dx,int dy)
 {
 	int hit;
+	if(pressed || released || dx || dy) inventoryNeedsRedraw=1;
+	if(pressed || released) inventoryBaseDirty=1;
 	menuPointerX=CLAMP(menuPointerX+dx,60,257);
 	menuPointerY=CLAMP(menuPointerY+dy,10,227);
 	hit=menu_hit(menuPointerX,menuPointerY);
@@ -144,18 +146,25 @@ static void draw_inventory(void)
 	const Recipe *recipe=dos_craft_grid_match(craftStation,menu_grid_width());
 	Slot output={0,0};
 	int i,x,y,hover=menu_hit(menuPointerX,menuPointerY);
-	ui_panel(g_fb,58,8,204,224);
-	gfx_text_shadow(g_fb,70,14,craftStation==ST_TABLE ? "CRAFTING TABLE" : "CRAFTING",C_YELLOW,C_BLACK);
-	for(i=0;i<9;++i) if(menu_slot_xy(36+i,&x,&y))
-		ui_slot(g_fb,x,y,&dos_craft_grid[i],menuFocus==1 && craftCursor==i);
-	gfx_text_shadow(g_fb,163,55,">",C_WHITE,C_BLACK);
+	dos_video_set_inventory_hint();
 	if(recipe) {output.item=recipe->out;output.count=recipe->outCount;}
-	ui_slot(g_fb,194,49,&output,menuFocus==2);
-	gfx_text_shadow(g_fb,70,96,"INVENTORY",C_YELLOW,C_BLACK);
-	for(i=0;i<36;++i)
+	if(inventoryBaseDirty || !dos_video_inventory_canvas_restore(g_fb,FB_PITCH))
 	{
-		menu_slot_xy(i,&x,&y);
-		ui_slot(g_fb,x,y,&g_inv[inv_slot_at(i)],menuFocus==0 && invCursor==i);
+		ui_panel(g_fb,58,8,204,224);
+		gfx_text_shadow(g_fb,70,14,craftStation==ST_TABLE ? "CRAFTING TABLE" : "CRAFTING",C_YELLOW,C_BLACK);
+		for(i=0;i<9;++i) if(menu_slot_xy(36+i,&x,&y))
+			ui_slot(g_fb,x,y,&dos_craft_grid[i],menuFocus==1 && craftCursor==i);
+		gfx_text_shadow(g_fb,163,55,">",C_WHITE,C_BLACK);
+		ui_slot(g_fb,194,49,&output,menuFocus==2);
+		gfx_text_shadow(g_fb,70,96,"INVENTORY",C_YELLOW,C_BLACK);
+		for(i=0;i<36;++i)
+		{
+			menu_slot_xy(i,&x,&y);
+			ui_slot(g_fb,x,y,&g_inv[inv_slot_at(i)],menuFocus==0 && invCursor==i);
+		}
+		gfx_text_shadow(g_fb,70,219,"L drag  R one  C grid",P(R_GRAY,11),C_BLACK);
+		dos_video_inventory_canvas_save(g_fb,FB_PITCH);
+		inventoryBaseDirty=0;
 	}
 	if(hover>=0 && menu_slot_xy(hover,&x,&y))
 		gfx_frame(g_fb,x-1,y-1,22,22,C_YELLOW);
@@ -170,9 +179,9 @@ static void draw_inventory(void)
 		gfx_text_shadow(g_fb,70,206,g_itemDef[menu_slot(hover)->item].name,C_WHITE,C_BLACK);
 	else if(recipe)
 		gfx_text_shadow(g_fb,70,206,g_itemDef[recipe->out].name,C_WHITE,C_BLACK);
-	gfx_text_shadow(g_fb,70,219,"L drag  R one  C grid",P(R_GRAY,11),C_BLACK);
 	/* The DOS mouse is relative in play; menus keep a small independent cursor. */
 	gfx_rect(g_fb,menuPointerX,menuPointerY,3,3,C_WHITE);
+	inventoryNeedsRedraw=0;
 }
 
 static void close_inventory(void)
@@ -201,6 +210,8 @@ static void close_inventory(void)
 static void inventory_key(int k)
 {
 	int width=menu_grid_width();
+	inventoryNeedsRedraw=1;
+	inventoryBaseDirty=1;
 	if(k==KEY_ESC || k==KEY_TAB) {close_inventory();return;}
 	if(k==KEY_C) {menuFocus=menuFocus==0 ? 1 : 0;return;}
 	if(k==KEY_Q)
@@ -268,15 +279,18 @@ def adapt(name, data):
                            count=text.count('\r\n')))
         text = text.replace('\r\n', '\n')
     text = replace_once(text, '#include "inventory.h"\n',
-                        '#include "inventory.h"\n#include "craft_grid.h"\n', recipe)
+                        '#include "inventory.h"\n#include "craft_grid.h"\n#include "video_backend.h"\n'
+                        'extern void dos_game_inventory_idle(void);\n', recipe)
     text = replace_once(text, 'static Slot invHeld;\n',
         'static Slot invHeld;\n'
         'static int menuFocus,craftCursor,menuPointerX=160,menuPointerY=120,menuDragSource=-1;\n'
+        'static int inventoryBaseDirty=1,inventoryNeedsRedraw=1;\n'
         'static void open_inventory(int station,int focus)\n'
         '{\n'
         '\tcraftStation=station;\n\tmenuFocus=focus;\n\tcraftCursor=0;\n'
         '\tinvCursor=27+g_player.selected;\n\tmenuPointerX=160;\n\tmenuPointerY=120;\n'
-        '\tmenuDragSource=-1;\n\tdos_craft_grid_clear();\n\tstate=GS_INVENTORY;\n}\n', recipe)
+        '\tmenuDragSource=-1;\n\tinventoryBaseDirty=1;\n\tinventoryNeedsRedraw=1;\n'
+        '\tdos_craft_grid_clear();\n\tstate=GS_INVENTORY;\n}\n', recipe)
     text = replace_once(text,
         '\t\tstate=GS_CRAFT;\n\t\tcraftStation=ST_TABLE;\n\t\tcraftSel=craftScroll=0;\n\t\treturn 1;',
         '\t\topen_inventory(ST_TABLE,1);\n\t\treturn 1;', recipe)
@@ -297,6 +311,12 @@ def adapt(name, data):
         '\t\tif(GS_INVENTORY==state)\n'
         '\t\t\tinventory_mouse(mousePressed,mouseReleased,mouseDX,mouseDY);\n'
         '\t\t/* Game pad: SELECT cycles the hotbar */', recipe)
+    text = replace_once(text,
+        '\t\t{\n\t\t\t/* Menus pause the game.  Render the world once when a menu opens',
+        '\t\t/* A still inventory needs no redraw; keep polling input immediately. */\n'
+        '\t\tif(GS_INVENTORY==state && !inventoryNeedsRedraw)\n'
+        '\t\t{\n\t\t\tdos_game_inventory_idle();\n\t\t\tcontinue;\n\t\t}\n'
+        '\t\t{\n\t\t\t/* Menus pause the game.  Render the world once when a menu opens', recipe)
     text = replace_once(text, '"TAB         Inventory",',
                         '"TAB         Inventory + craft",', recipe)
     text = replace_once(text, '"C           Craft (by hand)",',

@@ -21,6 +21,10 @@ class DosSourcesTests(unittest.TestCase):
             elif name=='world.c':
                 self.assertIn(b'if(cacheAllocated && cache_light_pending()) cache_light_pump(0);',default)
                 self.assertTrue(default_recipe)
+            elif name=='mobs.c':
+                # The already approved streaming-world despawn overlay is
+                # part of the existing default source recipe.
+                self.assertTrue(default_recipe)
             else:
                 self.assertEqual((default,default_recipe),(data,[]))
             result,recipe=dos_sources.adapt(name,data,raster_zero_dx=True)
@@ -30,7 +34,7 @@ class DosSourcesTests(unittest.TestCase):
                 self.assertEqual(replay.count(old),step['count'])
                 replay=replay.replace(old,new)
             self.assertEqual(replay,result)
-            if name not in ('raster.c','game.c','world.c'): self.assertFalse(recipe)
+            if name not in ('raster.c','game.c','world.c','mobs.c'): self.assertFalse(recipe)
         with self.assertRaises(ValueError):
             dos_sources.adapt('raster.c',b'unexpected source',raster_zero_dx=True)
 

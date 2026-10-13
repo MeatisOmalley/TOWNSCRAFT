@@ -115,6 +115,15 @@ static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
  * Restore bank zero/unchained access before any normal path or readback. */
 static unsigned char chunky_hud[3][40*320];
 static unsigned char planar_hud_valid[3],chunky_hud_valid[3];
+#ifdef DOS_ET4000_STRIDED
+/* gfx_present rotates three RAM pages. The previously presented RAM page
+ * remains untouched while the next one is drawn, so it is an exact shadow
+ * of the single displayed inventory page without another 75 KiB buffer. */
+static const unsigned char *inventory_shadow;
+static unsigned int inventory_shadow_pitch;
+static unsigned int inventory_shadow_page;
+static int inventory_shadow_valid;
+#endif
 #ifndef DOS_ET4000_STRIDED
 static void et4000_upload(const unsigned char *data,unsigned int bytes,unsigned int address)
 {
@@ -156,6 +165,39 @@ static void et4000_upload_rows(const unsigned char *data,unsigned int pitch,
     outportb(0x3cd,0);
     outportw(0x3c4,0x0604);
 }
+/* The menu's world is frozen. Compare against the actual displayed page and
+ * write only changed scanlines (usually the old/new pointer or a slot). */
+static void et4000_upload_inventory(const unsigned char *data,unsigned int pitch,
+                                    unsigned int address)
+{
+    unsigned int row,current_bank=~0u;
+    int writing=0;
+    for(row=0;row<240;++row) {
+        const unsigned char *source=data+(size_t)row*pitch;
+        const unsigned char *shadow=inventory_shadow+(size_t)row*inventory_shadow_pitch;
+        unsigned int at=address+row*320,bytes=320;
+        if(!memcmp(source,shadow,320)) continue;
+        if(!writing) {
+            outportw(0x3c4,0x0e04);
+            outportw(0x3c4,0x0f02);
+            writing=1;
+        }
+        while(bytes) {
+            unsigned int offset=at&65535u,count=65536u-offset;
+            unsigned int next_bank=(at>>16)&15u;
+            if(count>bytes) count=bytes;
+            if(next_bank!=current_bank) {
+                outportb(0x3cd,next_bank); current_bank=next_bank;
+            }
+            dosmemput(source,count,0xa0000+offset);
+            source+=count; at+=count; bytes-=count;
+        }
+    }
+    if(writing) {
+        outportb(0x3cd,0);
+        outportw(0x3c4,0x0604);
+    }
+}
 #endif
 #endif
 
@@ -168,6 +210,8 @@ static void et4000_upload_rows(const unsigned char *data,unsigned int pitch,
 
 static int old_mode = -1;
 static unsigned int shown_page;
+static int inventory_hint;
+void dos_video_set_inventory_hint(void) { inventory_hint=1; }
 static volatile unsigned int *irq_clock;
 static unsigned int irq_rate;
 #ifdef DOS_VGA_ASYNC_FLIP
@@ -257,6 +301,42 @@ static unsigned char packed[4 * DOS_VGA_PLANE_BYTES];
 #else
 static unsigned char packed[DOS_VGA_PLANE_BYTES];
 #endif
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED) && defined(DOS_VGA_PACK_ALL)
+#define INVENTORY_X 58u
+#define INVENTORY_Y 8u
+#define INVENTORY_W 204u
+#define INVENTORY_H 224u
+static int inventory_canvas_valid;
+#endif
+int dos_video_inventory_canvas_save(const unsigned char *source, unsigned int pitch)
+{
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED) && defined(DOS_VGA_PACK_ALL)
+    unsigned int y;
+    if(!source || pitch<320) return 0;
+    for(y=0;y<INVENTORY_H;++y)
+        memcpy(packed+y*INVENTORY_W,
+               source+(size_t)(y+INVENTORY_Y)*pitch+INVENTORY_X,INVENTORY_W);
+    inventory_canvas_valid=1;
+    return 1;
+#else
+    (void)source; (void)pitch;
+    return 0;
+#endif
+}
+int dos_video_inventory_canvas_restore(unsigned char *target, unsigned int pitch)
+{
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED) && defined(DOS_VGA_PACK_ALL)
+    unsigned int y;
+    if(!inventory_canvas_valid || !target || pitch<320) return 0;
+    for(y=0;y<INVENTORY_H;++y)
+        memcpy(target+(size_t)(y+INVENTORY_Y)*pitch+INVENTORY_X,
+               packed+y*INVENTORY_W,INVENTORY_W);
+    return 1;
+#else
+    (void)target; (void)pitch;
+    return 0;
+#endif
+}
 static unsigned char readback[DOS_VGA_PLANE_BYTES];
 #ifdef DOS_LOW_PLANAR
 #if !defined(DOS_VGA_PROVEN_ROWS) || !defined(DOS_VGA_PROVEN_VERTICAL)
@@ -282,6 +362,12 @@ static void bios_mode(int number)
 
 void dos_video_restore(void)
 {
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED) && defined(DOS_VGA_PACK_ALL)
+    inventory_canvas_valid=0;
+#endif
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
+    inventory_shadow_valid=0;
+#endif
     if (old_mode >= 0) {
         bios_mode(old_mode);
         old_mode = -1;
@@ -311,6 +397,13 @@ void video_init(void)
     __dpmi_int(0x10, &r);
     old_mode = r.h.al;
     shown_page = 0;
+    inventory_hint=0;
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED) && defined(DOS_VGA_PACK_ALL)
+    inventory_canvas_valid=0;
+#endif
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
+    inventory_shadow_valid=0;
+#endif
     hud_proof_page=-1;
 #ifdef DOS_VGA_ASYNC_FLIP
     flip_count=0;
@@ -376,9 +469,21 @@ void video_wait_vsync(void)
 
 void dos_video_present(const unsigned char *source, unsigned int pitch)
 {
+    int inventory=inventory_hint;
     unsigned int plane;
     unsigned int next_page = (shown_page + 1) % VGA_PAGES;
     unsigned int offset = next_page * DOS_VGA_PLANE_BYTES;
+#ifdef DOSCRAFT_BENCH
+    unsigned int stamp;
+#endif
+    inventory_hint=0;
+#if !defined(DOS_VGA_BROADCAST) && !(defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED))
+    (void)inventory;
+#endif
+#ifdef DOS_VGA_BROADCAST
+    /* The grid and pointer invalidate scale-2 row/texel proofs. */
+    if(inventory) repeated_pixel_hint=0;
+#endif
 #ifndef DOS_VGA_ASYNC_FLIP
     uclock_t start;
 #endif
@@ -408,8 +513,28 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
     int skip_hud=use_proven && hud_proof_page==(int)next_page && planar_hud_valid[next_page];
 #endif
     hud_proof_page=-1;
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
+    if(!inventory) inventory_shadow_valid=0;
+#if defined(DOS_VGA_PACK_ALL)
+    if(!inventory) inventory_canvas_valid=0;
+#endif
+    if(inventory && inventory_shadow_valid && inventory_shadow_page==shown_page) {
+        if(!source || pitch<320) {
+            dos_video_restore(); fputs("Invalid inventory framebuffer\n",stderr); exit(1);
+        }
 #ifdef DOSCRAFT_BENCH
-    unsigned int stamp;
+        stamp=bench_us();
+#endif
+        et4000_upload_inventory(source,pitch,shown_page*DOS_VGA_PLANE_BYTES*4u);
+        inventory_shadow=source;
+        inventory_shadow_pitch=pitch;
+#ifdef DOSCRAFT_BENCH
+        dos_bench_upload+=bench_us()-stamp;
+#endif
+        chunky_hud_valid[shown_page]=0;
+        planar_hud_valid[shown_page]=0;
+        return;
+    }
 #endif
 #ifdef DOS_VGA_ASYNC_FLIP
     /* Before reusing a page, ensure a retrace has passed since the flip that
@@ -656,10 +781,30 @@ page_flip:
 #endif
 #endif
     shown_page = next_page;
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
+    if(inventory) {
+        inventory_shadow=source;
+        inventory_shadow_pitch=pitch;
+        inventory_shadow_page=shown_page;
+        inventory_shadow_valid=1;
+    }
+#endif
+}
+
+int dos_video_last_present_proven(void)
+{
+#ifdef DOS_RASTER_FINISH_SKIP
+    return last_proven_present;
+#else
+    return 0;
+#endif
 }
 
 int dos_video_verify(const unsigned char *source, unsigned int pitch)
 {
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED) && defined(DOS_VGA_PACK_ALL)
+    inventory_canvas_valid=0; /* Readback uses the same packing scratch. */
+#endif
     unsigned int plane;
     unsigned int offset = shown_page * DOS_VGA_PLANE_BYTES;
     unsigned int display_start;

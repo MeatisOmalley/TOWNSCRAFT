@@ -6,6 +6,13 @@ void dos_video_set_tick_clock(volatile unsigned int *ticks, unsigned int rate);
 /* Performance hint only. Broadcast always proves exact row equality; disable
  * planning for full-resolution views where adjacent pixels usually differ. */
 void dos_video_set_repeated_pixel_hint(int enabled);
+/* The inventory paints sharp pixels over a frozen view. Its next present may
+ * update only changed scanlines of the displayed page. Consumed once. */
+void dos_video_set_inventory_hint(void);
+/* Inventory-only reuse of the presenter's idle packing scratch. Returns zero
+ * on builds without the direct ET4000 menu path, which redraw normally. */
+int dos_video_inventory_canvas_save(const unsigned char *source, unsigned int pitch);
+int dos_video_inventory_canvas_restore(unsigned char *target, unsigned int pitch);
 /* One-present proof from the UI's destination-page HUD cache. */
 void dos_video_prove_hud_unchanged(int page);
 void dos_video_unprove_hud(void);
@@ -38,5 +45,7 @@ void dos_video_planar_frame(const unsigned char *rows);
 #endif
 /* Diagnostic only, deliberately reads VRAM; not a rendering hot path. */
 int dos_video_verify(const unsigned char *source, unsigned int pitch);
+/* Diagnostic source completion is valid only for a proven raster upload. */
+int dos_video_last_present_proven(void);
 
 #endif

@@ -146,7 +146,7 @@ def populate(boot, files):
 
 
 def scratch_hdd(cylinders=615, heads=4, sectors=17):
-    """Fresh 20 MiB development disk. Not a claim of final Wren-V geometry.
+    """Fresh FAT16 development disk; defaults to the 20 MiB test geometry.
 
     A nonbootable MBR and single FAT16 partition: boot DOS from A:, test C:.
     Final large-world disk sizing/timing belongs to the next storage milestone.
@@ -155,6 +155,10 @@ def scratch_hdd(cylinders=615, heads=4, sectors=17):
     start = sectors
     size = total - start
     spc = 4
+    while (size - 1 - 32) // spc >= 65525:
+        spc *= 2
+    if spc > 128:
+        raise ValueError('FAT16 disk geometry is too large')
     fat_sectors = 1
     while True:
         count = (size - 1 - 2 * fat_sectors - 32) // spc

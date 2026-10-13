@@ -4,7 +4,7 @@ The fork branch below is 86Box v6.0 plus:
   - ET4000AX ISA registered as a 16-bit ISA card (v6.0 gave it byte-only
     memory handlers, turning each 32-bit write into four 8-bit transfers);
   - planar/latched VGA word and dword accesses charged as one bus transfer;
-  - i486DX/33 ISA bus at 11.1 MHz (33.33 MHz / 3), a period AT-bus overclock;
+  - i486DX/40 overclock entry with a 10 MHz ISA bus (40 MHz / 4);
   - a build-only rename in 808x.c for current MinGW headers.
 It is built with the same MSYS2 UCRT64 recipe as 86Box's release builds and
 assembled into PATCHED_EMULATOR_DIR: the patched static 86Box.exe plus the

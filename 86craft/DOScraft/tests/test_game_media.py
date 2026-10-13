@@ -5,7 +5,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
-from game_media import embedded_boot, startup
+from game_media import embedded_boot, startup, hardware_matches
 from iso_image import build_iso
 
 
@@ -15,6 +15,12 @@ DESCRIPTOR = 17 * BLOCK
 
 
 class StartupTests(unittest.TestCase):
+    def test_emulator_rewrites_preserve_required_hardware(self):
+        expected='[General]\nvid_renderer = qt_software\n[Machine]\nmem_size = 8192\ncpu_override_interpreter = 0\n[Ports (COM & LPT)]\nserial1_enabled = 1\n'
+        actual='\ufeff[General]\nuuid = runtime-id\nvid_renderer = qt_software\n[Machine]\nmem_size = 8192\n'
+        self.assertTrue(hardware_matches(actual,expected))
+        self.assertFalse(hardware_matches(actual.replace('8192','16384'),expected))
+        self.assertFalse(hardware_matches(actual+'cpu_override_interpreter = 1\n',expected))
     def test_normal_startup_is_direct_game_with_deferred_audio(self):
         expected = (b'@ECHO OFF\r\nSET PATH=A:\\\r\n'
                     b'CTMOUSE /S14 /R11 /W /Y\r\nCWSDPMI -p -s-\r\n'

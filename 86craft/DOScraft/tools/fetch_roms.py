@@ -15,6 +15,14 @@ PATHS={
         'db2f8461274922026acc8b2a4fe1b0675d8ce7d6430108b74196527f36ed2c09',
     'hdd/esdi_at/62-000279-061.bin':
         'dc9888282bd5e37262b9607d2c5ba6ca1a7ce5810588a4d1d03f517adc8c0c4d',
+    'machines/av4/amibios_486dx_isa_bios_aa4025963.bin':
+        '4f524abc4a9011ce5ff8e3decbfd5cac2eb8e5ff894a00dfa67b73fe507676e8',
+    'scsi/adaptec/aha1542c102.bin':
+        '7d5bbfbb5af6d75e5aa6546601f715df586f1a262bfc8e1eb82313bd546d821c',
+    'scsi/adaptec/aha1540a307.bin':
+        'a8a5d2ebd6c25f8073d279b23c5bda554deceb5b16991545354ad663327dc67d',
+    'video/et4000w32/ET4000W32VLB_bios_MX27C512.BIN':
+        '4d2dafc08b78e9d216408d6c7fa53dca404fb8dfa10d6d7fddabac8e767b050d',
 }
 def main():
     records=[]

@@ -1,4 +1,6 @@
-/* DOS file transport for the unchanged hdd_* sector API. No SCSI/DMA access.
+/* DOS transport for the unchanged hdd_* sector API. No private SCSI/DMA driver.
+ * Validated contiguous large terrain uses absolute volume I/O through DOS to
+ * avoid FAT-chain scans; other media keep the ordinary bounded file transport.
  * The caller still checks the scratch marker and owns slot/checksum publication.
  * One file call copies at most 2048 bytes per poll; DOS seeks/I/O/flush can
  * themselves block. This is NOT a hard latency bound or asynchronous disk I/O.
@@ -15,6 +17,9 @@
 typedef char dos_hdd_seek_width[(sizeof(long)==4 && sizeof(off_t)==4) ? 1 : -1];
 static int terrain_fd = -1, last_error, cleanup_registered;
 static u32 sectors;
+#if defined(__DJGPP__) && !defined(DOS_HDD_FILE_ONLY)
+#include "hdd_extent.inc"
+#endif
 static struct {
     int active, write;
     u32 lba, count, copied;
@@ -35,6 +40,9 @@ void hdd_cancel(void)
 void dos_hdd_shutdown(void)
 {
     hdd_cancel();
+#if defined(__DJGPP__) && !defined(DOS_HDD_FILE_ONLY)
+    extent_shutdown();
+#endif
     if (terrain_fd >= 0 && close(terrain_fd)) last_error = HDD_ERROR_STATUS;
     terrain_fd = -1;
     sectors = 0;
@@ -64,6 +72,9 @@ int hdd_init(void)
     }
     terrain_fd = fd;
     sectors = (u32)info.st_size / HDD_SECTOR_BYTES;
+#if defined(__DJGPP__) && !defined(DOS_HDD_FILE_ONLY)
+    extent_init((unsigned)info.st_size);
+#endif
     return 1;
 }
 
@@ -107,12 +118,23 @@ int hdd_transfer(u32 lba, u32 count, int write_request, u8 *buffer)
     offset = lba * HDD_SECTOR_BYTES + request.copied;
     /* Signed seek range was checked at open; subtraction bounds guard above
      * means neither multiply/add nor the final byte can overflow that range. */
-    if (lseek(terrain_fd, (off_t)offset, SEEK_SET) != (off_t)offset)
-        return fail_transfer(HDD_ERROR_STATUS);
     amount = bytes - request.copied;
     if (amount > 2048u) amount = 2048u;
+#if defined(__DJGPP__) && !defined(DOS_HDD_FILE_ONLY)
+    if(extent_ready) {
+        if(write_request && !dos_terrain_edit_range(lba,count))
+            return fail_transfer(HDD_ERROR_ARGUMENT);
+        if(!extent_transfer(extent_first+offset/512,amount/512,write_request,buffer+request.copied))
+            return fail_transfer(HDD_ERROR_STATUS);
+        copied=amount;
+    } else
+#endif
+    {
+    if (lseek(terrain_fd, (off_t)offset, SEEK_SET) != (off_t)offset)
+        return fail_transfer(HDD_ERROR_STATUS);
     if (write_request) copied = write(terrain_fd, buffer + request.copied, amount);
     else copied = read(terrain_fd, buffer + request.copied, amount);
+    }
     /* Positive short transfers progress; EOF, zero progress or any DOS error
      * terminate. No unbounded EINTR/full-disk retry or stale success. */
     if (copied <= 0 || (u32)copied > amount) return fail_transfer(HDD_ERROR_STATUS);

@@ -49,7 +49,7 @@ def validate_vm(vm):
     cfg = configparser.ConfigParser()
     cfg.read(vm / '86box.cfg', encoding='utf-8-sig')
     required = {
-        'Machine': {'machine': 'isa486', 'cpu_family': 'i486dx', 'cpu_speed': '33333333',
+        'Machine': {'machine': 'isa486', 'cpu_family': 'i486dx', 'cpu_speed': '40000000',
                     'cpu_use_dynarec': '0', 'fpu_type': 'internal', 'mem_size': '16384'},
         'Video': {'gfxcard': 'et4000ax'},
         'Tseng Labs ET4000AX (ISA)': {'bios': 'v8_06', 'memory': '1024'},

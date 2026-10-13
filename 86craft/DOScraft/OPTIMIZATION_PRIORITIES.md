@@ -1,10 +1,30 @@
-# DOScraft optimization priorities — 2026-10-11 (rev. 3)
+# DOScraft optimization priorities — 2026-10-11 (rev. 4)
 
 A **ranked research backlog**, not a set of enabled changes or promised FPS gains. It draws on the DOScraft optimization conversations, the [DOS backlog](OPTIMIZATION_BACKLOG.md), [performance record](PERFORMANCE.md), [front-to-back experiment](FRONT_TO_BACK.md), [group-visibility audit](research/group_visibility/FEASIBILITY.md) and the Townscraft [retention audit](../../fmtowns/townscraft/OPTIMIZATION_AUDIT.md). Candidates are split into **invisible** changes (same picture and gameplay) and **gameplay/visual-affecting** changes, and each table is sorted by estimated FPS impact on **Low**.
 
-## Current cost (published planar build, Low)
+## Current cost (40 MHz published planar build, Low)
 
-> **Hardware update (2026-10-11, later):** the target is now a 486DX/33 with an 11.1 MHz ISA bus, on an 86Box runtime that treats the ET4000AX as the 16-bit card it is. Low still 39.0 ms, walk 23.4, down 79.2, clouds 17.5, house 48.3 ms; upload ~5 ms instead of ~13. The table below is the earlier 25 MHz build; re-rank upload-cutting items (A2, A6, part of B2) against the smaller upload. [Details](PERFORMANCE.md)
+The 40 MHz custom 86Box runtime retains the 16-bit ET4000 correction and runs
+ISA at 10 MHz. Three-repeat Low replay, in milliseconds; the frozen replay
+still carries post-fixture world work. [Report](tests/benchmarks/2026-10-11/dx40-16bit-low.json)
+
+| Scene | Frame | Draw | VGA upload | Pack | World update | Collect/sort | Sky |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| still | 33.8 | 18.9 | 5.7 | 1.1 | 4.6 | 1.8 | 1.1 |
+| walk | 20.4 | 6.3 | 4.1 | 1.4 | 4.5 | 2.5 | 1.1 |
+| looking down | 67.2 | 48.7 | 5.7 | 1.1 | 5.3 | 4.2 | 1.1 |
+| clouds (walk_up) | 15.7 | 0.0 | 5.3 | 1.3 | 4.1 | 1.4 | 2.9 |
+| house | 41.5 | 23.3 | 5.7 | 1.1 | 4.1 | 5.2 | 1.1 |
+| edits | 45.3 | 23.5 | 5.7 | 1.1 | 7.6 | 5.2 | 1.1 |
+
+A2's old 6.5 ms estimate is obsolete: even halving *all* upload would save
+at most about 2.9 ms in dense scenes, less in walking, before timing/glitch
+costs. The estimates below remain historical 25 MHz estimates until candidates
+are rerun on this profile. Draw and collection now dominate the dense scenes.
+
+## Historical cost (25 MHz planar build, Low)
+
+> **Intermediate 33 MHz checkpoint:** before the 40 MHz overclock, the custom 16-bit ET4000 runtime measured Low still 39.0 ms, walk 23.4, down 79.2, clouds 17.5 and house 48.3 ms. Upload fell to about 5 ms. The table below predates both custom-runtime checkpoints. [Details](PERFORMANCE.md)
 
 486DX/25, 16 MiB, ET4000AX ISA, Mode X. Short three-repeat replay; the harness replays after its house/edit fixtures, so every scene carries leftover mesh/light work in "world update". [Report](tests/benchmarks/2026-10-11/low-planar-low.json)
 
@@ -56,6 +76,17 @@ The plane-wide figures are valid two-axis greedy rectangle partitions of visible
 
 ## A. Invisible changes (pending), by estimated FPS impact
 
+A4's wider angular reuse and A5's lighting-cache subtask shipped on 2026-10-13.
+The combined Low replay saves 1.53 ms standing and 1.27 ms in the house,
+with only 0.13 ms walking in this previously edited warmup route. Fresh
+five-column lighting preparation takes 57% less total time; its largest poll
+falls 58.56 -> 18.56 ms. Edit-cycle average/p95 regress slightly while the
+worst cycle falls 106.76 -> 59.59 ms. Keep these limits with the results;
+do not retain the earlier larger savings as measured claims. See
+[evidence and tradeoffs](PERFORMANCE.md#orientation-reuse-and-streamed-lighting-2026-10-13).
+The A4 row below now refers to remaining mesh/cell invalidation work; A5's
+remaining work is primarily mesh scans/publication and edit tails.
+
 | # | Candidate and first bounded experiment | Est. Low saving (still / walk / house / down) | Confidence | Main cost attacked; tradeoffs |
 | ---: | --- | --- | --- | --- |
 | **A1** | **Surface-cached plane merging.** Merge coplanar faces into large rectangles across textures and light levels. Four-pose census complete; next step is a same-material, order-preserving merge prototype and image/performance comparison. | Unmeasured; 3–19% same-material item reduction in visible terrain, 16–43% with unconstrained plane-wide packing | Low (speculative) | Per-polygon and per-row setup. Cross-material composites need cache maintenance; affine distortion and painter order are substantial constraints. The prior −8 / −2 / −10 / −15 ms estimate was not validated by the census. |
@@ -77,12 +108,12 @@ The plane-wide figures are valid two-axis greedy rectangle partitions of visible
 | # | Candidate and first bounded experiment | Est. Low saving (still / walk / house / down) | Confidence | What the player sees; notes |
 | ---: | --- | --- | --- | --- |
 | **B1** | **Alternate-row (interlaced) rendering** (old #9). Render half of the logical view rows each frame, alternating, and keep the other half from the previous frame. | −12 / −4 / −15 / −30 ms | Medium | Halves row setup and texels. Combing/shimmer on motion; Townscraft removed its interlacing for exactly that. Upload only shrinks if the stale field can stay resident across the three VGA pages, which needs page bookkeeping. |
-| **B2** | **Smaller live 3D view panel** (requested 2026-10-11). Doom-style screen-size option: render the 3D view in a centered window, e.g. 256×160 (128×80 logical) or 224×140 (112×70), same FOV, with a static border and the HUD unchanged. | 256×160: −12 / −7 / −13 / −21 ms. 224×140: −16 / −9 / −18 / −29 ms | Medium–high | Cuts drawn pixels (−36% / −51%), rows (−20% / −30%), view upload (13.1→~8.4 / ~6.4 ms), pack and sky together. Polygon count is unchanged at the same FOV; cropping the FOV instead saves more but gives tunnel vision. Presenter needs a window row range, a cached border and repositioned overlay bands. UI layout change. |
+| **B2 — tried, reverted** | **Smaller Very Low 3D view panel** (256×160 with inventory sidebar and reserved map band). | Measured frame saving: still 3.45 ms, walk 1.09 ms, down 6.75 ms; upward view regressed 1.45 ms | High | The layout was rejected and the gain was much smaller than estimated. Recoverable checkpoint: `codex/very-low-panel-checkpoint-2026-10-12`. Not active in the current ISO. |
 | **B3** | **"Potato" 160×50 view (2×4 pixels)**, a tier below Very Low. | −10 / −3 / −13 / −26 ms | Medium | Halves rows and texels; upload unchanged unless combined with A2 (8 scanlines per row would quarter it). Very chunky vertically. |
 | **B5** | **Shorter Low view distance** (8→6 blocks, with fog). | −6 / −2 / −3 / −2 ms | Medium | Removes many tiny distant faces, which are setup-heavy. Clear draw-distance change. |
 | **B6** | **Flat-shade distant or small Low faces** (old #6). A texture-to-flat distance threshold (Low `flat_distance=0` today) and/or a larger `g_flatLOD` (currently 6 render pixels). | −5 / −1 / −5 / −3 ms | Medium | Skips texel work and per-row gradient multiplies for those faces. Visible texture loss in the distance. [Preset](src/platform/dos/graphics_presets.c) |
 | **B7** | **Approximate UV-gradient reuse over 2–4 scanlines** (old #10). | −3 / −1 / −3 / −5 ms | Medium | Row setup; slight shimmer. Different from the neutral exact gradient-entry probe. |
-| **B8** | **Distant-terrain impostors.** Render far chunks (5–8 blocks) into view-facing textured panels in true 3D and re-render a panel when the view angle to it changes beyond a threshold. Arbitrary pitch is fine. | −2 to −6 ms in open scenes | Low (speculative) | Replaces many tiny far faces with one quad each. Parallax error grows quickly at Low's short view distance; probably more useful for extending Medium/High view distance cheaply. |
+| **B8** | **Layered far field: extend draw distance without far polygons** (replaces the earlier re-rendered panel-impostor idea). Three layers drawn back to front: a 360° cylindrical panorama for 40–100+ blocks, a *Comanche*-style heightmap band for 8–40 blocks, then the unchanged textured polygon world for 0–8 blocks. **Heightmap band:** one 2-byte entry per world column (top height from `g_height`, top-block color from the texture average already used for small faces). Per screen column, march front to back from 8 blocks (1-block steps to 16, 2-block beyond); one reciprocal per step serves every column, so projection is one multiply per sample. Fill vertical strips against a per-column y-buffer, then darken by distance through the shade LUT as fog. Drawn right after the sky; the near polygons overdraw it, so no depth buffer is needed. **Panorama:** render the heightmap beyond 40 blocks into a cylindrical strip in slices over several frames, redone every few blocks moved. Drawing it is a yaw scroll and pitch offset, replacing the ~1.1 ms sky fill. **First experiment:** host-side mockup of the three layers from a world dump at Low resolution, to judge the 8-block seam and the look. Then a flagged DOS prototype benchmarked on open and walking scenes. | Not a saving: a **cost of ~2–3 ms on Low** (~4,000 samples at ~15 cycles plus a few thousand horizon-band pixels at 40 MHz) to go from an 8-block view to about 32–40 blocks plus a panorama. Doing the same with polygons would multiply faces ~16–25×. | Medium (estimate unmeasured) | **Visible change: much longer view distance and less pop-in at the 8-block edge.** Look-anywhere is preserved: far terrain only appears near the horizon. Steep pitch moves the horizon off-screen, so the far field is skipped and polygons handle straight down. Whenever it is visible, the pitch is shallow enough that a vertical shift is nearly exact, and there is no camera roll; this is why B11's pitch objection does not apply. **Limitations:** top surfaces only, so overhangs, cave mouths and trunks vanish (trees become green bumps) and a distant bridge reads as a wall to the ground. No textures or torchlight far away unless a lit flag is stored; day/night works through shade levels. **Memory:** 2 MB for the whole 1024×1024 world, ~0.5 MB at 2×2 resolution beyond ~24 blocks. Prebake it with the world; an edit updates one entry. Some strip pixels are wasted under near geometry in dense views. A panorama alone fails at Low's 8-block boundary: the parallax error near 8–30 blocks would need re-rendering every fraction of a block. The same far field could extend Medium/High view distance cheaply. |
 | **B9** | **8×8 Low textures plus a compact shaded atlas** (old #19). | −0.5 to −1.5 ms | Low | Texture cache only; the same number of VGA writes. |
 | **B4** | **Low subdivision off/limited.** Disable or cap `draw_quad_split` on Low. | Measured full-off bound: −0.2 / −0.2 / −0.1 / −0.7 ms | High | Visibly more affine warp for a small gain. Do not advance. |
 | **B10** | **Camera-facing billboards for flowers/grass/torch flames** (one quad instead of two double-sided cross quads). | Small; vegetated scenes only | Medium | Slight look change when circling a plant. |
@@ -119,7 +150,7 @@ Several were measured while frames were rounded to whole refreshes. Re-measure a
 
 1. **Completed:** A3/B4 subdivision-off Low sweep and A1 four-pose terrain-item census. A3/B4 are too small to pursue. B5 and B6 remain untested and visibly change Low.
 2. **Invisible upload win:** prototype A2 in a private VM; verify no glitch band under disk streaming and SB audio.
-3. **B2 smaller panel:** prototype at 256×160 and 224×140 with the same FOV; measure frame, draw, upload, and moving/doorway images.
+3. **B2 smaller panel:** 256×160 Very Low trial reverted after measurement and UI review; do not advance this layout.
 4. **A1 next gate:** prototype the same-material, order-preserving adjacent merge on private geometry, then compare image hashes/readback and draw time. Plane-wide cross-material surface caching remains speculative until a smaller test demonstrates useful net saving.
 5. **A4/A5:** profile first (invalidation reasons; world-update breakdown, including p95/max and edit-to-visible latency).
 6. **Every candidate:** use the current production flags, fixed seed/route, three repeats and Low-first scoring. Compare frame, draw, pack, upload, world update, byte counts and visual evidence. Keep the doorway route and High reference; test save/reload and VGA readback for any adopted presenter change. Gameplay/visual rows need an explicit go-ahead before they ship.

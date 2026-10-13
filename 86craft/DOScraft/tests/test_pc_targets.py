@@ -62,7 +62,7 @@ class TargetTests(unittest.TestCase):
         cfg = profile('486dx25')['Machine']
         self.assertEqual(cfg['machine'], 'isa486')
         self.assertEqual(cfg['cpu_family'], 'i486dx')
-        self.assertEqual(cfg.getint('cpu_speed'), 33333333)
+        self.assertEqual(cfg.getint('cpu_speed'), 40000000)
         self.assertEqual(cfg['fpu_type'], 'internal')
         self.assertEqual(cfg.getint('cpu_use_dynarec'), 0)
 

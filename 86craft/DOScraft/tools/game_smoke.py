@@ -11,7 +11,9 @@ from run_vm import diagnostic_volume
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--bios',required=True,type=Path)
+    parser.add_argument('--bios',type=Path)
+    parser.add_argument('--hardware-vm',type=Path,
+        help='Use the current June 1990 playable VM hardware, CMOS and emulator in a private smoke VM')
     parser.add_argument('--timeout',type=int,default=900)
     parser.add_argument('--report',required=True,type=Path)
     parser.add_argument('--omit-frame-pointer',action='store_true',help='Test the explicit codegen candidate before changing production defaults')
@@ -38,7 +40,11 @@ def main():
             *(('-DDOS_VGA_PROVEN_VERTICAL',) if args.proven_vertical else ()),
             *(('-DDOS_LOW_PLANAR',) if args.low_planar else ())]))
     build(output=args.build_output,extra_adapter_flags=flags)
-    vm,record=prepare(smoke=True,bios=args.bios,output=args.build_output)
+    if not args.bios and not args.hardware_vm:
+        parser.error('Provide --bios or --hardware-vm')
+    prepare_options={'smoke':True,'bios':args.bios,'output':args.build_output}
+    if args.hardware_vm: prepare_options['hardware_vm']=args.hardware_vm
+    vm,record=prepare(**prepare_options)
     process=subprocess.Popen(validate(vm),cwd=vm)
     print(f'VM={vm}\nPID={process.pid}',flush=True)
     until=time.monotonic()+args.timeout

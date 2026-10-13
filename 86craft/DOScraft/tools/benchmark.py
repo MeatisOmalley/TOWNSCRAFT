@@ -12,12 +12,16 @@ import statistics
 import subprocess
 import time
 from build_game import build, ROOT, DEFAULT_ADAPTER_FLAGS
-from game_media import prepare, validate
+from game_media import prepare, validate, large_volume
 from run_vm import diagnostic_volume
 from frame_metrics import frame_metrics
 
 OUTPUT=ROOT/'build/bench/486dx25'
 SECTIONS=('game','world_update','collect','entities','flip_wait','sky','draw','finish','hud','present')
+
+def benchmark_volume(vm):
+    large=vm/'scratch-large.img'
+    return large_volume(large.read_bytes()) if large.exists() else diagnostic_volume((vm/'scratch.img').read_bytes())
 
 
 def parse(text):
@@ -26,7 +30,7 @@ def parse(text):
         key,value=line.split('=',1)
         if key=='SCENE':
             row={'name':value}; scenes.append(row)
-        elif key in ('FRAMES','SECTIONS','EDIT_CALLS'):
+        elif key in ('FRAMES','SECTIONS','EDIT_CALLS','CW_TIMES','CW_CALLS','CW_REASONS'):
             row[key.lower()]=[int(x) for x in value.split(',')]
         else: row[key.lower()]=value
     if header.get('result')!='PASS' or len(scenes)!=6:
@@ -62,7 +66,7 @@ def parse(text):
 
 
 def collect(vm):
-    volume=diagnostic_volume((vm/'scratch.img').read_bytes())
+    volume=benchmark_volume(vm)
     results=[]
     for n in range(1,4):
         payload=volume.read(f'BENCH{n}.TXT')
@@ -94,6 +98,11 @@ def write_report(vm,output,manifest,build_record,label,results,archive=None):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bios',type=Path)
+    parser.add_argument('--hardware-vm',type=Path,help='Use the current June 1990 player hardware and CMOS')
+    parser.add_argument('--collect-margin',action='store_true',help='Wider conservative face-list reuse margin')
+    parser.add_argument('--large-terrain',type=Path,help='Benchmark the prebaked 1024 HDD world')
+    parser.add_argument('--stream-light',action='store_true',help='Restore baked and cached streamed lighting')
+    parser.add_argument('--verify-collect',action='store_true',help='Compare every cached frame with a tight-frustum redraw; timings invalid')
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
@@ -108,6 +117,7 @@ def main():
     parser.add_argument('--verify-wall',action='store_true',help='Double-render every frame without wall rejection; correctness only, timings invalid')
     parser.add_argument('--f2b-stress',action='store_true',help='Verification-only cutout/model/overflow stress fixtures')
     parser.add_argument('--profile-draw',action='store_true',help='Guest IRQ0 EIP samples during drawing; diagnostic timings only')
+    parser.add_argument('--profile-cw',action='store_true',help='Benchmark-only collect/world timing and invalidation counters')
     parser.add_argument('--dump-frames',action='store_true',help='Capture final scene frames to the private HDD; diagnostic timings only')
     parser.add_argument('--archive',type=Path,help='Retain compact raw evidence and source recipes in a tracked report path')
     args=parser.parse_args()
@@ -174,6 +184,13 @@ def main():
         'front-to-back-fast':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_FRONT_TO_BACK','-DDOS_F2B_FAST_COVERAGE'),
         'edge-recip':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_EDGE_RECIP')}
     flags=(*variants[args.candidate],'-DDOS_BENCH_QUALITY='+str(('low','medium','high','very-low').index(args.quality)))
+    if args.large_terrain: flags=(*flags,'-DDOS_LARGE_WORLD')
+    if args.stream_light:
+        if not args.large_terrain: parser.error('--stream-light requires --large-terrain')
+        flags=(*flags,'-DDOS_STREAM_LIGHT_CACHE')
+    if args.collect_margin or args.verify_collect: flags=(*flags,'-DDOS_COLLECT_MARGIN')
+    if args.verify_collect:
+        flags=tuple(flag for flag in flags if flag!='-DDOS_LOW_PLANAR')+('-DDOS_COLLECT_VERIFY',)
     if args.frames!=32: flags=(*flags,'-DDOS_BENCH_FRAMES='+str(args.frames))
     if args.verify_f2b:
         if args.candidate not in ('front-to-back','front-to-back-fast'): parser.error('--verify-f2b needs a front-to-back candidate')
@@ -185,21 +202,26 @@ def main():
         if not args.verify_f2b: parser.error('--f2b-stress needs --verify-f2b')
         flags=(*flags,'-DDOS_F2B_STRESS')
     if args.profile_draw: flags=(*flags,'-DDOS_BENCH_PROFILE_DRAW')
+    if args.profile_cw: flags=(*flags,'-DDOS_BENCH_PROFILE_CW')
     if args.dump_frames: flags=(*flags,'-DDOS_BENCH_DUMP_FRAMES')
     if args.run_vm:
         vm=args.run_vm.resolve(strict=True)
         manifest=json.loads((vm/'build.json').read_text())
         if not manifest.get('benchmark') or not vm.is_relative_to(ROOT/'runtime'):
             raise ValueError('Only a private prepared benchmark can be run')
-        volume=diagnostic_volume((vm/'scratch.img').read_bytes())
+        volume=benchmark_volume(vm)
         try: volume.read('BENCH1.TXT')
         except FileNotFoundError: pass
         else: raise ValueError('Already used benchmark disk; prepare a fresh VM')
     else:
-        if not args.bios: parser.error('--bios is required to create a new benchmark VM')
+        if not args.bios and not args.hardware_vm: parser.error('--bios or --hardware-vm is required to create a new benchmark VM')
         build(output,benchmark=True,extra_adapter_flags=flags)
         benchmark_mode='sweep' if args.quality_sweep else 'separate' if args.separate_processes or diagnostic else True
-        vm,manifest=prepare(bios=args.bios,output=output,benchmark=benchmark_mode)
+        vm,manifest=prepare(bios=args.bios,output=output,benchmark=benchmark_mode,hardware_vm=args.hardware_vm)
+        if args.large_terrain:
+            from prepare_large_vm import attach_large_disk
+            attach_large_disk(vm,args.large_terrain,player=True)
+            manifest=json.loads((vm/'build.json').read_text())
     build_record=json.loads((output/'build.json').read_text())
     if manifest['exe_sha256']!=build_record['exe_sha256']:
         raise ValueError('Prepared VM and build manifest differ')
@@ -215,7 +237,7 @@ def main():
     print(f'PID={process.pid}',flush=True)
     until=time.monotonic()+args.timeout
     while time.monotonic()<until:
-        volume=diagnostic_volume((vm/'scratch.img').read_bytes())
+        volume=benchmark_volume(vm)
         for n in range(1,4):
             try: marker=volume.read(f'BENCH{n}.END')
             except (FileNotFoundError,ValueError): continue # FAT may be mid-update in a live snapshot.

@@ -304,6 +304,21 @@ int main(int argc, char **argv) {
     assert(save_column_read(0,16,dst)==1 && !memcmp(dst,other,16) && reads==before);
     reset_transport(); cleanup(); cleanup(); assert(!live);
     assert(!strcmp(save_error_text(SAVE_NO_DISK),"No disk in drive A"));
+    /* Single-slot New Game must invalidate BOTH banks, including legacy saves. */
+    reset_disk(); assert(!dos_save_has_world());
+    two_v4_banks(); assert(dos_save_has_world());
+    reset_transport(); short_limit=511;
+    assert(dos_save_clear_world()==SAVE_OK && !live);
+    assert(!word_at(0) && !word_at(BANK_TRACKS*TRACK_BYTES));
+    assert(!dos_save_has_world() && load_world()==SAVE_NOT_A_SAVE);
+    reset_disk(); fixture_seed(256,1); assert(save_world()==SAVE_OK && dos_save_has_world());
+    assert(dos_save_clear_world()==SAVE_OK && !dos_save_has_world());
+    two_v4_banks(); reset_transport(); read_only=1;
+    assert(dos_save_clear_world()==SAVE_DISK_ERROR && !live);
+    assert(dos_save_has_world());
+    reset_transport(); failure=12;
+    assert(dos_save_clear_world()==SAVE_DISK_ERROR && !live);
+    reset_transport();
     if(argc==2) {
         FILE *output;
         reset_disk(); fixture_seed(256,1); assert(save_world()==SAVE_OK);

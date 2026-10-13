@@ -13,12 +13,12 @@ CTMOUSE_EXE_SHA256='f4cef8579a1699045c37ac0ddf03fe0ca361de5c1003ba375c3e08f01a54
 EMULATOR_EXE_SHA256='dc236a27e5fccb07d20a60f471e5c1252fbcd82d0505542dd8e4a15c1689e885'  # Official v6.0 b9001 (ROM source).
 # VMs run a locally built v6.0 with DOScraft hardware commits: 16-bit ET4000AX
 # ISA memory, single bus charge for planar word/dword VGA accesses, and an
-# 11.1 MHz ISA bus for the i486DX/33. Rebuild with tools/build_patched_86box.py.
+# 40 MHz i486DX overclock with a 10 MHz ISA bus. Rebuild with tools/build_patched_86box.py.
 PATCHED_86BOX_REPO='https://github.com/MeatisOmalley/86Box.git'
 PATCHED_86BOX_BRANCH='doscraft-isa-timing'
-PATCHED_86BOX_COMMIT='dcc4c689b88e9413819a4d022de3913676bab6a6'
-PATCHED_EMULATOR_DIR='build/deps/86box-doscraft'
-PATCHED_EMULATOR_EXE_SHA256='330476d74c233f42f6d2010b8d0694b7eea9b9cd0f7c1fa61730d280903593d1'
+PATCHED_86BOX_COMMIT='31be7733447e590fdb8ab1a1b859e2e9b9c14fed'
+PATCHED_EMULATOR_DIR='build/deps/86box-doscraft-40'
+PATCHED_EMULATOR_EXE_SHA256='cd80d8691bca79fadf40c3c453479d5a377731422e1e0eaacb07adc286717c12'
 ASSETS={
     'djgpp':('https://github.com/andrewwutw/build-djgpp/releases/download/v3.4/djgpp-mingw-gcc1220-standalone.zip','6f88b531d216f4d92668c960b5cde9a829b5611e06d2c3e431041e33f01c1a52'),
     '86box':('https://github.com/86Box/86Box/releases/download/v6.0/86Box-Windows-64-b9001.zip','b86722ed547089f095e8875805411f83c76aafd7d318f67286a5a69aecdd7644'),

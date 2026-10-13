@@ -9,6 +9,9 @@
 #include "video_backend.h"
 #include "vga_pack.h"
 static unsigned char vram[4][65536],source[512*240+4];
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
+static unsigned char menu_source[sizeof(source)];
+#endif
 static unsigned char before[4][65536];
 #ifdef DOS_LOW_PLANAR
 static unsigned char saved_source[sizeof(source)];
@@ -194,6 +197,52 @@ int main(void)
             assert(dos_video_verify(source+1,pitch)==0);
         }
     }
+#if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
+    /* Inventory overlays are sharp even when the underlying Low world used
+     * repeated pixels. One normal upload establishes its displayed page;
+     * thereafter a still menu writes zero bytes and cursor motion only rows. */
+    {
+        unsigned int menu_start,reads_before;
+        dos_video_set_repeated_pixel_hint(1);
+#ifdef DOS_VGA_PROVEN_ROWS
+        dos_video_prove_low_rows(0,200); /* Stale world proof must be ignored. */
+#endif
+        dos_video_set_inventory_hint();
+        bytes_written=0;
+        dos_video_present(source+1,pitch);
+        menu_start=start_hi<<8|start_lo;
+        assert(bytes_written>=64000 && bytes_written<=76800);
+        assert(dos_video_verify(source+1,pitch)==0);
+        memcpy(menu_source,source,sizeof(source));
+        dos_video_set_repeated_pixel_hint(1);
+        dos_video_set_inventory_hint();
+        bytes_written=0;
+        reads_before=vsync_reads;
+        dos_video_present(menu_source+1,pitch);
+        assert(bytes_written==0 && vsync_reads==reads_before);
+        assert((start_hi<<8|start_lo)==menu_start);
+        source[1+100*pitch+15]^=1;
+        source[1+120*pitch+55]^=1;
+        dos_video_set_repeated_pixel_hint(1);
+        dos_video_set_inventory_hint();
+        bytes_written=0;
+        dos_video_present(source+1,pitch);
+        assert(bytes_written==640);
+        assert((start_hi<<8|start_lo)==menu_start);
+        assert(dos_video_verify(source+1,pitch)==0);
+        dos_video_set_repeated_pixel_hint(0);
+        dos_video_present(source+1,pitch);
+        assert((start_hi<<8|start_lo)!=menu_start);
+        assert(dos_video_verify(source+1,pitch)==0);
+        memcpy(menu_source,source,sizeof(source));
+        assert(dos_video_inventory_canvas_save(source+1,pitch));
+        menu_source[1+120*pitch+100]^=1; /* Previous cursor inside panel. */
+        menu_source[1+2*pitch+20]^=1;   /* Outside the panel is untouched. */
+        assert(dos_video_inventory_canvas_restore(menu_source+1,pitch));
+        assert(menu_source[1+120*pitch+100]==source[1+120*pitch+100]);
+        assert(menu_source[1+2*pitch+20]!=source[1+2*pitch+20]);
+    }
+#endif
     /* Reinitialization invalidates the shadows in lockstep with VRAM clear. */
     dos_video_restore(); video_init();
     dos_video_present(source+1,pitch);

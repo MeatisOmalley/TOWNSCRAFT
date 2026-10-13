@@ -1,7 +1,7 @@
 /* Direct port: the original byte stream/codec is generated from pinned save.c.
  * Only its raw-track and cooperative paging transport is replaced here.
  * WORLD.SAV is an existing exact-size raw Towns save medium, NOT terrain scratch.
- * No creation/truncation, format conversion, new save policy or UI changes. */
+ * The single-slot menu clears published headers without resizing the medium. */
 #include "save.h"
 #include "sys.h"
 #include "world.h"
@@ -17,12 +17,22 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifdef DOS_LARGE_WORLD
+int world_save_large_columns(void (*put)(u32));
+int world_load_large_columns(u32 (*get)(void));
+void world_commit_large_columns(void);
+#endif
+
 #define SECTOR_BYTES 1024
 #define SECTORS_PER_TRACK 8
 #define TRACK_BYTES (SECTOR_BYTES*SECTORS_PER_TRACK)
 #define NUM_TRACKS (77*2)
 #define SAVE_MAGIC 0x46435354
+#ifdef DOS_LARGE_WORLD
+#define SAVE_VERSION 5
+#else
 #define SAVE_VERSION 4
+#endif
 static int loadedMobs;
 int save_loaded_mobs(void) { return loadedMobs; }
 static u8 *trackBuf;
@@ -165,3 +175,36 @@ static int save_column_read(u32 offset, u32 length, u8 *dst)
 /* Pinned byte-stream, checksum, RLE, v1-v4 state and source-bank protection.
  * Explicit codec edits propagate final and idle/cancel close failures. */
 #include "towns_save_codec.inc"
+
+int dos_save_has_world(void)
+{
+    int found=0;
+    page_cancel();
+    if(!fdc_start()) return 0;
+    for(int bank=0;bank<2;++bank) {
+        if(fdc_track(bank*BANK_TRACKS,0)) {
+            u32 magic,version;
+            memcpy(&magic,trackBuf,4); memcpy(&version,trackBuf+4,4);
+            if(magic==SAVE_MAGIC && version>=1 && version<=SAVE_VERSION &&
+               (bank==0 || version>=4)) found=1;
+        }
+    }
+    fdc_stop();
+    return !dos_save_take_close_error() && found;
+}
+
+int dos_save_clear_world(void)
+{
+    int ok=1;
+    if(!world_backing_idle()) return SAVE_DISK_ERROR;
+    page_cancel();
+    if(dos_save_take_close_error()) return SAVE_DISK_ERROR;
+    if(!fdc_start()) return SAVE_NO_DISK;
+    memset(trackBuf,0,TRACK_BYTES);
+    /* Clear both banks: deleting only the latest would resurrect an older save. */
+    for(int bank=0;bank<2;++bank)
+        if(!fdc_track(bank*BANK_TRACKS,1)) { ok=0; break; }
+    fdc_stop();
+    if(dos_save_take_close_error()) ok=0;
+    return ok ? SAVE_OK : SAVE_DISK_ERROR;
+}

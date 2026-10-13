@@ -2,6 +2,9 @@
  * Simulation is frozen to compare identical geometry at identical poses;
  * this is NOT a physics/gameplay-throughput test. Normal builds exclude it. */
 #include "bench.h"
+#ifdef DOS_BENCH_PROFILE_CW
+#include "bench_profile_cw.h"
+#endif
 #include "bench_transport.h"
 #include "sys.h"
 #include "world.h"
@@ -77,6 +80,10 @@ static unsigned int edit_calls[PHASES][FRAMES];
 static BenchTotal packs[PHASES],uploads[PHASES],waits[PHASES],timeouts[PHASES];
 static BenchTotal pixels[PHASES],faces[PHASES],items[PHASES];
 static unsigned int hashes[PHASES];
+#ifdef DOS_BENCH_PROFILE_CW
+static BenchTotal cw_times[PHASES][CW_N],cw_calls[PHASES][CW_N];
+static BenchTotal cw_reasons[PHASES][CW_REASON_N];
+#endif
 #ifdef DOS_WALL_VISIBILITY
 extern unsigned dos_wall_sources,dos_wall_tests,dos_wall_rejected;
 static unsigned wall_stats[PHASES][FRAMES][3];
@@ -92,6 +99,23 @@ static BenchTotal acc;
 static int clock_on,old61,phase=-1,frame,measured,run=1,suite,sweep,suite_warmup,vga_ok=1,sx,sy,sz;
 static u8 house_saved[5][7][7];
 static const char *names[PHASES]={"open_static","walk","walk_down","walk_up","house","block_edits"};
+
+#ifdef DOS_BENCH_PROFILE_CW
+void bench_cw_time(int section,u32 us)
+{
+    if(measured && phase>=0 && phase<PHASES && section>=0 && section<CW_N) {
+        cw_times[phase][section]+=us;
+        ++cw_calls[phase][section];
+    }
+}
+void bench_cw_reason(unsigned mask)
+{
+    int i;
+    if(!measured || phase<0 || phase>=PHASES) return;
+    if(!mask) { ++cw_reasons[phase][CW_HIT]; return; }
+    for(i=0;i<CW_HIT;++i) if(mask&(1u<<i)) ++cw_reasons[phase][i];
+}
+#endif
 
 u32 bench_us(void)
 {
@@ -141,6 +165,7 @@ void dos_game_options(int argc,char **argv)
     if(argc==2 && !strcmp(argv[1],"/ALL")) suite=suite_warmup=1;
     if(argc==2 && !strcmp(argv[1],"/SWEEP")) suite=sweep=suite_warmup=1;
 }
+void dos_game_inventory_idle(void) {}
 void __real_gfx_present(void);
 void __wrap_gfx_present(void)
 {
@@ -238,6 +263,10 @@ static void clear_samples(void)
     memset(timeouts,0,sizeof(timeouts)); memset(pixels,0,sizeof(pixels));
     memset(faces,0,sizeof(faces)); memset(items,0,sizeof(items));
     memset(hashes,0,sizeof(hashes));
+#ifdef DOS_BENCH_PROFILE_CW
+    memset(cw_times,0,sizeof(cw_times)); memset(cw_calls,0,sizeof(cw_calls));
+    memset(cw_reasons,0,sizeof(cw_reasons));
+#endif
 #ifdef DOS_WALL_VISIBILITY
     memset(wall_stats,0,sizeof(wall_stats));
 #endif
@@ -249,6 +278,10 @@ static void finish(void)
 {
     int p,f,s; char path[]="C:\\BENCH1.TXT"; FILE *file;
     int ok=vga_ok && !world_stream_error();
+#ifdef DOS_COLLECT_VERIFY
+    extern unsigned dos_collect_verify_frames,dos_collect_verify_failures;
+    ok=ok && dos_collect_verify_frames && !dos_collect_verify_failures;
+#endif
 #ifdef DOS_WALL_VERIFY
     ok=ok && !dos_wall_verify_failures && dos_wall_verify_frames==PHASES*(WARM+FRAMES);
 #endif
@@ -295,6 +328,9 @@ static void finish(void)
     for(s=0;s<(int)g_profCount;++s) fprintf(file,"%s%08x",s?",":"",g_profSamples[s]);
     fprintf(file,"\n");
 #endif
+#ifdef DOS_BENCH_PROFILE_CW
+    fprintf(file,"CW_PROFILING=BENCHMARK_ONLY_INSTRUMENTED_TIMINGS\n");
+#endif
     for(p=0;p<PHASES;++p) {
         fprintf(file,"SCENE=%s\nPACK=%llu\nUPLOAD=%llu\nWAIT=%llu\nTIMEOUTS=%llu\nPIXELS=%llu\nFACES=%llu\nITEMS=%llu\nHASH=%08x\nFRAMES=",names[p],
             (unsigned long long)packs[p],(unsigned long long)uploads[p],(unsigned long long)waits[p],
@@ -306,6 +342,15 @@ static void finish(void)
         fprintf(file,"\nEDIT_CALLS=");
         for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
         fprintf(file,"\n");
+#ifdef DOS_BENCH_PROFILE_CW
+        fprintf(file,"CW_TIMES=");
+        for(s=0;s<CW_N;++s) fprintf(file,"%s%llu",s?",":"",(unsigned long long)cw_times[p][s]);
+        fprintf(file,"\nCW_CALLS=");
+        for(s=0;s<CW_N;++s) fprintf(file,"%s%llu",s?",":"",(unsigned long long)cw_calls[p][s]);
+        fprintf(file,"\nCW_REASONS=");
+        for(s=0;s<CW_REASON_N;++s) fprintf(file,"%s%llu",s?",":"",(unsigned long long)cw_reasons[p][s]);
+        fprintf(file,"\n");
+#endif
 #ifdef DOS_WALL_VISIBILITY
         fprintf(file,"WALL_SOURCES_TESTS_REJECTED_BY_FRAME=");
         for(f=0;f<FRAMES;++f) fprintf(file,"%s%u,%u,%u",f?";":"",wall_stats[p][f][0],wall_stats[p][f][1],wall_stats[p][f][2]);
@@ -320,6 +365,14 @@ static void finish(void)
         fprintf(file,"\n");
 #endif
     }
+#ifdef DOS_COLLECT_VERIFY
+    fprintf(file,"COLLECT_VERIFICATION=TIMINGS_INVALID\nCOLLECT_VERIFY_FRAMES=%u\nCOLLECT_VERIFY_FAILURES=%u\n",dos_collect_verify_frames,dos_collect_verify_failures);
+    extern unsigned dos_collect_verify_poses[32][8];
+    for(unsigned i=0;i<dos_collect_verify_failures && i<32;++i)
+        fprintf(file,"COLLECT_FAIL_POSE=%u,%u,%u,%u,%u,%u,%u,%u\n",dos_collect_verify_poses[i][0],
+            dos_collect_verify_poses[i][1],dos_collect_verify_poses[i][2],dos_collect_verify_poses[i][3],
+            dos_collect_verify_poses[i][4],dos_collect_verify_poses[i][5],dos_collect_verify_poses[i][6],dos_collect_verify_poses[i][7]);
+#endif
     if(ferror(file) || fclose(file)) exit(1);
     path[10]='E'; path[11]='N'; path[12]='D';
     file=fopen(path,"wb"); if(!file) exit(1);

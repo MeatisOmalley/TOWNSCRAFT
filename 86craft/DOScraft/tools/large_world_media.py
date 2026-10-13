@@ -1,0 +1,36 @@
+"""Compatible optional lighting appendix; base/edit offsets and V5 saves stay fixed."""
+import hashlib
+import struct
+from fat_image import FatImage,populate,scratch_hdd
+BASE_BYTES=151011840
+LIT_BYTES=178291200
+LIGHT_MAGIC=0x314c4354
+
+def check_terrain(terrain):
+    if terrain[:16]!=b'DOSCRAFT-1024-V1' or len(terrain) not in (BASE_BYTES,LIT_BYTES):
+        raise ValueError('Expected a checked prebaked 1024 terrain image')
+    if len(terrain)==LIT_BYTES and struct.unpack_from('<3I',terrain,52)!=(LIGHT_MAGIC,294977,13):
+        raise ValueError('Invalid prebaked lighting appendix')
+
+def identity(terrain):
+    check_terrain(terrain)
+    return hashlib.sha256(terrain[:52]+terrain[512:33*512]).hexdigest()
+
+def upgrade_disk(old_disk,new_terrain):
+    """Copy old edit slots and the save file into a newly laid out FAT volume."""
+    check_terrain(new_terrain)
+    start=struct.unpack_from('<I',old_disk,454)[0]*512
+    old=FatImage(old_disk,start)
+    if any(attr&16 for name,attr,cluster,size in old.directory()):
+        raise ValueError('Cannot migrate an unexpected player disk directory')
+    previous=old.read('TERRAIN.TMP')
+    if identity(previous)!=identity(new_terrain):
+        raise ValueError('Cannot retain player edits across a different baked seed')
+    merged=bytearray(new_terrain)
+    merged[33*512:BASE_BYTES]=previous[33*512:BASE_BYTES]
+    files=[(name,bytes(merged) if name=='TERRAIN.TMP' else old.read(name))
+           for name,attr,cluster,size in old.directory() if not attr&16]
+    disk=scratch_hdd(cylinders=800,heads=8,sectors=63)
+    partition=struct.unpack_from('<I',disk,454)[0]*512
+    disk[partition:]=populate(disk[partition:partition+512],files)
+    return disk

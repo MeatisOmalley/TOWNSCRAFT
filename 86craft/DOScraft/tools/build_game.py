@@ -22,7 +22,7 @@ PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-p
 
 
 def portable_experiment_flags(flags):
-    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS)
+    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE'))
 
 
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):
@@ -62,6 +62,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         very_low_texels='-DDOS_VERY_LOW_TEXELS' in extra_adapter_flags
         low_planar='-DDOS_LOW_PLANAR' in extra_adapter_flags
         a1_census='-DDOS_BENCH_A1_CENSUS' in extra_adapter_flags
+        profile_cw='-DDOS_BENCH_PROFILE_CW' in extra_adapter_flags
+        large_world='-DDOS_LARGE_WORLD' in extra_adapter_flags
         if '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags and not proven_rows:
             raise ValueError('Vertical row proof requires proven rows')
         if raster_finish_skip and not (proven_rows and '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags):
@@ -84,11 +86,14 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             wall_visibility=wall_visibility,wall_verify=wall_verify,group_facing=group_facing,
             hud_proof='-DDOS_VGA_HUD_PROOF' in extra_adapter_flags,
             proven_rows=proven_rows,raster_finish_skip=raster_finish_skip,
-            very_low_texels=very_low_texels,low_planar=low_planar,a1_census=a1_census)
+            very_low_texels=very_low_texels,low_planar=low_planar,a1_census=a1_census,
+            profile_cw=profile_cw,large_world=large_world,
+            collect_margin='-DDOS_COLLECT_MARGIN' in extra_adapter_flags,
+            stream_light='-DDOS_STREAM_LIGHT_CACHE' in extra_adapter_flags)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
-        platform=adapters.stage(output/'platform')
+        platform=adapters.stage(output/'platform',large_world=large_world)
         report['imported']=portable
         report['platform']=platform
         objects=[output/'imported'/row['path'] for row in portable['objects']]

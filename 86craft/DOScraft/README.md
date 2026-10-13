@@ -1,14 +1,14 @@
 # DOScraft
 
-IBM-PC port of Townscraft, targeting a 486DX/33-class PC (June 30, 1990 hardware cutoff) in 86Box.
+IBM-PC port of Townscraft, targeting an overclocked 486DX/33 at 40 MHz (June 30, 1990 hardware cutoff) in 86Box.
 
-Primary target: Intel 486DX/33 with its integrated x87 FPU (moved from the 486DX/25 on 2026-10-11 when the hardware cutoff became June 30, 1990; Intel introduced the 33 MHz 486 in May 1990), 16 MB RAM, Tseng ET4000AX ISA with 1 MB video RAM, ESDI HDD and original Sound Blaster. The ASUS ISA-486 motherboard and selected BIOS images are emulator proxies, not an authenticated 1989 Compaq reconstruction. The Everex-class 386DX/33 is a **deferred compatibility/port target**, to revisit only after the main demake meets its agreed correctness/performance goals. The main build may use 486 instructions and x87; 386 compatibility is not a current release gate.
+Primary target: Intel 486DX/33 overclocked to 40 MHz with its integrated x87 FPU, 8 MB RAM, Tseng ET4000AX ISA with 1 MB video RAM, ISA SCSI HDD and original Sound Blaster. The 40 MHz entry is a custom emulator overclock of the period 33 MHz part, not a claim that Intel shipped a 486DX/40 by June 30, 1990. The ASUS ISA-486 motherboard and selected BIOS images are emulator proxies, not an authenticated 1989 Compaq reconstruction. The Everex-class 386DX/33 is a **deferred compatibility/port target**, to revisit only after the main demake meets its agreed correctness/performance goals. The main build may use 486 instructions and x87; 386 compatibility is not a current release gate.
 
 Current stage: direct port working, measured platform optimization underway. The pinned 50-file Towns
 snapshot remains immutable. The full gameplay/fixed-point renderer now links
 into `DOSCRAFT.EXE` through the original `kmain`, with DOS platform adapters.
-Real procedural generation, AT movement/full-pitch input, torch placement/removal
-and save/fresh-process reload now pass in 86Box. Full feature acceptance is still
+The original 256-world procedural generation, AT movement/full-pitch input,
+torch placement/removal and save/fresh-process reload pass in 86Box. Full feature acceptance is still
 pending. Audio is deliberately
 silent under the user's latest priority, not completed Sound Blaster parity.
 Five verified VGA-transport optimizations and the measured i486 frame-register
@@ -22,17 +22,34 @@ three-repeat Low replays reduce walking, house and edit frame time by 9.9%,
 9.3% and 8.4%; High is essentially neutral. These are
 frozen replay measurements, not full gameplay FPS promises.
 Mode X display timing, sharp HUD and triple buffering remain unchanged. The user-authorized
-DOS graphics settings are grouped into Low/Medium/High; mob policy and gameplay
-remain unchanged. All three presets retain adaptive texture subdivision.
+DOS graphics settings are grouped into Low/Medium/High. The current large-world
+release despawns passive and hostile mobs beyond 32 blocks. All three presets
+retain adaptive texture subdivision.
 Earlier diagnostic paragraphs below record their individual historical gates.
 
 See [the port plan](PORT_PLAN.md) for the direct-port parity gate, the [optimization backlog](OPTIMIZATION_BACKLOG.md), and [measured DOS performance checkpoints](PERFORMANCE.md). The user authorized optimization work on October 10; full feature-parity acceptance remains separate. [The investigation runner](tools/audit_towns_house.py) builds isolated Towns test snapshots without modifying Towns production sources or ISOs.
 
 The emulator checkout at `../86Box` is an independent Git repository. Game work belongs here. Generated builds and mutable runtime images are ignored.
 
+The current playable ISO uses a **1024×1024 prebaked seed (4242)** streamed from
+the June 1990 VM's writable SCSI HDD. The bake includes surface terrain, trees,
+plants, ores, worm caves, and cave entrances. Saving writes a version-5 world
+directory plus edited terrain slots. New seed generation in DOS is deferred.
+The previous 256-world VM and its ISO backup remain intact. The current
+`ISO/Launch-DOScraft.cmd` opens the 1024-world VM selected by
+`build/game/486dx25/latest-play-vm.txt`.
+`ISO/Launch-DOScraft-1992.cmd` uses the same published ISO with its separate
+1992 hardware profile and writable HDD. On each stopped launch it refreshes
+that VM's boot floppy from the current shared release when needed; it leaves
+the 1992 disk and CMOS untouched. The two VMs can therefore use the same game
+executable without sharing world saves or hardware settings.
+Both current hardware profiles have their own HDD containing the prebaked
+1024-world seed; the previous 1992 256-world disk is preserved separately.
+
 ## Build and launch the real game
 
-For an **existing installed game**, use the save-preserving release workflow:
+For maintenance of the **previous 256-world release**, use its save-preserving
+release workflow:
 
 ```powershell
 python tools/game_smoke.py --bios "runtime/<known-good-ISA486-VM>/nvr/isa486.nvr" --report "build/<new-smoke-report-directory>"
@@ -45,6 +62,15 @@ Publication requires that exact executable to pass. It preserves the old VM,
 copies its entire HDD byte-for-byte to the new VM, backs up the old ISO beside
 it, and updates `ISO/DOSCRAFT.ISO` and the launcher pointer. It refuses a live
 player VM. Neither procedure starts or modifies the old player VM.
+
+For the current **1024-world release**, build with `-DDOS_LARGE_WORLD`, bake a
+seed using `tools/bake_large_world.py`, attach it to a private June 1990 smoke
+VM using `tools/prepare_large_vm.py`, and run `tools/large_game_smoke.py`.
+`tools/publish_game.py --large-terrain <baked image> --large-smoke-vm <passing
+smoke VM> --build-output <matching build directory>` validates the exact
+executable and terrain image before publishing a new ISO and separate player
+HDD. The old VM and disk are preserved. The guest smoke uses scripted AT scan
+codes; it needs no host mouse or keyboard interaction.
 
 For a **first installation only** (no player HDD to preserve):
 
@@ -68,10 +94,17 @@ An error is shown and kept visible by the `.cmd` launcher.
 
 ### Graphics presets
 
-Press **F2** to cycle Low → Medium → High → Low. Startup is explicitly Low;
-the old independent resolution/view/subdivision controls are replaced by this
-single setting. Debug, audio and save controls remain separate. Mode X is still
-the display backend, with the same 320x240 display and 40-row HUD.
+Open **Settings → Graphics** from the main menu or **Escape → Settings →
+Graphics** during play. The submenu offers the existing presets, view resolution,
+textured render distance, and flat render distance. Flat distance is the total
+visibility limit: terrain is textured first, then flat shaded out to that limit.
+Both distances are in blocks, bounded to 4–16; the flat limit cannot be shorter
+than the textured distance. Equal distances keep all visible terrain textured.
+Changing an individual option marks the preset Custom; choosing a preset
+restores all of its graphics values. **F2** still cycles Low → Medium → High →
+Very Low → Low, and startup remains Low. Mode X retains the 320x240 display and
+40-row HUD. Controls and Diagnostics are separate settings submenus; audio
+remains the silent temporary backend.
 
 | Preset | 3D view resolution | View distance | Textured distance | Subdivision |
 | --- | --- | --- | --- | --- |
@@ -89,17 +122,25 @@ The exact ISO path is printed at preparation and recorded via
 a FreeDOS/CWSDPMI/CuteMouse boot payload. The ISA-486 profile boots **the floppy
 extracted byte-for-byte from that ISO**; it does not claim 1989 BIOS native
 El Torito boot. No CD controller is silently added or ESDI hardware replaced.
-The writable files are `C:\TERRAIN.TMP` and `C:\WORLD.SAV` on a private 20-MiB
-development HDD (not final Wren geometry/timing). Generated media/dependencies
+The writable files are `C:\TERRAIN.TMP` and `C:\WORLD.SAV` on a private 206-MiB
+SCSI HDD for the current 1024 world. The earlier 256-world VM retains its
+private 20-MiB disk. Generated media/dependencies
 remain ignored; source/build/launch/test tools are tracked. This is a local
 development package, not a standalone redistribution of DOS/emulator ROMs.
 
-Space starts a world; L loads; WASD walks; arrows look; J breaks/attacks; E
-places/uses; Tab opens inventory; C opens crafting; Escape leaves menus; F9
-saves. Original Towns UI labels, including PF keys and "floppy A", are retained;
-the DOS transport actually uses the HDD save file. Audio is silent even if the
-original audio-option text says enabled. Wait for saving/generation to finish
-before closing the emulator. The unmodified game has no DOS exit hotkey.
+The main menu has **New Game**, **Load Game**, **Settings**, and **Quit to DOS**.
+Use Up/Down (or W/S) to select and Enter/Space to open. **New Game immediately
+replaces the single save slot**, clearing both save-bank headers while retaining
+the fixed-size HDD save medium. The current 1024 world resets to its prebaked
+seed and discards previous terrain edits. Load Game is disabled while the slot
+is empty; L remains a load shortcut. A new world fills the slot when saved.
+
+Escape pauses gameplay and opens **Resume Game**, **Settings**, **Save Game**,
+and **Save & Main Menu**. Saving must succeed before returning to the main
+menu. Escape returns one menu level; controls opened from Settings return to
+their submenu. WASD walks; arrows look; J breaks/attacks; E places/uses; Tab
+opens inventory; C opens crafting; F1 shows controls; F9 saves during play.
+Wait for saving/generation to finish before closing the emulator.
 
 `python tools/game_media.py --smoke --bios "<same-machine isa486.nvr>" --launch`
 creates separate test media. It runs the real generator/game loop, drives AT
@@ -189,7 +230,7 @@ python tools/build_imported.py
 python tools/build_adapters.py
 ```
 
-The build target keeps its historical name `486dx25` (it selects i486 code generation; the VM profile `profiles/486dx25-platform.cfg` now runs the CPU at 33.33 MHz). VMs run a locally built 86Box v6.0 with DOScraft hardware commits ([fork branch `doscraft-isa-timing`](https://github.com/MeatisOmalley/86Box/tree/doscraft-isa-timing), rebuilt by `tools/build_patched_86box.py` into `build/deps/86box-doscraft`): the ET4000AX ISA is registered as the 16-bit card it is (v6.0 gave it byte-only memory handlers, so every 32-bit write cost four 8-bit transfers), planar word/dword VGA accesses are charged one bus transfer, and the i486DX/33's ISA bus runs at 11.1 MHz (33.33/3), a period AT-bus overclock. The official v6.0 runtime still supplies the ROMs. Video memory is the ET4000AX maximum, 1 MB. BIOS shadowing is left at the seed CMOS setting: 86Box charges ROM reads like RAM, so it cannot change emulated timing. Results measured before 2026-10-11 ran at 25 MHz on the official runtime and are not directly comparable.
+The build target keeps its historical name `486dx25` (it selects i486 code generation; the VM profile `profiles/486dx25-platform.cfg` now runs the CPU at 40 MHz). VMs use a locally built 86Box v6.0 with DOScraft hardware commits, rebuilt by `tools/build_patched_86box.py` into `build/deps/86box-doscraft-40`: the ET4000AX ISA is registered as the 16-bit card it is (v6.0 gave it byte-only memory handlers, so every 32-bit write cost four 8-bit transfers), planar word/dword VGA accesses are charged one bus transfer, and the overclocked i486DX/40 uses a 10 MHz ISA bus (40/4). The earlier 33 MHz runtime remains separate for the published player VM until a save-preserving upgrade. The official v6.0 runtime still supplies the ROMs. Video memory is the ET4000AX maximum, 1 MB. BIOS shadowing is left at the seed CMOS setting: 86Box charges ROM reads like RAM, so it cannot change emulated timing. Results at 25 and 33 MHz are not directly comparable to the 40 MHz profile.
 
 The default target is `486dx25`: compiler flags include `-march=i486 -mtune=i486 -m80387 -mfpmath=387`, with no fast-math option. This permits native 486/x87 code; it does not rewrite the integer renderer or establish a speedup. Builds are isolated under `build/pc/486dx25`, whose `build.json` records the compiler command, CPU floor, profile hash, executable hash and VM path.
 
