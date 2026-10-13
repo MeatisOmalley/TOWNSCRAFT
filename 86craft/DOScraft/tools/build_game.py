@@ -22,7 +22,7 @@ PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-p
 
 
 def portable_experiment_flags(flags):
-    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE'))
+    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_BENCH_PROFILE_FAR'))
 
 
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):
@@ -89,7 +89,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             very_low_texels=very_low_texels,low_planar=low_planar,a1_census=a1_census,
             profile_cw=profile_cw,large_world=large_world,
             collect_margin='-DDOS_COLLECT_MARGIN' in extra_adapter_flags,
-            stream_light='-DDOS_STREAM_LIGHT_CACHE' in extra_adapter_flags)
+            stream_light='-DDOS_STREAM_LIGHT_CACHE' in extra_adapter_flags,
+            far_field='-DDOS_FAR_FIELD' in extra_adapter_flags)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)

@@ -157,16 +157,16 @@ int main(void) {
             old_count=message_count; settings_key(disabled[key]);
             check(2,8,0); assert(message_count==old_count);
         }
-        g_occlusion=1; settings_key(KEY_PF2); check(2,12,10);
+        g_occlusion=1; settings_key(KEY_PF2); check(2,8,0);
         assert(!strcmp(message,expected[0]));
         for(key=0;key<3;++key) {
             old_count=message_count; settings_key(disabled[key]);
-            check(2,12,10); assert(message_count==old_count);
+            check(2,8,0); assert(message_count==old_count);
         }
-        settings_key(KEY_PF2); check(1,12,10); assert(!strcmp(message,expected[1]));
+        settings_key(KEY_PF2); check(1,8,0); assert(!strcmp(message,expected[1]));
         for(key=0;key<3;++key) {
             old_count=message_count; settings_key(disabled[key]);
-            check(1,12,10); assert(message_count==old_count);
+            check(1,8,0); assert(message_count==old_count);
         }
         settings_key(KEY_PF2); check(2,8,0); assert(dos_very_low_mode);
         assert(!strcmp(message,expected[2]));

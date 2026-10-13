@@ -30,7 +30,7 @@ def parse(text):
         key,value=line.split('=',1)
         if key=='SCENE':
             row={'name':value}; scenes.append(row)
-        elif key in ('FRAMES','SECTIONS','EDIT_CALLS','CW_TIMES','CW_CALLS','CW_REASONS'):
+        elif key in ('FRAMES','SECTIONS','EDIT_CALLS','CW_TIMES','CW_CALLS','CW_REASONS','FAR_TIMES'):
             row[key.lower()]=[int(x) for x in value.split(',')]
         else: row[key.lower()]=value
     if header.get('result')!='PASS' or len(scenes)!=6:
@@ -49,6 +49,8 @@ def parse(text):
             'p99_9':ordered[(999*count+999)//1000-1]/1000,'max':max(frames)/1000}
         row['fps']=frame_metrics(frames)
         row['stage_mean_ms']={name:value/(count*1000) for name,value in zip(SECTIONS,row['sections'])}
+        if 'far_times' in row:
+            row['far_mean_ms']={name:value/(count*1000) for name,value in zip(('panorama_build','panorama_draw','heightmap'),row['far_times'])}
         row['transport_mean_ms']={name:int(row[name])/(count*1000) for name in ('pack','upload','wait')}
         row['over_100ms']=sum(x>100000 for x in frames)
         if header.get('version')=='2':
@@ -79,7 +81,8 @@ def write_report(vm,output,manifest,build_record,label,results,archive=None):
         'Guest PIT timings; frozen deterministic graphics/update replay, not full simulation FPS.',
         'label':label}
     if manifest['benchmark']=='sweep':
-        report['quality_sweep']={quality:{scene['name']:scene['fps'] for scene in run['scenes']}
+        key='distant_sweep' if 'far_sweep' in results[0]['header'] else 'quality_sweep'
+        report[key]={quality:{scene['name']:scene['fps'] for scene in run['scenes']}
             for quality,run in zip(('low','medium','high'),results)}
     else:
         report['fps_by_scene']={results[0]['scenes'][i]['name']:frame_metrics(
@@ -102,6 +105,9 @@ def main():
     parser.add_argument('--collect-margin',action='store_true',help='Wider conservative face-list reuse margin')
     parser.add_argument('--large-terrain',type=Path,help='Benchmark the prebaked 1024 HDD world')
     parser.add_argument('--stream-light',action='store_true',help='Restore baked and cached streamed lighting')
+    parser.add_argument('--far-field',choices=('off','on','low','medium','high'),help='Compile distant terrain at the selected level (on = medium)')
+    parser.add_argument('--profile-far',action='store_true',help='Separate PIT timings for panorama preparation/drawing and the live heightmap')
+    parser.add_argument('--far-sweep',action='store_true',help='Run distant Low/Medium/High in one world, holding main graphics at Low')
     parser.add_argument('--verify-collect',action='store_true',help='Compare every cached frame with a tight-frustum redraw; timings invalid')
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
@@ -121,6 +127,10 @@ def main():
     parser.add_argument('--dump-frames',action='store_true',help='Capture final scene frames to the private HDD; diagnostic timings only')
     parser.add_argument('--archive',type=Path,help='Retain compact raw evidence and source recipes in a tracked report path')
     args=parser.parse_args()
+    if args.far_sweep:
+        if args.quality_sweep or args.quality!='low': parser.error('--far-sweep holds main graphics at Low')
+        if args.far_field in (None,'off'): parser.error('--far-sweep requires distant terrain enabled')
+        args.quality_sweep=True
     if args.quality_sweep and args.separate_processes: parser.error('Choose a quality sweep or separate processes')
     if args.quality_sweep and args.quality!='low': parser.error('--quality-sweep starts at Low; omit --quality')
     if args.quality_sweep and args.archive: parser.error('Quality sweeps are not comparable three-repeat archives')
@@ -188,6 +198,14 @@ def main():
     if args.stream_light:
         if not args.large_terrain: parser.error('--stream-light requires --large-terrain')
         flags=(*flags,'-DDOS_STREAM_LIGHT_CACHE')
+    if args.far_field:
+        if not args.large_terrain: parser.error('--far-field requires --large-terrain')
+        flags=(*flags,'-DDOS_FAR_FIELD')
+        if args.far_field!='off': flags=(*flags,'-DDOS_BENCH_FAR_LEVEL='+str({'low':1,'medium':2,'on':2,'high':3}[args.far_field]))
+    if args.profile_far:
+        if args.far_field in (None,'off'): parser.error('--profile-far requires distant terrain enabled')
+        flags=(*flags,'-DDOS_BENCH_PROFILE_FAR')
+    if args.far_sweep: flags=(*flags,'-DDOS_BENCH_FAR_SWEEP')
     if args.collect_margin or args.verify_collect: flags=(*flags,'-DDOS_COLLECT_MARGIN')
     if args.verify_collect:
         flags=tuple(flag for flag in flags if flag!='-DDOS_LOW_PLANAR')+('-DDOS_COLLECT_VERIFY',)

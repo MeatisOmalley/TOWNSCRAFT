@@ -5,7 +5,7 @@ import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 from fat_image import FatImage,populate,scratch_hdd
-from large_world_media import BASE_BYTES,LIT_BYTES,LIGHT_MAGIC,identity,upgrade_disk
+from large_world_media import BASE_BYTES,LIT_BYTES,FAR_BYTES,FAR_MAGIC,FAR_MAP_BYTES,LIGHT_MAGIC,identity,upgrade_disk
 
 class LightingMigrationTests(unittest.TestCase):
     def test_appendix_upgrade_retains_edits_save_and_seed_identity(self):
@@ -14,9 +14,11 @@ class LightingMigrationTests(unittest.TestCase):
         # Exercise both first and last edit slots, including unused padding.
         old_terrain[57*512:57*512+8]=b'edit one'
         old_terrain[BASE_BYTES-8:]=b'lastedit'
-        new_terrain=bytearray(LIT_BYTES); new_terrain[:33*512]=old_terrain[:33*512]
+        new_terrain=bytearray(FAR_BYTES); new_terrain[:33*512]=old_terrain[:33*512]
         struct.pack_into('<5I',new_terrain,52,LIGHT_MAGIC,294977,13,1234,6400)
         new_terrain[BASE_BYTES:BASE_BYTES+8]=b'newlight'
+        struct.pack_into('<5I',new_terrain,72,FAR_MAGIC,LIT_BYTES//512,FAR_MAP_BYTES,1234,1)
+        new_terrain[LIT_BYTES:LIT_BYTES+8]=b'new far!'
         disk=scratch_hdd(cylinders=800,heads=8,sectors=63)
         start=struct.unpack_from('<I',disk,454)[0]*512
         files=[('TERRAIN.TMP',old_terrain),('WORLD.SAV',b'committed V5 bank'),('NOTE.TXT',b'keep me')]

@@ -1,4 +1,8 @@
 /* Included in staged game.c; the pinned Towns sources remain immutable. */
+#ifdef DOS_FAR_FIELD
+#include "far_field.h"
+static const char *const distantNames[]={"Off","Low (64)","Medium (96)","High (128)"};
+#endif
 enum { DM_PAUSE,DM_SETTINGS,DM_GRAPHICS,DM_DIAGNOSTICS,DM_CONTROLS };
 
 static void menu_row(int row,const char *label,int selected,int enabled)
@@ -56,9 +60,13 @@ static void draw_dos_menu(void)
 		menu_value(1,"View resolution: ",g_renderScale==1 ? "320x200" : (dos_very_low_mode ? "80x100" : "160x100"));
 		menu_value(2,"Textured distance: ",itoa_dec(g_flatDist ? g_flatDist : g_viewDist,number));
 		menu_value(3,"Flat distance: ",itoa_dec(g_viewDist,number));
+#ifdef DOS_FAR_FIELD
+		menu_value(4,"Distant terrain: ",dos_far_available() ? distantNames[dos_far_enabled] : "Unavailable");
+		menu_row(5,"Back",menuSel==5,1);
+#else
 		menu_row(4,"Back",menuSel==4,1);
-		gfx_text_center(g_fb,180,"Textured near; flat out to limit.",P(R_GRAY,11),C_BLACK);
-		gfx_text_center(g_fb,192,"Distances in blocks (4-16).",P(R_GRAY,11),C_BLACK);
+#endif
+		gfx_text_center(g_fb,192,"Blocks: 4-16. Distant: 64/96/128.",P(R_GRAY,11),C_BLACK);
 	}
 	else if(menuPage==DM_DIAGNOSTICS)
 	{

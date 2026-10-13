@@ -64,6 +64,9 @@ static void menu_back(void)
 static void menu_graphics_change(int direction)
 {
 	int textured=g_flatDist ? g_flatDist : g_viewDist;
+#ifdef DOS_FAR_FIELD
+	if(menuSel==4) { dos_far_change(direction); return; }
+#endif
 	if(menuSel==0)
 	{
 		int next=graphicsPresetSel<0 ? DOS_GRAPHICS_DEFAULT :
@@ -89,12 +92,16 @@ static void menu_graphics_change(int direction)
 
 static void menu_key(int k)
 {
-	int count=menuPage==DM_GRAPHICS ? 5 : (menuPage==DM_DIAGNOSTICS || menuPage==DM_CONTROLS ? 2 : 4);
+    int graphicsCount=5,graphicsValues=4;
+#ifdef DOS_FAR_FIELD
+    graphicsCount=6; graphicsValues=5;
+#endif
+	int count=menuPage==DM_GRAPHICS ? graphicsCount : (menuPage==DM_DIAGNOSTICS || menuPage==DM_CONTROLS ? 2 : 4);
 	int activate=k==KEY_RETURN || k==KEY_SPACE || k==KEY_NUM_RETURN;
 	if(k==KEY_ESC) { menu_back(); return; }
 	if(k==KEY_UP || k==KEY_W || k==KEY_NUM_8) menuSel=(menuSel+count-1)%count;
 	else if(k==KEY_DOWN || k==KEY_S || k==KEY_NUM_2) menuSel=(menuSel+1)%count;
-	else if(menuPage==DM_GRAPHICS && menuSel<4 &&
+	else if(menuPage==DM_GRAPHICS && menuSel<graphicsValues &&
 	        (activate || k==KEY_LEFT || k==KEY_RIGHT || k==KEY_A || k==KEY_D))
 		menu_graphics_change(k==KEY_LEFT || k==KEY_A ? -1 : 1);
 	else if(activate)

@@ -19,6 +19,13 @@
 #include "hdd_backend.h"
 #include "save_backend.h"
 #include "video_backend.h"
+#ifdef DOS_FAR_FIELD
+#include "far_field.h"
+#endif
+#ifdef DOS_BENCH_PROFILE_FAR
+extern u32 dos_far_us[3];
+static u32 farTimes[6][3];
+#endif
 #ifdef DOS_RASTER_FINISH_SKIP
 extern void raster_complete_odd_rows(void);
 #endif
@@ -161,6 +168,9 @@ void bench_mark(int section)
 }
 void dos_game_options(int argc,char **argv)
 {
+#ifdef DOS_BENCH_FAR_LEVEL
+    dos_far_enabled=DOS_BENCH_FAR_LEVEL;
+#endif
     if(argc==2 && argv[1][0]=='/' && argv[1][1]>='1' && argv[1][1]<='3') run=argv[1][1]-'0';
     if(argc==2 && !strcmp(argv[1],"/ALL")) suite=suite_warmup=1;
     if(argc==2 && !strcmp(argv[1],"/SWEEP")) suite=sweep=suite_warmup=1;
@@ -171,6 +181,9 @@ void __wrap_gfx_present(void)
 {
     const u8 *fb=g_fb;
     __real_gfx_present();
+#ifdef DOS_BENCH_PROFILE_FAR
+    if(measured && phase>=0) for(int i=0;i<3;++i) farTimes[phase][i]+=dos_far_us[i];
+#endif
     if(phase>=0 && frame==WARM+FRAMES-1) {
         unsigned int h=2166136261u; int x,y;
         /* Correctness readback/hash is after the timing boundary; excluded
@@ -242,6 +255,10 @@ static void select_quality(int index)
 {
     g_renderScale=2; g_viewDist=8; g_flatDist=0; g_distanceMode=0;
 #ifdef DOS_BENCH_QUALITY
+#ifdef DOS_BENCH_FAR_SWEEP
+    dos_far_enabled=index+1;
+    index=DOS_GRAPHICS_LOW;
+#endif
     const DosGraphicsSettings *quality=dos_graphics_settings(index);
     g_renderScale=quality->render_scale; g_viewDist=quality->view_distance;
     g_flatDist=quality->flat_distance; g_distanceMode=quality->distance_mode;
@@ -314,6 +331,12 @@ static void finish(void)
         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
     fprintf(file,"REPLAY_CONTEXT=%s\n",suite?"POST_FIXTURE":"FRESH_WORLD");
     fprintf(file,"SAMPLES_PER_SCENE=%d\nMOTION_POLICY=REPEAT_32_MEASURED_POSES\n",FRAMES);
+#ifdef DOS_FAR_FIELD
+    fprintf(file,"DISTANT_LEVEL=%d\n",dos_far_enabled);
+#endif
+#ifdef DOS_BENCH_FAR_SWEEP
+    fprintf(file,"FAR_SWEEP=LOW_MEDIUM_HIGH_WITH_LOW_MAIN_GRAPHICS\n");
+#endif
 #ifdef DOS_WALL_VERIFY
     fprintf(file,"WALL_VERIFICATION=TIMINGS_INVALID\nWALL_VERIFY_FRAMES=%u\nWALL_VERIFY_FAILURES=%u\n",dos_wall_verify_frames,dos_wall_verify_failures);
 #endif
@@ -342,6 +365,9 @@ static void finish(void)
         fprintf(file,"\nEDIT_CALLS=");
         for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
         fprintf(file,"\n");
+#ifdef DOS_BENCH_PROFILE_FAR
+        fprintf(file,"FAR_TIMES=%u,%u,%u\n",farTimes[p][0],farTimes[p][1],farTimes[p][2]);
+#endif
 #ifdef DOS_BENCH_PROFILE_CW
         fprintf(file,"CW_TIMES=");
         for(s=0;s<CW_N;++s) fprintf(file,"%s%llu",s?",":"",(unsigned long long)cw_times[p][s]);
@@ -478,5 +504,10 @@ void bench_frame(void)
     }
     g_player.body.vx=g_player.body.vy=g_player.body.vz=0;
     measured=frame>=WARM; dos_bench_pack=dos_bench_upload=dos_bench_wait=dos_bench_timeouts=0;
-    g_statPixels=0; last=secmark=bench_us();
+    g_statPixels=0;
+#ifdef DOS_BENCH_PROFILE_FAR
+    memset(dos_far_us,0,3*sizeof(u32));
+    if(!frame && !phase) memset(farTimes,0,sizeof(farTimes));
+#endif
+    last=secmark=bench_us();
 }

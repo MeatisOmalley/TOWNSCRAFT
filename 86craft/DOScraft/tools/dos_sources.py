@@ -9,7 +9,7 @@ from build_imported import replace_once
 
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
-          packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,
+          packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,far_field=False,
           trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False,low_planar=False,a1_census=False,profile_cw=False,large_world=False,collect_margin=False,stream_light=False):
     recipe=[]
     if raster_finish_skip:
@@ -245,5 +245,10 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     if graphics:
         import dos_menus
         data,steps=dos_menus.adapt(name,data)
+        recipe.extend(steps)
+    if far_field:
+        if not large_world: raise ValueError('Distant terrain requires a prebaked large world')
+        import dos_far_field
+        data,steps=dos_far_field.adapt(name,data,low_planar=low_planar)
         recipe.extend(steps)
     return data,recipe

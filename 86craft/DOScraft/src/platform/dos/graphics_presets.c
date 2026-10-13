@@ -3,8 +3,8 @@
 
 static const DosGraphicsSettings presets[DOS_GRAPHICS_COUNT] = {
     {2, 8, 0, 0, SUBDIV_ADAPTIVE},
-    {2, 12, 10, 0, SUBDIV_ADAPTIVE},
-    {1, 12, 10, 0, SUBDIV_ADAPTIVE},
+    {2, 8, 0, 0, SUBDIV_ADAPTIVE},
+    {1, 8, 0, 0, SUBDIV_ADAPTIVE},
     {2, 8, 0, 0, SUBDIV_ADAPTIVE}
 };
 

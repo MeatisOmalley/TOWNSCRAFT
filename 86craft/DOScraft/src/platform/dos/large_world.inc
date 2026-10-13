@@ -20,6 +20,9 @@ static void world_load_prebaked(void)
 		r->raw=1; r->disk=TERRAIN_DISK;
 	}
 	g_spawnX=terrainSpawnX; g_spawnZ=terrainSpawnZ;
+#ifdef DOS_FAR_FIELD
+    far_world_reset();
+#endif
 	terrain_cache_allocate();
 	cache_reset();
 	cacheBoot=1;
@@ -83,6 +86,9 @@ int world_load_large_columns(u32 (*get)(void))
         if(slot) stream_light_invalidate((id%g_NC)*CS,(id/g_NC)*CS);
 #endif
 	}
+#ifdef DOS_FAR_FIELD
+    far_world_reset();
+#endif
 	terrain_cache_allocate();
 	cacheBoot=1;
 	cache_stream(loadX,loadZ,100000);

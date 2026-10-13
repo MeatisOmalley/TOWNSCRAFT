@@ -13,6 +13,11 @@
 #include "save_backend.h"
 #include "hdd_backend.h"
 #include "video_backend.h"
+#ifdef DOS_FAR_FIELD
+#include "far_field.h"
+extern u32 dos_far_samples,dos_far_strips,dos_far_pan_builds;
+static int far_option_ok=1;
+#endif
 #ifdef DOS_GRAPHICS_PRESETS
 #include "graphics_presets.h"
 #endif
@@ -171,6 +176,9 @@ static void finish(void)
 #ifdef DOS_GRAPHICS_PRESETS
     ok=ok && presets_ok && menus_ok;
 #endif
+#ifdef DOS_FAR_FIELD
+    ok=ok && far_option_ok && dos_far_samples>0 && dos_far_strips>0 && dos_far_pan_builds>=256;
+#endif
     if(!file) exit(1);
     int written=fprintf(file,"DOScraft real game-loop smoke\nMODE=%s\nWORLD_WIDTH=%d\n"
         "RESIDENT_COLUMNS=%d\nMESH_QUADS=%u\nPRESENTED_FRAMES=%d\nAT_INPUT=%s\n"
@@ -191,6 +199,10 @@ static void finish(void)
                terrain_persist_ok?"PASS":"FAIL",edge_stream_ok?"PASS":"FAIL")<0) written=0;
 #endif
     if(vga_failed_snapshot && fprintf(file,"VGA_FAILED_SNAPSHOT=%s\n",vga_failed_snapshot)<0) written=0;
+#ifdef DOS_FAR_FIELD
+    if(fprintf(file,"DISTANT_TERRAIN=%s\nFAR_SAMPLES=%u\nFAR_STRIPS=%u\nPANORAMA_COLUMNS=%u\n",
+        far_option_ok?"PASS":"FAIL",dos_far_samples,dos_far_strips,dos_far_pan_builds)<0) written=0;
+#endif
 #ifdef DOS_STREAM_LIGHT_CACHE
     if(fprintf(file,"LIGHT_CACHE=%s\nLIGHT_CACHE_STATS=%u,%u,%u,%u\n",stream_light_ok?"PASS":"FAIL",
         g_streamLightStats[0],g_streamLightStats[1],g_streamLightStats[2],g_streamLightStats[3])<0) written=0;
@@ -221,7 +233,23 @@ void __wrap_gfx_present(void)
         snapshot("C:\\TSET.RAW",frame); tap(0x1c); until=g_ticks+30; stage=31;
     } else if(stage==31 && (int)(g_ticks-until)>=0) {
         menus_ok=menus_ok && rendered_frames==0;
-        snapshot("C:\\TGFX.RAW",frame); tap(0x01); tap(0x01);
+        snapshot("C:\\TGFX.RAW",frame);
+#ifdef DOS_FAR_FIELD
+        far_option_ok=far_option_ok && !dos_far_enabled && dos_far_available();
+        arrow(0x50); arrow(0x50); arrow(0x50); arrow(0x50); tap(0x1c);
+        until=g_ticks+30; stage=50; return;
+    } else if(stage==50 && (int)(g_ticks-until)>=0) {
+        far_option_ok=far_option_ok && dos_far_enabled==1 && preset_matches(2,8,0);
+        snapshot("C:\\FAROPT.RAW",frame);
+        arrow(0x4d); until=g_ticks+30; stage=51; return;
+    } else if(stage==51 && (int)(g_ticks-until)>=0) {
+        far_option_ok=far_option_ok && dos_far_enabled==2;
+        arrow(0x4d); until=g_ticks+30; stage=52; return;
+    } else if(stage==52 && (int)(g_ticks-until)>=0) {
+        far_option_ok=far_option_ok && dos_far_enabled==3;
+        snapshot("C:\\FARHIGH.RAW",frame);
+#endif
+        tap(0x01); tap(0x01);
         /* Title cursor still points at Settings; move back to New Game. */
         arrow(0x48); arrow(0x48); tap(load_smoke ? 0x26 : 0x1c); stage=1;
         return;
@@ -292,11 +320,11 @@ void __wrap_gfx_present(void)
         until=g_ticks+30; stage=14;
     } else if(stage==14 && (int)(g_ticks-until)>=0) {
 #ifdef DOS_GRAPHICS_PRESETS
-        presets_ok=preset_matches(2,12,10);
+        presets_ok=preset_matches(2,8,0);
         snapshot("C:\\MEDIUM.RAW",frame);
         tap(0x3c); until=g_ticks+30; stage=15;
     } else if(stage==15 && (int)(g_ticks-until)>=0) {
-        presets_ok=presets_ok && preset_matches(1,12,10);
+        presets_ok=presets_ok && preset_matches(1,8,0);
 #endif
         fullres_ok=g_renderScale==1;
         snapshot("C:\\FULL.RAW",frame);

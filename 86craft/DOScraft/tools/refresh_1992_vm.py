@@ -18,7 +18,7 @@ from fat_image import FatImage, populate, scratch_hdd
 from game_media import embedded_boot, large_volume, startup
 from publish_game import atomic_write
 from save_fixture import save_image
-from large_world_media import check_terrain, upgrade_disk
+from large_world_media import check_terrain, upgrade_disk,identity,FAR_BYTES
 
 ISO = ROOT / 'ISO/DOSCRAFT.ISO'
 POINTER = OUTPUT / 'latest-1992-vm.txt'
@@ -53,7 +53,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--large-terrain', type=Path,
                         help='Install the published prebaked 1024 seed on a new private HDD; smoke-test before switching')
+    parser.add_argument('--appendix-only',action='store_true',
+                        help='Copy a compatible distant appendix into an existing large-world VM; preserve hardware/CMOS, use the shared 1990 smoke evidence')
     args = parser.parse_args()
+    if args.appendix_only and not args.large_terrain:
+        parser.error('--appendix-only requires --large-terrain')
     old = Path(POINTER.read_text().strip()).resolve(strict=True)
     if not old.is_relative_to(ROOT / 'runtime') or running(old):
         raise ValueError('Current 1992 VM must be a stopped private VM')
@@ -89,6 +93,15 @@ def main():
         check_terrain(terrain)
         if (not current_record.get('large_world') or sha(terrain) != current_record['terrain_sha256']):
             raise ValueError('Terrain is not the prebaked seed in the published 1024 release')
+    if args.appendix_only:
+        if not record.get('large_world') or len(terrain)!=FAR_BYTES:
+            raise ValueError('Appendix-only refresh requires existing large terrain and the distant appendix')
+        old_terrain=large_volume((old/disk_name).read_bytes()).read('TERRAIN.TMP')
+        if identity(old_terrain)!=identity(terrain):
+            raise ValueError('Appendix-only refresh cannot change seed identity')
+        evidence=json.loads((Path(current_record['verified_smoke_vm'])/'large-world-smoke.json').read_text())
+        if any('RESULT=PASS\n' not in evidence.get(mode,'') for mode in ('new','load')):
+            raise ValueError('Shared release smoke evidence is missing')
     disk_hash = file_sha(old / disk_name)
     vm = Path(tempfile.mkdtemp(prefix='game-1992-', dir=ROOT / 'runtime'))
     (vm / 'boot.img').write_bytes(boot)
@@ -133,7 +146,7 @@ def main():
                        disk_note='Private 206 MB SCSI disk with prebaked 1024 seed; Quantum ProDrive 1050S timing')
         updated['preserved_world_edits']=bool(record.get('large_world'))
     (vm / 'build.json').write_text(json.dumps(updated, indent=2) + '\n')
-    if terrain is not None:
+    if terrain is not None and not args.appendix_only:
         # Test a separate copy, leaving the new player's seed and save medium clean.
         smoke = Path(tempfile.mkdtemp(prefix='game-smoke-1992-', dir=ROOT / 'runtime'))
         for name in ('scratch-large.img', '86box.cfg'):
@@ -149,6 +162,9 @@ def main():
         subprocess.run([sys.executable, str(ROOT / 'tools/large_game_smoke.py'), '--vm', str(smoke)], check=True)
         updated['verified_smoke_vm'] = str(smoke)
         (vm / 'build.json').write_text(json.dumps(updated, indent=2) + '\n')
+    if args.appendix_only:
+        updated['appendix_validation']='Compatible seed identity, native migration and June 1990 shared executable smoke; no new 1992 run'
+        (vm/'build.json').write_text(json.dumps(updated,indent=2)+'\n')
     if (Path(POINTER.read_text().strip()).resolve() != old or file_sha(ISO) != sha(iso) or
         running(old) or file_sha(old / disk_name) != disk_hash):
         raise ValueError('1992 pointer or shared ISO changed concurrently')

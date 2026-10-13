@@ -34,7 +34,7 @@ class MenuTests(unittest.TestCase):
             imported.stage_sources(imported.VENDOR,folder/'imported')
             exe=folder/'menus.exe'
             command=[ZIG,'cc','-target','x86-windows-gnu','-std=gnu99','-O2',
-                     '-Wall','-Wextra','-Werror','-I',folder/'imported/src',
+                     '-Wall','-Wextra','-Werror','-DDOS_FAR_FIELD','-I',folder/'imported/src',
                      '-I',ROOT/'src/platform/dos',ROOT/'tests/menus_native.c',
                      ROOT/'src/platform/dos/graphics_presets.c','-o',exe]
             result=subprocess.run(list(map(str,command)),capture_output=True,text=True,timeout=120)

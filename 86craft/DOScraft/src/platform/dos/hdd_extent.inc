@@ -45,7 +45,7 @@ static void extent_init(unsigned bytes)
      * for commit and as the fallback for a fragmented filesystem. After the
      * switch, no buffered file I/O touches terrain payloads: mixing them with
      * absolute writes could otherwise leave stale DOS data buffers. */
-    if((bytes!=151011840u && bytes!=178291200u) || lseek(terrain_fd,0,SEEK_SET)!=0 ||
+    if((bytes!=151011840u && bytes!=178291200u && bytes!=178815488u) || lseek(terrain_fd,0,SEEK_SET)!=0 ||
        read(terrain_fd,header,512)!=512 || memcmp(header,"DOSCRAFT-1024-V1",16)) return;
     extent_segment=__dpmi_allocate_dos_memory((32+2048)/16,&extent_selector);
     if(extent_segment<0) { extent_selector=-1; return; }

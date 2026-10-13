@@ -23,8 +23,8 @@ int main(void)
     int i,index=DOS_GRAPHICS_DEFAULT;
     assert(DOS_GRAPHICS_COUNT==4 && DOS_GRAPHICS_DEFAULT==DOS_GRAPHICS_LOW);
     check_settings(DOS_GRAPHICS_LOW,2,8,0);
-    check_settings(DOS_GRAPHICS_MEDIUM,2,12,10);
-    check_settings(DOS_GRAPHICS_HIGH,1,12,10);
+    check_settings(DOS_GRAPHICS_MEDIUM,2,8,0);
+    check_settings(DOS_GRAPHICS_HIGH,1,8,0);
     check_settings(DOS_GRAPHICS_VERY_LOW,2,8,0);
     for(i=0;i<300;++i) {
         assert(index==i%4 && dos_graphics_index(index)==index);

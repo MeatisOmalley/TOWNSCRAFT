@@ -20,7 +20,7 @@ from fetch_dependencies import CTMOUSE_EXE_SHA256
 from run_vm import launch_command, diagnostic_volume
 from save_fixture import save_image
 from terrain_fixture import terrain_image
-from large_world_media import BASE_BYTES,LIT_BYTES
+from large_world_media import BASE_BYTES,LIT_BYTES,FAR_BYTES
 
 
 def sha(data):
@@ -263,7 +263,7 @@ def validate(vm):
             else diagnostic_volume((vm/'scratch.img').read_bytes()))
     terrain=volume.read('TERRAIN.TMP'); save=volume.read('WORLD.SAV')
     if record.get('large_world'):
-        if (len(terrain) not in (BASE_BYTES,LIT_BYTES) or terrain[:16]!=b'DOSCRAFT-1024-V1' or
+        if (len(terrain) not in (BASE_BYTES,LIT_BYTES,FAR_BYTES) or terrain[:16]!=b'DOSCRAFT-1024-V1' or
                 sha(terrain[:33*512])!=record['terrain_header_sha256'] or
                 len(save)!=len(save_image())):
             raise ValueError('Unknown large-world HDD terrain/save medium')

@@ -121,3 +121,14 @@ base/edit payloads and `WORLD.SAV` into the new private FAT volume, then use
 the new appendix. Unknown disk subdirectories or a different seed are refused.
 Old VMs/disks remain intact; no player disk is formatted in place. Both machine
 profiles boot the same shared executable and retain their own disk and CMOS.
+
+## Optional distant surface appendix (B8)
+
+The distant terrain feature adds a checked two-by-two surface map after the
+lighting appendix. The terrain file is now 178,815,488 bytes. The 524,288-byte
+map stores the tallest cube and its block ID per cell; model plants and torches
+are excluded. Base/edit offsets and seed/save identity remain fixed. Native
+migration checks preserve every base/edit byte, save and other root file.
+Edits update summaries in memory. Loading reconstructs summaries from the
+committed edited-column directory before rendering; no frame-time disk reads
+are added. [Settings, rendering limitations and costs](DISTANT_TERRAIN.md).

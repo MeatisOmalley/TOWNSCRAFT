@@ -1599,3 +1599,34 @@ performance estimate was made. The exact rebuilt executable passed June 1990
 new-game and fresh-process reload smoke, including lighting, cold streaming,
 V5 persistence, menus and VGA readback. Evidence:
 [`clean-only-light.json`](tests/benchmarks/2026-10-13/clean-only-light.json).
+
+## Optional distant terrain, B8 (2026-10-13)
+
+Distant terrain is independent of the main graphics preset and defaults Off.
+Low/Medium/High distant levels extend the landscape to approximately 64/96/128
+blocks. The live heightmap starts behind the total textured-plus-flat polygon
+distance; the cached panorama is farther away. All main presets now default
+to eight blocks, with manual distance controls unchanged.
+
+The initial full-detail prototype cost 29–43 ms extra on Low main graphics.
+Wider strips, direct map lookup, incremental coordinates and cached color
+tables reduced the cost. A one-world sweep holds main graphics at Low:
+
+| Extra frame cost | Low distant | Medium distant | High distant |
+| --- | ---: | ---: | ---: |
+| Still | 6.67 ms | 14.60 ms | 33.78 ms |
+| Walking | 6.32 ms | 13.26 ms | 26.65 ms |
+
+For walking, separate PIT timings attribute 3.51/7.55/16.23 ms to the heightmap,
+2.42/4.78/9.24 ms to panorama drawing, and 0.42/0.96/1.11 ms to panorama
+preparation/setup. These instrumented deterministic graphics replays are not
+full simulation FPS. Up/down views skip the far field; Off retains the earlier
+Low timings. The earlier estimated 2–3 ms cost is not achieved.
+
+The implementation uses an extra 512 KB map and about 36 KB renderer metadata
+within the existing 8 MB arena sizes. No renderer disk traffic is added. Native
+tests cover actual map/edit/save reconstruction, corrupt data rejection, all
+levels and both raster layouts, plus cave/water/full-pitch guards. New/reload
+release smoke exercises the setting through guest AT input and checks VGA,
+lighting and persistent edits. [Implementation and limits](DISTANT_TERRAIN.md),
+[timing evidence](tests/benchmarks/2026-10-13/distant-terrain.json).

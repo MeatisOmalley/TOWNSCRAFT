@@ -3,6 +3,10 @@
 #include "sys.h"
 #include "save.h"
 #include "graphics_presets.h"
+#include "far_field.h"
+int dos_far_enabled;
+int dos_far_available(void) { return 1; }
+void dos_far_change(int direction) { dos_far_enabled=(dos_far_enabled+direction+4)%4; }
 enum { GS_TITLE,GS_PLAY,GS_HELP,GS_MENU };
 enum { DM_PAUSE,DM_SETTINGS,DM_GRAPHICS,DM_DIAGNOSTICS,DM_CONTROLS };
 static int state,menuPage,menuSel,menuOrigin,helpReturn,titleSel,saveAvailable;
@@ -38,16 +42,23 @@ int main(void) {
     apply_graphics_preset(DOS_GRAPHICS_VERY_LOW); menuSel=1; menu_key(KEY_RETURN);
     assert(g_renderScale==1 && !dos_very_low_mode && graphicsPresetSel==-1);
     apply_graphics_preset(DOS_GRAPHICS_MEDIUM);
-    menuSel=2; menu_key(KEY_RIGHT); assert(g_flatDist==11 && g_viewDist==12 && graphicsPresetSel==-1);
-    menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==12);
-    menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==13);
+    menuSel=2; menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==9 && graphicsPresetSel==-1);
+    menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==10);
+    menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==11);
     menuSel=3; for(int i=0;i<40;++i) menu_key(KEY_RIGHT);
-    assert(g_viewDist==16 && g_flatDist==13);
+    assert(g_viewDist==16 && g_flatDist==11);
     for(int i=0;i<40;++i) menu_key(KEY_LEFT);
-    assert(g_viewDist==13 && !g_flatDist);
+    assert(g_viewDist==11 && !g_flatDist);
     menuSel=2; for(int i=0;i<40;++i) menu_key(KEY_LEFT);
-    assert(g_flatDist==4 && g_viewDist==13);
+    assert(g_flatDist==4 && g_viewDist==11);
     menuSel=0; menu_key(KEY_RETURN); assert(graphicsPresetSel==DOS_GRAPHICS_LOW && g_viewDist==8 && !g_flatDist);
+#ifdef DOS_FAR_FIELD
+    menuSel=4; menu_key(KEY_RETURN); assert(dos_far_enabled && g_viewDist==8 && graphicsPresetSel==DOS_GRAPHICS_LOW);
+    menu_key(KEY_LEFT); assert(!dos_far_enabled);
+    menu_key(KEY_LEFT); assert(dos_far_enabled==3);
+    menuSel=0; menu_key(KEY_RETURN); assert(dos_far_enabled==3 && g_viewDist==8);
+    menuSel=4; menu_key(KEY_RIGHT); assert(!dos_far_enabled);
+#endif
     menu_key(KEY_ESC); assert(menuPage==DM_SETTINGS);
     menuSel=1; menu_key(KEY_RETURN); menu_key(KEY_RETURN);
     assert(state==GS_HELP && helpReturn==GS_MENU && menuOrigin==GS_PLAY);
