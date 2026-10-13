@@ -12,6 +12,13 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,far_field=False,
           trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False,low_planar=False,a1_census=False,profile_cw=False,large_world=False,collect_margin=False,stream_light=False):
     recipe=[]
+    import dos_chickens
+    data,steps=dos_chickens.adapt(name,data)
+    recipe.extend(steps)
+    if name in ('textures.c','textures.h','render.c','render.h'):
+        import dos_block_textures
+        data,steps=dos_block_textures.adapt(name,data)
+        recipe.extend(steps)
     if raster_finish_skip:
         import dos_raster_finish_skip
         data,steps=dos_raster_finish_skip.adapt(name,data)

@@ -1,0 +1,39 @@
+{
+  "evidence": {
+    "status": "PASS",
+    "scope": "Actual-pixel import, focused native texture checks and DOS link; no emulator suite",
+    "tests": [
+      "test_imported_pixels_resolution_switch_and_atlas_contract",
+      "test_source_overlay_replays_exactly"
+    ],
+    "imported_tiles": 79,
+    "source_assets_sha256": "0fad09bfbf21d83eb7fc43fde973ebdbe2136ac0feb484ebd5ae06a3de45504b",
+    "small_view_exact_restorations": [
+      "stone",
+      "gravel",
+      "pre-grain cobble"
+    ],
+    "small_view_sand": "shade 15 base, 8 percent shade 14 detail",
+    "palette_unchanged": true,
+    "atlas_allocations": 1,
+    "atlas_bytes": 208896,
+    "build_exe_sha256": "63b00f29003498c1625571791a289f2fc8aa6f94f72211bb23deb49818707f2d",
+    "baseline_exe_sha256": "64fceff2beda82456ab55af979ab331c4fc79c842469c9c1e0dde80d86d326e0",
+    "source_sha256": {
+      "tools/import_eagler_textures.py": "79b8a0c9cdea25dd43aba630c7668c29b9d4bd33829f9b0e066800f6181b3408",
+      "tools/dos_block_textures.py": "8705b83692adacc811a80e81708f2a042db35a8001c440697a058cf75dea0287",
+      "src/platform/dos/block_textures.inc": "115606d046ffabb7891cc4d440e740308c11ef3e9ec367f463b68c704fdddcf4",
+      "assets/textures/eagler_full.inc": "198cb7721e67757a1b2ef4cb569559e535f45fcaffa2b86d2d35449b971f7022",
+      "assets/textures/eagler_full.bin": "dabe65cdbfafd102f305c1a8a2f7c27629c2091a68b83bd59159960aa2b568e9",
+      "assets/textures/eagler_full.json": "b0136902bf04ff30c6020aab791d371312588d4ebf0519dc6a8c6ed95843fe29",
+      "tests/block_textures_native.c": "14698b34af43333bc4997b8458679e96d079f48e43f0c28572041964bedbd230",
+      "tests/test_block_textures.py": "6905728ac0c296348f2262d0cade572bfeadc17e71df0f69949982e624a257b8"
+    }
+  },
+  "vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-lsn3k2og",
+  "preview_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-z34f9p2t",
+  "iso_sha256": "eb22ae9d892c55e781cd49283adeb465674c48d51fe0686448960c56a0beff67",
+  "preserved_hdd_sha256": "3a588a6614c9991ff6869764a33b5352da7282a1139e363ade8beab1c60db0de",
+  "preview_hdd_sha256": "54d839084021ccd1253ece4e3acdfb641ef9f52585c306977d307976037af89d",
+  "backup": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\ISO\\DOSCRAFT.before-64fceff2beda.ISO"
+}

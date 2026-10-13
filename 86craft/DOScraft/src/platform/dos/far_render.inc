@@ -35,6 +35,14 @@ static u8 farBandStart[SCR_W/2];
 static Camera farBandCamera;
 static int farBandValid,farBandView,farBandScale,farBandLevel;
 static u32 farBandVersion,farBandBoundary,farBandResident;
+/* Art changes invalidate colors, not the cached terrain samples. */
+static void far_texture_changed(void)
+{
+    farShadeDarken=-1; farShadeDetail=-1; farBandValid=0;
+#ifdef DOS_FAR_REPROJECT
+    ++farProjectionSerial;
+#endif
+}
 static u32 far_resident_signature(void)
 {
     u32 signature=0;

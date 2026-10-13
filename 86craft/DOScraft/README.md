@@ -46,6 +46,11 @@ executable without sharing world saves or hardware settings.
 Both current hardware profiles have their own HDD containing the prebaked
 1024-world seed; the previous 1992 256-world disk is preserved separately.
 
+The shared ISO now includes the first restrained block-texture pass. A separate
+prebaked biome world adds plains, forests, deserts and rocky highlands; its
+preview launcher keeps a separate save so existing terrain edits are preserved.
+See [biomes, texture comparisons and launch instructions](BIOMES_AND_TEXTURES.md).
+
 ## Build and launch the real game
 
 For maintenance of the **previous 256-world release**, use its save-preserving

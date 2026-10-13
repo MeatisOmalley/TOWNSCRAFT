@@ -1,0 +1,490 @@
+diff --git a/86craft/DOScraft/src/platform/dos/bench_runtime.c b/86craft/DOScraft/src/platform/dos/bench_runtime.c
+index 0cdc4621..e7354a3f 100644
+--- a/86craft/DOScraft/src/platform/dos/bench_runtime.c
++++ b/86craft/DOScraft/src/platform/dos/bench_runtime.c
+@@ -57,6 +57,11 @@ extern unsigned dos_f2b_verify_failures,dos_f2b_verify_frames,dos_f2b_verify_fal
+ #endif
+ #define FRAMES DOS_BENCH_FRAMES
+ #define WARM 6
++#ifdef DOS_BENCH_DIAGONAL_ROUTE
++#define phase_frames(p) ((p)==1 ? FRAMES : 32)
++#else
++#define phase_frames(p) FRAMES
++#endif
+ /* Long diagnostics can exceed 32-bit PIT counts and accumulated microseconds.
+  * Preserve short-run arithmetic/codegen for existing comparison checkpoints. */
+ #if FRAMES > 32
+@@ -176,6 +181,19 @@ void dos_game_options(int argc,char **argv)
+     if(argc==2 && !strcmp(argv[1],"/SWEEP")) suite=sweep=suite_warmup=1;
+ }
+ void dos_game_inventory_idle(void) {}
++#ifdef DOS_BENCH_DUMP_FRAMES
++static void bench_dump_frame(const char *path,const u8 *fb)
++{
++    unsigned char palette[768];
++    outportb(0x3c7,0);
++    for(int x=0;x<768;++x) palette[x]=(unsigned char)(inportb(0x3c9)<<2);
++    FILE *dump=fopen(path,"wb");
++    if(!dump) { vga_ok=0; return; }
++    if(fwrite(palette,1,sizeof(palette),dump)!=sizeof(palette)) vga_ok=0;
++    for(int y=0;y<240;++y) if(fwrite(fb+y*512,1,320,dump)!=320) vga_ok=0;
++    if(fclose(dump)) vga_ok=0;
++}
++#endif
+ void __real_gfx_present(void);
+ void __wrap_gfx_present(void)
+ {
+@@ -184,7 +202,7 @@ void __wrap_gfx_present(void)
+ #ifdef DOS_BENCH_PROFILE_FAR
+     if(measured && phase>=0) for(int i=0;i<3;++i) farTimes[phase][i]+=dos_far_us[i];
+ #endif
+-    if(phase>=0 && frame==WARM+FRAMES-1) {
++    if(phase>=0 && frame==WARM+phase_frames(phase)-1) {
+         unsigned int h=2166136261u; int x,y;
+         /* Correctness readback/hash is after the timing boundary; excluded
+          * from this and next frame. All three hidden pages cycle normally. */
+@@ -204,19 +222,8 @@ void __wrap_gfx_present(void)
+          * perturb later scheduling, so these runs are not gain evidence. */
+         {
+             char path[]="C:\\B1S0.RAW";
+-            unsigned char palette[768];
+-            FILE *dump;
+             path[4]=(char)('0'+run); path[6]=(char)('0'+phase);
+-            outportb(0x3c7,0);
+-            for(x=0;x<768;++x) palette[x]=(unsigned char)(inportb(0x3c9)<<2);
+-            dump=fopen(path,"wb");
+-            if(!dump) vga_ok=0;
+-            else {
+-                if(fwrite(palette,1,sizeof(palette),dump)!=sizeof(palette)) vga_ok=0;
+-                for(y=0;y<240;++y)
+-                    if(fwrite(fb+y*512,1,320,dump)!=320) vga_ok=0;
+-                if(fclose(dump)) vga_ok=0;
+-            }
++            bench_dump_frame(path,fb);
+         }
+ #endif
+     }
+@@ -300,11 +307,11 @@ static void finish(void)
+     ok=ok && dos_collect_verify_frames && !dos_collect_verify_failures;
+ #endif
+ #ifdef DOS_WALL_VERIFY
+-    ok=ok && !dos_wall_verify_failures && dos_wall_verify_frames==PHASES*(WARM+FRAMES);
++    ok=ok && !dos_wall_verify_failures && dos_wall_verify_frames==PHASES*(WARM+phase_frames(phase));
+ #endif
+ #ifdef DOS_F2B_VERIFY
+     ok=ok && !dos_f2b_verify_failures &&
+-        dos_f2b_verify_frames+dos_f2b_verify_fallbacks==PHASES*(WARM+FRAMES);
++        dos_f2b_verify_frames+dos_f2b_verify_fallbacks==PHASES*(WARM+phase_frames(phase));
+ #ifdef DOS_F2B_STRESS
+     ok=ok && dos_f2b_verify_fallbacks==1;
+ #else
+@@ -330,7 +337,12 @@ static void finish(void)
+     fprintf(file,"VERSION=2\nEDIT_TIMING=CALL_PLUS_FOLLOWING_FRAME\nSEED=4242\nSIMULATION=FROZEN_GRAPHICS_REPLAY\nSCALE=%d\nVIEW=%d\nFLAT=%d\nSUBDIV=%d\nOCCLUSION=%d\nGEN_MS=%u\nTICKS=%u\nRESULT=%s\n",
+         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
+     fprintf(file,"REPLAY_CONTEXT=%s\n",suite?"POST_FIXTURE":"FRESH_WORLD");
+-    fprintf(file,"SAMPLES_PER_SCENE=%d\nMOTION_POLICY=REPEAT_32_MEASURED_POSES\n",FRAMES);
++    fprintf(file,"SAMPLES_PER_SCENE=%d\n",FRAMES);
++#ifdef DOS_BENCH_DIAGONAL_ROUTE
++    fprintf(file,"MOTION_POLICY=CONTINUOUS_WALK_OTHER_SCENES_32_POSES\nWALK_ROUTE=CONTINUOUS_DIAGONAL_XZ_FIXED_YAW_45_HORIZON\n");
++#else
++    fprintf(file,"MOTION_POLICY=REPEAT_32_MEASURED_POSES\n");
++#endif
+ #ifdef DOS_FAR_FIELD
+     fprintf(file,"DISTANT_LEVEL=%d\n",dos_far_enabled);
+ #endif
+@@ -355,15 +367,15 @@ static void finish(void)
+     fprintf(file,"CW_PROFILING=BENCHMARK_ONLY_INSTRUMENTED_TIMINGS\n");
+ #endif
+     for(p=0;p<PHASES;++p) {
+-        fprintf(file,"SCENE=%s\nPACK=%llu\nUPLOAD=%llu\nWAIT=%llu\nTIMEOUTS=%llu\nPIXELS=%llu\nFACES=%llu\nITEMS=%llu\nHASH=%08x\nFRAMES=",names[p],
++        fprintf(file,"SCENE=%s\nSAMPLES=%d\nPACK=%llu\nUPLOAD=%llu\nWAIT=%llu\nTIMEOUTS=%llu\nPIXELS=%llu\nFACES=%llu\nITEMS=%llu\nHASH=%08x\nFRAMES=",names[p],phase_frames(p),
+             (unsigned long long)packs[p],(unsigned long long)uploads[p],(unsigned long long)waits[p],
+             (unsigned long long)timeouts[p],(unsigned long long)pixels[p],(unsigned long long)faces[p],
+             (unsigned long long)items[p],hashes[p]);
+-        for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",times[p][f]);
++        for(f=0;f<phase_frames(p);++f) fprintf(file,"%s%u",f?",":"",times[p][f]);
+         fprintf(file,"\nSECTIONS=");
+         for(s=0;s<10;++s) fprintf(file,"%s%llu",s?",":"",(unsigned long long)sections[p][s]);
+         fprintf(file,"\nEDIT_CALLS=");
+-        for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
++        for(f=0;f<phase_frames(p);++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
+         fprintf(file,"\n");
+ #ifdef DOS_BENCH_PROFILE_FAR
+         fprintf(file,"FAR_TIMES=%u,%u,%u\n",farTimes[p][0],farTimes[p][1],farTimes[p][2]);
+@@ -379,7 +391,7 @@ static void finish(void)
+ #endif
+ #ifdef DOS_WALL_VISIBILITY
+         fprintf(file,"WALL_SOURCES_TESTS_REJECTED_BY_FRAME=");
+-        for(f=0;f<FRAMES;++f) fprintf(file,"%s%u,%u,%u",f?";":"",wall_stats[p][f][0],wall_stats[p][f][1],wall_stats[p][f][2]);
++        for(f=0;f<phase_frames(p);++f) fprintf(file,"%s%u,%u,%u",f?";":"",wall_stats[p][f][0],wall_stats[p][f][1],wall_stats[p][f][2]);
+         fprintf(file,"\n");
+ #endif
+ #ifdef DOS_BENCH_PROFILE_DRAW
+@@ -424,7 +436,7 @@ void bench_frame(void)
+ #endif
+     unsigned int now=bench_us();
+ #ifdef DOS_WALL_VISIBILITY
+-    if(phase>=0 && frame>=WARM && frame<WARM+FRAMES) {
++    if(phase>=0 && frame>=WARM && frame<WARM+phase_frames(phase)) {
+         wall_stats[phase][frame-WARM][0]=dos_wall_sources;
+         wall_stats[phase][frame-WARM][1]=dos_wall_tests;
+         wall_stats[phase][frame-WARM][2]=dos_wall_rejected;
+@@ -440,10 +452,10 @@ void bench_frame(void)
+ #ifdef DOS_FRONT_TO_BACK
+         record_f2b(phase);
+ #endif
+-    } else if(phase>=0 && frame==WARM+FRAMES-1) {
++    } else if(phase>=0 && frame==WARM+phase_frames(phase)-1) {
+         /* Last frame was closed before readback. Include its real duration
+          * and transport counters, but never the diagnostic readback time. */
+-        times[phase][FRAMES-1]=secmark-last;
++        times[phase][phase_frames(phase)-1]=secmark-last;
+         packs[phase]+=dos_bench_pack; uploads[phase]+=dos_bench_upload;
+         waits[phase]+=dos_bench_wait; timeouts[phase]+=dos_bench_timeouts;
+         pixels[phase]+=g_statPixels; faces[phase]+=g_statFaces; items[phase]+=g_statItems;
+@@ -451,6 +463,19 @@ void bench_frame(void)
+         record_f2b(phase);
+ #endif
+     }
++#if defined(DOS_BENCH_DIAGONAL_ROUTE) && defined(DOS_BENCH_DUMP_FRAMES)
++    if(phase==1 && run==3 && frame>=WARM && (frame-WARM)%4==0) {
++#ifdef DOS_RASTER_FINISH_SKIP
++        raster_complete_odd_rows();
++#endif
++#ifdef DOS_VERY_LOW
++        dos_video_complete_very_low_source(g_fb,512);
++#endif
++        char path[]="C:\\D1F000.RAW"; int index=frame-WARM;
++        path[4]=(char)('0'+run); path[6]=(char)('0'+index/100); path[7]=(char)('0'+(index/10)%10); path[8]=(char)('0'+index%10);
++        bench_dump_frame(path,g_fb);
++    }
++#endif
+     if(phase<0) {
+         sx=g_player.body.x/FU; sz=g_player.body.z/FU; sy=world_surface_y(sx,sz);
+ #ifdef DOS_BENCH_QUALITY
+@@ -471,7 +496,7 @@ void bench_frame(void)
+         if(sample>=0 && render_a1_dump(phase,sample)) vga_ok=0;
+     }
+ #endif
+-    if(++frame==WARM+FRAMES) {
++    if(++frame==WARM+phase_frames(phase)) {
+ #ifdef DOS_BENCH_PROFILE_DRAW
+         profile_end[phase]=g_profCount;
+ #endif
+@@ -487,10 +512,19 @@ void bench_frame(void)
+     /* Longer sampling repeats the same bounded route, not a progressively
+      * longer walk into unrelated terrain. The legacy 32-frame route is exact. */
+     int pose=frame<WARM?frame:WARM+(frame-WARM)%32;
++#ifdef DOS_BENCH_DIAGONAL_ROUTE
++    if(phase==1) pose=frame;
++#endif
+     if(phase>=1 && phase<=3) {
+         g_player.body.x+=(pose*FU/8); g_player.yaw=pose*8;
++#ifdef DOS_BENCH_DIAGONAL_ROUTE
++        g_player.body.z+=(pose*FU/8); g_player.yaw=128;
++#endif
+         g_player.body.y=(world_surface_y(g_player.body.x/FU,g_player.body.z/FU)+1)*FU;
+         g_player.pitch=phase==2?-250:phase==3?250:-40;
++#ifdef DOS_BENCH_DIAGONAL_ROUTE
++        if(phase==1) g_player.pitch=0;
++#endif
+     }
+     if(phase>=4) {
+         g_player.body.z=sz*FU+FU/2; g_player.body.y=(sy+1)*FU; g_player.pitch=-20;
+diff --git a/86craft/DOScraft/src/platform/dos/far_march.inc b/86craft/DOScraft/src/platform/dos/far_march.inc
+index 619490af..4b3f383a 100644
+--- a/86craft/DOScraft/src/platform/dos/far_march.inc
++++ b/86craft/DOScraft/src/platform/dos/far_march.inc
+@@ -1,5 +1,8 @@
+ /* Compile separate plain/capture loops so moving frames never pay for
+  * recording an immediately obsolete strip list. Included twice. */
++#ifdef DOS_FAR_DDA
++#include "far_dda_march.inc"
++#else
+ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *inv,u8 *skyline)
+ {
+     int cacheGood=1;
+@@ -74,7 +77,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
+ #if FAR_CAPTURE
+                         {
+                             int n=farBandCount[cached];
+-                            if(n<32) {
++                            if(n<FAR_BAND_RUNS) {
+                                 FarBandRun *r=&farBandRuns[cached][n];
+                                 r->y=y; r->cap=cap; r->material=material; r->fog=fog; farBandCount[cached]=n+1;
+                             } else cacheGood=0;
+@@ -104,3 +107,4 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
+     }
+     return cacheGood;
+ }
++#endif
+diff --git a/86craft/DOScraft/src/platform/dos/far_render.inc b/86craft/DOScraft/src/platform/dos/far_render.inc
+index 19e09db3..a3c2e6ef 100644
+--- a/86craft/DOScraft/src/platform/dos/far_render.inc
++++ b/86craft/DOScraft/src/platform/dos/far_render.inc
+@@ -29,7 +29,12 @@ static int farShadeDarken=-1,farPanLevel;
+ static int farShadeDetail=-1;
+ static const u8 *farReady;
+ typedef struct { u8 y,cap,material,fog; } FarBandRun;
+-static FarBandRun farBandRuns[SCR_W/2][32];
++#ifdef DOS_FAR_DDA
++#define FAR_BAND_RUNS 40
++#else
++#define FAR_BAND_RUNS 32
++#endif
++static FarBandRun farBandRuns[SCR_W/2][FAR_BAND_RUNS];
+ static u8 farBandCount[SCR_W/2];
+ static u8 farBandStart[SCR_W/2];
+ static Camera farBandCamera;
+@@ -61,6 +66,39 @@ static void far_depth_setup(int level,int f)
+     }
+ }
+ #endif
++#ifdef DOS_FAR_DDA
++#ifndef DOS_FAR_VIEW_DEPTH
++#error Cell-boundary march requires the view-depth setup
++#endif
++#include "far_dda.h"
++static int farDdaInv[642],farDdaFocal,farDdaGain;
++static int farDdaDx[SCR_W],farDdaDz[SCR_W],farDdaWidth,farDdaStrip,farDdaYaw=-1;
++static u32 farDdaRx[SCR_W],farDdaRz[SCR_W];
++static void far_dda_directions(int width)
++{
++    if(farDdaWidth==vw && farDdaStrip==width && farDdaYaw==g_cam.yaw) return;
++    farDdaWidth=vw; farDdaStrip=width; farDdaYaw=g_cam.yaw;
++    int sy=fsin(g_cam.yaw),cy=fcos(g_cam.yaw);
++    for(int x=0;x<vw;x+=width) {
++        int ray=x+width/2,u=farSide[ray];
++        int dx=sy+((cy*u)>>14),dz=cy-((sy*u)>>14);
++        farDdaDx[ray]=dx; farDdaDz[ray]=dz;
++        farDdaRx[ray]=dx ? (1u<<30)/(unsigned)ABS(dx) : 0;
++        farDdaRz[ray]=dz ? (1u<<30)/(unsigned)ABS(dz) : 0;
++    }
++}
++static void far_dda_projection(int f,int gain)
++{
++    if(farDdaFocal==f && farDdaGain==gain) return;
++    farDdaFocal=f; farDdaGain=gain;
++    for(int i=1;i<642;++i) farDdaInv[i]=(((f<<16)/(i*16))*gain)>>14;
++}
++static inline int far_dda_reciprocal(u32 depth)
++{
++    unsigned i=depth>>8,part=depth&255;
++    return farDdaInv[i]+((farDdaInv[i+1]-farDdaInv[i])*(int)part>>8);
++}
++#endif
+ static inline int far_lookup(int x,int z,u8 *b);
+ static inline u8 far_material(int x,int z,u8 b)
+ {
+@@ -293,15 +331,19 @@ static inline int far_boundary_sample(int x,int z,u8 *b)
+     return far_lookup(x,z,b);
+ }
+ #define FAR_MARCH_NAME far_march_plain
++#define FAR_DDA_EMIT_NAME far_dda_emit_plain
+ #define FAR_CAPTURE 0
+ #include "far_march.inc"
+ #undef FAR_CAPTURE
+ #undef FAR_MARCH_NAME
++#undef FAR_DDA_EMIT_NAME
+ #define FAR_MARCH_NAME far_march_capture
++#define FAR_DDA_EMIT_NAME far_dda_emit_capture
+ #define FAR_CAPTURE 1
+ #include "far_march.inc"
+ #undef FAR_CAPTURE
+ #undef FAR_MARCH_NAME
++#undef FAR_DDA_EMIT_NAME
+ 
+ static void far_replay_band(int width,int level,u8 *skyline)
+ {
+@@ -383,6 +425,9 @@ static void draw_far_field(const RenderEnv *env)
+     }
+ #ifdef DOS_FAR_VIEW_DEPTH
+     far_depth_setup(level,f);
++#ifdef DOS_FAR_DDA
++    far_dda_projection(f,gain);
++#endif
+ #endif
+     if(reuse) far_replay_band(width,level,skyline);
+     else if(capture) cacheGood=far_march_capture(width,level,horizon,gain,inv,skyline);
+diff --git a/86craft/DOScraft/tests/far_render_native.c b/86craft/DOScraft/tests/far_render_native.c
+index ed273e68..de6d3cec 100644
+--- a/86craft/DOScraft/tests/far_render_native.c
++++ b/86craft/DOScraft/tests/far_render_native.c
+@@ -54,6 +54,65 @@ static u32 frame_hash(void) {
+ static u8 logical_pixel(int x,int y) {
+     return rplanar ? rbuf[y*PLANAR_ROW+(x&1)*PLANAR_C+(x>>1)] : rbuf[y*rpitch*rscale+x*rscale];
+ }
++#ifdef DOS_FAR_DDA
++static void dda_intervals(void) {
++    static const int directions[][2]={{0,16384},{16384,0},{11585,11585},
++        {-11585,-11585},{-16384,512},{16384,-8192},{1,16384}};
++    for(int p=0;p<2;++p) for(int d=0;d<7;++d) {
++        int eyeX=512*256+(p ? 128 : 0),eyeZ=512*256+(p ? 128 : 0);
++        FarDda ray={0}; ray.dx=directions[d][0]; ray.dz=directions[d][1];
++        ray.rx=ray.dx ? (1u<<30)/(unsigned)ABS(ray.dx) : 0;
++        ray.rz=ray.dz ? (1u<<30)/(unsigned)ABS(ray.dz) : 0;
++        ray.t=0; ray.end=40*4096; ray.detail=12*4096;
++        far_dda_grid(&ray,eyeX,eyeZ,8);
++        for(int visits=0;ray.t<ray.end;++visits) {
++            assert(visits<100);
++            u32 end=far_dda_exit(&ray);
++            if(end>ray.t) {
++                double mid=(ray.t+end)/2.0/4096;
++                double x=eyeX/256.0+mid*ray.dx/16384.0,z=eyeZ/256.0+mid*ray.dz/16384.0;
++                int size=1<<(ray.shift-8);
++                assert(x>=ray.x*size-0.02 && x<=(ray.x+1)*size+0.02);
++                assert(z>=ray.z*size-0.02 && z<=(ray.z+1)*size+0.02);
++                if(d==2 || d==3) assert(ray.x==ray.z); /* Exact corner: both axes advance. */
++            }
++            if(end==ray.end) break;
++            far_dda_advance(&ray,end,eyeX,eyeZ);
++        }
++    }
++    /* A flat grass plane must not break into different strips when walking
++     * diagonally across grid corners. Isolate coverage from distance shading. */
++    readyEnabled=0; g_residentColumns=0;
++    for(u32 i=0;i<DOS_FAR_BYTES;i+=2) { dos_far_map[i]=20; dos_far_map[i+1]=B_GRASS; }
++    ++dos_far_version;
++    rplanar=0; rscale=g_renderScale=1; vw=rw=320; vh=rh=200;
++    focal16=172*16; cx16=vw*8; dos_far_enabled=3;
++    g_cam.x=g_cam.z=512*256; g_cam.y=24*256; g_cam.pitch=0; g_cam.yaw=128;
++    RenderEnv env={0}; draw_far_field(&env);
++    while(farPanNext<FAR_PAN_COLS) draw_far_field(&env);
++    for(int fog=0;fog<9;++fog) {
++        farShade[fog][B_GRASS]=P(R_GRASS,14); farSideShade[fog][B_GRASS]=P(R_DIRT,12);
++    }
++    ++farProjectionSerial;
++    memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env); u32 flat=frame_hash();
++    int greens=0; for(int y=0;y<200;++y) for(int x=0;x<320;++x) greens+=(logical_pixel(x,y)&240)==R_GRASS*16;
++    assert(greens>0);
++    u8 flatPixels[512*200]; memcpy(flatPixels,rbuf,sizeof(flatPixels));
++    for(int p=1;p<=12;++p) {
++        g_cam.x=g_cam.z=512*256+p*16;
++        memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env);
++        if(frame_hash()!=flat) {
++            int diffs=0;
++            for(int y=0;y<200;++y) for(int x=0;x<320;++x) if(rbuf[y*512+x]!=flatPixels[y*512+x]) {
++                if(diffs<8) fprintf(stderr,"FLAT p=%d x=%d y=%d before=%u after=%u\n",p,x,y,flatPixels[y*512+x],rbuf[y*512+x]);
++                ++diffs;
++            }
++            fprintf(stderr,"FLAT diffs=%d\n",diffs);
++        }
++        assert(frame_hash()==flat);
++    }
++}
++#endif
+ #ifndef FAR_RENDER_TEST_LEGACY
+ static void material_patterns(void) {
+     /* Real layout writes: quiet surfaces are solid; accents occupy a small
+@@ -172,6 +231,9 @@ int main(void) {
+     g_columnMap[32*64+32]=-1; g_columnMap[31*64+32]=0; g_columnCoords[1]=31;
+     memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env); assert(frame_hash()==coarse);
+     free(g_columnMap); free(g_columnCoords); free(g_height); free(g_blocks);
++#ifdef DOS_FAR_DDA
++    dda_intervals();
++#endif
+ #ifndef FAR_RENDER_TEST_LEGACY
+ #ifdef DOS_FAR_DETAILS
+     material_patterns();
+diff --git a/86craft/DOScraft/tests/test_benchmark.py b/86craft/DOScraft/tests/test_benchmark.py
+index 62acabad..5868d411 100644
+--- a/86craft/DOScraft/tests/test_benchmark.py
++++ b/86craft/DOScraft/tests/test_benchmark.py
+@@ -116,6 +116,21 @@ class BenchmarkTests(unittest.TestCase):
+         for text in ('RESULT=FAIL\n',self.fixture().replace('100000','0')):
+             with self.assertRaises(ValueError): parse(text)
+ 
++    def test_continuous_walk_uses_its_own_sample_count(self):
++        text='SAMPLES_PER_SCENE=512\n'+self.fixture()
++        for n in range(6):
++            count=512 if n==1 else 32
++            text=text.replace(f'SCENE={n}\n',f'SCENE={n}\nSAMPLES={count}\n')
++        short=','.join(['100000']*32)
++        text=text.replace('SCENE=1\nSAMPLES=512\nPACK=32000\nUPLOAD=64000\nWAIT=0\nFRAMES='+short,
++            'SCENE=1\nSAMPLES=512\nPACK=32000\nUPLOAD=64000\nWAIT=0\nFRAMES='+','.join(['100000']*512))
++        scenes=parse(text)['scenes']
++        self.assertEqual([len(scene['frames']) for scene in scenes],[32,512,32,32,32,32])
++        self.assertEqual(scenes[0]['transport_mean_ms']['upload'],2)
++        self.assertEqual(scenes[1]['transport_mean_ms']['upload'],.125)
++        with self.assertRaises(ValueError):
++            parse(text.replace('SCENE=1\nSAMPLES=512','SCENE=1\nSAMPLES=32'))
++
+     def test_separate_edit_call_and_frame_latency(self):
+         text='VERSION=2\n'+self.fixture().replace('SCENE=5','SCENE=block_edits')
+         for n in range(6):
+diff --git a/86craft/DOScraft/tests/test_far_field.py b/86craft/DOScraft/tests/test_far_field.py
+index a0a46f31..d4671e2d 100644
+--- a/86craft/DOScraft/tests/test_far_field.py
++++ b/86craft/DOScraft/tests/test_far_field.py
+@@ -85,7 +85,8 @@ class FarTests(unittest.TestCase):
+             self.assertEqual(actual,expected,'far image changed versus checkpoint')
+             base_hash=[line for line in actual.splitlines() if line.startswith('POSE_HASH=')]
+             for flags in (['-DDOS_FAR_DETAILS'],['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH'],
+-                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT']):
++                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT'],
++                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT','-DDOS_FAR_DDA']):
+                 self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
+                     '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
+                     src/'blocks.c',src/'fmath.c',tables,'-o',exe])
+diff --git a/86craft/DOScraft/tools/benchmark.py b/86craft/DOScraft/tools/benchmark.py
+index 8d4121d2..3ba8c4a6 100644
+--- a/86craft/DOScraft/tools/benchmark.py
++++ b/86craft/DOScraft/tools/benchmark.py
+@@ -35,9 +35,11 @@ def parse(text):
+         else: row[key.lower()]=value
+     if header.get('result')!='PASS' or len(scenes)!=6:
+         raise ValueError('Incomplete/failed guest benchmark')
+-    count=int(header.get('samples_per_scene',32))
+-    if not 32<=count<=10000: raise ValueError('Invalid samples per scene')
++    default_count=int(header.get('samples_per_scene',32))
++    if not 32<=default_count<=10000: raise ValueError('Invalid samples per scene')
+     for row in scenes:
++        count=int(row.get('samples',default_count))
++        if not 32<=count<=10000: raise ValueError('Invalid scene sample count')
+         frames=row['frames']
+         if len(frames)!=count or not all(0<x<10000000 for x in frames) or len(row['sections'])!=10:
+             raise ValueError('Invalid guest frame samples')
+@@ -111,6 +113,8 @@ def main():
+     parser.add_argument('--far-details',action='store_true',help='Medium/High far slope shading and deterministic dithering')
+     parser.add_argument('--far-view-depth',action='store_true',help='Constant view-depth march with folded pitch reciprocal')
+     parser.add_argument('--far-reproject',action='store_true',help='Reproject cached panorama heights/depths at the current eye height')
++    parser.add_argument('--far-dda',action='store_true',help='Cell-boundary traversal of the live heightmap, retaining grass tops')
++    parser.add_argument('--diagonal-route',action='store_true',help='Replay walking diagonally in X/Z at fixed 45-degree yaw; distinct from the standard route')
+     parser.add_argument('--far-coarse-eye',action='store_true',help='Ablation: same panorama renderer with the old one-block eye-height threshold')
+     parser.add_argument('--far-skip-first',action='store_true',help='Visual experiment: leave the first heightmap strip to near geometry; may expose holes')
+     parser.add_argument('--verify-collect',action='store_true',help='Compare every cached frame with a tight-frustum redraw; timings invalid')
+@@ -140,6 +144,10 @@ def main():
+     if args.quality_sweep and args.quality!='low': parser.error('--quality-sweep starts at Low; omit --quality')
+     if args.quality_sweep and args.archive: parser.error('Quality sweeps are not comparable three-repeat archives')
+     diagnostic=any((args.verify_f2b,args.verify_wall,args.f2b_stress,args.profile_draw,args.dump_frames))
++    if args.diagonal_route and any((args.verify_f2b,args.verify_wall,args.f2b_stress,args.verify_collect)):
++        parser.error('The continuous diagonal route is a distinct motion replay, not a renderer-verification fixture')
++    if args.diagonal_route and args.dump_frames and args.frames>512:
++        parser.error('Motion captures are limited to 512 walk frames on the private diagnostic HDD')
+     if args.quality_sweep and any((args.verify_f2b,args.verify_wall,args.f2b_stress,args.profile_draw)):
+         parser.error('Quality sweep does not support renderer verification; use separate diagnostic processes')
+     if not 32<=args.frames<=10000: parser.error('--frames must be between 32 and 10000')
+@@ -221,6 +229,10 @@ def main():
+     if args.far_reproject:
+         if not args.far_field: parser.error('--far-reproject requires --far-field')
+         flags=(*flags,'-DDOS_FAR_REPROJECT')
++    if args.far_dda:
++        if not args.far_view_depth: parser.error('--far-dda requires --far-view-depth')
++        flags=(*flags,'-DDOS_FAR_DDA')
++    if args.diagonal_route: flags=(*flags,'-DDOS_BENCH_DIAGONAL_ROUTE')
+     if args.far_coarse_eye:
+         if not args.far_reproject: parser.error('--far-coarse-eye requires --far-reproject')
+         flags=(*flags,'-DDOS_BENCH_FAR_COARSE_EYE')
+diff --git a/86craft/DOScraft/tools/build_game.py b/86craft/DOScraft/tools/build_game.py
+index 68f110db..90c531cf 100644
+--- a/86craft/DOScraft/tools/build_game.py
++++ b/86craft/DOScraft/tools/build_game.py
+@@ -22,7 +22,7 @@ PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-p
+ 
+ 
+ def portable_experiment_flags(flags):
+-    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR'))
++    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_FAR_DDA','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR'))
+ 
+ 
+ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):

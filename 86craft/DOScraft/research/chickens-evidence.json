@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "native_checks": [
+    "chicken behavior/physics/model/drop/cooking/save/despawn",
+    "replayable chicken overlays",
+    "texture pixels/style switching/atlas",
+    "replayable texture overlays"
+  ],
+  "guest_smoke": {
+    "new": "DOScraft real game-loop smoke\nMODE=NEW\nWORLD_WIDTH=1024\nRESIDENT_COLUMNS=25\nMESH_QUADS=4136\nPRESENTED_FRAMES=357\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=2690\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nMOB_DESPAWN=PASS\nSAVE_RESULT=0\nLOAD_RESULT=0\nINVENTORY_PRESENTS=1\nINVENTORY_100HZ_TICKS=30\nAUDIO=SILENT_DEFERRED\nRESULT=PASS\nGRAPHICS_PRESETS=PASS\nMENUS=PASS\nTERRAIN_PERSIST=PASS\nEDGE_STREAM=PASS\nCHICKENS=PASS\nDISTANT_TERRAIN=PASS\nFAR_DRAWS=32\nPANORAMA_COLUMNS=436\nLIGHT_CACHE=PASS\nLIGHT_CACHE_STATS=0,0,25,1\n",
+    "load": "DOScraft real game-loop smoke\nMODE=LOAD\nWORLD_WIDTH=1024\nRESIDENT_COLUMNS=25\nMESH_QUADS=3480\nPRESENTED_FRAMES=439\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=2547\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nMOB_DESPAWN=PASS\nSAVE_RESULT=-1\nLOAD_RESULT=0\nINVENTORY_PRESENTS=1\nINVENTORY_100HZ_TICKS=30\nAUDIO=SILENT_DEFERRED\nRESULT=PASS\nGRAPHICS_PRESETS=PASS\nMENUS=PASS\nTERRAIN_PERSIST=PASS\nEDGE_STREAM=PASS\nCHICKENS=PASS\nDISTANT_TERRAIN=PASS\nFAR_DRAWS=14\nPANORAMA_COLUMNS=256\nLIGHT_CACHE=PASS\nLIGHT_CACHE_STATS=18,72,70,9\n",
+    "save_version": 5
+  },
+  "smoke_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-x12f9tei",
+  "exe_sha256": "fa6b6c1d07dd4b361212ea883bfb18af33896b0d4062abe9fe102833c0cd57ff",
+  "iso_sha256": "a5e69ab2405a665bc8ffc2e67987d718904fbe3573f587f6ce5132fd58b75db0",
+  "player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-zgu2sm29",
+  "preserved_hdd_sha256": "3a588a6614c9991ff6869764a33b5352da7282a1139e363ade8beab1c60db0de",
+  "preview_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-z34f9p2t",
+  "preview_hdd_sha256": "54d839084021ccd1253ece4e3acdfb641ef9f52585c306977d307976037af89d",
+  "atlas_bytes": 221184,
+  "existing_mob_ids_unchanged": true,
+  "existing_item_ids_unchanged": true,
+  "source_sha256": {
+    "tools/dos_chickens.py": "fb53e65f7734c2ff9c9cefe6c78c6b9444c50e8b648a7bc8609325f8428d601d",
+    "tests/chickens_native.c": "c9ab6bb0515996c1a3d2501c216b14233837c6e917660477873193f0f849165a",
+    "src/platform/dos/game_runtime.c": "60d79ab40e6b388df1ee058df8fcef793576d955c78f608a7a1b603ec8d267db",
+    "assets/textures/eagler_full.inc": "6c05945d0e26dbb652c200cf8e158bbf60fcb7863202e1ef3f2ddf9b57afcbdc"
+  }
+}

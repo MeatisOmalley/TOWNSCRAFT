@@ -34,6 +34,13 @@ static int post_load_render;
 static int placed,broken,torch_before,torch_after,vga_ok=1;
 static const char *vga_failed_snapshot;
 static int despawn_ok;
+static int chicken_ok=1;
+static int chicken_loaded(void)
+{
+    int found=0;
+    for(int i=0;i<MAX_MOBS;++i) found|=g_mobs[i].type==MOB_CHICKEN;
+    return found && inv_count(I_RAW_CHICKEN)>0 && inv_count(I_FEATHER)>0;
+}
 #ifdef DOS_LARGE_WORLD
 extern int world_verify_large_travel(int x,int z);
 static int terrain_persist_ok=1;
@@ -166,7 +173,7 @@ static void finish(void)
     const int expected_width=256;
 #endif
     int ok=input_ok && walk_ok && look_ok && stream_ok && width==expected_width && mesh>0 &&
-        storage_ok && placed && broken && vga_ok && fullres_ok && despawn_ok;
+        storage_ok && placed && broken && vga_ok && fullres_ok && despawn_ok && chicken_ok;
 #ifdef DOS_LARGE_WORLD
     ok=ok && terrain_persist_ok && edge_stream_ok;
 #ifdef DOS_STREAM_LIGHT_CACHE
@@ -199,6 +206,7 @@ static void finish(void)
                terrain_persist_ok?"PASS":"FAIL",edge_stream_ok?"PASS":"FAIL")<0) written=0;
 #endif
     if(vga_failed_snapshot && fprintf(file,"VGA_FAILED_SNAPSHOT=%s\n",vga_failed_snapshot)<0) written=0;
+    if(fprintf(file,"CHICKENS=%s\n",chicken_ok?"PASS":"FAIL")<0) written=0;
 #ifdef DOS_FAR_FIELD
     if(fprintf(file,"DISTANT_TERRAIN=%s\nFAR_DRAWS=%u\nPANORAMA_COLUMNS=%u\n",
         far_option_ok?"PASS":"FAIL",dos_far_frames,dos_far_pan_builds)<0) written=0;
@@ -258,6 +266,7 @@ void __wrap_gfx_present(void)
     /* During generation the actual game's progress screens also present. */
     if(stage==1 && rendered_frames>0 && !save_busy &&
        g_player.body.h>0 && g_player.health>0 && g_meshQuads>0) {
+        if(load_smoke) chicken_ok=chicken_loaded();
         snapshot("C:\\WORLD.RAW",frame);
 #ifdef DOS_LARGE_WORLD
         if(load_smoke) {
@@ -269,9 +278,11 @@ void __wrap_gfx_present(void)
             int px=g_player.body.x/FU, x=px+40<g_W ? px+40 : px-40;
             int pig=mob_spawn(MOB_PIG,x*FU,g_player.body.y,g_player.body.z);
             int zombie=mob_spawn(MOB_ZOMBIE,x*FU,g_player.body.y,g_player.body.z);
+            int chicken=mob_spawn(MOB_CHICKEN,x*FU,g_player.body.y,g_player.body.z);
             mobs_regions_tick();
             despawn_ok=pig>=0 && zombie>=0 && g_mobs[pig].type==MOB_NONE &&
                 g_mobs[zombie].type==MOB_NONE && mobs_dormant_count()==0;
+            chicken_ok=chicken_ok && chicken>=0 && g_mobs[chicken].type==MOB_NONE;
         }
         x0=g_player.body.x; z0=g_player.body.z; key(0x11); /* W held */
         until=g_ticks+100; stage=2;
@@ -380,6 +391,11 @@ void __wrap_gfx_present(void)
         }
 #endif
         if(!load_smoke) {
+            int chicken=mob_spawn(MOB_CHICKEN,g_player.body.x+FU/2,
+                g_player.body.y,g_player.body.z+2*FU);
+            chicken_ok=chicken_ok && chicken>=0;
+            if(chicken>=0) { g_mobs[chicken].aiTimer=500; g_mobs[chicken].walking=0; }
+            chicken_ok=chicken_ok && inv_add(I_RAW_CHICKEN,1)==0 && inv_add(I_FEATHER,2)==0;
 #ifdef DOS_GRAPHICS_PRESETS
             tap(0x01); arrow(0x50); arrow(0x50); arrow(0x50); tap(0x1c);
 #else
@@ -398,6 +414,8 @@ void __wrap_gfx_present(void)
     } else if(stage==40 && !save_busy && load_result!=-1 &&
               rendered_frames>post_load_render && (int)(g_ticks-until)>=0) {
         menus_ok=menus_ok && load_result==SAVE_OK;
+        chicken_ok=chicken_ok && chicken_loaded();
+        snapshot("C:\\CHICKEN.RAW",frame);
         finish();
 #else
         finish();

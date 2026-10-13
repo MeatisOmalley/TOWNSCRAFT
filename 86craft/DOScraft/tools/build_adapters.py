@@ -94,13 +94,21 @@ def gfx_drawing_source(vendor=imported.VENDOR):
                          selections=[[clear_start, clear_end], [draw_start, len(data)]])
 
 
-def stage(output, vendor=imported.VENDOR, large_world=False):
+def stage(output, vendor=imported.VENDOR, large_world=False, chickens=False):
     output = Path(output)
     # Verify all inputs before creating a compile result. The vendor is read-only.
     portable, selection = gfx_drawing_source(vendor)
     codec, save_selection = save_codec_source(vendor, large_world=large_world)
     audio, audio_selection = audio_assets.asset_source(vendor)
     record = imported.stage_sources(vendor, output)
+    if chickens:
+        import dos_chickens
+        record['chicken_headers']=[]
+        for name in ('blocks.h','mobs.h'):
+            path=output/'src'/name
+            data,steps=dos_chickens.adapt(name,path.read_bytes());path.write_bytes(data)
+            record['chicken_headers'].append(dict(path='src/'+name,
+                staged_sha256=imported.sha256(data),transformations=steps))
     (output / selection['staged']).write_bytes(portable)
     record['gfx_selection'] = selection
     (output / save_selection['staged']).write_bytes(codec)

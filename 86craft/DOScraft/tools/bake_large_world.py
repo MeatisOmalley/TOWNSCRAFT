@@ -39,7 +39,7 @@ def hash3(x, y, z, seed):
     return h ^ (h >> 13)
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=32)
 def lattice(shift, seed):
     side = (WIDTH >> shift) + 2
     return side, bytes(hash3(x, z, 0, seed) & 255
@@ -211,24 +211,41 @@ def carve_underground(image, heights, spawn_x, spawn_z, seed):
     return count
 
 
-def bake(seed):
+def bake(seed, *, style='legacy', report=None):
+    if style not in ('legacy','biomes'): raise ValueError('Unknown terrain style')
+    from terrain_biomes import sample, surface, vegetation, NAMES
     image = bytearray(IMAGE_BYTES)
     heights = bytearray(WIDTH * WIDTH)
+    biomes = bytearray(WIDTH * WIDTH) if style=='biomes' else None
+    if biomes is not None:
+        for z in range(WIDTH):
+            for x in range(WIDTH):
+                at=z*WIDTH+x
+                heights[at],biomes[at]=sample(x,z,seed,noise,WIDTH,SEA,WH)
+        print('CLIMATE_AND_HEIGHTS=READY',flush=True)
     for cz in range(WIDTH // CS):
         for cx in range(WIDTH // CS):
             for lz in range(CS):
                 z = cz * CS + lz
                 for lx in range(CS):
                     x = cx * CS + lx
-                    h = height(x, z, seed)
+                    h = heights[z*WIDTH+x] if biomes is not None else height(x, z, seed)
                     heights[z * WIDTH + x] = h
                     beach = h <= SEA + 1
                     top = (GRAVEL if h < SEA - 2 and noise(x, z, 3, seed + 9) > 170
                            else SAND) if beach else GRASS
+                    if biomes is not None:
+                        slope=max(abs(h-heights[max(0,z-1)*WIDTH+x]),
+                            abs(h-heights[min(WIDTH-1,z+1)*WIDTH+x]),
+                            abs(h-heights[z*WIDTH+max(0,x-1)]),
+                            abs(h-heights[z*WIDTH+min(WIDTH-1,x+1)]))
+                        top=surface(h,biomes[z*WIDTH+x],slope,noise(x,z,4,seed+36),SEA)
                     start = base_offset(x, z)
                     image[start] = BEDROCK
                     image[start + 1:start + max(1, h - 4)] = bytes([STONE]) * max(0, h - 5)
-                    image[start + max(1, h - 4):start + h - 1] = bytes([SAND if beach else DIRT]) * (h - 1 - max(1, h - 4))
+                    subsoil=(SAND if beach else DIRT) if biomes is None else (
+                        SAND if beach or top==SAND else STONE if top in (STONE,GRAVEL) else DIRT)
+                    image[start + max(1, h - 4):start + h - 1] = bytes([subsoil]) * (h - 1 - max(1, h - 4))
                     image[start + h - 1] = top
                     if h < SEA:
                         image[start + h:start + SEA] = bytes([WATER]) * (SEA - h)
@@ -246,7 +263,11 @@ def bake(seed):
             if h <= SEA + 1 or h + 8 >= WH:
                 continue
             seed_value = hash3(x, z, 77, seed)
-            if seed_value % 1000 < (45 if noise(x, z, 5, seed + 5) > 150 else 8):
+            trees,flowers,plants=(vegetation(biomes[z*WIDTH+x]) if biomes is not None
+                else (45 if noise(x,z,5,seed+5)>150 else 8,3,12))
+            if biomes is not None and image[base_offset(x,z,h-1)]!=GRASS:
+                continue
+            if seed_value % 1000 < trees:
                 trunk = 4 + hash3(x, z, 5, seed) % 3
                 for dy in range(trunk - 2, trunk + 2):
                     radius = 1 if dy >= trunk else 2
@@ -262,12 +283,31 @@ def bake(seed):
             else:
                 at = base_offset(x, z, h)
                 if image[at] == AIR:
-                    if seed_value % 100 < 3:
+                    if seed_value % 100 < flowers:
                         image[at] = FLOWER
-                    elif seed_value % 100 < 12:
+                    elif seed_value % 100 < plants:
                         image[at] = TALLGRASS
 
     spawn_x = spawn_z = WIDTH // 2
+    if biomes is not None:
+        def safe_spawn(x,z):
+            if not (2<=x<WIDTH-2 and 2<=z<WIDTH-2): return False
+            h=heights[z*WIDTH+x]
+            if h<=SEA+1 or biomes[z*WIDTH+x] not in (0,1): return False
+            if image[base_offset(x,z,h-1)]!=GRASS: return False
+            if image[base_offset(x,z,h)]!=AIR or image[base_offset(x,z,h+1)]!=AIR: return False
+            return all(abs(h-heights[(z+dz)*WIDTH+x+dx])<=1
+                for dx,dz in ((1,0),(-1,0),(0,1),(0,-1)))
+        found=False
+        for radius in range(WIDTH//2):
+            for offset in range(-radius,radius+1):
+                for x,z in ((WIDTH//2+offset,WIDTH//2-radius),(WIDTH//2+offset,WIDTH//2+radius),
+                            (WIDTH//2-radius,WIDTH//2+offset),(WIDTH//2+radius,WIDTH//2+offset)):
+                    if safe_spawn(x,z):
+                        spawn_x,spawn_z=x,z; found=True; break
+                if found: break
+            if found: break
+        if not found: raise ValueError('Biome world has no safe grassy spawn')
     if heights[spawn_z * WIDTH + spawn_x] <= SEA + 1:
         for radius in range(1, WIDTH // 2):
             found = False
@@ -294,6 +334,13 @@ def bake(seed):
     struct.pack_into('<9I', image, 16, 1, WIDTH, COLUMNS, SECTORS,
                      BASE_SECTOR, seed, spawn_x, spawn_z, checksum(sums))
     image[512:512 + len(sums)] = sums
+    if report is not None:
+        report.update(seed=seed,style=style,spawn=[spawn_x,spawn_z],cave_entrances=entrances,
+            height_min=min(heights),height_max=max(heights))
+        if biomes is not None:
+            report['biome_cells']={name:biomes.count(i) for i,name in enumerate(NAMES)}
+            report['land_cells']={name:sum(h>SEA+1 and b==i for h,b in zip(heights,biomes))
+                for i,name in enumerate(NAMES)}
     return image
 
 
@@ -301,9 +348,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--seed', type=int, default=4242)
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--style',choices=('legacy','biomes'),default='legacy')
+    parser.add_argument('--report',type=Path)
     args = parser.parse_args()
+    report={}
     with args.output.open('xb') as file:
-        file.write(bake(args.seed))
+        file.write(bake(args.seed,style=args.style,report=report))
+    if args.report:
+        import json
+        with args.report.open('x') as file: file.write(json.dumps(report,indent=2)+'\n')
     print(f'{args.output}: {IMAGE_BYTES} bytes, seed {args.seed}')
 
 

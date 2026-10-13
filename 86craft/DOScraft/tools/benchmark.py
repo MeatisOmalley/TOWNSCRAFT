@@ -35,9 +35,11 @@ def parse(text):
         else: row[key.lower()]=value
     if header.get('result')!='PASS' or len(scenes)!=6:
         raise ValueError('Incomplete/failed guest benchmark')
-    count=int(header.get('samples_per_scene',32))
-    if not 32<=count<=10000: raise ValueError('Invalid samples per scene')
+    default_count=int(header.get('samples_per_scene',32))
+    if not 32<=default_count<=10000: raise ValueError('Invalid samples per scene')
     for row in scenes:
+        count=int(row.get('samples',default_count))
+        if not 32<=count<=10000: raise ValueError('Invalid scene sample count')
         frames=row['frames']
         if len(frames)!=count or not all(0<x<10000000 for x in frames) or len(row['sections'])!=10:
             raise ValueError('Invalid guest frame samples')
@@ -111,6 +113,7 @@ def main():
     parser.add_argument('--far-details',action='store_true',help='Medium/High far slope shading and deterministic dithering')
     parser.add_argument('--far-view-depth',action='store_true',help='Constant view-depth march with folded pitch reciprocal')
     parser.add_argument('--far-reproject',action='store_true',help='Reproject cached panorama heights/depths at the current eye height')
+    parser.add_argument('--diagonal-route',action='store_true',help='Replay walking diagonally in X/Z at fixed 45-degree yaw; distinct from the standard route')
     parser.add_argument('--far-coarse-eye',action='store_true',help='Ablation: same panorama renderer with the old one-block eye-height threshold')
     parser.add_argument('--far-skip-first',action='store_true',help='Visual experiment: leave the first heightmap strip to near geometry; may expose holes')
     parser.add_argument('--verify-collect',action='store_true',help='Compare every cached frame with a tight-frustum redraw; timings invalid')
@@ -140,6 +143,10 @@ def main():
     if args.quality_sweep and args.quality!='low': parser.error('--quality-sweep starts at Low; omit --quality')
     if args.quality_sweep and args.archive: parser.error('Quality sweeps are not comparable three-repeat archives')
     diagnostic=any((args.verify_f2b,args.verify_wall,args.f2b_stress,args.profile_draw,args.dump_frames))
+    if args.diagonal_route and any((args.verify_f2b,args.verify_wall,args.f2b_stress,args.verify_collect)):
+        parser.error('The continuous diagonal route is a distinct motion replay, not a renderer-verification fixture')
+    if args.diagonal_route and args.dump_frames and args.frames>512:
+        parser.error('Motion captures are limited to 512 walk frames on the private diagnostic HDD')
     if args.quality_sweep and any((args.verify_f2b,args.verify_wall,args.f2b_stress,args.profile_draw)):
         parser.error('Quality sweep does not support renderer verification; use separate diagnostic processes')
     if not 32<=args.frames<=10000: parser.error('--frames must be between 32 and 10000')
@@ -221,6 +228,7 @@ def main():
     if args.far_reproject:
         if not args.far_field: parser.error('--far-reproject requires --far-field')
         flags=(*flags,'-DDOS_FAR_REPROJECT')
+    if args.diagonal_route: flags=(*flags,'-DDOS_BENCH_DIAGONAL_ROUTE')
     if args.far_coarse_eye:
         if not args.far_reproject: parser.error('--far-coarse-eye requires --far-reproject')
         flags=(*flags,'-DDOS_BENCH_FAR_COARSE_EYE')

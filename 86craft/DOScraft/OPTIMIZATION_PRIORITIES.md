@@ -135,6 +135,7 @@ remaining work is primarily mesh scans/publication and edit tails.
 The release has affine 16.16 texturing, reciprocal tables, greedy/exposed-face meshes, frustum/backface rejection, additive camera tables, adaptive subdivision, four-texel assembly loops, producer-proven repeated-row packing and broadcast, per-page HUD caching, ET4000 banked High upload with direct pitched rows, word-wise HUD comparison, async page flips, HUD proof, odd-row skip and planar Low/Medium.
 
 Measured losing or neutral checkpoints include:
+- live heightmap cell-boundary DDA: visually rejected; distant High added about 7.15 ms walking and 17.34 ms turning in the short replay. [Failed experiment and recoverable source](research/failed-experiments/2026-10-13-far-heightmap-dda/README.md). The continuous horizon-walk test fix was retained.
 - exact front-to-back coverage (two variants)
 - wall-cone item rejection
 - the old coarse occlusion prepass

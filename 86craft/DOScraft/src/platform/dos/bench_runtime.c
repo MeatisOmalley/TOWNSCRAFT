@@ -57,6 +57,11 @@ extern unsigned dos_f2b_verify_failures,dos_f2b_verify_frames,dos_f2b_verify_fal
 #endif
 #define FRAMES DOS_BENCH_FRAMES
 #define WARM 6
+#ifdef DOS_BENCH_DIAGONAL_ROUTE
+#define phase_frames(p) ((p)==1 ? FRAMES : 32)
+#else
+#define phase_frames(p) FRAMES
+#endif
 /* Long diagnostics can exceed 32-bit PIT counts and accumulated microseconds.
  * Preserve short-run arithmetic/codegen for existing comparison checkpoints. */
 #if FRAMES > 32
@@ -176,6 +181,19 @@ void dos_game_options(int argc,char **argv)
     if(argc==2 && !strcmp(argv[1],"/SWEEP")) suite=sweep=suite_warmup=1;
 }
 void dos_game_inventory_idle(void) {}
+#ifdef DOS_BENCH_DUMP_FRAMES
+static void bench_dump_frame(const char *path,const u8 *fb)
+{
+    unsigned char palette[768];
+    outportb(0x3c7,0);
+    for(int x=0;x<768;++x) palette[x]=(unsigned char)(inportb(0x3c9)<<2);
+    FILE *dump=fopen(path,"wb");
+    if(!dump) { vga_ok=0; return; }
+    if(fwrite(palette,1,sizeof(palette),dump)!=sizeof(palette)) vga_ok=0;
+    for(int y=0;y<240;++y) if(fwrite(fb+y*512,1,320,dump)!=320) vga_ok=0;
+    if(fclose(dump)) vga_ok=0;
+}
+#endif
 void __real_gfx_present(void);
 void __wrap_gfx_present(void)
 {
@@ -184,7 +202,7 @@ void __wrap_gfx_present(void)
 #ifdef DOS_BENCH_PROFILE_FAR
     if(measured && phase>=0) for(int i=0;i<3;++i) farTimes[phase][i]+=dos_far_us[i];
 #endif
-    if(phase>=0 && frame==WARM+FRAMES-1) {
+    if(phase>=0 && frame==WARM+phase_frames(phase)-1) {
         unsigned int h=2166136261u; int x,y;
         /* Correctness readback/hash is after the timing boundary; excluded
          * from this and next frame. All three hidden pages cycle normally. */
@@ -204,19 +222,8 @@ void __wrap_gfx_present(void)
          * perturb later scheduling, so these runs are not gain evidence. */
         {
             char path[]="C:\\B1S0.RAW";
-            unsigned char palette[768];
-            FILE *dump;
             path[4]=(char)('0'+run); path[6]=(char)('0'+phase);
-            outportb(0x3c7,0);
-            for(x=0;x<768;++x) palette[x]=(unsigned char)(inportb(0x3c9)<<2);
-            dump=fopen(path,"wb");
-            if(!dump) vga_ok=0;
-            else {
-                if(fwrite(palette,1,sizeof(palette),dump)!=sizeof(palette)) vga_ok=0;
-                for(y=0;y<240;++y)
-                    if(fwrite(fb+y*512,1,320,dump)!=320) vga_ok=0;
-                if(fclose(dump)) vga_ok=0;
-            }
+            bench_dump_frame(path,fb);
         }
 #endif
     }
@@ -300,11 +307,11 @@ static void finish(void)
     ok=ok && dos_collect_verify_frames && !dos_collect_verify_failures;
 #endif
 #ifdef DOS_WALL_VERIFY
-    ok=ok && !dos_wall_verify_failures && dos_wall_verify_frames==PHASES*(WARM+FRAMES);
+    ok=ok && !dos_wall_verify_failures && dos_wall_verify_frames==PHASES*(WARM+phase_frames(phase));
 #endif
 #ifdef DOS_F2B_VERIFY
     ok=ok && !dos_f2b_verify_failures &&
-        dos_f2b_verify_frames+dos_f2b_verify_fallbacks==PHASES*(WARM+FRAMES);
+        dos_f2b_verify_frames+dos_f2b_verify_fallbacks==PHASES*(WARM+phase_frames(phase));
 #ifdef DOS_F2B_STRESS
     ok=ok && dos_f2b_verify_fallbacks==1;
 #else
@@ -330,7 +337,12 @@ static void finish(void)
     fprintf(file,"VERSION=2\nEDIT_TIMING=CALL_PLUS_FOLLOWING_FRAME\nSEED=4242\nSIMULATION=FROZEN_GRAPHICS_REPLAY\nSCALE=%d\nVIEW=%d\nFLAT=%d\nSUBDIV=%d\nOCCLUSION=%d\nGEN_MS=%u\nTICKS=%u\nRESULT=%s\n",
         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
     fprintf(file,"REPLAY_CONTEXT=%s\n",suite?"POST_FIXTURE":"FRESH_WORLD");
-    fprintf(file,"SAMPLES_PER_SCENE=%d\nMOTION_POLICY=REPEAT_32_MEASURED_POSES\n",FRAMES);
+    fprintf(file,"SAMPLES_PER_SCENE=%d\n",FRAMES);
+#ifdef DOS_BENCH_DIAGONAL_ROUTE
+    fprintf(file,"MOTION_POLICY=CONTINUOUS_WALK_OTHER_SCENES_32_POSES\nWALK_ROUTE=CONTINUOUS_DIAGONAL_XZ_FIXED_YAW_45_HORIZON\n");
+#else
+    fprintf(file,"MOTION_POLICY=REPEAT_32_MEASURED_POSES\n");
+#endif
 #ifdef DOS_FAR_FIELD
     fprintf(file,"DISTANT_LEVEL=%d\n",dos_far_enabled);
 #endif
@@ -355,15 +367,15 @@ static void finish(void)
     fprintf(file,"CW_PROFILING=BENCHMARK_ONLY_INSTRUMENTED_TIMINGS\n");
 #endif
     for(p=0;p<PHASES;++p) {
-        fprintf(file,"SCENE=%s\nPACK=%llu\nUPLOAD=%llu\nWAIT=%llu\nTIMEOUTS=%llu\nPIXELS=%llu\nFACES=%llu\nITEMS=%llu\nHASH=%08x\nFRAMES=",names[p],
+        fprintf(file,"SCENE=%s\nSAMPLES=%d\nPACK=%llu\nUPLOAD=%llu\nWAIT=%llu\nTIMEOUTS=%llu\nPIXELS=%llu\nFACES=%llu\nITEMS=%llu\nHASH=%08x\nFRAMES=",names[p],phase_frames(p),
             (unsigned long long)packs[p],(unsigned long long)uploads[p],(unsigned long long)waits[p],
             (unsigned long long)timeouts[p],(unsigned long long)pixels[p],(unsigned long long)faces[p],
             (unsigned long long)items[p],hashes[p]);
-        for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",times[p][f]);
+        for(f=0;f<phase_frames(p);++f) fprintf(file,"%s%u",f?",":"",times[p][f]);
         fprintf(file,"\nSECTIONS=");
         for(s=0;s<10;++s) fprintf(file,"%s%llu",s?",":"",(unsigned long long)sections[p][s]);
         fprintf(file,"\nEDIT_CALLS=");
-        for(f=0;f<FRAMES;++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
+        for(f=0;f<phase_frames(p);++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
         fprintf(file,"\n");
 #ifdef DOS_BENCH_PROFILE_FAR
         fprintf(file,"FAR_TIMES=%u,%u,%u\n",farTimes[p][0],farTimes[p][1],farTimes[p][2]);
@@ -379,7 +391,7 @@ static void finish(void)
 #endif
 #ifdef DOS_WALL_VISIBILITY
         fprintf(file,"WALL_SOURCES_TESTS_REJECTED_BY_FRAME=");
-        for(f=0;f<FRAMES;++f) fprintf(file,"%s%u,%u,%u",f?";":"",wall_stats[p][f][0],wall_stats[p][f][1],wall_stats[p][f][2]);
+        for(f=0;f<phase_frames(p);++f) fprintf(file,"%s%u,%u,%u",f?";":"",wall_stats[p][f][0],wall_stats[p][f][1],wall_stats[p][f][2]);
         fprintf(file,"\n");
 #endif
 #ifdef DOS_BENCH_PROFILE_DRAW
@@ -424,7 +436,7 @@ void bench_frame(void)
 #endif
     unsigned int now=bench_us();
 #ifdef DOS_WALL_VISIBILITY
-    if(phase>=0 && frame>=WARM && frame<WARM+FRAMES) {
+    if(phase>=0 && frame>=WARM && frame<WARM+phase_frames(phase)) {
         wall_stats[phase][frame-WARM][0]=dos_wall_sources;
         wall_stats[phase][frame-WARM][1]=dos_wall_tests;
         wall_stats[phase][frame-WARM][2]=dos_wall_rejected;
@@ -440,10 +452,10 @@ void bench_frame(void)
 #ifdef DOS_FRONT_TO_BACK
         record_f2b(phase);
 #endif
-    } else if(phase>=0 && frame==WARM+FRAMES-1) {
+    } else if(phase>=0 && frame==WARM+phase_frames(phase)-1) {
         /* Last frame was closed before readback. Include its real duration
          * and transport counters, but never the diagnostic readback time. */
-        times[phase][FRAMES-1]=secmark-last;
+        times[phase][phase_frames(phase)-1]=secmark-last;
         packs[phase]+=dos_bench_pack; uploads[phase]+=dos_bench_upload;
         waits[phase]+=dos_bench_wait; timeouts[phase]+=dos_bench_timeouts;
         pixels[phase]+=g_statPixels; faces[phase]+=g_statFaces; items[phase]+=g_statItems;
@@ -451,6 +463,19 @@ void bench_frame(void)
         record_f2b(phase);
 #endif
     }
+#if defined(DOS_BENCH_DIAGONAL_ROUTE) && defined(DOS_BENCH_DUMP_FRAMES)
+    if(phase==1 && run==3 && frame>=WARM && (frame-WARM)%4==0) {
+#ifdef DOS_RASTER_FINISH_SKIP
+        raster_complete_odd_rows();
+#endif
+#ifdef DOS_VERY_LOW
+        dos_video_complete_very_low_source(g_fb,512);
+#endif
+        char path[]="C:\\D1F000.RAW"; int index=frame-WARM;
+        path[4]=(char)('0'+run); path[6]=(char)('0'+index/100); path[7]=(char)('0'+(index/10)%10); path[8]=(char)('0'+index%10);
+        bench_dump_frame(path,g_fb);
+    }
+#endif
     if(phase<0) {
         sx=g_player.body.x/FU; sz=g_player.body.z/FU; sy=world_surface_y(sx,sz);
 #ifdef DOS_BENCH_QUALITY
@@ -471,7 +496,7 @@ void bench_frame(void)
         if(sample>=0 && render_a1_dump(phase,sample)) vga_ok=0;
     }
 #endif
-    if(++frame==WARM+FRAMES) {
+    if(++frame==WARM+phase_frames(phase)) {
 #ifdef DOS_BENCH_PROFILE_DRAW
         profile_end[phase]=g_profCount;
 #endif
@@ -487,10 +512,19 @@ void bench_frame(void)
     /* Longer sampling repeats the same bounded route, not a progressively
      * longer walk into unrelated terrain. The legacy 32-frame route is exact. */
     int pose=frame<WARM?frame:WARM+(frame-WARM)%32;
+#ifdef DOS_BENCH_DIAGONAL_ROUTE
+    if(phase==1) pose=frame;
+#endif
     if(phase>=1 && phase<=3) {
         g_player.body.x+=(pose*FU/8); g_player.yaw=pose*8;
+#ifdef DOS_BENCH_DIAGONAL_ROUTE
+        g_player.body.z+=(pose*FU/8); g_player.yaw=128;
+#endif
         g_player.body.y=(world_surface_y(g_player.body.x/FU,g_player.body.z/FU)+1)*FU;
         g_player.pitch=phase==2?-250:phase==3?250:-40;
+#ifdef DOS_BENCH_DIAGONAL_ROUTE
+        if(phase==1) g_player.pitch=0;
+#endif
     }
     if(phase>=4) {
         g_player.body.z=sz*FU+FU/2; g_player.body.y=(sy+1)*FU; g_player.pitch=-20;

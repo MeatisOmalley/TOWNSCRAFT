@@ -94,7 +94,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
-        platform=adapters.stage(output/'platform',large_world=large_world)
+        platform=adapters.stage(output/'platform',large_world=large_world,chickens=True)
         report['imported']=portable
         report['platform']=platform
         objects=[output/'imported'/row['path'] for row in portable['objects']]

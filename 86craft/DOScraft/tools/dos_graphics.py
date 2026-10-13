@@ -36,6 +36,7 @@ static void apply_graphics_preset(int i)
 	g_distanceMode=settings->distance_mode;
 	g_textureSubdivision=settings->texture_subdivision;
 	g_occlusion=0;
+	render_sync_texture_resolution();
 }
 '''),
     ('static void auto_detect_quality(void)\n',

@@ -116,6 +116,21 @@ class BenchmarkTests(unittest.TestCase):
         for text in ('RESULT=FAIL\n',self.fixture().replace('100000','0')):
             with self.assertRaises(ValueError): parse(text)
 
+    def test_continuous_walk_uses_its_own_sample_count(self):
+        text='SAMPLES_PER_SCENE=512\n'+self.fixture()
+        for n in range(6):
+            count=512 if n==1 else 32
+            text=text.replace(f'SCENE={n}\n',f'SCENE={n}\nSAMPLES={count}\n')
+        short=','.join(['100000']*32)
+        text=text.replace('SCENE=1\nSAMPLES=512\nPACK=32000\nUPLOAD=64000\nWAIT=0\nFRAMES='+short,
+            'SCENE=1\nSAMPLES=512\nPACK=32000\nUPLOAD=64000\nWAIT=0\nFRAMES='+','.join(['100000']*512))
+        scenes=parse(text)['scenes']
+        self.assertEqual([len(scene['frames']) for scene in scenes],[32,512,32,32,32,32])
+        self.assertEqual(scenes[0]['transport_mean_ms']['upload'],2)
+        self.assertEqual(scenes[1]['transport_mean_ms']['upload'],.125)
+        with self.assertRaises(ValueError):
+            parse(text.replace('SCENE=1\nSAMPLES=512','SCENE=1\nSAMPLES=32'))
+
     def test_separate_edit_call_and_frame_latency(self):
         text='VERSION=2\n'+self.fixture().replace('SCENE=5','SCENE=block_edits')
         for n in range(6):

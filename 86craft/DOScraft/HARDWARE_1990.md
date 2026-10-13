@@ -1,5 +1,18 @@
 # June 1990 DOScraft player VM
 
+The complete emulator source is committed and pushed to
+[`doscraft-isa-timing` at `af84c23312d3585cb946b7eaa43c3970a70a6417`](https://github.com/MeatisOmalley/86Box/commit/af84c23312d3585cb946b7eaa43c3970a70a6417).
+This includes the previously unpushed DX40 entry, the ET4000 bus fixes,
+external-cache enable/timings, DRAM timings, and SCSI drive presets. Check out
+this revision directly for the June 1990 runtime; do not apply the hardware
+patch again. The patch file remains a reference against the older `31be77334`
+base. `tools/build_patched_86box.py` still reproduces that older baseline,
+rather than the complete hardware runtime. To build the complete revision,
+use its UCRT64 CMake `regular` preset and the static flags in that script,
+then copy `build-ucrt64/src/86Box.exe` into `build/deps/86box-doscraft-1990`.
+Record its new SHA-256 in prepared VM manifests before launching; existing
+published binaries and their validated hashes have not been replaced.
+
 Launch the upgraded player through [`ISO/Launch-DOScraft.cmd`](ISO/Launch-DOScraft.cmd).
 The launcher points to a private copy of the former player's 20 MiB writable
 disk. The former VM and its save disk remain intact.

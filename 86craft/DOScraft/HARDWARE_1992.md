@@ -1,5 +1,15 @@
 # Separate 1992-class DOScraft VM
 
+The complete emulator source is committed and pushed to
+[`codex/doscraft-1992-hardware` at `4c26b869560a45435fff843f6d2a357c6f311b5a`](https://github.com/MeatisOmalley/86Box/commit/4c26b869560a45435fff843f6d2a357c6f311b5a).
+Check out this revision directly to reproduce the DX2-80 and SCSI timing
+changes; do not apply the reference hardware patch again. Build with the
+UCRT64 CMake `regular` preset and the static flags in
+`tools/build_patched_86box.py`, then place the executable in
+`build/deps/86box-doscraft-1992`. A rebuilt binary needs its new SHA-256 in
+the prepared VM manifest. Existing published binaries and validated hashes
+have not been replaced.
+
 Launch with [`ISO/Launch-DOScraft-1992.cmd`](ISO/Launch-DOScraft-1992.cmd).
 It uses its own writable HDD with the same prebaked 1024x1024 seed as the
 current 1990 VM. Their world edits and saves are independent. The previous

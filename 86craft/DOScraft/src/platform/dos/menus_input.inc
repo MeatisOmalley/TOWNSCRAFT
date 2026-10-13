@@ -74,7 +74,10 @@ static void menu_graphics_change(int direction)
 		apply_graphics_preset(next);
 		return;
 	}
-	if(menuSel==1) { g_renderScale=3-g_renderScale; dos_very_low_mode=0; }
+	if(menuSel==1) {
+		g_renderScale=3-g_renderScale; dos_very_low_mode=0;
+		render_sync_texture_resolution();
+	}
 	else if(menuSel==2)
 	{
 		textured=CLAMP(textured+direction,4,16);

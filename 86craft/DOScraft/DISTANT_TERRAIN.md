@@ -212,3 +212,8 @@ Ten benchmark tests pass. See
 The exact second-pass release passed June 1990 new/load smoke and was published
 to the shared ISO. The prior player HDD was retained byte-for-byte, and the
 previous VM and ISO remain recovery copies. No 1992 test was run.
+
+The subsequent live-heightmap cell-boundary DDA experiment was rejected by the
+user for its appearance and removed from active code. It also increased frame
+time. [Archived source, timings and decision](research/failed-experiments/2026-10-13-far-heightmap-dda/README.md).
+The accepted heightmap and panorama implementation above remains current.
