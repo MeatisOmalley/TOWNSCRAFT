@@ -1,5 +1,10 @@
 # Crowns on the shared log map
 
+Superseded by the user's request to return to the original renderer with a
+3x3 leaf footprint. The complete wide-crown trial is checkpointed at
+`7967067b`; its measurements and prepared preview below remain historical.
+Current trial: [compact leaves](compact-leaves.md).
+
 Visual experiment, pending player review. The shared ISO and its primary
 launcher remain on the previous texture/chicken release. The separate preview
 is `build/checks/capped-trees/Play-Capped-Trees.cmd`; the previous sparse-tree

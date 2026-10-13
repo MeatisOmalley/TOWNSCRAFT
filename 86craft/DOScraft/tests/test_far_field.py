@@ -18,9 +18,10 @@ class FarTests(unittest.TestCase):
         raw[0]=11; raw[47]=23; raw[48+19]=2
         self.assertEqual(surface(raw)[:2],bytes((20,2)))
         raw[48+46]=7
-        self.assertEqual(surface(raw)[:2],bytes((20,2)))
+        self.assertEqual(surface(raw)[:2],bytes((47,7)))
+        self.assertEqual(surface(raw,leaves=False)[:2],bytes((20,2)))
         raw[48+24]=6
-        self.assertEqual(surface(raw)[:2],bytes((25,6)))
+        self.assertEqual(surface(raw,leaves=False)[:2],bytes((25,6)))
         self.assertEqual(surface(raw,leaves=True)[:2],bytes((47,7)))
 
     def test_overlay_replays_with_release_and_planar(self):
@@ -37,15 +38,15 @@ class FarTests(unittest.TestCase):
             self.assertEqual(replay,data)
 
     @unittest.skipUnless(TERRAIN.is_file(),'existing prebaked seed required')
-    def test_one_shared_leaf_free_map_preserves_seed_and_offsets(self):
+    def test_original_shared_map_preserves_seed_and_offsets(self):
         original=TERRAIN.read_bytes();result=append_map(original)
         self.assertEqual(len(result),FAR_BYTES)
         self.assertEqual(identity(result),identity(original))
         self.assertEqual(result[:72],original[:72])
         self.assertEqual(result[116:LIT_BYTES],original[116:LIT_BYTES])
         self.assertFalse(any(result[92:116]))
-        self.assertNotIn(7,result[LIT_BYTES+1:FAR_BYTES:2])
-        self.assertIn(6,result[LIT_BYTES+1:FAR_BYTES:2])
+        self.assertIn(7,result[LIT_BYTES+1:FAR_BYTES:2])
+        self.assertTrue(result[LIT_BYTES:]==original[LIT_BYTES:],'original surface appendix changed')
 
     @unittest.skipUnless(ZIG.is_file() and TERRAIN.is_file(),'native Zig and distant seed required')
     def test_actual_world_edit_reload_and_checksum(self):
@@ -66,7 +67,7 @@ class FarTests(unittest.TestCase):
             self.run_cmd([*flags,ROOT/'tests/far_world_native.c',ROOT/'src/platform/dos/heap.c',
                 *(src/s for s in ('blocks.c','fmath.c','libc.c')),tables,obj,'-o',exe])
             terrain=folder/'terrain.tmp'
-            for source in (TERRAIN,TERRAIN.with_name('terrain1024-logs.bin'),TERRAIN.with_name('terrain1024-caps.bin')):
+            for source in (TERRAIN,TERRAIN.with_name('terrain1024-compact-leaves.bin')):
                 if not source.exists():continue
                 shutil.copyfile(source,terrain)
                 self.assertIn('PASS: distant map',self.run_cmd([exe,terrain]).stdout)
@@ -103,8 +104,7 @@ class FarTests(unittest.TestCase):
             self.assertEqual(actual,expected,'far image changed versus checkpoint')
             base_hash=[line for line in actual.splitlines() if line.startswith('POSE_HASH=')]
             for flags in (['-DDOS_FAR_DETAILS'],['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH'],
-                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT'],
-                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT','-DDOS_FAR_CAPS']):
+                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT']):
                 self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
                     '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
                     src/'blocks.c',src/'fmath.c',tables,'-o',exe])

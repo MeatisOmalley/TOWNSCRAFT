@@ -3,9 +3,6 @@
 #define FAR_PAN_COLS 256
 #define FAR_PAN_ROWS 128
 #define FAR_PAN_RUNS 32
-#if defined(DOS_FAR_CAPS) && (!defined(DOS_FAR_REPROJECT) || !defined(DOS_FAR_VIEW_DEPTH))
-#error Crown trial requires the existing view-depth march and reprojected panorama
-#endif
 #ifdef DOS_FAR_REPROJECT
 /* Absolute top height and actual sample depth, rather than baked screen rows.
  * Retain occluded samples too: a jump may reveal them without any map reads. */
@@ -73,27 +70,6 @@ static void far_depth_setup(int level,int f)
 }
 #endif
 static inline int far_lookup(int x,int z,u8 *b);
-#ifdef DOS_FAR_CAPS
-static int far_pan_lookup(int x,int z,u8 *b)
-{
-    int encoded=far_lookup(x,z,b),height=(encoded&63)+(encoded>>6);
-    if(!dos_far_caps || (unsigned)x>=1024 || (unsigned)z>=1024) return encoded;
-    int cx=x>>1,cz=z>>1;
-    /* Expand the shared root markers into a five-block crown footprint only
-     * during angular rebuilding. No foliage map or tree records are stored. */
-    for(int dz=-1;dz<=1;++dz) for(int dx=-1;dx<=1;++dx) {
-        int tx=cx+dx,tz=cz+dz;
-        if((unsigned)tx>=512 || (unsigned)tz>=512) continue;
-        int ex=ABS(tx*2+1-x),ez=ABS(tz*2+1-z);
-        if(ex>2 || ez>2) continue;
-        const u8 *p=dos_far_map+(tz*512+tx)*2;int crown=p[0]>>6;
-        if(!crown) continue;
-        int h=(p[0]&63)+crown-(ex>1 || ez>1);
-        if(h>height) { height=h;encoded=h;*b=B_LEAVES; }
-    }
-    return encoded;
-}
-#endif
 static inline u8 far_material(int x,int z,u8 b)
 {
 #ifdef DOS_FAR_DETAILS
@@ -141,16 +117,6 @@ static void far_paint(FarColumn *column,int y,u8 b,int fog,int side)
 }
 static void far_paint_surface(FarColumn *column,int y,int cap,u8 b,int fog)
 {
-#ifdef DOS_FAR_CAPS
-    if(dos_far_caps && BLK_ID(b)==B_LOG && (b&128)) {
-        /* One continuous silhouette: bark below, a short green crown above.
-         * The normal two-piece strip cache also stores this operation. */
-        if(cap<column->top) far_paint_ink(column,MAX(y,cap),
-            dos_far_enabled<2 ? farSideShade[fog][b] : far_ink(b,fog,1));
-        if(y<column->top) far_paint(column,y,B_LEAVES|(b&96),fog,0);
-        return;
-    }
-#endif
 #ifdef DOS_FAR_DETAILS
     if(dos_far_enabled>=2 && BLK_ID(b)!=B_LEAVES && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS) {
         if(cap<column->top) far_paint(column,MAX(y,cap),b,fog,1);
@@ -200,12 +166,7 @@ static void far_pan_column(int a)
         u8 b;
         int x=(farPanX+((sx*d*256)>>14))>>8;
         int z=(farPanZ+((sz*d*256)>>14))>>8;
-        int h=
-#ifdef DOS_FAR_CAPS
-            far_pan_lookup(x,z,&b);
-#else
-            far_lookup(x,z,&b);
-#endif
+        int h=far_lookup(x,z,&b);
         if(h) {
             FarRun *r=&farPan[a][n++];
             r->h=h; r->depth=d; r->block=far_material(x,z,b); r->fog=d/16;
@@ -288,19 +249,9 @@ static void far_project_runs(int a,int horizon,const int *inv)
     int previous=inv[farBandLimit[dos_far_enabled]-4];
     for(int i=0;i<farPanCount[a] && top>0;++i) {
         const FarRun *r=&farPan[a][i];
-        int h=r->h&63,crown=r->h>>6;
-        int delta=(h+crown)*256-farProjectionY,reciprocal=inv[r->depth];
+        int delta=r->h*256-farProjectionY,reciprocal=inv[r->depth];
         int y=CLAMP(horizon-((delta*reciprocal)>>16),0,vh);
         if(y<top) {
-#ifdef DOS_FAR_CAPS
-            if(crown) {
-                int split=CLAMP(horizon-(((h*256-farProjectionY)*reciprocal)>>16),y,top);
-                u8 material=(r->block&127)|128;
-                if(split<top) far_pan_paint(a,split,dos_far_enabled<2 ?
-                    farSideShade[r->fog][material] : far_ink(material,r->fog,1));
-                if(y<split) far_pan_paint(a,y,far_ink(B_LEAVES|(material&96),r->fog,0));
-            } else
-#endif
 #ifdef DOS_FAR_DETAILS
             if(dos_far_enabled>=2 && BLK_ID(r->block)!=B_LEAVES &&
                BLK_ID(r->block)!=B_WATER && BLK_ID(r->block)!=B_GLASS) {
@@ -333,12 +284,7 @@ static inline int far_lookup(int x,int z,u8 *b)
 {
     if((unsigned)x>=1024 || (unsigned)z>=1024) return 0;
     const u8 *p=dos_far_map+((z&~1)<<9)+(x&~1);
-    *b=BLK_ID(p[1]);
-#ifdef DOS_FAR_CAPS
-    return p[0];
-#else
-    return p[0]&63;
-#endif
+    *b=BLK_ID(p[1]); return p[0];
 }
 static inline int far_boundary_sample(int x,int z,u8 *b)
 {
@@ -348,13 +294,10 @@ static inline int far_boundary_sample(int x,int z,u8 *b)
         if(s>=0 && farReady[s]) {
             int cell=((z&15)<<4)+(x&15),h=g_height[s*256+cell];
             const u8 *p=g_blocks+s*12288+cell*48;
-            while(h && (!(blk_flags(p[h-1])&BF_CUBE) || BLK_ID(p[h-1])==B_LEAVES)) --h;
-            *b=h ? BLK_ID(p[h-1]) : B_AIR;
-#ifdef DOS_FAR_CAPS
-            return dos_far_capped_height(p,h);
-#else
-            return h;
-#endif
+            while(h && !(blk_flags(p[h-1])&BF_CUBE)) --h;
+            if(dos_far_compact && h && BLK_ID(p[h-1])==B_LEAVES)
+                return dos_far_sample(x,z,1,b);
+            *b=h ? BLK_ID(p[h-1]) : B_AIR; return h;
         }
     }
     return far_lookup(x,z,b);
@@ -377,22 +320,13 @@ static void far_replay_band(int width,int level,u8 *skyline)
         FarColumn column; raster_far_column(&column,x,width,farBandStart[cached]);
         for(int i=0;i<farBandCount[cached];++i) {
             const FarBandRun *r=&farBandRuns[cached][i];
-            far_paint_surface(&column,r->y,r->cap,r->material,
-#ifdef DOS_FAR_CAPS
-                r->fog>>6
-#else
-                r->fog
-#endif
-                );
+            far_paint_surface(&column,r->y,r->cap,r->material,r->fog);
             FAR_COUNT(dos_far_strips);
         }
         skyline[x]=column.top;
     }
 }
 
-#ifdef DOS_FAR_CAPS
-#include "far_crowns.inc"
-#endif
 static void draw_far_field(const RenderEnv *env)
 {
     if(!dos_far_enabled || !dos_far_map || env->underground || env->underwater) return;
@@ -511,12 +445,5 @@ static void draw_far_field(const RenderEnv *env)
     }
 #ifdef DOS_BENCH_PROFILE_FAR
     dos_far_us[1]+=bench_us()-farStart;
-    farStart=bench_us();
-#endif
-#ifdef DOS_FAR_CAPS
-    far_draw_crowns(width,level,horizon,gain,f);
-#endif
-#ifdef DOS_BENCH_PROFILE_FAR
-    dos_far_us[2]+=bench_us()-farStart;
 #endif
 }

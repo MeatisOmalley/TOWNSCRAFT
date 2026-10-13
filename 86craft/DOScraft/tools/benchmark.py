@@ -113,7 +113,6 @@ def main():
     parser.add_argument('--far-details',action='store_true',help='Medium/High far slope shading and deterministic dithering')
     parser.add_argument('--far-view-depth',action='store_true',help='Constant view-depth march with folded pitch reciprocal')
     parser.add_argument('--far-reproject',action='store_true',help='Reproject cached panorama heights/depths at the current eye height')
-    parser.add_argument('--far-caps',action='store_true',help='Trial green crowns and bark in the existing shared-cache strips')
     parser.add_argument('--diagonal-route',action='store_true',help='Replay walking diagonally in X/Z at fixed 45-degree yaw; distinct from the standard route')
     parser.add_argument('--far-coarse-eye',action='store_true',help='Ablation: same panorama renderer with the old one-block eye-height threshold')
     parser.add_argument('--far-skip-first',action='store_true',help='Visual experiment: leave the first heightmap strip to near geometry; may expose holes')
@@ -229,9 +228,6 @@ def main():
     if args.far_reproject:
         if not args.far_field: parser.error('--far-reproject requires --far-field')
         flags=(*flags,'-DDOS_FAR_REPROJECT')
-    if args.far_caps:
-        if not args.far_reproject or not args.far_view_depth:parser.error('--far-caps requires --far-reproject and --far-view-depth')
-        flags=(*flags,'-DDOS_FAR_CAPS')
     if args.diagonal_route: flags=(*flags,'-DDOS_BENCH_DIAGONAL_ROUTE')
     if args.far_coarse_eye:
         if not args.far_reproject: parser.error('--far-coarse-eye requires --far-reproject')

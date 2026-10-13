@@ -31,27 +31,33 @@ int main(int argc,char **argv) {
     check(arena && !dos_heap_init(arena,672*1024,arena+672*1024,3072*1024),"1990 arena budget");
     world_alloc(); world_generate(4242);
     check(dos_far_available() && dos_far_map && !dos_far_enabled,"available, default off");
-    for(u32 i=1;i<DOS_FAR_BYTES;i+=2) check(BLK_ID(dos_far_map[i])!=B_LEAVES,"shared cache contains no leaves");
-    if(dos_far_caps) {
-        int tx=-1,tz=0,th=0;
-        for(int z=0;z<512 && tx<0;++z) for(int x=0;x<512;++x) {
-            int at=(z*512+x)*2,s=g_columnMap[(z/8)*64+x/8];
-            if(!(dos_far_map[at]>>6) || s<0 || !residentReady[s]) continue;
-            int h=dos_far_map[at]&63;
-            for(int dz=0;dz<2 && tx<0;++dz) for(int dx=0;dx<2;++dx) {
-                int bx=x*2+dx,bz=z*2+dz;
-                if(BLK_ID(wget(bx,h-1,bz))==B_LOG && BLK_ID(wget(bx,h,bz))==B_LEAVES) { tx=bx;tz=bz;th=h;break; }
-            }
-        }
-        check(tx>=0,"natural capped tree is resident");int cell=((tz>>1)*512+(tx>>1))*2;
-        check(dos_far_map[cell]>>6,"natural cap encoded in existing height byte");
-        world_set(tx,th-1,tz,B_AIR);
-        check(!(dos_far_map[cell]>>6),"cut trunk removes synthetic cap");
-        world_set(tx,th-1,tz,B_LOG);
-        check(!(dos_far_map[cell]>>6) && (wget(tx,th-1,tz)&DOS_LOG_PLACED),"replacement log gets no cap");
-        pos=0;check(world_save_large_columns(put),"save cap provenance");world_commit_large_columns();
-        world_load_position(tx,tz);pos=0;check(world_load_large_columns(get),"reload cap provenance");
-        check(!(dos_far_map[cell]>>6) && (wget(tx,th-1,tz)&DOS_LOG_PLACED),"replacement stays uncapped after reload");
+    if(dos_far_compact) {
+        int tx=(g_spawnX/CS)*CS+15,tz=(g_spawnZ/CS)*CS+7;
+        for(int y=41;y<=45;++y) world_set(tx,y,tz,B_LOG);
+        for(int dz=-2;dz<=2;++dz) for(int dx=-2;dx<=2;++dx) world_set(tx+dx,46,tz+dz,B_LEAVES);
+        u8 leaf;
+        check(dos_far_sample(tx+1,tz,0,&leaf)==47 && leaf==B_LEAVES,"3x3 leaf kept across chunk border");
+        check(dos_far_sample(tx-2,tz,0,&leaf)<47 && leaf!=B_LEAVES,"outer leaf omitted from cache");
+        check(dos_far_sample(tx-2,tz,1,&leaf)<47 && leaf!=B_LEAVES,"resident boundary does not restore outer leaves");
+        check(wget(tx-2,46,tz)==B_LEAVES,"near voxel leaves remain unchanged");
+        int rootid=(tz/CS)*g_NC+tx/CS,leafid=(tz/CS)*g_NC+(tx+1)/CS;
+        int rootslot=g_columnMap[rootid],leafslot=g_columnMap[leafid],prepared=preparedColumn;
+        g_columnMap[rootid]=-1;terrainBlocking=0;
+        far_world_column((tx+1)/CS,tz/CS,g_blocks+leafslot*COLUMN_CELLS);
+        check(preparedColumn==prepared,"missing streaming neighbor causes no synchronous disk preparation");
+        check(dos_far_sample(tx+1,tz,0,&leaf)==47 && leaf==B_LEAVES,"unknown edge retains existing clipped sample");
+        g_columnMap[rootid]=rootslot;
+        pos=0;check(world_save_large_columns(put),"save clipped leaves and boundary roots");world_commit_large_columns();
+        world_set(tx+1,46,tz,B_AIR);
+        world_load_position(tx,tz);pos=0;check(world_load_large_columns(get),"reload compact leaves");
+        check(dos_far_sample(tx+1,tz,0,&leaf)==47 && leaf==B_LEAVES,"committed boundary canopy reconstructed");
+        check(!columnRecords[(tz/CS)*g_NC+tx/CS].raw,"boundary root reconstructed from compressed record");
+        for(int y=45;y>=41;--y) world_set(tx,y,tz,B_AIR);
+        check(dos_far_sample(tx+1,tz,0,&leaf)<47 && leaf!=B_LEAVES,"cut trunk updates neighboring chunk leaf coverage");
+        check(wget(tx+1,46,tz)==B_LEAVES,"distant clipping does not delete real leaves");
+        pos=0;check(world_save_large_columns(put),"save cut trunk");world_commit_large_columns();
+        world_load_position(tx,tz);pos=0;check(world_load_large_columns(get),"reload cut trunk");
+        check(dos_far_sample(tx+1,tz,0,&leaf)<47 && leaf!=B_LEAVES,"cut trunk stays clipped after reload");
         world_load_position(g_spawnX,g_spawnZ);world_generate(4242);
     }
     dos_far_toggle(); check(dos_far_enabled,"optional toggle");
@@ -59,12 +65,12 @@ int main(int argc,char **argv) {
     int x=g_spawnX&~1,z=g_spawnZ&~1,y=WH-1;
     world_set(x,y-1,z,B_LOG);u32 version=dos_far_version;
     world_set(x,y,z,B_LEAVES);
-    check(dos_far_sample(x,z,0,&b)==WH-1 && b==B_LOG,"cached tree stops at log");
-    check(dos_far_sample(x,z,1,&b)==WH-1 && b==B_LOG,"resident tree stops at log");
-    check(dos_far_version==version,"leaves do not invalidate shared distant surface");
+    check(dos_far_sample(x,z,0,&b)==WH && b==B_LEAVES,"cached core leaf remains");
+    check(dos_far_sample(x,z,1,&b)==WH && b==B_LEAVES,"resident core leaf remains");
+    check(dos_far_version>version,"leaf edit invalidates shared distant surface");
     pos=0;check(world_save_large_columns(put),"save log and leaves");world_commit_large_columns();
     world_load_position(x,z);pos=0;check(world_load_large_columns(get),"reload log and leaves");
-    check(dos_far_sample(x,z,0,&b)==WH-1 && b==B_LOG,"leaf-free surface survives reload");
+    check(dos_far_sample(x,z,0,&b)==WH && b==B_LEAVES,"leaf surface survives reload");
     check(wget(x,y,z)==B_LEAVES && BLK_ID(wget(x,y-1,z))==B_LOG,"near-world leaves and logs preserved");
     world_set(x,y,z,B_STONE);
     check(dos_far_sample(x,z,0,&b)==WH && b==B_STONE,"placed highest cube updates summary");

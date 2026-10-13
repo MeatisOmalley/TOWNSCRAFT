@@ -24,7 +24,7 @@ Camera g_cam;
 int g_viewDist=8,g_renderScale=2,dos_far_enabled;
 u32 dos_far_version=1;
 u8 *dos_far_map;
-int dos_far_caps;
+int dos_far_compact;
 u8 g_shadeLUT[16][256];
 static u8 texAvg[NUM_TEXTURES];
 static int vw=160,vh=100,focal16=86*16,cx16=160*8;
@@ -35,12 +35,12 @@ int dos_far_sample(int x,int z,int detail,u8 *b) {
         if(s>=0 && mockReady[s]) {
             int cell=((z&15)<<4)+(x&15),h=g_height[s*256+cell];
             const u8 *p=g_blocks+s*12288+cell*48;
-            while(h && (!(blk_flags(p[h-1])&BF_CUBE) || BLK_ID(p[h-1])==B_LEAVES)) --h;
+            while(h && !(blk_flags(p[h-1])&BF_CUBE)) --h;
             *b=h ? BLK_ID(p[h-1]) : B_AIR; return h;
         }
     }
     const u8 *p=dos_far_map+((z&~1)<<9)+(x&~1);
-    *b=BLK_ID(p[1]); return p[0]&63;
+    *b=BLK_ID(p[1]); return p[0];
 }
 #ifndef FAR_RENDER_TEST_INCLUDE
 #define FAR_RENDER_TEST_INCLUDE "far_render.inc"
@@ -56,68 +56,6 @@ static u8 logical_pixel(int x,int y) {
     return rplanar ? rbuf[y*PLANAR_ROW+(x&1)*PLANAR_C+(x>>1)] : rbuf[y*rpitch*rscale+x*rscale];
 }
 #ifndef FAR_RENDER_TEST_LEGACY
-#ifdef DOS_FAR_CAPS
-static void capped_patterns(void) {
-    dos_far_caps=1;g_cam.pitch=g_cam.yaw=0;g_cam.x=g_cam.z=512*256;g_cam.y=24*256;
-    texAvg[T_LOG_SIDE]=P(R_BARK,10);texAvg[T_LOG_TOP]=P(R_BARK,14);texAvg[T_LEAVES]=P(R_LEAF,11);
-    RenderEnv day={0};
-    for(int level=1;level<=3;++level) {
-        dos_far_enabled=level;
-        for(int fog=0;fog<9;++fog) for(int style=0;style<8;++style) for(int b=0;b<NUM_BLOCKS;++b) {
-            farShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,&day,0);
-            farSideShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,&day,1);
-        }
-        for(int layout=0;layout<3;++layout) {
-            rplanar=layout==2;rscale=g_renderScale=layout ? 2 : 1;
-            rw=vw=320/rscale;rh=vh=200/rscale;focal16=172*16/rscale;cx16=vw*8;
-            memset(pixels,0xee,sizeof(pixels));FarColumn col;raster_far_column(&col,0,8/rscale,20);
-            far_paint_surface(&col,10,14,B_LOG|128,0);
-            for(int y=10;y<20;++y) for(int x=0;x<8/rscale;++x)
-                assert((logical_pixel(x,y)>>4)==(y<14 ? R_LEAF : R_BARK));
-            assert(logical_pixel(0,9)==0xee && logical_pixel(8/rscale,10)==0xee && pixels[0]==0xee);
-            memset(pixels,0xee,sizeof(pixels));raster_far_column(&col,0,8/rscale,20);
-            far_paint_surface(&col,10,14,B_LOG,0);
-            for(int y=10;y<20;++y) assert((logical_pixel(0,y)>>4)==R_BARK);
-        }
-    }
-    rplanar=0;rscale=g_renderScale=1;vw=rw=320;vh=rh=200;focal16=172*16;cx16=vw*8;
-    for(u32 i=0;i<DOS_FAR_BYTES;i+=2) { dos_far_map[i]=20|(2<<6);dos_far_map[i+1]=B_LOG|128; }
-    ++dos_far_version;farShadeDarken=-1;readyEnabled=0;farPanValid=0;farBandValid=0;
-    for(int i=0;i<80;++i) { memset(pixels,0xee,sizeof(pixels));draw_far_field(&day); }
-    u32 hash=frame_hash();
-    for(int i=0;i<3;++i) { memset(pixels,0xee,sizeof(pixels));draw_far_field(&day);assert(frame_hash()==hash); }
-    assert(farPanCount[0] && (farPan[0][0].h>>6)==2);
-    assert(sizeof(FarBandRun)==4 && sizeof(FarRun)==4 && sizeof(FarPanPaint)==3);
-    for(int ray=0;ray<FAR_PAN_COLS;++ray) assert(farPanPaintCount[ray]<=FAR_PAN_RUNS*2);
-    FarColumn col;int inv[129];for(int d=1;d<129;++d) inv[d]=(172<<16)/(d*256);
-    farPanCount[0]=1;farPan[0][0]=(FarRun){20|(2<<6),32,B_LOG|128,2};
-    g_cam.y=24*256;far_projection_key(100,16384,172,3,0);farPanStamp[0]=0;
-    raster_far_column(&col,0,8,200);far_project_column(&col,0,100,inv);int first=col.top;
-    g_cam.y+=128;far_projection_key(100,16384,172,3,0);
-    raster_far_column(&col,0,8,200);far_project_column(&col,0,100,inv);assert(col.top>first);
-    g_cam.y=24*256;g_cam.pitch=g_cam.yaw=0;
-    for(u32 i=0;i<DOS_FAR_BYTES;i+=2) { dos_far_map[i]=20;dos_far_map[i+1]=B_GRASS; }
-    int root=(264*512+256)*2;dos_far_map[root]=24|(2<<6);dos_far_map[root+1]=B_LOG|128;
-    for(int layout=0;layout<3;++layout) {
-        rplanar=layout==2;rscale=g_renderScale=layout ? 2 : 1;
-        rw=vw=320/rscale;rh=vh=200/rscale;focal16=172*16/rscale;cx16=vw*8;far_rays();
-        int width=8/rscale;memset(farBandCount,0,sizeof(farBandCount));memset(pixels,0xee,sizeof(pixels));
-        far_draw_crowns(width,3,vh/2,16384,172/rscale);
-        int upper=0,lower=0;
-        for(int x=0;x<vw;++x) { upper+=logical_pixel(x,84/rscale)!=0xee;lower+=logical_pixel(x,110/rscale)!=0xee; }
-        assert(upper>0 && lower>upper && pixels[0]==0xee && pixels[sizeof(pixels)-1]==0xee);
-        for(int ray=0;ray<vw/width;++ray) { farBandCount[ray]=1;farBandRuns[ray][0]=(FarBandRun){0,0,B_STONE,4}; }
-        memset(pixels,0xee,sizeof(pixels));far_draw_crowns(width,3,vh/2,16384,172/rscale);assert(!changes());
-        for(int ray=0;ray<vw/width;++ray) farBandRuns[ray][0].y=100/rscale;
-        far_draw_crowns(width,3,vh/2,16384,172/rscale);
-        assert(changes());for(int x=0;x<vw;++x) assert(logical_pixel(x,110/rscale)==0xee);
-    }
-    u8 block;assert(far_pan_lookup(514,528,&block)==26 && block==B_LEAVES);
-    assert(far_pan_lookup(518,528,&block)==20 && block==B_GRASS);
-    assert(sizeof(FarCrown)==8);
-    dos_far_caps=0;
-}
-#endif
 static void material_patterns(void) {
     /* Real layout writes: quiet surfaces are solid; accents occupy a small
      * minority of pixels, with continuous wood grain and paired rows. */
@@ -234,15 +172,6 @@ int main(void) {
     memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env); assert(frame_hash()!=coarse);
     g_columnMap[32*64+32]=-1; g_columnMap[31*64+32]=0; g_columnCoords[1]=31;
     memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env); assert(frame_hash()==coarse);
-#ifndef FAR_RENDER_TEST_LEGACY
-    g_columnMap[32*64+32]=0;g_columnCoords[1]=32;
-    for(int i=0;i<256;++i) { g_height[i]=48;g_blocks[i*48+46]=B_LOG;g_blocks[i*48+47]=B_LEAVES; }
-    u8 block;farReady=mockReady;
-    assert(far_boundary_sample(512,512,&block)==47 && block==B_LOG);
-    assert(dos_far_sample(512,512,1,&block)==47 && block==B_LOG);
-    for(int ray=0;ray<FAR_PAN_COLS;++ray) for(int i=0;i<farPanCount[ray];++i)
-        assert(BLK_ID(farPan[ray][i].block)!=B_LEAVES);
-#endif
     free(g_columnMap); free(g_columnCoords); free(g_height); free(g_blocks);
 #ifndef FAR_RENDER_TEST_LEGACY
 #ifdef DOS_FAR_DETAILS
@@ -274,9 +203,6 @@ int main(void) {
     raster_far_column(&col,0,8,200); far_project_column(&col,0,100,inv); assert(col.top<100 && col.top>first);
 #endif
 #endif
-    #if defined(DOS_FAR_CAPS) && !defined(FAR_RENDER_TEST_LEGACY)
-    capped_patterns();
-    #endif
     /* The actual staged strip routine must cover both Mode X plane pairs. */
     memset(pixels,0xee,sizeof(pixels)); rplanar=1;
     raster_far_strip(0,4,-20,2,7);

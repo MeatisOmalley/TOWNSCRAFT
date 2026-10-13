@@ -42,7 +42,7 @@ def prepare_preview(terrain,output,smoke,preview=PREVIEW):
     (vm/'build.json').write_text(json.dumps(record,indent=2)+'\n');validate(vm)
     preview.mkdir(parents=True,exist_ok=True);(preview/'player-vm.txt').write_text(str(vm))
     script=ROOT/'tools/tree_canopy_preview.py'
-    filename='Play-Capped-Trees.cmd' if preview.name=='capped-trees' else 'Play-Tree-Preview.cmd'
+    filename={'capped-trees':'Play-Capped-Trees.cmd','compact-leaves':'Play-Compact-Leaves.cmd'}.get(preview.name,'Play-Tree-Preview.cmd')
     (preview/filename).write_text('@echo off\n"'+str(Path(sys.executable))+
         '" "'+str(script)+'" --preview-directory "'+str(preview)+'" --launch\nif errorlevel 1 pause\n')
     return vm
