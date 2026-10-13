@@ -7,6 +7,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
     for(int x=0;x<vw;x+=width) {
         int norm=farNorm[x+width/2],u=farSide[x+width/2],top=vh;
         FarColumn column; raster_far_column(&column,x,width,vh);
+        if(dos_far_trees) memset(farBandDepth[x/width],255,vh);
 #if FAR_CAPTURE
         int cached=x/width;
         farBandCount[cached]=0; farBandStart[cached]=vh;
@@ -33,11 +34,11 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
             u8 b;
             int wx=px>>16,wz=pz>>16;
 #ifdef DOS_FAR_VIEW_DEPTH
-            int h=depth<=detail ? far_boundary_sample(wx,wz,&b) : far_lookup(wx,wz,&b);
+            int h=depth<=detail ? far_boundary_sample(wx,wz,&b) : far_band_lookup(wx,wz,&b);
             int reciprocal=first ? firstInv : inv[d];
             int fog=MIN(8,((depth*norm)>>22)/16);
 #else
-            int h=d<=g_viewDist+4 ? far_boundary_sample(wx,wz,&b) : far_lookup(wx,wz,&b);
+            int h=d<=g_viewDist+4 ? far_boundary_sample(wx,wz,&b) : far_band_lookup(wx,wz,&b);
             int reciprocal=inv[d],fog=d/16;
 #endif
             FAR_COUNT(dos_far_samples);
@@ -50,7 +51,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
                 int y=CLAMP(horizon-((elevation*gain)>>14),0,vh);
 #endif
                 if(y<top) {
-                    u8 material=far_material(wx,wz,b);
+                    u8 material=far_band_material(wx,wz,b);
                     int cap=top;
 #ifdef DOS_FAR_DETAILS
                     if(level>=2) {
@@ -71,6 +72,13 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
 #endif
                     {
                         far_paint_surface(&column,y,cap,material,fog);
+                        if(dos_far_trees) {
+#ifdef DOS_FAR_VIEW_DEPTH
+                            memset(farBandDepth[x/width]+y,MIN(254,depth>>8),top-y);
+#else
+                            memset(farBandDepth[x/width]+y,MIN(254,d),top-y);
+#endif
+                        }
 #if FAR_CAPTURE
                         {
                             int n=farBandCount[cached];

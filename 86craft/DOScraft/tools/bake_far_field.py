@@ -11,7 +11,7 @@ from large_world_media import check_terrain,LIT_BYTES,FAR_MAP_BYTES,FAR_MAGIC
 
 CUBES=frozenset([*range(1,16),21,22,*range(25,30)])
 
-def surface(blocks):
+def surface(blocks,leaves=True):
     result=bytearray(128)
     for z in range(0,16,2):
         for x in range(0,16,2):
@@ -21,7 +21,7 @@ def surface(blocks):
                     p=((z+dz)*16+x+dx)*48
                     for y in range(47,h-1,-1):
                         block=blocks[p+y]&31
-                        if block in CUBES:
+                        if block in CUBES and (leaves or block!=7):
                             h,b=y+1,block
                             break
             at=(z//2*8+x//2)*2
