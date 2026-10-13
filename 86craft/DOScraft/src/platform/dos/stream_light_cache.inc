@@ -1,5 +1,5 @@
-/* A 3x3 edit revision neighborhood covers the maximum 14-block horizontal
- * light influence. Cache only settled columns; reconcile seams on restore. */
+/* Restore the bake only where the column and its neighbors are untouched.
+ * Edited neighborhoods retain the original initialization/flood-fill path. */
 static void stream_light_header(const u32 *h)
 {
     streamLightBaked=0;
@@ -61,18 +61,25 @@ static int stream_light_prepare(int cx,int cz)
 {
     int id=cz*g_NC+cx,status=stream_light_quiesce();
     if(status<=0) return 0;
+    /* Conservative admission avoids the costly edited-cache seam pass.
+     * The 3x3 dirty mask already covers light reach; checking its neighbors
+     * also keeps the original path on both sides of an edited seam. */
+    if(!streamLightBaked || !stream_light_clean_seams(cx,cz)) {
+        streamLightPrepared=-1; return 1;
+    }
     if(streamLightCache) for(int i=0;i<STREAM_LIGHT_CACHE;++i)
         if(streamLightTags[i]==id && streamLightRevision[i]==streamLightVersion[id]) {
             streamLightPrepared=id; streamLightKind=2; streamLightSlot=i; return 1;
         }
-    if(!streamLightBaked || streamLightDirty[id]) { streamLightPrepared=-1; return 1; }
     if(streamLightPrepared==id && streamLightKind==1) return 1;
     streamLightRead=id; return stream_light_quiesce()>0;
 }
 static int stream_light_restore(int cx,int cz,int slot)
 {
     int id=cz*g_NC+cx;
-    if(streamLightPrepared!=id) { ++g_streamLightStats[2]; return 0; }
+    if(streamLightPrepared!=id || !stream_light_clean_seams(cx,cz)) {
+        ++g_streamLightStats[2]; return 0;
+    }
     if(streamLightKind==2) {
         int c=streamLightSlot;
         if(streamLightTags[c]!=id || streamLightRevision[c]!=streamLightVersion[id]) {
@@ -88,15 +95,14 @@ static int stream_light_restore(int cx,int cz,int slot)
     const u8 *p=streamLightScratch+CS*CS;
     u8 *dst=g_light+slot*COLUMN_CELLS;
     for(int i=0;i<COLUMN_CELLS/2;++i) { dst[i*2]=p[i]<<4; dst[i*2+1]=p[i]&0xf0; }
-    /* Keep pristine light in the same bounded cache too. Otherwise a terrain
-     * RAM hit on backtracking still makes a separate disk read for light.
-     * Prefer replacing pristine entries so edited light is not crowded out. */
+    /* Keep pristine light in RAM for backtracking. Edited tags are invalid
+     * and can be replaced immediately; computed edited light is not cached. */
     if(streamLightCache) {
         int c=-1;
         for(int i=0;i<STREAM_LIGHT_CACHE;++i) {
             int tag=streamLightTags[i];
-            if(tag==id || tag<0) { c=i; break; }
-            if(!streamLightDirty[tag] && (c<0 || streamLightAge[i]<streamLightAge[c])) c=i;
+            if(tag==id || tag<0 || streamLightDirty[tag]) { c=i; break; }
+            if(c<0 || streamLightAge[i]<streamLightAge[c]) c=i;
         }
         if(c>=0) {
             u8 *out=streamLightCache+c*(COLUMN_CELLS+CS*CS);
@@ -106,31 +112,6 @@ static int stream_light_restore(int cx,int cz,int slot)
     }
     ++g_streamLightStats[0]; return 1;
 }
-static void stream_light_store_slot(int s)
-{
-    if(!streamLightCache || cacheLightSlot>=0 || pqHead!=pqTail || pendingLightEditCount) return;
-        int cx=g_columnCoords[s*2],cz=g_columnCoords[s*2+1];
-        if(cx<0 || !residentReady[s]) return;
-        int id=cz*g_NC+cx;
-        if(streamLightBaked && !streamLightDirty[id]) return;
-        int c=0,found=0;
-        for(int i=0;i<STREAM_LIGHT_CACHE;++i) {
-            if(streamLightTags[i]==id) { c=i; found=streamLightRevision[i]==streamLightVersion[id]; break; }
-            if(streamLightTags[i]<0 || streamLightAge[i]<streamLightAge[c]) c=i;
-        }
-        if(found) return;
-        /* Missing neighbors can leave a border underlit. That is a safe
-         * lower bound: restoring seeds both sides of the seams and floods
-         * arrivals. Any geometry edit that could lower light changes this
-         * column's revision, so stale bright light cannot be restored. */
-        u8 *p=streamLightCache+c*(COLUMN_CELLS+CS*CS);
-        memcpy(p,g_light+s*COLUMN_CELLS,COLUMN_CELLS);
-        memcpy(p+COLUMN_CELLS,g_height+s*CS*CS,CS*CS);
-        streamLightTags[c]=id; streamLightRevision[c]=streamLightVersion[id]; streamLightAge[c]=++streamLightClock;
-}
-static void stream_light_store_ready(void)
-{ for(int s=0;s<g_residentColumns;++s) stream_light_store_slot(s); }
-
 static int stream_light_clean_seams(int cx,int cz)
 {
     if(!streamLightBaked) return 0;
@@ -138,6 +119,23 @@ static int stream_light_clean_seams(int cx,int cz)
     for(int x=MAX(0,cx-1);x<=MIN(g_NC-1,cx+1);++x)
         if(streamLightDirty[z*g_NC+x]) return 0;
     return 1;
+}
+
+/* Scripted acceptance: exercise normal lighting on cold loads without mob
+ * pins retaining the test's outgoing columns. No production caller. */
+static int stream_light_verify_travel(int x,int z)
+{
+    int (*pin)(int,int)=columnPin;
+    int (*needed)(int *,int *)=columnNeeded;
+    columnPin=NULL; columnNeeded=NULL;
+    cache_stream(8,8,100000);
+    int near=world_column_sim_ready(0,0);
+    cache_stream(g_W-8,g_W-8,100000);
+    int far=world_column_sim_ready(g_NC-1,g_NC-1);
+    cache_stream(x,z,100000);
+    int back=world_column_sim_ready(x/CS,z/CS);
+    columnPin=pin; columnNeeded=needed; terrainBlocking=0;
+    return near && far && back && !streamError;
 }
 
 /* Scripted acceptance only: invalidate both sides of a seam, evict cold,
@@ -150,18 +148,17 @@ int world_verify_stream_light(void)
     u8 old=wget(x,y,z);
     world_set(x,y,z,B_TORCH);
     if((world_light_at(x+1,y,z)&15)!=13) return 0;
-    stream_light_store_ready();
-    u32 hits=g_streamLightStats[1];
-    if(!world_verify_large_travel(g_spawnX,g_spawnZ) ||
-       (world_light_at(x+1,y,z)&15)!=13 || g_streamLightStats[1]<=hits) return 0;
+    u32 recomputations=g_streamLightStats[2];
+    if(!stream_light_verify_travel(g_spawnX,g_spawnZ) ||
+       (world_light_at(x+1,y,z)&15)!=13 || g_streamLightStats[2]<=recomputations) return 0;
     world_set(x,y,z,B_AIR);
     if((world_light_at(x+1,y,z)&15)!=0) return 0;
-    if(!world_verify_large_travel(g_spawnX,g_spawnZ) || (world_light_at(x+1,y,z)&15)!=0) return 0;
+    if(!stream_light_verify_travel(g_spawnX,g_spawnZ) || (world_light_at(x+1,y,z)&15)!=0) return 0;
     world_set(x,y,z,B_STONE);
     if((world_light_at(x,y-1,z)>>4)>=15) return 0;
-    if(!world_verify_large_travel(g_spawnX,g_spawnZ) || (world_light_at(x,y-1,z)>>4)>=15) return 0;
+    if(!stream_light_verify_travel(g_spawnX,g_spawnZ) || (world_light_at(x,y-1,z)>>4)>=15) return 0;
     world_set(x,y,z,old);
-    if(!world_verify_large_travel(g_spawnX,g_spawnZ) ||
+    if(!stream_light_verify_travel(g_spawnX,g_spawnZ) ||
        (world_light_at(x,y-1,z)>>4)!=15) return 0;
     return !streamError && g_streamLightStats[0]>0;
 }

@@ -104,15 +104,16 @@ lighting opacity and flood-fill code to produce full-world skylight; each
 record stores 256 height bytes and 6,144 packed skylight bytes in 13 sectors.
 The added index/header fields are checked before any record is restored.
 
-Guest lighting keeps 32 computed columns in a 401,408-byte RAM cache at
-8 MB or more, plus 6,656 bytes of read scratch and fixed metadata. It captures
-edited light on eviction and retains pristine light on HDD-read completion.
-Edits invalidate the affected column and its eight neighbors. Cached borders
-reconcile when they return; invalid or absent cache entries recompute normally.
-Edited light reuse is bounded and session-local: after pressure or a restart,
-edited neighborhoods may relight. Their block edits remain durable in the
-existing two-slot/save protocol. Untouched skylight remains durable in the
-bake and never needs full sky recomputation on re-entry.
+Guest lighting keeps 32 pristine columns in a 401,408-byte RAM cache at
+8 MB or more, plus 6,656 bytes of read scratch and fixed metadata. Edits mark
+the affected column and its eight neighbors dirty. A bake/cache restore is
+allowed only if the arriving column and its eight neighbors have no dirty
+flags. This conservatively excludes a five-column-wide region around an edit.
+Edited neighborhoods use the original sky initialization, seeding and flood
+fill. Computed edited light is no longer captured or restored: its modified
+seam pass increased edit-cycle average and p95 costs. Block edits remain
+durable in the existing two-slot/save protocol. Clean terrain retains baked
+skylight reuse and the RAM cache for backtracking.
 
 The publisher and 1992 refresh accept a compatible lighting upgrade only
 when the seed header and original checksum index match. They copy all prior

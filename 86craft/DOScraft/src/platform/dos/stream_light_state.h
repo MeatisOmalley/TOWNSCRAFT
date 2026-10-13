@@ -16,7 +16,5 @@ static void stream_light_reset(void);
 static int stream_light_quiesce(void);
 static int stream_light_prepare(int cx,int cz);
 static int stream_light_restore(int cx,int cz,int slot);
-static void stream_light_store_ready(void);
-static void stream_light_store_slot(int slot);
 static int stream_light_clean_seams(int cx,int cz);
 static void stream_light_invalidate(int x,int z);

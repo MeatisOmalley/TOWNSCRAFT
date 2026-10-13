@@ -27,18 +27,12 @@ def adapt(name,data):
         one('\tterrainBlocking=1;\n\tif(terrainFloppyReadID', '\tterrainBlocking=1;\n\tif(stream_light_quiesce()<0) { terrainBlocking=0; return 0; }\n\tif(terrainFloppyReadID')
         one('\tif(terrainReadID>=0) return 0;', '\tif(terrainReadID>=0 || streamLightRead>=0) return 0;')
     else:
-        one('static int cacheLightSeed,cacheSkyCell;', 'static int cacheLightSeed,cacheSkyCell,cacheLightCached;')
-        one('\t\tint base=widx(x,0,z);', '\t\tif(cacheLightCached && x>cx*CS && x<(cx+1)*CS-1 && z>cz*CS && z<(cz+1)*CS-1) continue;\n\t\tint base=widx(x,0,z);')
-        one('\t\tif(ch)\n', '\t\tif(ch && !cacheLightCached)\n')
-        one('for(int y=0; y<mh && y<WH; ++y)', 'for(int y=0; y<(ch ? WH : mh) && y<WH; ++y)')
-        one('int i=base+y,L=lget(i,0);', 'int i=base+y,L=lget(i,ch);')
-        one('if(d==2 && L==15 && !op) nl=15;', 'if(!ch && d==2 && L==15 && !op) nl=15;')
         one('\t/* Validate before releasing the old owner; a bad record retains it. */',
-            '\tstream_light_store_slot(slot);\n\tif(!stream_light_prepare(cx,cz)) return 0;\n'
+            '\tif(!stream_light_prepare(cx,cz)) return 0;\n'
             '\t/* Validate before releasing the old owner; a bad record retains it. */')
-        one('\tif(cacheBoot) { cache_init_sky(slot,CS*CS); return 1; }', '\tcacheLightCached=stream_light_restore(cx,cz,slot);\n\tif(cacheLightCached) cacheSkyCell=CS*CS;\n\tif(cacheBoot) { if(!cacheLightCached) cache_init_sky(slot,CS*CS); return 1; }')
+        one('\tif(cacheBoot) { cache_init_sky(slot,CS*CS); return 1; }', '\tint bakedLight=stream_light_restore(cx,cz,slot);\n\tif(cacheBoot) { if(!bakedLight) cache_init_sky(slot,CS*CS); return 1; }')
         one('\tcacheLightSlot=slot; cacheLightChannel=0;', '''\t/* Clean bake columns share the whole-world light solution already. */
-\tif(cacheLightCached && stream_light_clean_seams(cx,cz)) {
+\tif(bakedLight) {
 \t\tresidentReady[slot]=1;
 \t\tcache_dirty_seam(cx-1,cz); cache_dirty_seam(cx+1,cz);
 \t\tcache_dirty_seam(cx,cz-1); cache_dirty_seam(cx,cz+1);

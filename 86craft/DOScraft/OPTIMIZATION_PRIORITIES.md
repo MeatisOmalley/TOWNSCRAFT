@@ -76,13 +76,16 @@ The plane-wide figures are valid two-axis greedy rectangle partitions of visible
 
 ## A. Invisible changes (pending), by estimated FPS impact
 
-A4's wider angular reuse and A5's lighting-cache subtask shipped on 2026-10-13.
-The combined Low replay saves 1.53 ms standing and 1.27 ms in the house,
-with only 0.13 ms walking in this previously edited warmup route. Fresh
-five-column lighting preparation takes 57% less total time; its largest poll
-falls 58.56 -> 18.56 ms. Edit-cycle average/p95 regress slightly while the
-worst cycle falls 106.76 -> 59.59 ms. Keep these limits with the results;
-do not retain the earlier larger savings as measured claims. See
+A4's wider angular reuse and A5's pristine baked-light reuse shipped on
+2026-10-13. The computed edited-light cache was then removed because it
+increased edit costs. The revised Low replay takes 34.33 ms per edit cycle
+(previous release 35.63 ms), with p95 35.46 ms (previous 58.79 ms). It restores
+the original occasional long edit spike: maximum 106.65 ms. This edited
+warmup route now measures 23.48 ms standing, 34.76 ms walking and 32.06 ms
+in the house; it does not exercise pristine bake reuse. The earlier fresh
+five-column lighting probe showed 57% less preparation time and a largest poll
+of 18.56 ms instead of 58.56 ms; that probe predates the clean-only revision.
+Keep these limits with the results. See
 [evidence and tradeoffs](PERFORMANCE.md#orientation-reuse-and-streamed-lighting-2026-10-13).
 The A4 row below now refers to remaining mesh/cell invalidation work; A5's
 remaining work is primarily mesh scans/publication and edit tails.

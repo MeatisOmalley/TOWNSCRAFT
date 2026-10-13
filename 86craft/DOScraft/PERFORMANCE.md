@@ -1490,8 +1490,9 @@ changing its disk or CMOS. Evidence:
 
 ## Orientation reuse and streamed lighting (2026-10-13)
 
-The shared release now includes the wider orientation cache, checked prebaked
-skylight, computed-light reuse, and the separately requested main/pause menus.
+The initial shared release included the wider orientation cache, checked
+prebaked skylight, computed-light reuse, and the separately requested main/pause
+menus. The computed-light path was subsequently revised as described below.
 All measurements below use the June 1990 DX/40, 8 MB, SCSI profile. Low,
 Medium and High run in one process/world; no host key injection is used.
 
@@ -1563,3 +1564,38 @@ presenter's actual proven-upload flag. Reload smoke likewise waits for a
 rendered game frame before finishing, preventing completion inside a loading
 progress callback. The 20-variant native presenter matrix still passes.
 These are capture/acceptance fixes; normal game presentation is unchanged.
+
+## Edited-light cache revision (2026-10-13)
+
+A focused ablation attributed the edit regression to lighting, rather than
+collection. Computed edited-light capture/restore and its modified seam-seeding
+loop have been removed. Columns near an edit now use the original lighting
+initialization and flood fill. Baked light and pristine RAM backtracking reuse
+remain enabled only when the column and its neighbors have no dirty flags.
+Because an edit already marks a 3x3 neighborhood, this adds a conservative
+five-column-wide exclusion around edits. The HDD format, V5 saves, menus and
+collection optimization are unchanged.
+
+One June 1990 quality sweep confirmed the edit regression is removed:
+
+| Low edit cost | Previous release | Clean-only revision |
+| --- | ---: | ---: |
+| Frame excluding edit call | 34.07 ms | 31.42 ms |
+| Edit call | 1.56 ms | 2.91 ms |
+| Complete edit cycle, mean | 35.63 ms | 34.33 ms |
+| Complete edit cycle, p95 | 58.79 ms | 35.46 ms |
+| Complete edit cycle, maximum | 59.59 ms | 106.65 ms |
+| World update per frame | 5.94 ms | 3.29 ms |
+
+The original rare edit spike returns; this is not a maximum-latency improvement.
+Medium/High cycle means also return to 39.45/68.22 ms, versus 40.75/69.53 ms.
+Results closely match collection-only (Low 34.32 ms mean, 35.43 ms p95).
+Standing/walking/house cost is 23.48/34.76/32.06 ms on the already-edited replay,
+so the earlier combined-release scene savings must not be attributed to this
+revision. Pristine bake correctness and polled restore still pass byte-for-byte
+against canonical lighting; cold edited returns now explicitly exercise normal
+relighting, including torch removal and roof reopening. No new fresh-strip
+performance estimate was made. The exact rebuilt executable passed June 1990
+new-game and fresh-process reload smoke, including lighting, cold streaming,
+V5 persistence, menus and VGA readback. Evidence:
+[`clean-only-light.json`](tests/benchmarks/2026-10-13/clean-only-light.json).
