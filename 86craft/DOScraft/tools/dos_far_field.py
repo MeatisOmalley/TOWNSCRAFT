@@ -15,6 +15,10 @@ def adapt(name,data,*,low_planar=False):
         one('static int cache_load(int cx,int cz,int slot);',
             'static int cache_load(int cx,int cz,int slot);\nstatic void far_world_header(const u32 *h);\nstatic void far_world_reset(void);\nstatic void far_world_column(int cx,int cz,const u8 *p);\nstatic void far_world_edit(int x,int z);')
         one('#include "large_world.inc"','#include "large_world.inc"\n#include "far_world.inc"')
+        one('\tg_blocks[i]=b;\n\tif(terrainActive',
+            '\t/* Reuse an existing log metadata bit; planted logs get no synthetic cap. */\n'
+            '\tif(dos_far_caps && BLK_ID(b)==B_LOG) b|=DOS_LOG_PLACED;\n'
+            '\tg_blocks[i]=b;\n\tif(terrainActive')
         one('\tupdate_height(x,z);\n\trelight_edit(x,y,z,b);', '\tupdate_height(x,z);\n\tfar_world_edit(x,z);\n\trelight_edit(x,y,z,b);')
     elif name=='column_hdd.inc':
         # The light reader reuses columnScratch; read our header first.

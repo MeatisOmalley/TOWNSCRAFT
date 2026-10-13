@@ -32,6 +32,28 @@ int main(int argc,char **argv) {
     world_alloc(); world_generate(4242);
     check(dos_far_available() && dos_far_map && !dos_far_enabled,"available, default off");
     for(u32 i=1;i<DOS_FAR_BYTES;i+=2) check(BLK_ID(dos_far_map[i])!=B_LEAVES,"shared cache contains no leaves");
+    if(dos_far_caps) {
+        int tx=-1,tz=0,th=0;
+        for(int z=0;z<512 && tx<0;++z) for(int x=0;x<512;++x) {
+            int at=(z*512+x)*2,s=g_columnMap[(z/8)*64+x/8];
+            if(!(dos_far_map[at]>>6) || s<0 || !residentReady[s]) continue;
+            int h=dos_far_map[at]&63;
+            for(int dz=0;dz<2 && tx<0;++dz) for(int dx=0;dx<2;++dx) {
+                int bx=x*2+dx,bz=z*2+dz;
+                if(BLK_ID(wget(bx,h-1,bz))==B_LOG && BLK_ID(wget(bx,h,bz))==B_LEAVES) { tx=bx;tz=bz;th=h;break; }
+            }
+        }
+        check(tx>=0,"natural capped tree is resident");int cell=((tz>>1)*512+(tx>>1))*2;
+        check(dos_far_map[cell]>>6,"natural cap encoded in existing height byte");
+        world_set(tx,th-1,tz,B_AIR);
+        check(!(dos_far_map[cell]>>6),"cut trunk removes synthetic cap");
+        world_set(tx,th-1,tz,B_LOG);
+        check(!(dos_far_map[cell]>>6) && (wget(tx,th-1,tz)&DOS_LOG_PLACED),"replacement log gets no cap");
+        pos=0;check(world_save_large_columns(put),"save cap provenance");world_commit_large_columns();
+        world_load_position(tx,tz);pos=0;check(world_load_large_columns(get),"reload cap provenance");
+        check(!(dos_far_map[cell]>>6) && (wget(tx,th-1,tz)&DOS_LOG_PLACED),"replacement stays uncapped after reload");
+        world_load_position(g_spawnX,g_spawnZ);world_generate(4242);
+    }
     dos_far_toggle(); check(dos_far_enabled,"optional toggle");
     u8 b=99; check(!dos_far_sample(-1,0,0,&b) && !dos_far_sample(1024,0,0,&b),"world bounds");
     int x=g_spawnX&~1,z=g_spawnZ&~1,y=WH-1;
@@ -43,7 +65,7 @@ int main(int argc,char **argv) {
     pos=0;check(world_save_large_columns(put),"save log and leaves");world_commit_large_columns();
     world_load_position(x,z);pos=0;check(world_load_large_columns(get),"reload log and leaves");
     check(dos_far_sample(x,z,0,&b)==WH-1 && b==B_LOG,"leaf-free surface survives reload");
-    check(wget(x,y,z)==B_LEAVES && wget(x,y-1,z)==B_LOG,"near-world leaves and plain logs preserved");
+    check(wget(x,y,z)==B_LEAVES && BLK_ID(wget(x,y-1,z))==B_LOG,"near-world leaves and logs preserved");
     world_set(x,y,z,B_STONE);
     check(dos_far_sample(x,z,0,&b)==WH && b==B_STONE,"placed highest cube updates summary");
     pos=0; check(world_save_large_columns(put),"save edited directory");

@@ -1,0 +1,478 @@
+{
+  "status": "tested separate preview; visual review pending; shared ISO unchanged",
+  "hardware": "June 1990 DX40, 8 MiB, ET4000AX 16-bit ISA, AHA1542A SCSI",
+  "surface_map_bytes": 524288,
+  "additional_surface_heap_bytes": 0,
+  "temporary_crown_stack_bytes": 1024,
+  "stack_reservation_unchanged": true,
+  "release_sections": {
+    "text": 363032,
+    "data": 20992,
+    "bss": 1053184
+  },
+  "baseline_sections": {
+    "text": 360984,
+    "data": 20992,
+    "bss": 1053184
+  },
+  "preview_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-ivdbhniq",
+  "preview_exe_sha256": "70dbd73978ae70b12da154740c7c53f1297cb5c4b388dc5b873fa14f4e7ccd25",
+  "terrain_sha256": "c70b37d23d131e77b706e34b34a779c9510c172e1e213df761af96253466aa12",
+  "terrain_bytes": 178815488,
+  "natural_crown_cells": 6236,
+  "smoke_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-y81_x3_i",
+  "smoke": {
+    "new": "DOScraft real game-loop smoke\nMODE=NEW\nWORLD_WIDTH=1024\nRESIDENT_COLUMNS=25\nMESH_QUADS=4136\nPRESENTED_FRAMES=353\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=2717\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nMOB_DESPAWN=PASS\nSAVE_RESULT=0\nLOAD_RESULT=0\nINVENTORY_PRESENTS=1\nINVENTORY_100HZ_TICKS=30\nAUDIO=SILENT_DEFERRED\nRESULT=PASS\nGRAPHICS_PRESETS=PASS\nMENUS=PASS\nTERRAIN_PERSIST=PASS\nEDGE_STREAM=PASS\nCHICKENS=PASS\nDISTANT_TERRAIN=PASS\nFAR_DRAWS=26\nPANORAMA_COLUMNS=388\nLIGHT_CACHE=PASS\nLIGHT_CACHE_STATS=0,0,25,1\n",
+    "load": "DOScraft real game-loop smoke\nMODE=LOAD\nWORLD_WIDTH=1024\nRESIDENT_COLUMNS=25\nMESH_QUADS=3480\nPRESENTED_FRAMES=446\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=2569\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nMOB_DESPAWN=PASS\nSAVE_RESULT=-1\nLOAD_RESULT=0\nINVENTORY_PRESENTS=1\nINVENTORY_100HZ_TICKS=30\nAUDIO=SILENT_DEFERRED\nRESULT=PASS\nGRAPHICS_PRESETS=PASS\nMENUS=PASS\nTERRAIN_PERSIST=PASS\nEDGE_STREAM=PASS\nCHICKENS=PASS\nDISTANT_TERRAIN=PASS\nFAR_DRAWS=11\nPANORAMA_COLUMNS=256\nLIGHT_CACHE=PASS\nLIGHT_CACHE_STATS=18,72,70,9\n",
+    "save_version": 5
+  },
+  "native_checks": "test_far_field.py: five pass; test_capped_trees.py: two pass",
+  "candidate_vm": "game-play-w8151ptu",
+  "candidate_exe_sha256": "deedd147a59170c6793fe7f70b3292f422c81ba1f9a0a4adef0da19883e81f67",
+  "emulator_sha256": "f64194c42d5cc832e48b3d04e178abe83fc8f585fbb5d9adc6ad41ae6ce87055",
+  "replay_flags": [
+    "-DDOS_VGA_PACK_ALL",
+    "-DDOS_VGA_HUD_CACHE",
+    "-DDOS_VGA_BROADCAST",
+    "-fomit-frame-pointer",
+    "-DDOS_ET4000_CHUNKY",
+    "-DDOS_TRAP_FOUR",
+    "-DDOS_ET4000_STRIDED",
+    "-DDOS_ET4000_HUD_WORDS",
+    "-DDOS_VGA_PROVEN_ROWS",
+    "-DDOS_VGA_PROVEN_VERTICAL",
+    "-DDOS_VGA_ASYNC_FLIP",
+    "-DDOS_VGA_HUD_PROOF",
+    "-DDOS_RASTER_FINISH_SKIP",
+    "-DDOS_VERY_LOW",
+    "-DDOS_VERY_LOW_TEXELS",
+    "-DDOS_LOW_PLANAR",
+    "-DDOS_BENCH_QUALITY=0",
+    "-DDOS_LARGE_WORLD",
+    "-DDOS_STREAM_LIGHT_CACHE",
+    "-DDOS_FAR_FIELD",
+    "-DDOS_BENCH_FAR_LEVEL=3",
+    "-DDOS_BENCH_PROFILE_FAR",
+    "-DDOS_BENCH_FAR_SWEEP",
+    "-DDOS_FAR_DETAILS",
+    "-DDOS_FAR_VIEW_DEPTH",
+    "-DDOS_FAR_REPROJECT",
+    "-DDOS_FAR_CAPS",
+    "-DDOS_BENCH_DIAGONAL_ROUTE",
+    "-DDOS_COLLECT_MARGIN",
+    "-DDOS_BENCH_FRAMES=256"
+  ],
+  "candidate_results": {
+    "low": {
+      "open_static": {
+        "mean_ms": 28.7025625,
+        "far_mean_ms": {
+          "panorama_build": 0.53040625,
+          "panorama_draw": 1.49578125,
+          "heightmap": 2.940375
+        },
+        "p95_ms": 50.58
+      },
+      "walk": {
+        "mean_ms": 31.22677734375,
+        "far_mean_ms": {
+          "panorama_build": 0.45706640625,
+          "panorama_draw": 1.6571640625,
+          "heightmap": 6.1726015625
+        },
+        "p95_ms": 46.176
+      },
+      "walk_down": {
+        "mean_ms": 48.18221875,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 63.863
+      },
+      "walk_up": {
+        "mean_ms": 19.50325,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 26.58
+      },
+      "house": {
+        "mean_ms": 39.51846875,
+        "far_mean_ms": {
+          "panorama_build": 0.5313125,
+          "panorama_draw": 2.3146875,
+          "heightmap": 4.957
+        },
+        "p95_ms": 52.361
+      },
+      "block_edits": {
+        "mean_ms": 43.3893125,
+        "far_mean_ms": {
+          "panorama_build": 0.33984375,
+          "panorama_draw": 2.0581875,
+          "heightmap": 4.96296875
+        },
+        "p95_ms": 61.736
+      }
+    },
+    "medium": {
+      "open_static": {
+        "mean_ms": 37.1155,
+        "far_mean_ms": {
+          "panorama_build": 0.01578125,
+          "panorama_draw": 4.223625,
+          "heightmap": 8.752
+        },
+        "p95_ms": 62.931
+      },
+      "walk": {
+        "mean_ms": 45.94890625,
+        "far_mean_ms": {
+          "panorama_build": 1.4826640625,
+          "panorama_draw": 4.076,
+          "heightmap": 17.6425859375
+        },
+        "p95_ms": 60.544
+      },
+      "walk_down": {
+        "mean_ms": 47.87328125,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 65.872
+      },
+      "walk_up": {
+        "mean_ms": 19.235625,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 33.392
+      },
+      "house": {
+        "mean_ms": 54.48934375,
+        "far_mean_ms": {
+          "panorama_build": 1.34296875,
+          "panorama_draw": 6.09334375,
+          "heightmap": 13.2556875
+        },
+        "p95_ms": 74.817
+      },
+      "block_edits": {
+        "mean_ms": 50.4549375,
+        "far_mean_ms": {
+          "panorama_build": 0.01559375,
+          "panorama_draw": 5.74334375,
+          "heightmap": 13.25246875
+        },
+        "p95_ms": 54.942
+      }
+    },
+    "high": {
+      "open_static": {
+        "mean_ms": 51.32928125,
+        "far_mean_ms": {
+          "panorama_build": 0.0155625,
+          "panorama_draw": 7.16234375,
+          "heightmap": 19.91025
+        },
+        "p95_ms": 85.732
+      },
+      "walk": {
+        "mean_ms": 72.78854296875,
+        "far_mean_ms": {
+          "panorama_build": 2.01458984375,
+          "panorama_draw": 4.94683203125,
+          "heightmap": 42.84103125
+        },
+        "p95_ms": 90.122
+      },
+      "walk_down": {
+        "mean_ms": 48.06090625,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 61.836
+      },
+      "walk_up": {
+        "mean_ms": 21.07390625,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 27.809
+      },
+      "house": {
+        "mean_ms": 76.07484375,
+        "far_mean_ms": {
+          "panorama_build": 1.59346875,
+          "panorama_draw": 9.1064375,
+          "heightmap": 33.3705
+        },
+        "p95_ms": 93.0
+      },
+      "block_edits": {
+        "mean_ms": 78.279,
+        "far_mean_ms": {
+          "panorama_build": 0.01559375,
+          "panorama_draw": 8.75346875,
+          "heightmap": 33.37853125
+        },
+        "p95_ms": 96.882
+      }
+    }
+  },
+  "capture_vm": "game-play-j7mbp7tz",
+  "walking_capture_frames": 64,
+  "capture_interval_guest_frames": 4,
+  "gif_display_interval_ms": 150,
+  "primary_disk_sha256": "3a588a6614c9991ff6869764a33b5352da7282a1139e363ade8beab1c60db0de",
+  "primary_iso_sha256": "a5e69ab2405a665bc8ffc2e67987d718904fbe3573f587f6ce5132fd58b75db0",
+  "preserved_player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-zgu2sm29",
+  "shared_iso_updated": false,
+  "control_vm": "game-play-cta9yfjg",
+  "control_exe_sha256": "7040b2329f6d237b23005ac374938c827f27b2a8bd0436725238bbda0d88d9e1",
+  "control_replay_flags": [
+    "-DDOS_VGA_PACK_ALL",
+    "-DDOS_VGA_HUD_CACHE",
+    "-DDOS_VGA_BROADCAST",
+    "-fomit-frame-pointer",
+    "-DDOS_ET4000_CHUNKY",
+    "-DDOS_TRAP_FOUR",
+    "-DDOS_ET4000_STRIDED",
+    "-DDOS_ET4000_HUD_WORDS",
+    "-DDOS_VGA_PROVEN_ROWS",
+    "-DDOS_VGA_PROVEN_VERTICAL",
+    "-DDOS_VGA_ASYNC_FLIP",
+    "-DDOS_VGA_HUD_PROOF",
+    "-DDOS_RASTER_FINISH_SKIP",
+    "-DDOS_VERY_LOW",
+    "-DDOS_VERY_LOW_TEXELS",
+    "-DDOS_LOW_PLANAR",
+    "-DDOS_BENCH_QUALITY=0",
+    "-DDOS_LARGE_WORLD",
+    "-DDOS_STREAM_LIGHT_CACHE",
+    "-DDOS_FAR_FIELD",
+    "-DDOS_BENCH_FAR_LEVEL=3",
+    "-DDOS_BENCH_PROFILE_FAR",
+    "-DDOS_BENCH_FAR_SWEEP",
+    "-DDOS_FAR_DETAILS",
+    "-DDOS_FAR_VIEW_DEPTH",
+    "-DDOS_FAR_REPROJECT",
+    "-DDOS_BENCH_DIAGONAL_ROUTE",
+    "-DDOS_COLLECT_MARGIN",
+    "-DDOS_BENCH_FRAMES=256"
+  ],
+  "control_results": {
+    "low": {
+      "open_static": {
+        "mean_ms": 27.4010625,
+        "far_mean_ms": {
+          "panorama_build": 0.1095,
+          "panorama_draw": 1.3935625,
+          "heightmap": 2.41025
+        },
+        "p95_ms": 49.006
+      },
+      "walk": {
+        "mean_ms": 28.777671875,
+        "far_mean_ms": {
+          "panorama_build": 0.09533984375,
+          "panorama_draw": 1.5202578125,
+          "heightmap": 4.8136015625
+        },
+        "p95_ms": 43.493
+      },
+      "walk_down": {
+        "mean_ms": 48.19040625,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 63.872
+      },
+      "walk_up": {
+        "mean_ms": 19.50065625,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 26.591
+      },
+      "house": {
+        "mean_ms": 37.70003125,
+        "far_mean_ms": {
+          "panorama_build": 0.10921875,
+          "panorama_draw": 2.24503125,
+          "heightmap": 3.629625
+        },
+        "p95_ms": 49.934
+      },
+      "block_edits": {
+        "mean_ms": 41.7883125,
+        "far_mean_ms": {
+          "panorama_build": 0.07628125,
+          "panorama_draw": 2.0450625,
+          "heightmap": 3.6301875
+        },
+        "p95_ms": 59.274
+      }
+    },
+    "medium": {
+      "open_static": {
+        "mean_ms": 35.82865625,
+        "far_mean_ms": {
+          "panorama_build": 0.0154375,
+          "panorama_draw": 4.68146875,
+          "heightmap": 7.13840625
+        },
+        "p95_ms": 60.917
+      },
+      "walk": {
+        "mean_ms": 41.81017578125,
+        "far_mean_ms": {
+          "panorama_build": 0.2795390625,
+          "panorama_draw": 4.522421875,
+          "heightmap": 14.32134765625
+        },
+        "p95_ms": 55.673
+      },
+      "walk_down": {
+        "mean_ms": 47.87765625,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 65.846
+      },
+      "walk_up": {
+        "mean_ms": 19.23540625,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 33.442
+      },
+      "house": {
+        "mean_ms": 51.10921875,
+        "far_mean_ms": {
+          "panorama_build": 0.2533125,
+          "panorama_draw": 6.7120625,
+          "heightmap": 10.3275
+        },
+        "p95_ms": 70.584
+      },
+      "block_edits": {
+        "mean_ms": 48.1234375,
+        "far_mean_ms": {
+          "panorama_build": 0.016375,
+          "panorama_draw": 6.33196875,
+          "heightmap": 10.32503125
+        },
+        "p95_ms": 51.372
+      }
+    },
+    "high": {
+      "open_static": {
+        "mean_ms": 48.33040625,
+        "far_mean_ms": {
+          "panorama_build": 0.015375,
+          "panorama_draw": 8.58234375,
+          "heightmap": 15.55378125
+        },
+        "p95_ms": 80.907
+      },
+      "walk": {
+        "mean_ms": 63.8206171875,
+        "far_mean_ms": {
+          "panorama_build": 0.36416796875,
+          "panorama_draw": 5.51441796875,
+          "heightmap": 34.974875
+        },
+        "p95_ms": 79.904
+      },
+      "walk_down": {
+        "mean_ms": 48.0690625,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 61.887
+      },
+      "walk_up": {
+        "mean_ms": 21.0785625,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "p95_ms": 27.777
+      },
+      "house": {
+        "mean_ms": 69.90196875,
+        "far_mean_ms": {
+          "panorama_build": 0.2920625,
+          "panorama_draw": 10.34515625,
+          "heightmap": 27.24725
+        },
+        "p95_ms": 87.765
+      },
+      "block_edits": {
+        "mean_ms": 73.36746875,
+        "far_mean_ms": {
+          "panorama_build": 0.01540625,
+          "panorama_draw": 9.94565625,
+          "heightmap": 27.2543125
+        },
+        "p95_ms": 91.514
+      }
+    }
+  },
+  "comparisons": {
+    "low": {
+      "open_static": {
+        "frame_delta_ms": 1.3015000000000008,
+        "distant_delta_ms": 1.0532500000000002
+      },
+      "walk": {
+        "frame_delta_ms": 2.449105468750002,
+        "distant_delta_ms": 1.8576328125000003
+      }
+    },
+    "medium": {
+      "open_static": {
+        "frame_delta_ms": 1.2868437499999956,
+        "distant_delta_ms": 1.1560937500000001
+      },
+      "walk": {
+        "frame_delta_ms": 4.138730468749998,
+        "distant_delta_ms": 4.077941406250002
+      }
+    },
+    "high": {
+      "open_static": {
+        "frame_delta_ms": 2.998874999999998,
+        "distant_delta_ms": 2.936656250000002
+      },
+      "walk": {
+        "frame_delta_ms": 8.967925781249996,
+        "distant_delta_ms": 8.948992187500004
+      }
+    }
+  }
+}

@@ -12,7 +12,9 @@ from publish_game import running
 
 PREVIEW=ROOT/'build/checks/tree-canopies'
 
-def prepare_preview(terrain,output,smoke):
+def prepare_preview(terrain,output,smoke,preview=PREVIEW):
+    preview=Path(preview).resolve()
+    if not preview.is_relative_to(ROOT/'build/checks'):raise ValueError('Preview output must stay under build/checks')
     player=Path((OUTPUT/'latest-play-vm.txt').read_text().strip()).resolve(strict=True)
     smoke=Path(smoke).resolve(strict=True);output=Path(output).resolve(strict=True)
     report=json.loads((smoke/'large-world-smoke.json').read_text())
@@ -35,24 +37,26 @@ def prepare_preview(terrain,output,smoke):
         raise ValueError('Player changed during the copy')
     (vm/'scratch-large.img').write_bytes(migrated)
     record=json.loads((vm/'build.json').read_text())
-    record.update(experiment='natural-tree-canopies',preserved_player_vm=str(player),
+    record.update(experiment='natural-tree-canopies' if preview==PREVIEW else preview.name,preserved_player_vm=str(player),
                   preserved_hdd_sha256=original_hash,verified_smoke_vm=str(smoke))
     (vm/'build.json').write_text(json.dumps(record,indent=2)+'\n');validate(vm)
-    PREVIEW.mkdir(parents=True,exist_ok=True);(PREVIEW/'player-vm.txt').write_text(str(vm))
+    preview.mkdir(parents=True,exist_ok=True);(preview/'player-vm.txt').write_text(str(vm))
     script=ROOT/'tools/tree_canopy_preview.py'
-    (PREVIEW/'Play-Tree-Preview.cmd').write_text('@echo off\n"'+str(Path(sys.executable))+
-        '" "'+str(script)+'" --launch\nif errorlevel 1 pause\n')
+    filename='Play-Capped-Trees.cmd' if preview.name=='capped-trees' else 'Play-Tree-Preview.cmd'
+    (preview/filename).write_text('@echo off\n"'+str(Path(sys.executable))+
+        '" "'+str(script)+'" --preview-directory "'+str(preview)+'" --launch\nif errorlevel 1 pause\n')
     return vm
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--terrain',type=Path);parser.add_argument('--build-output',type=Path)
     parser.add_argument('--smoke-vm',type=Path);parser.add_argument('--launch',action='store_true')
+    parser.add_argument('--preview-directory',type=Path,default=PREVIEW)
     args=parser.parse_args()
     if args.terrain or args.build_output or args.smoke_vm:
         if not all((args.terrain,args.build_output,args.smoke_vm)):parser.error('Preparation requires all three paths')
-        vm=prepare_preview(args.terrain,args.build_output,args.smoke_vm)
-    else:vm=Path((PREVIEW/'player-vm.txt').read_text().strip()).resolve(strict=True)
+        vm=prepare_preview(args.terrain,args.build_output,args.smoke_vm,args.preview_directory)
+    else:vm=Path((args.preview_directory/'player-vm.txt').read_text().strip()).resolve(strict=True)
     if not vm.is_relative_to(ROOT/'runtime'):raise ValueError('Unknown preview VM')
     if running(vm):raise ValueError('Tree preview is already running')
     command=validate(vm);print('TREE_PREVIEW='+str(vm))

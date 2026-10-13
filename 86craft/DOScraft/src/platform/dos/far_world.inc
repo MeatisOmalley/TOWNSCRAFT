@@ -2,11 +2,13 @@
 int dos_far_enabled;
 u32 dos_far_version,dos_far_boundary_version;
 u8 *dos_far_map;
+int dos_far_caps;
 static u32 farMapSector,farMapSum;
 
 static void far_world_header(const u32 *h)
 {
     farMapSector=0;
+    dos_far_caps=h[23]==DOS_FAR_CAP_MAGIC;
     if(h[18]!=DOS_FAR_MAGIC) return;
     if(h[19]!=DOS_FAR_SECTOR || h[20]!=DOS_FAR_BYTES || h[22]!=1 ||
        hdd_sector_count()<DOS_FAR_SECTOR+DOS_FAR_BYTES/512)
@@ -23,16 +25,16 @@ void dos_far_toggle(void) { dos_far_change(1); }
 /* Highest non-leaf cube, shared by heightmap and panorama. */
 static int far_world_cell(int cx,int cz,int lx,int lz,const u8 *blocks)
 {
-    int h=0,b=0;
+    int h=0,b=0,encoded=0;
     for(int dz=0;dz<2;++dz) for(int dx=0;dx<2;++dx) {
         const u8 *p=blocks+((lz+dz)*CS+lx+dx)*WH;
         for(int y=WH-1;y>=h;--y) if(BLK_ID(p[y])!=B_LEAVES && (blk_flags(p[y])&BF_CUBE)) {
-            h=y+1; b=BLK_ID(p[y]); break;
+            h=y+1; b=BLK_ID(p[y]); encoded=dos_far_capped_height(p,h); break;
         }
     }
     int i=(((cz*CS+lz)>>1)*512+((cx*CS+lx)>>1))*2;
-    if(dos_far_map[i]==h && BLK_ID(dos_far_map[i+1])==b) return 0;
-    dos_far_map[i]=h; dos_far_map[i+1]=b;
+    if(dos_far_map[i]==encoded && BLK_ID(dos_far_map[i+1])==b) return 0;
+    dos_far_map[i]=encoded; dos_far_map[i+1]=b;
     return 1;
 }
 #ifdef DOS_FAR_DETAILS
@@ -40,12 +42,13 @@ static int far_world_cell(int cx,int cz,int lx,int lz,const u8 *blocks)
  * stable world-cell variation bit. Disk records remain raw block IDs. */
 static void far_world_style(int x,int z)
 {
-    int i=(z*512+x)*2,h=dos_far_map[i],b=BLK_ID(dos_far_map[i+1]);
-    int west=x ? dos_far_map[i-2] : h,north=z ? dos_far_map[i-1024] : h;
+    int i=(z*512+x)*2,h=dos_far_map[i]&63,b=BLK_ID(dos_far_map[i+1]);
+    int west=x ? dos_far_map[i-2]&63 : h,north=z ? dos_far_map[i-1024]&63 : h;
     int slope=CLAMP(1+((west+north-2*h)>>2),0,3);
     u32 noise=(u32)x*0x45d9f3bu^(u32)z*0x27d4eb2du;
     noise^=noise>>16;
-    dos_far_map[i+1]=b|(slope<<5)|((noise&1)<<7);
+    int phase=dos_far_caps && b==B_LOG ? (dos_far_map[i]>>6)!=0 : noise&1;
+    dos_far_map[i+1]=b|(slope<<5)|(phase<<7);
 }
 static void far_world_style_rect(int x0,int z0,int x1,int z1)
 {
@@ -90,9 +93,11 @@ static void far_world_reset(void)
     }
     if(column_checksum(dos_far_map,DOS_FAR_BYTES)!=farMapSum)
         fatal("Corrupt distant terrain");
-    for(u32 i=0;i<DOS_FAR_BYTES;i+=2)
-        if(dos_far_map[i]>WH || dos_far_map[i+1]>=NUM_BLOCKS)
+    for(u32 i=0;i<DOS_FAR_BYTES;i+=2) {
+        int h=dos_far_map[i]&63,cap=dos_far_map[i]>>6,b=dos_far_map[i+1];
+        if(h>WH || b>=NUM_BLOCKS || (cap && (!dos_far_caps || b!=B_LOG || !h || h+cap>WH)))
             fatal("Invalid distant terrain cell");
+    }
     /* Reconstruct summaries from the committed edit directory on load.
      * Only edited columns are read; none of this runs in the frame loop. */
     terrainBlocking=1;
@@ -136,5 +141,5 @@ int dos_far_sample(int x,int z,int detailed,u8 *block)
         }
     }
     int i=((z>>1)*512+(x>>1))*2;
-    *block=BLK_ID(dos_far_map[i+1]); return dos_far_map[i];
+    *block=BLK_ID(dos_far_map[i+1]); return dos_far_map[i]&63;
 }

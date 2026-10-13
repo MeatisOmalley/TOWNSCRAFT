@@ -66,7 +66,7 @@ class FarTests(unittest.TestCase):
             self.run_cmd([*flags,ROOT/'tests/far_world_native.c',ROOT/'src/platform/dos/heap.c',
                 *(src/s for s in ('blocks.c','fmath.c','libc.c')),tables,obj,'-o',exe])
             terrain=folder/'terrain.tmp'
-            for source in (TERRAIN,TERRAIN.with_name('terrain1024-logs.bin')):
+            for source in (TERRAIN,TERRAIN.with_name('terrain1024-logs.bin'),TERRAIN.with_name('terrain1024-caps.bin')):
                 if not source.exists():continue
                 shutil.copyfile(source,terrain)
                 self.assertIn('PASS: distant map',self.run_cmd([exe,terrain]).stdout)
@@ -103,7 +103,8 @@ class FarTests(unittest.TestCase):
             self.assertEqual(actual,expected,'far image changed versus checkpoint')
             base_hash=[line for line in actual.splitlines() if line.startswith('POSE_HASH=')]
             for flags in (['-DDOS_FAR_DETAILS'],['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH'],
-                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT']):
+                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT'],
+                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT','-DDOS_FAR_CAPS']):
                 self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
                     '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
                     src/'blocks.c',src/'fmath.c',tables,'-o',exe])

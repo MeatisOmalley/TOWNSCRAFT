@@ -1,5 +1,6 @@
-/* Compile separate plain/capture loops so moving frames never pay for
- * recording an immediately obsolete strip list. Included twice. */
+/* Compile separate plain/capture loops for normal moving/stationary frames.
+ * The crown trial also captures moving strips for ground occlusion, reusing
+ * the same storage. Included twice. */
 static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *inv,u8 *skyline)
 {
     int cacheGood=1;
@@ -7,7 +8,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
     for(int x=0;x<vw;x+=width) {
         int norm=farNorm[x+width/2],u=farSide[x+width/2],top=vh;
         FarColumn column; raster_far_column(&column,x,width,vh);
-#if FAR_CAPTURE
+#if FAR_CAPTURE || defined(DOS_FAR_CAPS)
         int cached=x/width;
         farBandCount[cached]=0; farBandStart[cached]=vh;
 #endif
@@ -42,6 +43,10 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
 #endif
             FAR_COUNT(dos_far_samples);
             if(h) {
+#ifdef DOS_FAR_CAPS
+                int trunk=h&63,crown=h>>6;
+                h=trunk+crown;
+#endif
                 int elevation=((h*256-g_cam.y)*reciprocal)>>16;
 #ifdef DOS_FAR_VIEW_DEPTH
                 int y=CLAMP(horizon-elevation,0,vh);
@@ -52,8 +57,23 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
                 if(y<top) {
                     u8 material=far_material(wx,wz,b);
                     int cap=top;
+#ifdef DOS_FAR_CAPS
+                    if(dos_far_caps && BLK_ID(material)==B_LOG) material&=127;
+                    if(crown) {
+                        int split=((trunk*256-g_cam.y)*reciprocal)>>16;
+#ifndef DOS_FAR_VIEW_DEPTH
+                        split=(((split*norm)>>14)*gain)>>14;
+#endif
+                        cap=CLAMP(horizon-split,y,top);
+                        material=(material&127)|128;
+                    }
+#endif
 #ifdef DOS_FAR_DETAILS
-                    if(level>=2) {
+                    if(level>=2
+#ifdef DOS_FAR_CAPS
+                       && !crown
+#endif
+                       ) {
                         /* Project this sample's top at the previous depth.
                          * Horizontal ground gets a full cap; a rise exposes
                          * a side below it. This is a heightmap approximation. */
@@ -64,19 +84,25 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
 #ifdef DOS_FAR_SKIP_FIRST
                     if(firstFill) {
                         firstFill=0; raster_far_column(&column,x,width,y);
-#if FAR_CAPTURE
+#if FAR_CAPTURE || defined(DOS_FAR_CAPS)
                         farBandStart[cached]=y;
 #endif
                     } else
 #endif
                     {
                         far_paint_surface(&column,y,cap,material,fog);
-#if FAR_CAPTURE
+#if FAR_CAPTURE || defined(DOS_FAR_CAPS)
                         {
                             int n=farBandCount[cached];
                             if(n<32) {
                                 FarBandRun *r=&farBandRuns[cached][n];
-                                r->y=y; r->cap=cap; r->material=material; r->fog=fog; farBandCount[cached]=n+1;
+                                r->y=y; r->cap=cap; r->material=material;
+#ifdef DOS_FAR_CAPS
+                                r->fog=(fog<<6)|MIN(63,depth>>8);
+#else
+                                r->fog=fog;
+#endif
+                                farBandCount[cached]=n+1;
                             } else cacheGood=0;
                         }
 #endif
