@@ -36,8 +36,11 @@ static Camera farBandCamera;
 static int farBandValid,farBandView,farBandScale,farBandLevel;
 static u32 farBandVersion,farBandBoundary,farBandResident;
 static u32 farBandGroundVersion;
-/* Ground depth only: canopies are composited after the unchanged panorama. */
-static u8 farBandDepth[SCR_W/2][VIEW_H];
+/* The ground skyline rises monotonically with depth. Store its transitions,
+ * rather than clearing/writing a depth byte for every screen row each frame. */
+typedef struct { u8 y,depth; } FarDepthRun;
+static FarDepthRun farBandDepth[SCR_W/2][32];
+static u8 farBandDepthCount[SCR_W/2];
 /* Art changes invalidate colors, not the cached terrain samples. */
 static void far_texture_changed(void)
 {
@@ -298,7 +301,8 @@ static inline u8 far_band_material(int x,int z,u8 b)
 {
 #ifdef DOS_FAR_DETAILS
     if(dos_far_enabled>=2 && b!=B_WATER && b!=B_GLASS && (unsigned)x<1024 && (unsigned)z<1024) {
-        int cell=(z>>1)*512+(x>>1),index=dos_far_under_index(cell);
+        int cell=(z>>1)*512+(x>>1);
+        int index=BLK_ID(dos_far_map[cell*2+1])==B_LEAVES ? dos_far_under_index(cell) : -1;
         b|=(index>=0 ? dos_far_under[index*2+1] : dos_far_map[cell*2+1])&224;
     }
 #endif
@@ -343,26 +347,27 @@ static void far_replay_band(int width,int level,u8 *skyline)
     }
 }
 
-typedef struct { const FarTree *tree; int depth,center,reciprocal; } FarProjectedTree;
+typedef struct { const FarTree *tree; int depth,center,reciprocal,vertical,fog; } FarProjectedTree;
 static FarProjectedTree farProjectedTrees[256];
 static void far_tree_piece(const FarProjectedTree *p,int width,int horizon,int upper,int lower,int radius)
 {
     const FarTree *t=p->tree;
-    int y0=CLAMP(horizon-(((upper*256-g_cam.y)*p->reciprocal)>>16),0,vh);
-    int y1=CLAMP(horizon-(((lower*256-g_cam.y)*p->reciprocal)>>16),0,vh);
+    int y0=CLAMP(horizon-(((upper*256-g_cam.y)*p->vertical)>>16),0,vh);
+    int y1=CLAMP(horizon-(((lower*256-g_cam.y)*p->vertical)>>16),0,vh);
     int reach=((radius*p->reciprocal)>>16),left=MAX(0,p->center-reach),right=MIN(vw,p->center+reach+1);
     if(y1<=y0 || right<=left) return;
-    int fog=MIN(8,(isqrt((t->x-g_cam.x/256)*(t->x-g_cam.x/256)+(t->z-g_cam.z/256)*(t->z-g_cam.z/256)))/16);
     u8 material=B_LEAVES|(((t->x^t->z)&1)<<7);
-    u16 ink=far_ink(material,fog,0);int depth=p->depth>>8;
+    u16 ink=far_ink(material,p->fog,0);int depth=p->depth>>8;
     for(int x=(left/width)*width;x<right;x+=width) {
         if(x+width>vw) break;
-        const u8 *occlusion=farBandDepth[x/width];
-        for(int y=y0;y<y1;) {
-            if(depth>occlusion[y]+1) { ++y;continue; }
-            int end=y+1;while(end<y1 && depth<=occlusion[end]+1) ++end;
-            FarColumn column;raster_far_column(&column,x,width,end);far_paint_ink(&column,y,ink);
-            y=end;
+        int ray=x/width,bottom=y1;
+        for(int i=0;i<farBandDepthCount[ray];++i) {
+            const FarDepthRun *r=&farBandDepth[ray][i];
+            if(depth<=r->depth+1) break;
+            bottom=MIN(bottom,r->y);
+        }
+        if(bottom>y0) {
+            FarColumn column;raster_far_column(&column,x,width,bottom);far_paint_ink(&column,y0,ink);
         }
     }
 }
@@ -382,7 +387,7 @@ static void far_draw_trees(int width,int level,int horizon,int gain,int f)
             int right=(dx*cy-dz*sy)>>14,center=vw/2+(right*f)/depth;
             int reciprocal=(f<<16)/depth;
             if(center+((640*reciprocal)>>16)<0 || center-((640*reciprocal)>>16)>=vw) continue;
-            FarProjectedTree p={t,depth,center,(reciprocal*gain)>>14};
+            FarProjectedTree p={t,depth,center,reciprocal,(reciprocal*gain)>>14,MIN(8,isqrt(r2)/16)};
             /* Keep the nearest 256 visible crowns, far-to-near painter order. */
             if(n==256) { if(depth>=farProjectedTrees[0].depth) continue;--n;memmove(farProjectedTrees,farProjectedTrees+1,n*sizeof(p)); }
             int at=n++;while(at>0 && farProjectedTrees[at-1].depth<depth) {
@@ -517,8 +522,12 @@ static void draw_far_field(const RenderEnv *env)
 #endif
         x+=group;
     }
-    far_draw_trees(width,level,horizon,gain,f);
 #ifdef DOS_BENCH_PROFILE_FAR
     dos_far_us[1]+=bench_us()-farStart;
+    farStart=bench_us();
+#endif
+    far_draw_trees(width,level,horizon,gain,f);
+#ifdef DOS_BENCH_PROFILE_FAR
+    dos_far_us[2]+=bench_us()-farStart;
 #endif
 }

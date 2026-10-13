@@ -31,6 +31,27 @@ int main(int argc,char **argv) {
     check(arena && !dos_heap_init(arena,672*1024,arena+672*1024,3072*1024),"1990 arena budget");
     world_alloc(); world_generate(4242);
     check(dos_far_available() && dos_far_map && !dos_far_enabled,"available, default off");
+    if(dos_far_trees) {
+        check(dos_far_tree_count>0,"natural tree records present");
+        FarTree *t=NULL;
+        for(u32 i=0;i<dos_far_tree_count;++i) {
+            FarTree *candidate=&dos_far_trees[i];int s=g_columnMap[(candidate->z/16)*g_NC+candidate->x/16];
+            if(s>=0 && residentReady[s]) { t=candidate;break; }
+        }
+        check(t!=NULL,"natural tree in resident columns");int tx=t->x,tz=t->z,ty=t->base;
+        check(t->active && BLK_ID(wget(tx,ty,tz))==B_LOG,"original tree is active");
+        u8 below;u32 cell=(tz>>1)*512+(tx>>1);
+        check(dos_far_ground_cell(cell,&below)<=t->top && below!=B_LEAVES,"leaf-free ground");
+        world_set(tx,ty,tz,B_AIR);
+        check(!t->active,"cut natural trunk suppresses crown");
+        world_set(tx,ty,tz,B_LOG);
+        check(!t->active && (wget(tx,ty,tz)&DOS_LOG_PLACED),"replacement log is player placed");
+        pos=0;check(world_save_large_columns(put),"save tree provenance");world_commit_large_columns();
+        world_load_position(tx,tz);
+        pos=0;check(world_load_large_columns(get),"reload tree provenance");
+        check(!t->active && (wget(tx,ty,tz)&DOS_LOG_PLACED),"provenance survives save/reload");
+        world_load_position(g_spawnX,g_spawnZ);
+    }
     dos_far_toggle(); check(dos_far_enabled,"optional toggle");
     u8 b=99; check(!dos_far_sample(-1,0,0,&b) && !dos_far_sample(1024,0,0,&b),"world bounds");
     int x=g_spawnX&~1,z=g_spawnZ&~1,y=WH-1;
@@ -46,6 +67,7 @@ int main(int argc,char **argv) {
     world_set(x,y,z,B_TORCH);
     check(dos_far_sample(x,z,0,&b)<WH,"models do not become distant towers");
     check(heap_high_free()>64*1024,"room for remaining temporary work");
+    printf("HIGH_FREE=%u\n",heap_high_free());
     dos_hdd_shutdown(); dos_heap_shutdown(); free(arena);
     puts("PASS: distant map, bounds, edit/remove/model and committed save reload");
     return 0;

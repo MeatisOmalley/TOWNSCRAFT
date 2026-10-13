@@ -50,12 +50,22 @@ class FarTests(unittest.TestCase):
             exe=folder/'far.exe'
             self.run_cmd([*flags,ROOT/'tests/far_world_native.c',ROOT/'src/platform/dos/heap.c',
                 *(src/s for s in ('blocks.c','fmath.c','libc.c')),tables,obj,'-o',exe])
-            terrain=folder/'terrain.tmp'; shutil.copyfile(TERRAIN,terrain)
-            self.assertIn('PASS: distant map',self.run_cmd([exe,terrain]).stdout)
+            terrain=folder/'terrain.tmp'
+            for seed in (TERRAIN,TERRAIN.with_name('terrain1024-trees.bin')):
+                if not seed.exists():continue
+                shutil.copyfile(seed,terrain)
+                self.assertIn('PASS: distant map',self.run_cmd([exe,terrain]).stdout)
             with terrain.open('r+b') as f:
                 f.seek(178291200); value=f.read(1); f.seek(178291200); f.write(bytes([value[0]^1]))
             r=subprocess.run([str(exe),str(terrain)],capture_output=True,text=True,timeout=120)
             self.assertNotEqual(r.returncode,0); self.assertIn('Corrupt distant terrain',r.stderr)
+            trees=TERRAIN.with_name('terrain1024-trees.bin')
+            if trees.exists():
+                shutil.copyfile(trees,terrain)
+                with terrain.open('r+b') as f:
+                    f.seek(178815488);value=f.read(1);f.seek(178815488);f.write(bytes([value[0]^1]))
+                r=subprocess.run([str(exe),str(terrain)],capture_output=True,text=True,timeout=120)
+                self.assertNotEqual(r.returncode,0);self.assertIn('Corrupt natural trees',r.stderr)
 
     @unittest.skipUnless(ZIG.is_file(),'native Zig required')
     def test_renderer_gates_and_real_strip_layouts(self):

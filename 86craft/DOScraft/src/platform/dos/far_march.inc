@@ -7,7 +7,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
     for(int x=0;x<vw;x+=width) {
         int norm=farNorm[x+width/2],u=farSide[x+width/2],top=vh;
         FarColumn column; raster_far_column(&column,x,width,vh);
-        if(dos_far_trees) memset(farBandDepth[x/width],255,vh);
+        if(dos_far_trees) farBandDepthCount[x/width]=0;
 #if FAR_CAPTURE
         int cached=x/width;
         farBandCount[cached]=0; farBandStart[cached]=vh;
@@ -73,11 +73,16 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
                     {
                         far_paint_surface(&column,y,cap,material,fog);
                         if(dos_far_trees) {
+                            int ray=x/width,n=farBandDepthCount[ray];
+                            if(n<32) {
+                                FarDepthRun *r=&farBandDepth[ray][n];r->y=y;
 #ifdef DOS_FAR_VIEW_DEPTH
-                            memset(farBandDepth[x/width]+y,MIN(254,depth>>8),top-y);
+                                r->depth=MIN(254,depth>>8);
 #else
-                            memset(farBandDepth[x/width]+y,MIN(254,d),top-y);
+                                r->depth=MIN(254,d);
 #endif
+                                farBandDepthCount[ray]=n+1;
+                            }
                         }
 #if FAR_CAPTURE
                         {

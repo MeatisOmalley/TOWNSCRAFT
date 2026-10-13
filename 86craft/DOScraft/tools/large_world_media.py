@@ -23,7 +23,7 @@ def check_terrain(terrain):
         magic,sector,size,total,cells,trees=struct.unpack_from('<6I',terrain,92)
         expected=65536+cells*2;expected=(expected+3)&~3;expected+=4097*4+trees*8
         if (magic,sector)!=(TREE_MAGIC,FAR_BYTES//512) or cells>262144 or trees>1048576 or \
-           size!=(expected+511)&~511 or len(terrain)!=FAR_BYTES+size:
+           size!=((expected+511)&~511) or len(terrain)!=FAR_BYTES+size:
             raise ValueError('Invalid natural-tree appendix')
 
 def identity(terrain):

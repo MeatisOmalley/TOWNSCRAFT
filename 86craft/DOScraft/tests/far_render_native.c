@@ -60,6 +60,35 @@ static u8 logical_pixel(int x,int y) {
     return rplanar ? rbuf[y*PLANAR_ROW+(x&1)*PLANAR_C+(x>>1)] : rbuf[y*rpitch*rscale+x*rscale];
 }
 #ifndef FAR_RENDER_TEST_LEGACY
+static void tree_crowns(void) {
+    FarTree tree={512,528,24,19,1,0};u32 columns[4097];
+    int column=(tree.z/16)*64+tree.x/16;
+    for(int i=0;i<=4096;++i) columns[i]=i>column;
+    dos_far_trees=&tree;dos_far_tree_columns=columns;dos_far_tree_count=1;
+    g_cam.x=g_cam.z=512*256;g_cam.y=24*256;g_cam.yaw=g_cam.pitch=0;
+    g_viewDist=8;dos_far_enabled=3;
+    for(int layout=0;layout<3;++layout) {
+        rplanar=layout==2;rscale=g_renderScale=layout ? 2 : 1;
+        rw=vw=320/rscale;rh=vh=200/rscale;int width=8/rscale;
+        memset(farBandDepthCount,0,sizeof(farBandDepthCount));memset(pixels,0xee,sizeof(pixels));
+        far_draw_trees(width,3,vh/2,16384,172/rscale);
+        assert(changes()>0 && pixels[0]==0xee && pixels[sizeof(pixels)-1]==0xee);
+        for(int ray=0;ray<vw/width;++ray) {
+            farBandDepthCount[ray]=2;
+            farBandDepth[ray][0]=(FarDepthRun){100/rscale,8};
+            farBandDepth[ray][1]=(FarDepthRun){70/rscale,20};
+        }
+        memset(pixels,0xee,sizeof(pixels));far_draw_trees(width,3,vh/2,16384,172/rscale);
+        assert(logical_pixel(vw/2,80/rscale)!=0xee && logical_pixel(vw/2,100/rscale)==0xee);
+        for(int ray=0;ray<vw/width;++ray) { farBandDepthCount[ray]=1;farBandDepth[ray][0]=(FarDepthRun){0,1}; }
+        memset(pixels,0xee,sizeof(pixels));
+        far_draw_trees(width,3,vh/2,16384,172/rscale);assert(!changes());
+        memset(farBandDepthCount,0,sizeof(farBandDepthCount));tree.active=0;
+        far_draw_trees(width,3,vh/2,16384,172/rscale);assert(!changes());tree.active=1;
+        tree.z=516;far_draw_trees(width,3,vh/2,16384,172/rscale);assert(!changes());tree.z=528;
+    }
+    dos_far_trees=NULL;dos_far_tree_columns=NULL;dos_far_tree_count=0;
+}
 static void material_patterns(void) {
     /* Real layout writes: quiet surfaces are solid; accents occupy a small
      * minority of pixels, with continuous wood grain and paired rows. */
@@ -178,6 +207,7 @@ int main(void) {
     memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env); assert(frame_hash()==coarse);
     free(g_columnMap); free(g_columnCoords); free(g_height); free(g_blocks);
 #ifndef FAR_RENDER_TEST_LEGACY
+    tree_crowns();
 #ifdef DOS_FAR_DETAILS
     material_patterns();
 #endif

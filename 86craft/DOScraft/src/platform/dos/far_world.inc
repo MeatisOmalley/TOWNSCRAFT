@@ -21,6 +21,7 @@ static void far_world_header(const u32 *h)
         fatal("Invalid distant terrain appendix");
     farMapSector=h[19]; farMapSum=h[21];
     if(h[23]==DOS_TREE_MAGIC) {
+        if(h[27]>262144 || h[28]>1048576) fatal("Invalid natural tree count");
         u32 bytes=((65536+h[27]*2+3)&~3u)+4097*4+h[28]*8;
         if(h[24]!=DOS_TREE_SECTOR || h[27]>262144 || h[28]>1048576 ||
            h[25]!=((bytes+511)&~511u) || hdd_sector_count()<DOS_TREE_SECTOR+h[25]/512)
@@ -39,18 +40,19 @@ void dos_far_toggle(void) { dos_far_change(1); }
 static int far_world_cell(int cx,int cz,int lx,int lz,const u8 *blocks)
 {
     int h=0,b=0,ground=0,material=0;
+    int i=(((cz*CS+lz)>>1)*512+((cx*CS+lx)>>1))*2;
+    int index=dos_far_under_index(i/2);
     for(int dz=0;dz<2;++dz) for(int dx=0;dx<2;++dx) {
         const u8 *p=blocks+((lz+dz)*CS+lx+dx)*WH;
         for(int y=WH-1;y>=h;--y) if(blk_flags(p[y])&BF_CUBE) {
             h=y+1; b=BLK_ID(p[y]); break;
         }
-        if(dos_far_under) for(int y=WH-1;y>=ground;--y)
+        if(index>=0) for(int y=WH-1;y>=ground;--y)
             if(BLK_ID(p[y])!=B_LEAVES && (blk_flags(p[y])&BF_CUBE)) {
                 ground=y+1;material=BLK_ID(p[y]);break;
             }
     }
-    int i=(((cz*CS+lz)>>1)*512+((cx*CS+lx)>>1))*2;
-    int changed=0,index=dos_far_under_index(i/2);
+    int changed=0;
     if(index>=0 && (dos_far_under[index*2]!=ground || BLK_ID(dos_far_under[index*2+1])!=material)) {
         dos_far_under[index*2]=ground;dos_far_under[index*2+1]=material;changed|=2;
     }
