@@ -355,6 +355,16 @@ static void finish(void)
 #ifdef DOS_BENCH_DUMP_FRAMES
     fprintf(file,"FRAME_DUMPS=TIMINGS_DIAGNOSTIC_ONLY\n");
 #endif
+#ifdef DOS_VGA_SCAN_QUAD
+    {
+        extern volatile unsigned int dos_raster_frames,dos_raster_quad_frames,dos_raster_missed_syncs,
+            dos_raster_split_max_line,dos_raster_split_late;
+        extern unsigned int dos_quad_frames,dos_quad_transitions;
+        fprintf(file,"SCAN_QUAD=%u,%u,%u,%u,%u,%u,%u\n",dos_raster_frames,dos_raster_quad_frames,
+                dos_raster_missed_syncs,dos_raster_split_max_line,dos_raster_split_late,
+                dos_quad_frames,dos_quad_transitions);
+    }
+#endif
 #ifdef DOS_F2B_VERIFY
     fprintf(file,"F2B_VERIFICATION=TIMINGS_INVALID\nF2B_VERIFY_FRAMES=%u\nF2B_VERIFY_FAILURES=%u\nF2B_VERIFY_FALLBACKS=%u\n",dos_f2b_verify_frames,dos_f2b_verify_failures,dos_f2b_verify_fallbacks);
 #endif

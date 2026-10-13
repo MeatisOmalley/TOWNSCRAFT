@@ -352,6 +352,48 @@ unsigned char *dos_video_planar_target(void) { return packed; }
 void dos_video_planar_frame(const unsigned char *rows) { planar_rows=rows; }
 #endif
 
+#ifdef DOS_VGA_SCAN_QUAD
+#if !defined(DOS_LOW_PLANAR) || !defined(DOS_VGA_ASYNC_FLIP) || !defined(DOS_ET4000_CHUNKY)
+#error Scan quadrupling extends the planar, async-flip ET4000 presenter
+#endif
+/* Prototype: scale-2 play frames whose view rows are all producer-proven
+ * pairs (the crosshair band excepted, whose even rows hold it) store the
+ * 100 logical rows once per page. The CRTC shows each four scanlines; a
+ * line-compare split at scanline 400 restarts at offset zero, where a single
+ * shared copy of the 40-row HUD lives (irq.c times the scan-count changes).
+ * Rows 100-101 repeat row 99 so an early boundary write stays invisible.
+ * Quad layout: HUD 0..3199, pages 0x0d00/0x2d00/0x4d00 (8160 bytes each),
+ * all below normal page 2 (38400), which is the only page used to change
+ * layouts in either direction. */
+#define QUAD_PAGE(i) (0x0d00u + (i) * 0x2000u)
+#define QUAD_ROWS 102u
+typedef char quad_layout_fits[(QUAD_PAGE(2) + QUAD_ROWS * 80u <= 2u * DOS_VGA_PLANE_BYTES) ? 1 : -1];
+extern volatile int dos_raster_video;
+extern volatile unsigned int dos_raster_start, dos_raster_start_pending;
+static int quad_shown, quad_hud_valid;
+static unsigned int quad_page;
+static unsigned char quad_hud_shadow[4][DOS_VGA_HUD_CACHE_MAX_BYTES];
+unsigned int dos_quad_frames, dos_quad_transitions;
+/* irq.c writes the posted start address at the next retrace. */
+static void quad_post_flip(unsigned int offset)
+{
+    dos_raster_start=offset;
+    dos_raster_start_pending=1;
+}
+static void quad_wait_flip(void)
+{
+    uclock_t start=wait_clock();
+    while(dos_raster_start_pending && wait_pending(start)) {}
+}
+static int quad_rows_doubled(void)
+{
+    unsigned int y;
+    for (y=1; y<200; y+=2)
+        if ((low_row_proven[y]&3u)!=3u && (y<96 || y>105)) return 0; /* Crosshair pairs. */
+    return 1;
+}
+#endif
+
 static void bios_mode(int number)
 {
     __dpmi_regs r;
@@ -369,6 +411,10 @@ void dos_video_restore(void)
     inventory_shadow_valid=0;
 #endif
     if (old_mode >= 0) {
+#ifdef DOS_VGA_SCAN_QUAD
+        dos_raster_video=0;
+        quad_shown=0;
+#endif
         bios_mode(old_mode);
         old_mode = -1;
         hud_proof_page=-1;
@@ -443,6 +489,10 @@ void video_init(void)
     outportw(0x3c4, 0x0f02);
     for (i = 0; i < VGA_PAGES; ++i)
         dosmemput(packed, DOS_VGA_PLANE_BYTES, 0xa0000 + i * DOS_VGA_PLANE_BYTES);
+#ifdef DOS_VGA_SCAN_QUAD
+    quad_shown=0; quad_hud_valid=0; quad_page=0;
+    dos_raster_video=1;
+#endif
 }
 
 void video_set_palette(int index, int red, int green, int blue)
@@ -513,6 +563,26 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
     int skip_hud=use_proven && hud_proof_page==(int)next_page && planar_hud_valid[next_page];
 #endif
     hud_proof_page=-1;
+#ifdef DOS_VGA_SCAN_QUAD
+    /* Layout changes go through normal page 2, which overlaps nothing in the
+     * quad layout; wait for it to latch before the other layout's pages are
+     * reused (only on transitions). */
+    int quad=use_proven && planar && !inventory && quad_rows_doubled(),quad_leave=0;
+    if(quad_shown && !quad) {
+        next_page=2; offset=2*DOS_VGA_PLANE_BYTES; skip_hud=0; quad_leave=1;
+        planar_hud_valid[0]=planar_hud_valid[1]=0;
+        chunky_hud_valid[0]=chunky_hud_valid[1]=0;
+        ++dos_quad_transitions;
+    } else if(quad && !quad_shown && shown_page!=2) {
+        quad=0;
+        if(next_page!=2) { quad_wait_flip(); latch_pending=0; }
+        next_page=2; offset=2*DOS_VGA_PLANE_BYTES; skip_hud=0;
+    } else if(quad && !quad_shown) {
+        if(latch_pending) { quad_wait_flip(); latch_pending=0; }
+        quad_hud_valid=0;
+        ++dos_quad_transitions;
+    }
+#endif
 #if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
     if(!inventory) inventory_shadow_valid=0;
 #if defined(DOS_VGA_PACK_ALL)
@@ -678,6 +748,50 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         count=dos_vga_upload_plan(packed,DOS_VGA_PLANE_BYTES,200,upload_runs,DOS_VGA_UPLOAD_MAX_RUNS);
 #endif
         if(count<0) { dos_video_restore(); fputs("Invalid VGA upload plan\n",stderr); exit(1); }
+#ifdef DOS_VGA_SCAN_QUAD
+        if(quad) {
+            unsigned int qnext=(quad_page+1)%3u,qoff=QUAD_PAGE(qnext);
+            for(r=0;r<count;++r) {
+                const struct DosVgaRun *run=&upload_runs[r];
+                unsigned int y=run->row+(run->row&1u),end=run->row+run->rows;
+                outportw(0x3c4,(run->mask<<8)|2);
+                for(;y<end;y+=2) {
+                    const unsigned char *src=packed+run->plane*DOS_VGA_PLANE_BYTES+y*80u;
+                    dosmemput(src,80,0xa0000+qoff+(y>>1)*80u);
+                    if(y==198) {
+                        dosmemput(src,80,0xa0000+qoff+100u*80u);
+                        dosmemput(src,80,0xa0000+qoff+101u*80u);
+                    }
+                }
+            }
+            if(!skip_hud) for(plane=0;plane<4;++plane) {
+                const unsigned char *hud=packed+plane*DOS_VGA_PLANE_BYTES+200*80;
+                if(dos_vga_hud_changed(hud,quad_hud_shadow[plane],DOS_VGA_HUD_CACHE_MAX_BYTES)
+                   || !quad_hud_valid) {
+                    if(!quad_hud_valid) memcpy(quad_hud_shadow[plane],hud,DOS_VGA_HUD_CACHE_MAX_BYTES);
+                    outportw(0x3c4,((1u<<plane)<<8)|2);
+                    dosmemput(hud,DOS_VGA_HUD_CACHE_MAX_BYTES,0xa0000);
+                }
+            }
+            quad_hud_valid=1;
+#ifdef DOSCRAFT_BENCH
+            dos_bench_upload+=bench_us()-stamp;
+#endif
+            outportw(0x3c4, 0x0f02);
+            quad_post_flip(qoff);
+            prev_flip_at=last_flip_at;
+            last_flip_at=wait_clock();
+            if(fine_guard) {
+                prev_flip_tick=flip_tick; prev_flip_count2=flip_count2;
+                pit2_snapshot(&flip_tick,&flip_count2);
+                if(flip_fine_valid<2) ++flip_fine_valid;
+            }
+            ++flip_count;
+            latch_pending=1;
+            quad_page=qnext; quad_shown=1; ++dos_quad_frames;
+            return;
+        }
+#endif
         for(r=0;r<count;++r) {
             const struct DosVgaRun *run=&upload_runs[r];
             unsigned int row_offset=run->row*80u;
@@ -755,7 +869,11 @@ page_flip:
      * low CRTC start register stays zero. One high-register write programs
      * the next page; the display latches it at its next frame boundary. */
 #ifdef DOS_VGA_ASYNC_FLIP
+#ifdef DOS_VGA_SCAN_QUAD
+    quad_post_flip(offset);
+#else
     outportw(0x3d4, (offset & 0xff00) | 0x0c);
+#endif
     prev_flip_at=last_flip_at;
     last_flip_at=wait_clock();
     if(fine_guard) {
@@ -781,6 +899,12 @@ page_flip:
 #endif
 #endif
     shown_page = next_page;
+#ifdef DOS_VGA_SCAN_QUAD
+    if(quad_leave) {
+        quad_wait_flip();     /* Page 2 shown from the next frame on. */
+        latch_pending=0; quad_shown=0;
+    }
+#endif
 #if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
     if(inventory) {
         inventory_shadow=source;
@@ -810,6 +934,9 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
     unsigned int display_start;
 #ifdef DOS_VGA_ASYNC_FLIP
     if(latch_pending) {
+#ifdef DOS_VGA_SCAN_QUAD
+        quad_wait_flip();
+#endif
         video_wait_vsync();
         latch_pending=0;
     }
@@ -818,6 +945,23 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
     display_start = inportb(0x3d5) << 8;
     outportb(0x3d4, 0x0d);
     display_start |= inportb(0x3d5);
+#ifdef DOS_VGA_SCAN_QUAD
+    if (quad_shown) {
+        unsigned int y;
+        if (display_start != QUAD_PAGE(quad_page)) return -1;
+        for (plane = 0; plane < 4; ++plane) {
+            if (dos_vga_pack_plane(source, pitch, packed, sizeof(packed), plane)) return -1;
+            outportw(0x3ce, (plane << 8) | 4);
+            dosmemget(0xa0000 + QUAD_PAGE(quad_page), QUAD_ROWS*80u, readback);
+            for (y = 0; y < QUAD_ROWS; ++y)
+                if (memcmp(readback + y*80u, packed + (y < 100 ? 2u*y : 198u)*80u, 80)) return -1;
+            dosmemget(0xa0000, DOS_VGA_HUD_CACHE_MAX_BYTES, readback);
+            if (memcmp(readback, packed + 200u*80u, DOS_VGA_HUD_CACHE_MAX_BYTES)) return -1;
+        }
+        outportw(0x3ce, 0x0004);
+        return 0;
+    }
+#endif
     if (display_start != offset) return -1;
     for (plane = 0; plane < 4; ++plane) {
         if (dos_vga_pack_plane(source, pitch, packed, sizeof(packed), plane)) return -1;

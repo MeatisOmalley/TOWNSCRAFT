@@ -104,7 +104,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             flat_inline='-DDOS_FLAT_INLINE' in extra_adapter_flags,
             row_mul='-DDOS_ROW_MUL' in extra_adapter_flags,
             mulshift='-DDOS_MULSHIFT' in extra_adapter_flags,
-            planar_expand_words='-DDOS_PLANAR_EXPAND_WORDS' in extra_adapter_flags)
+            planar_expand_words='-DDOS_PLANAR_EXPAND_WORDS' in extra_adapter_flags,
+            plant_billboards='-DDOS_PLANT_BILLBOARDS' in extra_adapter_flags,
+            fill_rows='-DDOS_FILL_ROWS' in extra_adapter_flags)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)

@@ -14,7 +14,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
           stream_validate_once=False,light_offsets=False,mesh_edges=False,collect_swap=False,memmove_dwords=False,
           world_scans=False,baked_light_fast=False,sort_histograms=False,
           texel_edx=False,row_pointer=False,flat_inline=False,row_mul=False,mulshift=False,
-          planar_expand_words=False):
+          planar_expand_words=False,plant_billboards=False,fill_rows=False):
     recipe=[]
     import dos_chickens
     data,steps=dos_chickens.adapt(name,data)
@@ -323,5 +323,14 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         if not low_planar: raise ValueError('Planar row expansion requires planar Low')
         import dos_planar_expand_words
         data,steps=dos_planar_expand_words.adapt(name,data)
+        recipe.extend(steps)
+    if fill_rows:
+        import dos_fill_rows
+        data,steps=dos_fill_rows.adapt(name,data)
+        recipe.extend(steps)
+    if plant_billboards:
+        # Very Low visual tier; selectable, not a production default.
+        import dos_plant_billboards
+        data,steps=dos_plant_billboards.adapt(name,data)
         recipe.extend(steps)
     return data,recipe
