@@ -12,7 +12,9 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,far_field=False,
           trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False,low_planar=False,a1_census=False,profile_cw=False,large_world=False,collect_margin=False,stream_light=False,
           stream_validate_once=False,light_offsets=False,mesh_edges=False,collect_swap=False,memmove_dwords=False,
-          world_scans=False,baked_light_fast=False,sort_histograms=False):
+          world_scans=False,baked_light_fast=False,sort_histograms=False,
+          texel_edx=False,row_pointer=False,flat_inline=False,row_mul=False,mulshift=False,
+          planar_expand_words=False):
     recipe=[]
     import dos_chickens
     data,steps=dos_chickens.adapt(name,data)
@@ -293,5 +295,33 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     if sort_histograms:
         import dos_sort_histograms
         data,steps=dos_sort_histograms.adapt(name,data)
+        recipe.extend(steps)
+    # Exact raster setup/texel probes; each is separately selectable.
+    if texel_edx:
+        import dos_texel_edx
+        data,steps=dos_texel_edx.adapt(name,data,very_low_texels=very_low_texels)
+        recipe.extend(steps)
+    if row_mul:
+        import dos_row_mul
+        data,steps=dos_row_mul.adapt(name,data)
+        recipe.extend(steps)
+    if row_pointer:
+        if front_to_back:
+            raise ValueError('The front-to-back trap wrappers do not promise an advanced T_ROW')
+        import dos_row_pointer
+        data,steps=dos_row_pointer.adapt(name,data,low_planar=low_planar)
+        recipe.extend(steps)
+    if flat_inline:
+        import dos_flat_inline
+        data,steps=dos_flat_inline.adapt(name,data,low_planar=low_planar)
+        recipe.extend(steps)
+    if mulshift:
+        import dos_mulshift
+        data,steps=dos_mulshift.adapt(name,data)
+        recipe.extend(steps)
+    if planar_expand_words:
+        if not low_planar: raise ValueError('Planar row expansion requires planar Low')
+        import dos_planar_expand_words
+        data,steps=dos_planar_expand_words.adapt(name,data)
         recipe.extend(steps)
     return data,recipe

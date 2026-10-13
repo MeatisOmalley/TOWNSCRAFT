@@ -17,7 +17,7 @@ OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c',
     'craft_grid.c')
-DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR','-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS')
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR','-DDOS_TEXEL_EDX','-DDOS_ROW_MUL','-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE','-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS')
 PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR')
 
 
@@ -98,7 +98,13 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             memmove_dwords='-DDOS_MEMMOVE_DWORDS' in extra_adapter_flags,
             world_scans='-DDOS_WORLD_SCANS' in extra_adapter_flags,
             baked_light_fast='-DDOS_BAKED_LIGHT_FAST' in extra_adapter_flags,
-            sort_histograms='-DDOS_SORT_HISTOGRAMS' in extra_adapter_flags)
+            sort_histograms='-DDOS_SORT_HISTOGRAMS' in extra_adapter_flags,
+            texel_edx='-DDOS_TEXEL_EDX' in extra_adapter_flags,
+            row_pointer='-DDOS_ROW_POINTER' in extra_adapter_flags,
+            flat_inline='-DDOS_FLAT_INLINE' in extra_adapter_flags,
+            row_mul='-DDOS_ROW_MUL' in extra_adapter_flags,
+            mulshift='-DDOS_MULSHIFT' in extra_adapter_flags,
+            planar_expand_words='-DDOS_PLANAR_EXPAND_WORDS' in extra_adapter_flags)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)

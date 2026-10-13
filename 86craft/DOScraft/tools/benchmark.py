@@ -120,7 +120,7 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','production','a3-ceiling','a1-census','async-flip','sync-flip','proven-rows','proven-vertical','hud-proof','raster-finish-skip','very-low','very-low-texels','low-planar','pre-planar','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip','stream-validate-once','light-offsets','mesh-edges','collect-swap','memmove-dwords','world-scans','baked-light-fast','sort-histograms','world-hot-paths'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','production','a3-ceiling','a1-census','async-flip','sync-flip','proven-rows','proven-vertical','hud-proof','raster-finish-skip','very-low','very-low-texels','low-planar','pre-planar','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip','texel-edx','row-pointer','flat-inline','row-mul','mulshift','planar-expand-words','pre-render-exact','stream-validate-once','light-offsets','mesh-edges','collect-swap','memmove-dwords','world-scans','baked-light-fast','sort-histograms','pre-world-exact'),default='reference')
     parser.add_argument('--timeout',type=int,help='Host timeout seconds; default 900 for short runs, increased for long runs')
     parser.add_argument('--quality',choices=('low','medium','high','very-low'),default='low')
     parser.add_argument('--quality-sweep',action='store_true',help='Run Low, Medium, High in one guest process and world')
@@ -166,6 +166,11 @@ def main():
                                              '-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR'))
     pre_proven_flags=tuple(flag for flag in pre_very_low_flags
                            if flag not in ('-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_HUD_PROOF'))
+    render_exact_flags=('-DDOS_TEXEL_EDX','-DDOS_ROW_MUL','-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE')
+    pre_render_exact_flags=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag not in render_exact_flags)
+    world_exact_flags=('-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP',
+                       '-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS')
+    pre_world_exact_flags=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag not in world_exact_flags)
     variants={'reference':(), 'production':DEFAULT_ADAPTER_FLAGS,
         'a3-ceiling':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_BENCH_A3_CEILING'),
         'a1-census':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_BENCH_A1_CENSUS'),
@@ -206,17 +211,22 @@ def main():
         'front-to-back':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_FRONT_TO_BACK'),
         'front-to-back-fast':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_FRONT_TO_BACK','-DDOS_F2B_FAST_COVERAGE'),
         'edge-recip':('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-DDOS_EDGE_RECIP'),
-        'stream-validate-once':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_STREAM_VALIDATE_ONCE'),
-        'light-offsets':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_LIGHT_OFFSETS'),
-        'mesh-edges':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_MESH_EDGES'),
-        'collect-swap':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_COLLECT_SWAP'),
-        'memmove-dwords':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_MEMMOVE_DWORDS'),
-        'world-scans':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_WORLD_SCANS'),
-        'baked-light-fast':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_BAKED_LIGHT_FAST'),
-        'sort-histograms':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_SORT_HISTOGRAMS'),
-        'world-hot-paths':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS',
-                           '-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS',
-                           '-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS')}
+        'stream-validate-once':(*pre_world_exact_flags,'-DDOS_STREAM_VALIDATE_ONCE'),
+        'light-offsets':(*pre_world_exact_flags,'-DDOS_LIGHT_OFFSETS'),
+        'mesh-edges':(*pre_world_exact_flags,'-DDOS_MESH_EDGES'),
+        'collect-swap':(*pre_world_exact_flags,'-DDOS_COLLECT_SWAP'),
+        'memmove-dwords':(*pre_world_exact_flags,'-DDOS_MEMMOVE_DWORDS'),
+        'world-scans':(*pre_world_exact_flags,'-DDOS_WORLD_SCANS'),
+        'baked-light-fast':(*pre_world_exact_flags,'-DDOS_BAKED_LIGHT_FAST'),
+        'sort-histograms':(*pre_world_exact_flags,'-DDOS_SORT_HISTOGRAMS'),
+        'pre-world-exact':pre_world_exact_flags,
+        'texel-edx':(*pre_render_exact_flags,'-DDOS_TEXEL_EDX'),
+        'row-pointer':(*pre_render_exact_flags,'-DDOS_ROW_POINTER'),
+        'flat-inline':(*pre_render_exact_flags,'-DDOS_FLAT_INLINE'),
+        'row-mul':(*pre_render_exact_flags,'-DDOS_ROW_MUL'),
+        'mulshift':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_MULSHIFT'),
+        'planar-expand-words':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_PLANAR_EXPAND_WORDS'),
+        'pre-render-exact':pre_render_exact_flags}
     flags=(*variants[args.candidate],'-DDOS_BENCH_QUALITY='+str(('low','medium','high','very-low').index(args.quality)))
     if args.large_terrain: flags=(*flags,'-DDOS_LARGE_WORLD')
     if args.stream_light:
