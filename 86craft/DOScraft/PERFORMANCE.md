@@ -1745,3 +1745,52 @@ revision (`af84c233`) with the same ROMs, profile and bit-identical baked seed
 `tests/test_world_exact.py` and `tests/test_render_exact.py` (recipes, fail-closed
 text, host i386 trap/raster/sort/memmove parity).
 [Evidence](tests/benchmarks/2026-10-13/exact-hot-paths-comparison.json).
+
+## Visual-tier and presenter prototypes (2026-10-13)
+
+Selectable flags only; none is a production default. June 1990 DX/40,
+three-repeat replay, same release flags as above.
+
+**`DOS_PLANT_BILLBOARDS` (Very Low only).** Flowers and tall grass become one
+upright camera-facing quad instead of two crossed double-sided quads. Very Low
+mean frame: still 21.19→20.19, walk 30.49→28.98, looking down 39.41→38.96,
+clouds 20.21→19.94, house 28.39→28.26 ms. Images change only where plants are
+visible; at 80×100 output the difference is hard to see
+([before/after crops](tests/benchmarks/2026-10-13/prototypes/very-low-plant-billboards.png)).
+Plants no longer show crossed depth when circled. Awaiting a visual decision.
+
+**Sky at half rate: not useful.** Cloud drift is one offset per frame; the
+framebuffer is redrawn every frame, so clouds must be rasterized every frame
+whatever their animation rate. Ablation of the sky stage (Low): background
+fill 0.79 ms in every scene, clouds 0.33 ms (1.30 ms looking up), sun/moon
+0.07-0.19 ms.
+
+**`DOS_FILL_ROWS` (invisible).** The background fill made two out-of-line
+80-byte memset calls per planar row (200 per frame). Inline dword stores write
+the same bytes: −0.31 ms in all six Low scenes (sky stage 1.19→0.87 ms), every
+scene hash identical. Candidate for the defaults.
+
+**`DOS_VGA_SCAN_QUAD` (A2, rejected for now).** Scale-2 play frames store the
+100 logical view rows once; CRTC max-scan 3 shows each four scanlines, a
+line-compare split at scanline 400 restarts at a shared HUD at VGA offset 0,
+and an interrupt near scanline 397 restores two scanlines per HUD row. PIT
+channel 0 runs one-shots that keep 100 Hz ticks and add retrace-synced raster
+events; page flips are written by the ISR together with the matching layout.
+Frames with sharp text overlays (messages, item names, mining progress, debug)
+keep the normal layout. Result (A/B both built without the startup help
+message, so play frames qualify):
+
+- VGA upload 5.6→4.1-4.3 ms (the bound after the 16-bit ET4000 fix is about
+  2.8 ms; per-run gathering already applied).
+- Mean frame −0.5 to +0.8 ms and higher maxima: interrupt and retrace
+  busy-wait overhead consumes most of the saving.
+- Retrace phase prediction from the one-shot PIT accounting drifts: 6-13% of
+  syncs missed. First run: about 12% of captured play frames showed the view
+  at half height with the next page below
+  ([screens](tests/benchmarks/2026-10-13/prototypes/scan-quad-run1-screens.png)).
+  After hardening, about 20% showed the HUD at quad scale with the hotbar cut
+  off ([screens](tests/benchmarks/2026-10-13/prototypes/scan-quad-run2-screens.png)).
+
+Not worth pursuing at the current upload cost. A retry would need a
+drift-free time base (PIT channel 2, with channel-2 readers made atomic)
+before any visual acceptance.

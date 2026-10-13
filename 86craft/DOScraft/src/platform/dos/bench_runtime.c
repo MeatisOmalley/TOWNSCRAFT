@@ -358,11 +358,11 @@ static void finish(void)
 #ifdef DOS_VGA_SCAN_QUAD
     {
         extern volatile unsigned int dos_raster_frames,dos_raster_quad_frames,dos_raster_missed_syncs,
-            dos_raster_split_max_line,dos_raster_split_late;
+            dos_raster_split_max_line,dos_raster_split_late,dos_raster_unlocked;
         extern unsigned int dos_quad_frames,dos_quad_transitions;
-        fprintf(file,"SCAN_QUAD=%u,%u,%u,%u,%u,%u,%u\n",dos_raster_frames,dos_raster_quad_frames,
+        fprintf(file,"SCAN_QUAD=%u,%u,%u,%u,%u,%u,%u,%u\n",dos_raster_frames,dos_raster_quad_frames,
                 dos_raster_missed_syncs,dos_raster_split_max_line,dos_raster_split_late,
-                dos_quad_frames,dos_quad_transitions);
+                dos_quad_frames,dos_quad_transitions,dos_raster_unlocked);
     }
 #endif
 #ifdef DOS_F2B_VERIFY

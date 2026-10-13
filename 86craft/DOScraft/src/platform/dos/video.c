@@ -373,6 +373,7 @@ extern volatile unsigned int dos_raster_start, dos_raster_start_pending;
 static int quad_shown, quad_hud_valid;
 static unsigned int quad_page;
 static unsigned char quad_hud_shadow[4][DOS_VGA_HUD_CACHE_MAX_BYTES];
+static unsigned char quad_gather[QUAD_ROWS*80u];
 unsigned int dos_quad_frames, dos_quad_transitions;
 /* irq.c writes the posted start address at the next retrace. */
 static void quad_post_flip(unsigned int offset)
@@ -753,16 +754,20 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
             unsigned int qnext=(quad_page+1)%3u,qoff=QUAD_PAGE(qnext);
             for(r=0;r<count;++r) {
                 const struct DosVgaRun *run=&upload_runs[r];
-                unsigned int y=run->row+(run->row&1u),end=run->row+run->rows;
-                outportw(0x3c4,(run->mask<<8)|2);
+                unsigned int y=run->row+(run->row&1u),end=run->row+run->rows,first=y>>1,n=0;
+                /* Gather the run's even rows into consecutive quad rows (plus
+                 * the two repeats of row 99), then one transfer per run. */
                 for(;y<end;y+=2) {
                     const unsigned char *src=packed+run->plane*DOS_VGA_PLANE_BYTES+y*80u;
-                    dosmemput(src,80,0xa0000+qoff+(y>>1)*80u);
+                    memcpy(quad_gather+n*80u,src,80); ++n;
                     if(y==198) {
-                        dosmemput(src,80,0xa0000+qoff+100u*80u);
-                        dosmemput(src,80,0xa0000+qoff+101u*80u);
+                        memcpy(quad_gather+n*80u,src,80); ++n;
+                        memcpy(quad_gather+n*80u,src,80); ++n;
                     }
                 }
+                if(!n) continue;
+                outportw(0x3c4,(run->mask<<8)|2);
+                dosmemput(quad_gather,n*80u,0xa0000+qoff+first*80u);
             }
             if(!skip_hud) for(plane=0;plane<4;++plane) {
                 const unsigned char *hud=packed+plane*DOS_VGA_PLANE_BYTES+200*80;
