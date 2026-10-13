@@ -216,4 +216,30 @@ previous VM and ISO remain recovery copies. No 1992 test was run.
 The subsequent live-heightmap cell-boundary DDA experiment was rejected by the
 user for its appearance and removed from active code. It also increased frame
 time. [Archived source, timings and decision](research/failed-experiments/2026-10-13-far-heightmap-dda/README.md).
-The accepted heightmap and panorama implementation above remains current.
+The accepted march and panorama algorithms above remain current. Their shared
+surface map now excludes leaves; see the update below.
+
+## One shared leaf-free map
+
+This implementation is checkpointed for comparison. Publication is on hold;
+the shared player ISO has been restored to the preceding release.
+
+The heightmap and panorama use the same existing 512 KiB surface map. Its
+highest-cube selection skips leaves, retaining logs and the terrain beneath
+canopies. Neither distant path draws leaf walls or synthesized crowns.
+The near polygon world keeps its ordinary leaf blocks and textures.
+
+The canopy trial was checkpointed and its runtime data/rendering removed.
+No second ground map, sparse ground exceptions, natural-tree records or log
+provenance allocation remains. This recovers 208,896 bytes of heap data and
+16,896 bytes of BSS compared with that trial. New media rebakes the existing
+surface map without regenerating terrain or changing seed/save identity.
+Older leaf-inclusive media can repair affected summaries at load using the
+existing column scratch buffer, without another permanent allocation.
+
+On the June 1990 DX40/8 MiB profile, Low distant terrain costs 3.90 ms standing
+and 6.43 ms during a 256-frame continuous diagonal walk facing the horizon.
+Walking components: 0.10 ms panorama rebuilding, 1.51 ms panorama drawing,
+4.82 ms heightmap drawing. The historical canopy trial totals 7.63 ms on that
+walk. These are guest PIT replay costs, with main graphics at Low, rather than
+full simulation FPS. [Implementation and evidence](research/shared-log-map.md).

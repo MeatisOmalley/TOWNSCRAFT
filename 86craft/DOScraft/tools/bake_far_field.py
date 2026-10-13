@@ -1,4 +1,4 @@
-"""Append the B8 half-resolution surface map to an existing lit seed.
+"""Bake one leaf-free surface map shared by the B8 band and panorama.
 
 No generation, terrain edits, base checksums or save identity change. Output
 is exclusive; the source remains intact. Surface entries are (height, block).
@@ -11,7 +11,7 @@ from large_world_media import check_terrain,LIT_BYTES,FAR_MAP_BYTES,FAR_MAGIC
 
 CUBES=frozenset([*range(1,16),21,22,*range(25,30)])
 
-def surface(blocks,leaves=True):
+def surface(blocks,leaves=False):
     result=bytearray(128)
     for z in range(0,16,2):
         for x in range(0,16,2):
@@ -30,8 +30,10 @@ def surface(blocks,leaves=True):
 
 def append_map(terrain):
     check_terrain(terrain)
-    if len(terrain)!=LIT_BYTES: raise ValueError('Expected a lighting-only source')
-    result=bytearray(terrain)
+    if len(terrain)<LIT_BYTES: raise ValueError('Expected a lighting appendix')
+    result=bytearray(terrain[:LIT_BYTES])
+    # Drop the checkpointed canopy appendix when rebaking an existing map.
+    result[92:116]=bytes(24)
     summary=bytearray(FAR_MAP_BYTES)
     for cz in range(64):
         for cx in range(64):

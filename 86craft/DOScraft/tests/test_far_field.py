@@ -7,7 +7,8 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 import build_imported,dos_sources
-from bake_far_field import surface
+from bake_far_field import surface,append_map
+from large_world_media import FAR_BYTES,LIT_BYTES,identity
 ZIG=ROOT.parents[1]/'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'
 TERRAIN=ROOT/'build/checks/large-world-proto/terrain1024-far.bin'
 
@@ -17,7 +18,10 @@ class FarTests(unittest.TestCase):
         raw[0]=11; raw[47]=23; raw[48+19]=2
         self.assertEqual(surface(raw)[:2],bytes((20,2)))
         raw[48+46]=7
-        self.assertEqual(surface(raw)[:2],bytes((47,7)))
+        self.assertEqual(surface(raw)[:2],bytes((20,2)))
+        raw[48+24]=6
+        self.assertEqual(surface(raw)[:2],bytes((25,6)))
+        self.assertEqual(surface(raw,leaves=True)[:2],bytes((47,7)))
 
     def test_overlay_replays_with_release_and_planar(self):
         for name in ('world.c','render.c','raster.c','column_cache.inc','column_hdd.inc'):
@@ -31,6 +35,17 @@ class FarTests(unittest.TestCase):
                 self.assertEqual(replay.count(before),step['count'])
                 replay=replay.replace(before,after)
             self.assertEqual(replay,data)
+
+    @unittest.skipUnless(TERRAIN.is_file(),'existing prebaked seed required')
+    def test_one_shared_leaf_free_map_preserves_seed_and_offsets(self):
+        original=TERRAIN.read_bytes();result=append_map(original)
+        self.assertEqual(len(result),FAR_BYTES)
+        self.assertEqual(identity(result),identity(original))
+        self.assertEqual(result[:72],original[:72])
+        self.assertEqual(result[116:LIT_BYTES],original[116:LIT_BYTES])
+        self.assertFalse(any(result[92:116]))
+        self.assertNotIn(7,result[LIT_BYTES+1:FAR_BYTES:2])
+        self.assertIn(6,result[LIT_BYTES+1:FAR_BYTES:2])
 
     @unittest.skipUnless(ZIG.is_file() and TERRAIN.is_file(),'native Zig and distant seed required')
     def test_actual_world_edit_reload_and_checksum(self):
@@ -51,21 +66,14 @@ class FarTests(unittest.TestCase):
             self.run_cmd([*flags,ROOT/'tests/far_world_native.c',ROOT/'src/platform/dos/heap.c',
                 *(src/s for s in ('blocks.c','fmath.c','libc.c')),tables,obj,'-o',exe])
             terrain=folder/'terrain.tmp'
-            for seed in (TERRAIN,TERRAIN.with_name('terrain1024-trees.bin')):
-                if not seed.exists():continue
-                shutil.copyfile(seed,terrain)
+            for source in (TERRAIN,TERRAIN.with_name('terrain1024-logs.bin')):
+                if not source.exists():continue
+                shutil.copyfile(source,terrain)
                 self.assertIn('PASS: distant map',self.run_cmd([exe,terrain]).stdout)
             with terrain.open('r+b') as f:
                 f.seek(178291200); value=f.read(1); f.seek(178291200); f.write(bytes([value[0]^1]))
             r=subprocess.run([str(exe),str(terrain)],capture_output=True,text=True,timeout=120)
             self.assertNotEqual(r.returncode,0); self.assertIn('Corrupt distant terrain',r.stderr)
-            trees=TERRAIN.with_name('terrain1024-trees.bin')
-            if trees.exists():
-                shutil.copyfile(trees,terrain)
-                with terrain.open('r+b') as f:
-                    f.seek(178815488);value=f.read(1);f.seek(178815488);f.write(bytes([value[0]^1]))
-                r=subprocess.run([str(exe),str(terrain)],capture_output=True,text=True,timeout=120)
-                self.assertNotEqual(r.returncode,0);self.assertIn('Corrupt natural trees',r.stderr)
 
     @unittest.skipUnless(ZIG.is_file(),'native Zig required')
     def test_renderer_gates_and_real_strip_layouts(self):

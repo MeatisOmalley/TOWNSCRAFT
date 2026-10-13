@@ -35,12 +35,6 @@ static u8 farBandStart[SCR_W/2];
 static Camera farBandCamera;
 static int farBandValid,farBandView,farBandScale,farBandLevel;
 static u32 farBandVersion,farBandBoundary,farBandResident;
-static u32 farBandGroundVersion;
-/* The ground skyline rises monotonically with depth. Store its transitions,
- * rather than clearing/writing a depth byte for every screen row each frame. */
-typedef struct { u8 y,depth; } FarDepthRun;
-static FarDepthRun farBandDepth[SCR_W/2][32];
-static u8 farBandDepthCount[SCR_W/2];
 /* Art changes invalidate colors, not the cached terrain samples. */
 static void far_texture_changed(void)
 {
@@ -292,22 +286,6 @@ static inline int far_lookup(int x,int z,u8 *b)
     const u8 *p=dos_far_map+((z&~1)<<9)+(x&~1);
     *b=BLK_ID(p[1]); return p[0];
 }
-static inline int far_band_lookup(int x,int z,u8 *b)
-{
-    if((unsigned)x>=1024 || (unsigned)z>=1024) return 0;
-    return dos_far_ground_cell((z>>1)*512+(x>>1),b);
-}
-static inline u8 far_band_material(int x,int z,u8 b)
-{
-#ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=2 && b!=B_WATER && b!=B_GLASS && (unsigned)x<1024 && (unsigned)z<1024) {
-        int cell=(z>>1)*512+(x>>1);
-        int index=BLK_ID(dos_far_map[cell*2+1])==B_LEAVES ? dos_far_under_index(cell) : -1;
-        b|=(index>=0 ? dos_far_under[index*2+1] : dos_far_map[cell*2+1])&224;
-    }
-#endif
-    return b;
-}
 static inline int far_boundary_sample(int x,int z,u8 *b)
 {
     if((unsigned)x>=1024 || (unsigned)z>=1024) return 0;
@@ -316,11 +294,11 @@ static inline int far_boundary_sample(int x,int z,u8 *b)
         if(s>=0 && farReady[s]) {
             int cell=((z&15)<<4)+(x&15),h=g_height[s*256+cell];
             const u8 *p=g_blocks+s*12288+cell*48;
-            while(h && (!(blk_flags(p[h-1])&BF_CUBE) || (dos_far_under && BLK_ID(p[h-1])==B_LEAVES))) --h;
+            while(h && (!(blk_flags(p[h-1])&BF_CUBE) || BLK_ID(p[h-1])==B_LEAVES)) --h;
             *b=h ? BLK_ID(p[h-1]) : B_AIR; return h;
         }
     }
-    return far_band_lookup(x,z,b);
+    return far_lookup(x,z,b);
 }
 #define FAR_MARCH_NAME far_march_plain
 #define FAR_CAPTURE 0
@@ -344,63 +322,6 @@ static void far_replay_band(int width,int level,u8 *skyline)
             FAR_COUNT(dos_far_strips);
         }
         skyline[x]=column.top;
-    }
-}
-
-typedef struct { const FarTree *tree; int depth,center,reciprocal,vertical,fog; } FarProjectedTree;
-static FarProjectedTree farProjectedTrees[256];
-static void far_tree_piece(const FarProjectedTree *p,int width,int horizon,int upper,int lower,int radius)
-{
-    const FarTree *t=p->tree;
-    int y0=CLAMP(horizon-(((upper*256-g_cam.y)*p->vertical)>>16),0,vh);
-    int y1=CLAMP(horizon-(((lower*256-g_cam.y)*p->vertical)>>16),0,vh);
-    int reach=((radius*p->reciprocal)>>16),left=MAX(0,p->center-reach),right=MIN(vw,p->center+reach+1);
-    if(y1<=y0 || right<=left) return;
-    u8 material=B_LEAVES|(((t->x^t->z)&1)<<7);
-    u16 ink=far_ink(material,p->fog,0);int depth=p->depth>>8;
-    for(int x=(left/width)*width;x<right;x+=width) {
-        if(x+width>vw) break;
-        int ray=x/width,bottom=y1;
-        for(int i=0;i<farBandDepthCount[ray];++i) {
-            const FarDepthRun *r=&farBandDepth[ray][i];
-            if(depth<=r->depth+1) break;
-            bottom=MIN(bottom,r->y);
-        }
-        if(bottom>y0) {
-            FarColumn column;raster_far_column(&column,x,width,bottom);far_paint_ink(&column,y0,ink);
-        }
-    }
-}
-static void far_draw_trees(int width,int level,int horizon,int gain,int f)
-{
-    if(!dos_far_trees) return;
-    int limit=farBandLimit[level],px=g_cam.x>>8,pz=g_cam.z>>8,sy=fsin(g_cam.yaw),cy=fcos(g_cam.yaw),n=0;
-    for(int cz=MAX(0,(pz-limit)/16);cz<=MIN(63,(pz+limit)/16);++cz)
-    for(int cx=MAX(0,(px-limit)/16);cx<=MIN(63,(px+limit)/16);++cx) {
-        int column=cz*64+cx;
-        for(u32 i=dos_far_tree_columns[column];i<dos_far_tree_columns[column+1];++i) {
-            const FarTree *t=&dos_far_trees[i];if(!t->active) continue;
-            int bx=t->x-px,bz=t->z-pz,r2=bx*bx+bz*bz;
-            if(r2<g_viewDist*g_viewDist || r2>limit*limit) continue;
-            int dx=t->x*256+128-g_cam.x,dz=t->z*256+128-g_cam.z;
-            int depth=(dx*sy+dz*cy)>>14;if(depth<=0) continue;
-            int right=(dx*cy-dz*sy)>>14,center=vw/2+(right*f)/depth;
-            int reciprocal=(f<<16)/depth;
-            if(center+((640*reciprocal)>>16)<0 || center-((640*reciprocal)>>16)>=vw) continue;
-            FarProjectedTree p={t,depth,center,reciprocal,(reciprocal*gain)>>14,MIN(8,isqrt(r2)/16)};
-            /* Keep the nearest 256 visible crowns, far-to-near painter order. */
-            if(n==256) { if(depth>=farProjectedTrees[0].depth) continue;--n;memmove(farProjectedTrees,farProjectedTrees+1,n*sizeof(p)); }
-            int at=n++;while(at>0 && farProjectedTrees[at-1].depth<depth) {
-                farProjectedTrees[at]=farProjectedTrees[at-1];--at;
-            }
-            farProjectedTrees[at]=p;
-        }
-    }
-    for(int i=0;i<n;++i) {
-        const FarProjectedTree *p=&farProjectedTrees[i];int top=p->tree->top;
-        /* Two narrow upper layers, two wider lower layers; no green wall. */
-        far_tree_piece(p,width,horizon,top+2,top,384);
-        far_tree_piece(p,width,horizon,top,top-2,640);
     }
 }
 
@@ -455,8 +376,7 @@ static void draw_far_field(const RenderEnv *env)
     int samePose=farBandCamera.x==g_cam.x && farBandCamera.y==g_cam.y &&
         farBandCamera.z==g_cam.z && farBandCamera.yaw==g_cam.yaw && farBandCamera.pitch==g_cam.pitch &&
         farBandView==g_viewDist && farBandScale==g_renderScale && farBandLevel==level &&
-        farBandVersion==dos_far_version && farBandGroundVersion==dos_far_ground_version &&
-        farBandBoundary==dos_far_boundary_version && farBandResident==resident;
+        farBandVersion==dos_far_version && farBandBoundary==dos_far_boundary_version && farBandResident==resident;
     int reuse=farBandValid && samePose,capture=!reuse && samePose;
     int cacheGood=1;
     u8 skyline[SCR_W];
@@ -478,7 +398,6 @@ static void draw_far_field(const RenderEnv *env)
     farBandValid=cacheGood && (reuse || capture); farBandCamera=g_cam;
     farBandView=g_viewDist; farBandScale=g_renderScale; farBandLevel=level;
     farBandVersion=dos_far_version; farBandBoundary=dos_far_boundary_version; farBandResident=resident;
-    farBandGroundVersion=dos_far_ground_version;
 #ifdef DOS_BENCH_PROFILE_FAR
     farMark=bench_us(); dos_far_us[2]+=farMark-farStart; farStart=farMark;
 #endif
@@ -524,10 +443,5 @@ static void draw_far_field(const RenderEnv *env)
     }
 #ifdef DOS_BENCH_PROFILE_FAR
     dos_far_us[1]+=bench_us()-farStart;
-    farStart=bench_us();
-#endif
-    far_draw_trees(width,level,horizon,gain,f);
-#ifdef DOS_BENCH_PROFILE_FAR
-    dos_far_us[2]+=bench_us()-farStart;
 #endif
 }

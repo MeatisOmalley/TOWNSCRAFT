@@ -1,5 +1,12 @@
 # Tree canopy experiment checkpoint
 
+Superseded by the user's decision to use one shared leaf-free map for both
+the heightmap and panorama. The complete canopy trial is preserved at
+[`codex/tree-canopies-experiment-2026-10-13`](https://github.com/MeatisOmalley/TOWNSCRAFT/tree/codex/tree-canopies-experiment-2026-10-13/86craft/DOScraft).
+Its prepared preview remains available with the checkpointed executable.
+The notes below describe that historical trial, not the current renderer.
+Current implementation and timings: [shared log map](shared-log-map.md).
+
 The first implementation was checkpointed before testing. The revised version
 now passes native storage/render checks and June 1990 8 MiB new/load smoke.
 It remains a visual experiment: the shared ISO still contains the tested
