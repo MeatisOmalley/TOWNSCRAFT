@@ -73,6 +73,7 @@ The plane-wide figures are valid two-axis greedy rectangle partitions of visible
 | **Skip unread odd-row copies** (`raster_finish`) | still −1.3, walk −2.3 ms | Invisible; overlay bands still copied. [Comparison](tests/benchmarks/2026-10-11/raster-finish-skip-comparison.json) |
 | **Planar Low/Medium** (`DOS_LOW_PLANAR`): scale-2 frames render straight into Mode X plane rows | still 62.1→58.2, walk 38.1→35.6, down 116.7→111.8, house 75.1→70.6 ms | Invisible; all hashes identical; pack 3.5→1.8 ms. Medium uses the same path (not separately benchmarked). [Report](tests/benchmarks/2026-10-11/low-planar-low.json) · [Smoke](build/smoke-planar-20261011/report.json) |
 | **Very Low preset** (80×100 output, skipped texels) | ~9 ms below Low in dense scenes | Visual tier. Texel skipping now runs on separate entry points, so Low/Medium are unaffected (Low draw back to 32.3 ms). [Comparison](tests/benchmarks/2026-10-11/very-low-texels-v2-comparison.json) |
+| **Exact world/stream/raster hot paths** (12 flags) | Low still 23.49→21.75, walk 34.79→31.67, down 43.90→40.10, house 32.08→29.42 ms; High and Very Low 7-10% | Invisible; all hashes identical on Low/Medium/High/Very Low. Covers part of A5 (stream validation, mesh-edge scan, light flood) and A10 (texel prefix, row setup). [Details](PERFORMANCE.md#exact-world-stream-and-raster-hot-paths-2026-10-13) · [Comparison](tests/benchmarks/2026-10-13/exact-hot-paths-comparison.json) |
 
 ## A. Invisible changes (pending), by estimated FPS impact
 

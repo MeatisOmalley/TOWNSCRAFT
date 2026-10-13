@@ -1676,3 +1676,72 @@ changes are added. Static renderer metadata is about 116 KB (previously 60).
 All results are frozen PIT replays, not full simulation FPS or a jump benchmark.
 [Details](DISTANT_TERRAIN.md),
 [evidence](tests/benchmarks/2026-10-13/distant-material-eye.json).
+
+## Exact world, stream and raster hot paths (2026-10-13)
+
+Twelve new adapter flags, each a separately selectable fail-closed overlay
+(or `#ifdef` in DOS-owned assembly), are now production defaults. None changes
+a picture: every scene hash matches the previous release on Low, Medium, High
+and Very Low. June 1990 DX/40, 8 MB, SCSI, frozen three-repeat replay with
+the release large-world flags and distant terrain off:
+
+| Scene | Low before | Low after | High before | High after | Very Low before | Very Low after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| still | 23.49 | 21.75 | 42.09 | 38.79 | 22.93 | 21.19 |
+| walk | 34.79 | 31.67 | 63.43 | 57.01 | 33.61 | 30.49 |
+| looking down | 43.90 | 40.10 | 79.37 | 71.52 | 43.04 | 39.41 |
+| clouds (walk_up) | 23.62 | 21.88 | 37.16 | 34.70 | 21.81 | 20.21 |
+| house | 32.08 | 29.42 | 58.38 | 52.53 | 31.03 | 28.39 |
+| edits | 31.45 | 29.44 | 58.34 | 53.02 | 30.44 | 28.44 |
+
+Low maximum frames fall 44.3→38.2, 57.7→44.4, 64.1→52.9, 42.1→32.4,
+54.6→47.6 and 34.8→32.4 ms. Medium matches Low in this replay. The scripted
+large-world smoke still passes with identical mesh-quad and light-cache
+counts; its new-world and reload sessions take 20.4 and 19.3 s of guest time
+instead of 26.9 and 25.5 s.
+
+World and streaming (single-flag Low savings in parentheses):
+
+- `DOS_STREAM_VALIDATE_ONCE` hashes a streamed 12 KiB column once, in
+  `cache_load()`, instead of also in `column_prepare()` (0.2-0.5 ms mean,
+  walk_down maximum 64.1→55.4 ms).
+- `DOS_MESH_EDGES` gives the 60 column-edge cells per layer the fast mesh
+  path; seam neighbors are resolved once per row (to 0.8 ms looking down).
+- `DOS_LIGHT_OFFSETS` steps the flood fill by in-column offsets and calls
+  `widx()` only at seams (0.1-0.3 ms).
+- `DOS_COLLECT_SWAP` keeps wide collection planes in separate arrays, so the
+  tight planes return by pointer swap (0.2 ms on re-collection frames).
+- `DOS_SORT_HISTOGRAMS` counts all three radix digits in one pass (to 0.12 ms).
+- `DOS_WORLD_SCANS` skips non-resident columns in the five whole-world load
+  scans without changing visit order, and uses row bases in the bottom-chunk
+  seal test. Mostly load time; not exercised by the replay.
+- `DOS_MEMMOVE_DWORDS` copies overlapping upward moves (mesh-pool compaction)
+  by dwords. Not exercised by the replay; host-tested against libc memmove.
+- `DOS_BAKED_LIGHT_FAST` no longer clears a light slot that a valid bake
+  overwrites (one 12 KiB clear per baked column install).
+
+Raster:
+
+- `DOS_TEXEL_EDX` steps the v fraction in EDX's upper half; the per-texel
+  `addw %bp,%cx` loses its operand-size prefix (0.2-1.2 ms; also faster on a
+  real 486).
+- `DOS_ROW_MUL` uses `mull` for the two row-gradient products (0.2-0.6 ms).
+  This is an 86Box-only gain: a real i486 times MUL and IMUL alike.
+- `DOS_ROW_POINTER` keeps `rpitch*rscale` per target and carries the row
+  pointer across trapezoids (about 0.1 ms).
+- `DOS_FLAT_INLINE` stores short flat spans inline instead of calling
+  out-of-line memset twice per planar row (to 0.4 ms).
+
+Rejected, still selectable: `DOS_MULSHIFT` (unsigned MUL plus sign fix-up;
+exact but slower, register spills) and `DOS_PLANAR_EXPAND_WORDS` (dword
+crosshair-row expansion; finish stage +0.15 ms). Not attempted: restricting
+column-arrival seam re-meshing to edge layers, because a partial republish can
+reorder coplanar quads and so cannot be shown pixel-identical.
+
+Base: commit e4e15ac (before the canopy/leaf-free checkpoints). These measurements come from a Linux build of the same pinned emulator
+revision (`af84c233`) with the same ROMs, profile and bit-identical baked seed
+(`4add439e…`); it reproduces the previous published Low still mean
+(23.487 ms) exactly, and repeated runs are bit-identical. Host tests:
+`tests/test_world_exact.py` and `tests/test_render_exact.py` (recipes, fail-closed
+text, host i386 trap/raster/sort/memmove parity).
+[Evidence](tests/benchmarks/2026-10-13/exact-hot-paths-comparison.json).
