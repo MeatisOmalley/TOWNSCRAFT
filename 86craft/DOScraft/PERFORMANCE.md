@@ -1655,3 +1655,24 @@ render guards. Four native tests, ten benchmark tests and exact-release
 June 1990 new/load smoke pass. These instrumented frozen PIT graphics replays
 are not full simulation FPS. [Details](DISTANT_TERRAIN.md),
 [evidence](tests/benchmarks/2026-10-13/distant-terrain-tweaks.json).
+
+## B8 material and eye-height second pass (2026-10-13)
+
+Main Low/eight blocks on June 1990 hardware: distant Low/Medium/High now
+costs 27.49/35.24/46.91 ms still and 40.04/47.93/61.12 ms walking. Medium/High
+replace generic checkerboarding with material-specific sparse patterns,
+green grass tops and brown exposed sides, and separate wood top/side colour.
+This visible treatment costs roughly 2 ms Medium and 5 ms High versus the
+prior release; Low stays nearly unchanged.
+
+Exact eye-height panorama reprojection is kept after a same-renderer ablation.
+Restoring the old one-block eye threshold produces 27.49/35.24/46.90 ms still
+and 40.08/48.17/61.39 ms walking. Continuous height projection adds essentially
+no standing cost and saves about 0.24-0.28 ms walking on Medium/High here.
+Absolute-height samples include previously occluded peaks; projected final
+colour/pattern runs merge and cache until eye/projection/sky or data changes.
+No renderer HDD reads, extra surface-map allocation or persistent format
+changes are added. Static renderer metadata is about 116 KB (previously 60).
+All results are frozen PIT replays, not full simulation FPS or a jump benchmark.
+[Details](DISTANT_TERRAIN.md),
+[evidence](tests/benchmarks/2026-10-13/distant-material-eye.json).

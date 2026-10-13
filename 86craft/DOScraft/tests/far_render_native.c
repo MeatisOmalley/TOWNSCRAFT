@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -50,6 +51,52 @@ static u32 frame_hash(void) {
     for(int y=0;y<200;++y) for(int x=0;x<320;++x) hash=(hash^rbuf[y*512+x])*16777619u;
     return hash;
 }
+static u8 logical_pixel(int x,int y) {
+    return rplanar ? rbuf[y*PLANAR_ROW+(x&1)*PLANAR_C+(x>>1)] : rbuf[y*rpitch*rscale+x*rscale];
+}
+#ifndef FAR_RENDER_TEST_LEGACY
+static void material_patterns(void) {
+    /* Real layout writes: quiet surfaces are solid; accents occupy a small
+     * minority of pixels, with continuous wood grain and paired rows. */
+    for(int layout=0;layout<3;++layout) {
+        rplanar=layout==2; rscale=layout ? 2 : 1;
+        rw=320/rscale; rh=200/rscale;
+        for(int pattern=FAR_PATTERN_SOLID;pattern<=FAR_PATTERN_GRAIN;++pattern) {
+            memset(pixels,0xee,sizeof(pixels));
+            int width=rscale==1 ? 8 : 4;
+            for(int x=0;x<8;x+=width) raster_far_pattern(x,width,0,16,15,14,pattern<<1);
+            int accents=0;
+            for(int y=0;y<16;++y) for(int x=0;x<8;++x) {
+                u8 c=logical_pixel(x,y); assert(c==15 || c==14); accents+=c==14;
+                assert(c==logical_pixel(x,y&~1));
+            }
+            if(pattern==FAR_PATTERN_SOLID) assert(accents==0);
+            else assert(accents>0 && accents<=16); /* At most 1/8, versus old 1/2. */
+            if(pattern==FAR_PATTERN_LOG) for(int y=2;y<14;++y) assert(logical_pixel(3,y)==14);
+            if(pattern==FAR_PATTERN_PLANK) for(int x=0;x<8;++x) assert(logical_pixel(x,4)==14);
+            assert(pixels[0]==0xee && logical_pixel(8,0)==0xee && logical_pixel(0,16)==0xee);
+        }
+    }
+    rplanar=0; rscale=g_renderScale=1; vw=rw=320; vh=rh=200;
+    dos_far_enabled=3;
+    texAvg[T_GRASS_TOP]=P(R_GRASS,14); texAvg[T_DIRT]=P(R_DIRT,12);
+    texAvg[T_LOG_SIDE]=P(R_BARK,10); texAvg[T_LOG_TOP]=P(R_BARK,14);
+    RenderEnv day={0},night={0}; night.skyDarken=4;
+    for(int fog=0;fog<9;++fog) for(int b=0;b<NUM_BLOCKS;++b) {
+        farShade[fog][b]=far_color(b,fog,&day,0);
+        farSideShade[fog][b]=far_color(b,fog,&day,1);
+    }
+    memset(pixels,0xee,sizeof(pixels));
+    FarColumn column; raster_far_column(&column,0,8,20);
+    far_paint_surface(&column,10,14,B_GRASS,0);
+    for(int y=10;y<20;++y) for(int x=0;x<8;++x)
+        assert((logical_pixel(x,y)&240)==(y<14 ? R_GRASS : R_DIRT)*16);
+    assert(column.top==10 && logical_pixel(0,9)==0xee);
+    assert((far_color(B_LOG,0,&day,1)&240)==R_BARK*16);
+    assert((far_color(B_GRASS,0,&night,0)&15)<(far_color(B_GRASS,0,&day,0)&15));
+    assert(far_pattern(B_GRASS,0)==FAR_PATTERN_SOLID && far_pattern(B_WATER,0)==FAR_PATTERN_SOLID);
+}
+#endif
 int main(void) {
     dos_far_map=malloc(DOS_FAR_BYTES); assert(dos_far_map);
     for(u32 i=0;i<DOS_FAR_BYTES;i+=2) { dos_far_map[i]=20; dos_far_map[i+1]=B_GRASS; }
@@ -89,6 +136,10 @@ int main(void) {
         g_cam.x=g_cam.z=points[p]*256; g_cam.y=(p*16+5)*256;
         g_cam.pitch=pitch; g_cam.yaw=yaw;
         memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env);
+        /* Drain the intentionally incremental panorama before asserting
+         * exact-pose pixel stability of the stationary band cache. */
+        while(farPanNext<FAR_PAN_COLS) draw_far_field(&env);
+        memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env);
         u32 hash=frame_hash();
         for(int repeat=0;repeat<3;++repeat) {
             memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env);
@@ -121,6 +172,36 @@ int main(void) {
     g_columnMap[32*64+32]=-1; g_columnMap[31*64+32]=0; g_columnCoords[1]=31;
     memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env); assert(frame_hash()==coarse);
     free(g_columnMap); free(g_columnCoords); free(g_height); free(g_blocks);
+#ifndef FAR_RENDER_TEST_LEGACY
+#ifdef DOS_FAR_DETAILS
+    material_patterns();
+#endif
+#ifdef DOS_FAR_REPROJECT
+    /* Half-block eye-height motion must move a cached skyline immediately,
+     * without waiting for an angular rebuild or the old one-block threshold. */
+    rplanar=0; rscale=g_renderScale=1; vw=rw=320; vh=rh=200;
+    dos_far_enabled=1; farPanCount[0]=2;
+    farPan[0][0]=(FarRun){20,32,B_GRASS,2};
+    farPan[0][1]=(FarRun){20,64,B_GRASS,4};
+    int inv[129]; for(int d=20;d<=64;d+=4) inv[d]=(172<<16)/(d*256);
+    u32 builds=dos_far_pan_builds; FarColumn col;
+    g_cam.y=24*256; far_projection_key(100,16384,172,1,0);
+    farPanStamp[0]=0; raster_far_column(&col,0,8,200); far_project_column(&col,0,100,inv); int first=col.top;
+    g_cam.y+=128; far_projection_key(100,16384,172,1,0);
+    raster_far_column(&col,0,8,200); far_project_column(&col,0,100,inv); assert(col.top>first);
+    g_cam.y-=128; far_projection_key(100,16384,172,1,0);
+    raster_far_column(&col,0,8,200); far_project_column(&col,0,100,inv); assert(col.top==first);
+    assert(dos_far_pan_builds==builds && farPanCount[0]==2);
+    /* A previously hidden farther peak is retained and can become visible
+     * when eye height changes. Correctness cannot depend on baked occlusion. */
+    farPan[0][0]=(FarRun){30,32,B_GRASS,2}; farPan[0][1]=(FarRun){32,64,B_GRASS,4};
+    farPanStamp[0]=0;
+    g_cam.y=24*256; far_projection_key(100,16384,172,1,0);
+    raster_far_column(&col,0,8,200); far_project_column(&col,0,100,inv); first=col.top;
+    g_cam.y=30*256; far_projection_key(100,16384,172,1,0);
+    raster_far_column(&col,0,8,200); far_project_column(&col,0,100,inv); assert(col.top<100 && col.top>first);
+#endif
+#endif
     /* The actual staged strip routine must cover both Mode X plane pairs. */
     memset(pixels,0xee,sizeof(pixels)); rplanar=1;
     raster_far_strip(0,4,-20,2,7);

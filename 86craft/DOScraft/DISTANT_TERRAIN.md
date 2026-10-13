@@ -19,7 +19,8 @@ marches front to back at constant view depth. Gain is folded into the shared
 reciprocal table each frame; elevation needs one multiply. Each ray starts at
 total polygon distance divided by its norm, meeting the radial polygon boundary. Near samples
 use resident heights/materials; farther samples read a two-by-two surface map.
-The panorama caches material/fog runs for 256 directions. Turning scrolls it;
+The panorama caches absolute heights, depths and materials for 256 directions.
+Each visible direction also caches merged projected paint runs. Turning scrolls it;
 movement rebuilds 4/8/12 directions per frame. The first enable or a level
 change builds a complete panorama. Day/night shades cached materials without
 rebaking them. No disk I/O or additional face collection runs in this renderer.
@@ -31,7 +32,7 @@ overhangs, tunnels or bridge undersides; distant trees become solid canopy
 shapes. No distant mobs, item models, textures or torchlight are added.
 
 The checked seed appendix adds **524,288 bytes** to terrain and RAM. Renderer
-metadata is about 60 KB, including a bounded stationary-camera strip cache. `TERRAIN.TMP` is now 178,815,488 bytes. Base/edit offsets,
+metadata is about 116 KB, including bounded stationary-band and projected-panorama caches. `TERRAIN.TMP` is now 178,815,488 bytes. Base/edit offsets,
 seed identity and V5 saves are unchanged. Block edits update the appropriate
 two-by-two summary. On load, summaries are reconstructed from committed edited
 columns once; pristine columns use the bake. Startup/load can therefore do
@@ -147,3 +148,67 @@ Forced fill inlining was tested separately and rejected: High still improved
 also regressed). GCC keeps a local fill call in the published build. Removing
 its call overhead alone does not justify the larger moving loop. The running
 cursor, removed repeated clipping and row-loop layout dispatch remain.
+
+## Material-specific shading and continuous eye height (second pass)
+
+Medium/High no longer apply a generic checkerboard to every opaque block.
+Grass uses a green top and brown exposed side. The top's extent is estimated
+by projecting the current height at the previous sample depth: level ground
+keeps a broad green surface; a height increase exposes a side. A minimum
+one-row cap keeps a readable grass edge. This is a heightmap approximation,
+not newly collected polygon geometry or a complete geological cross section.
+Dirt, grass, sand, wool, water and glass have no pixel pattern. Slope shading
+is at most one extra darkness step; sides receive one additional step.
+
+Leaves receive sparse green accents, logs vertical grain on their sides,
+planks/crafting tables/chests faint horizontal lines, and stone/ores/gravel
+sparse grain. Stone-brick sides have faint horizontal joints. Log tops use
+the top texture's average colour; sides use bark. Patterns vary by one shade,
+retain paired logical rows, and accent at most one eighth of pixels in the
+layout fixtures (leaves one sixteenth, logs roughly three thirty-seconds).
+Quiet surfaces rely on shape, side colour and slope shading instead. Low
+retains plain top colours; all levels receive continuous panorama projection.
+No canopy transparency, trunks beneath a leaf-only map cell, distant torch
+lighting or new ground layer is claimed. Persistent map bytes remain unchanged.
+
+The panorama now keeps up to 32 absolute height/depth/material samples per
+angular column, including samples hidden at the bake height. Each frame keys
+its projected-paint cache by exact eye height, pitch/projection, resolution,
+distant level and sky darkness. Newly rebaked angular columns invalidate only
+their own paint lists. Changing height immediately reprojects visible cached
+samples, including previously hidden peaks; it no longer waits for a one-block
+height threshold or rebuilds terrain samples during a jump. X/Z movement and
+edits retain incremental angular sampling. Terrain data stays in RAM.
+
+Adjacent projected operations merge only when final colour, pattern and phase
+are identical. Day/night changes regenerate those paint lists. This implements
+the previously deferred final-colour merging while preserving dynamic shading.
+The 48 KB bounded projected-paint cache keeps unchanged views inexpensive.
+
+| Main Low, distant level | Previous release still / walking | Second pass still / walking |
+| --- | ---: | ---: |
+| Low | 27.36 / 40.07 ms | 27.49 / 40.04 ms |
+| Medium | 33.24 / 46.28 ms | 35.24 / 47.93 ms |
+| High | 41.49 / 56.27 ms | 46.91 / 61.12 ms |
+
+The initial uncached-projection prototype was rejected (High 50.31/59.85 ms;
+turning-house 70.57 ms). After caching, the same-renderer ablation that restores
+the old one-block height threshold costs 27.49/35.24/46.90 ms still and
+40.08/48.17/61.39 ms walking. Exact eye-height updates are therefore effectively
+free standing and save about 0.04/0.24/0.28 ms walking in this replay by avoiding
+height-triggered terrain rebakes. The material/surface pass itself is a visual
+tradeoff: roughly 2 ms on Medium and 5 ms on High versus the previous release.
+These frozen PIT replays are not full simulation FPS or a dedicated jump benchmark.
+
+Native assertions are explicitly enabled. Four focused tests cover sparse
+patterns in both chunky scales and planar layout, green/brown cap coverage,
+shade ramps/day-night, half-block eye motion without rebaking, previously
+hidden peaks, cache invalidation and 432 warmed panorama poses. The unstyled
+radial path still matches the checkpoint byte-for-byte. Screenshot capture
+now also supports a one-world quality sweep; dump timings remain diagnostic.
+Ten benchmark tests pass. See
+[second-pass evidence](tests/benchmarks/2026-10-13/distant-material-eye.json).
+
+The exact second-pass release passed June 1990 new/load smoke and was published
+to the shared ISO. The prior player HDD was retained byte-for-byte, and the
+previous VM and ISO remain recovery copies. No 1992 test was run.

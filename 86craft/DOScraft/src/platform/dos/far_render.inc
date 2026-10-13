@@ -3,17 +3,32 @@
 #define FAR_PAN_COLS 256
 #define FAR_PAN_ROWS 128
 #define FAR_PAN_RUNS 32
+#ifdef DOS_FAR_REPROJECT
+/* Absolute top height and actual sample depth, rather than baked screen rows.
+ * Retain occluded samples too: a jump may reveal them without any map reads. */
+typedef struct { u8 h,depth,block,fog; } FarRun;
+#else
 typedef struct { u8 a,b,block,fog; } FarRun;
+#endif
 static FarRun farPan[FAR_PAN_COLS][FAR_PAN_RUNS];
 static u8 farPanCount[FAR_PAN_COLS];
+#ifdef DOS_FAR_REPROJECT
+typedef struct __attribute__((packed)) { u8 y; u16 ink; } FarPanPaint;
+static FarPanPaint farPanPaint[FAR_PAN_COLS][FAR_PAN_RUNS*2];
+static u8 farPanPaintCount[FAR_PAN_COLS];
+static u32 farPanStamp[FAR_PAN_COLS],farProjectionSerial=1;
+static int farProjectionY,farProjectionHorizon,farProjectionGain,farProjectionFocal;
+static int farProjectionLevel,farProjectionHeight,farProjectionDarken;
+#endif
 static int farPanX,farPanY,farPanZ,farPanNext=FAR_PAN_COLS,farPanValid;
 static u32 farPanVersion;
 static int farSide[SCR_W],farNorm[SCR_W],farAngle[SCR_W],farRayWidth;
 static u8 farShade[9][256];
+static u8 farSideShade[9][256];
 static int farShadeDarken=-1,farPanLevel;
 static int farShadeDetail=-1;
 static const u8 *farReady;
-typedef struct { u8 y,material,fog; } FarBandRun;
+typedef struct { u8 y,cap,material,fog; } FarBandRun;
 static FarBandRun farBandRuns[SCR_W/2][32];
 static u8 farBandCount[SCR_W/2];
 static u8 farBandStart[SCR_W/2];
@@ -56,17 +71,59 @@ static inline u8 far_material(int x,int z,u8 b)
 #endif
     return b;
 }
-static inline void far_strip(int x,int width,int y0,int y1,u8 b,int fog)
+static int far_pattern(int block,int side)
+{
+    switch(block) {
+    case B_LEAVES: return FAR_PATTERN_LEAVES;
+    case B_LOG: return side ? FAR_PATTERN_LOG : FAR_PATTERN_SOLID;
+    case B_PLANKS: case B_CRAFT_TABLE: case B_CHEST: case B_STONEBRICK:
+        return side ? FAR_PATTERN_PLANK : FAR_PATTERN_SOLID;
+    case B_STONE: case B_COBBLE: case B_GRAVEL: case B_BEDROCK:
+    case B_COAL_ORE: case B_IRON_ORE: case B_GOLD_ORE: case B_DIAMOND_ORE:
+        return FAR_PATTERN_GRAIN;
+    default: return FAR_PATTERN_SOLID;
+    }
+}
+static u16 far_ink(u8 b,int fog,int side)
 {
     u8 color=farShade[fog][b];
+    int pattern=FAR_PATTERN_SOLID;
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=2 && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS) {
-        u8 other=(color&240)|MIN(15,(color&15)+1);
-        raster_far_pattern(x,width,y0,y1,color,other,b>>7);
+    if(dos_far_enabled>=2) {
+        if(side) color=farSideShade[fog][b];
+        pattern=far_pattern(BLK_ID(b),side);
+    }
+#endif
+    int phase=pattern==FAR_PATTERN_SOLID ? 0 : b>>7;
+    return color|(((pattern<<1)|phase)<<8);
+}
+static void far_paint_ink(FarColumn *column,int y,u16 ink)
+{
+    u8 color=ink&255,other=color;
+    if((ink>>9)!=FAR_PATTERN_SOLID) other=(color&240)|MAX(1,(color&15)-1);
+    far_fill_column(column,y,color,other,ink>>8);
+}
+static void far_paint(FarColumn *column,int y,u8 b,int fog,int side)
+{
+    far_paint_ink(column,y,far_ink(b,fog,side));
+}
+static void far_paint_surface(FarColumn *column,int y,int cap,u8 b,int fog)
+{
+#ifdef DOS_FAR_DETAILS
+    if(dos_far_enabled>=2 && BLK_ID(b)!=B_LEAVES && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS) {
+        if(cap<column->top) far_paint(column,MAX(y,cap),b,fog,1);
+        if(y<column->top) far_paint(column,y,b,fog,0);
         return;
     }
 #endif
-    raster_far_strip(x,width,y0,y1,color);
+    far_paint(column,y,b,fog,0);
+}
+static inline void far_strip(int x,int width,int y0,int y1,u8 b,int fog)
+{
+    y0=MAX(0,y0); y1=MIN(vh,y1);
+    if(y1<=y0) return;
+    FarColumn column; raster_far_column(&column,x,width,y1);
+    far_paint(&column,y0,b,fog,0);
 }
 u32 dos_far_samples,dos_far_strips,dos_far_pan_builds,dos_far_frames;
 #ifdef DOSCRAFT_BENCH
@@ -95,6 +152,21 @@ static void far_rays(void)
 }
 static void far_pan_column(int a)
 {
+#ifdef DOS_FAR_REPROJECT
+    int sx=fsin(a*4),sz=fcos(a*4),n=0;
+    for(int d=farBandLimit[farPanLevel];d<=farHorizonLimit[farPanLevel];d+=4) {
+        u8 b;
+        int x=(farPanX+((sx*d*256)>>14))>>8;
+        int z=(farPanZ+((sz*d*256)>>14))>>8;
+        int h=far_lookup(x,z,&b);
+        if(h) {
+            FarRun *r=&farPan[a][n++];
+            r->h=h; r->depth=d; r->block=far_material(x,z,b); r->fog=d/16;
+        }
+    }
+    farPanCount[a]=n; ++dos_far_pan_builds;
+    farPanStamp[a]=0;
+#else
     u16 rows[FAR_PAN_ROWS]={0};
     int sx=fsin(a*4),sz=fcos(a*4),top=FAR_PAN_ROWS;
     for(int d=farBandLimit[farPanLevel];d<=farHorizonLimit[farPanLevel] && top>0;d+=4) {
@@ -123,17 +195,83 @@ static void far_pan_column(int a)
         y=end;
     }
     farPanCount[a]=n; ++dos_far_pan_builds;
+#endif
 }
-static u8 far_color(u8 b,int fog,const RenderEnv *env)
+static u8 far_color(u8 b,int fog,const RenderEnv *env,int side)
 {
     int darken=env->skyDarken+fog;
 #ifdef DOS_FAR_DETAILS
     if(dos_far_enabled>=2 && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS)
-        darken+=((b>>5)&3)-1+(b>>7);
+        darken+=(((b>>5)&3)>=2)+side;
 #endif
     int light=CLAMP(15-darken,0,15);
-    return g_shadeLUT[light][texAvg[g_blockDef[BLK_ID(b)].tex[DIR_PY]]];
+    int texture=g_blockDef[BLK_ID(b)].tex[side ? DIR_NZ : DIR_PY];
+    if(side && BLK_ID(b)==B_GRASS) texture=g_blockDef[B_DIRT].tex[DIR_PY];
+    return g_shadeLUT[light][texAvg[texture]];
 }
+#ifdef DOS_FAR_REPROJECT
+static void far_projection_key(int horizon,int gain,int f,int level,int darken)
+{
+    int eye=g_cam.y;
+#ifdef DOS_BENCH_FAR_COARSE_EYE
+    eye=farPanY;
+#endif
+    if(farProjectionY!=eye || farProjectionHorizon!=horizon || farProjectionGain!=gain ||
+       farProjectionFocal!=f || farProjectionLevel!=level || farProjectionHeight!=vh ||
+       farProjectionDarken!=darken) {
+        ++farProjectionSerial;
+        farProjectionY=eye; farProjectionHorizon=horizon; farProjectionGain=gain;
+        farProjectionFocal=f; farProjectionLevel=level; farProjectionHeight=vh;
+        farProjectionDarken=darken;
+    }
+}
+static void far_pan_paint(int a,int y,u16 ink)
+{
+    int n=farPanPaintCount[a];
+    if(n && farPanPaint[a][n-1].ink==ink) farPanPaint[a][n-1].y=y;
+    else {
+        FarPanPaint *r=&farPanPaint[a][n]; r->y=y; r->ink=ink;
+        farPanPaintCount[a]=n+1;
+    }
+}
+static void far_project_runs(int a,int horizon,const int *inv)
+{
+    int top=vh;
+    farPanPaintCount[a]=0;
+    int previous=inv[farBandLimit[dos_far_enabled]-4];
+    for(int i=0;i<farPanCount[a] && top>0;++i) {
+        const FarRun *r=&farPan[a][i];
+        int delta=r->h*256-farProjectionY,reciprocal=inv[r->depth];
+        int y=CLAMP(horizon-((delta*reciprocal)>>16),0,vh);
+        if(y<top) {
+#ifdef DOS_FAR_DETAILS
+            if(dos_far_enabled>=2 && BLK_ID(r->block)!=B_LEAVES &&
+               BLK_ID(r->block)!=B_WATER && BLK_ID(r->block)!=B_GLASS) {
+                int cap=CLAMP(horizon-((delta*previous)>>16),y,top);
+                if(cap==y) cap=MIN(top,y+1);
+                if(cap<top) far_pan_paint(a,cap,far_ink(r->block,r->fog,1));
+                if(y<cap) far_pan_paint(a,y,far_ink(r->block,r->fog,0));
+            } else
+#endif
+                far_pan_paint(a,y,far_ink(r->block,r->fog,0));
+            top=y;
+        }
+        previous=reciprocal;
+    }
+    farPanStamp[a]=farProjectionSerial;
+}
+static void far_project_column(FarColumn *column,int a,int horizon,const int *inv)
+{
+    if(farPanStamp[a]!=farProjectionSerial) far_project_runs(a,horizon,inv);
+    for(int i=0;i<farPanPaintCount[a] && column->top>0;++i) {
+        const FarPanPaint *r=&farPanPaint[a][i];
+        if(r->y<column->top) {
+            far_paint_ink(column,r->y,r->ink);
+            FAR_COUNT(dos_far_strips);
+        }
+    }
+}
+#endif
 static inline int far_lookup(int x,int z,u8 *b)
 {
     if((unsigned)x>=1024 || (unsigned)z>=1024) return 0;
@@ -172,12 +310,7 @@ static void far_replay_band(int width,int level,u8 *skyline)
         FarColumn column; raster_far_column(&column,x,width,farBandStart[cached]);
         for(int i=0;i<farBandCount[cached];++i) {
             const FarBandRun *r=&farBandRuns[cached][i];
-            u8 color=farShade[r->fog][r->material],other=color;
-#ifdef DOS_FAR_DETAILS
-            if(level>=2 && BLK_ID(r->material)!=B_WATER && BLK_ID(r->material)!=B_GLASS)
-                other=(color&240)|MIN(15,(color&15)+1);
-#endif
-            far_fill_column(&column,r->y,color,other,r->material>>7);
+            far_paint_surface(&column,r->y,r->cap,r->material,r->fog);
             FAR_COUNT(dos_far_strips);
         }
         skyline[x]=column.top;
@@ -199,14 +332,21 @@ static void draw_far_field(const RenderEnv *env)
     int gain=(16384*16384)/(cp*cp>>14);
     if(farShadeDarken!=env->skyDarken || farShadeDetail!=(dos_far_enabled>=2)) {
         for(int fog=0;fog<9;++fog) for(int style=0;style<8;++style)
-        for(int b=0;b<NUM_BLOCKS;++b) farShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env);
+        for(int b=0;b<NUM_BLOCKS;++b) {
+            farShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,0);
+            farSideShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,1);
+        }
         farShadeDarken=env->skyDarken;
         farShadeDetail=dos_far_enabled>=2;
     }
     far_rays();
     int level=dos_far_enabled,move=(level==1 ? 8 : 4)*256;
     if(!farPanValid || ABS(g_cam.x-farPanX)>=move ||
-       ABS(g_cam.z-farPanZ)>=move || ABS(g_cam.y-farPanY)>=256 || farPanLevel!=level ||
+       ABS(g_cam.z-farPanZ)>=move ||
+#if !defined(DOS_FAR_REPROJECT) || defined(DOS_BENCH_FAR_COARSE_EYE)
+       ABS(g_cam.y-farPanY)>=256 ||
+#endif
+       farPanLevel!=level ||
        farPanVersion!=dos_far_version) {
         farPanX=g_cam.x; farPanY=g_cam.y; farPanZ=g_cam.z;
         farPanVersion=dos_far_version; farPanNext=0;
@@ -253,11 +393,17 @@ static void draw_far_field(const RenderEnv *env)
 #ifdef DOS_BENCH_PROFILE_FAR
     farMark=bench_us(); dos_far_us[2]+=farMark-farStart; farStart=farMark;
 #endif
-    /* The exposed part is exactly the same panorama as before; near world
-     * polygons still draw over both distant layers afterward. */
+    /* Near polygons still draw over both distant layers afterward. */
+#ifdef DOS_FAR_REPROJECT
+    far_projection_key(horizon,gain,f,level,env->skyDarken);
+    int panInv[129];
+    for(int d=farBandLimit[level]-4;d<=farHorizonLimit[level];d+=4)
+        panInv[d]=(((f<<16)/(d*256))*gain)>>14;
+#else
     int panRows[FAR_PAN_ROWS+1];
     for(int r=0;r<=FAR_PAN_ROWS;++r)
         panRows[r]=horizon-((((64-r)*f)/86)*gain>>14);
+#endif
     for(int x=0;x<vw;) {
         int top=skyline[x];
         if(!top) { x+=width; continue; }
@@ -271,6 +417,10 @@ static void draw_far_field(const RenderEnv *env)
             if(!match) break;
             group=candidate;
         }
+#ifdef DOS_FAR_REPROJECT
+        FarColumn column; raster_far_column(&column,x,group,top);
+        far_project_column(&column,a,horizon,panInv);
+#else
         for(int i=0;i<farPanCount[a];++i) {
             const FarRun *r=&farPan[a][i];
             int y0=MAX(0,panRows[r->a]);
@@ -280,6 +430,7 @@ static void draw_far_field(const RenderEnv *env)
             far_strip(x,group,y0,y1,r->block,r->fog);
             FAR_COUNT(dos_far_strips);
         }
+#endif
         x+=group;
     }
 #ifdef DOS_BENCH_PROFILE_FAR

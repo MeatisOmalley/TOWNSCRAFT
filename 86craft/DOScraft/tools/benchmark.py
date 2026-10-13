@@ -110,6 +110,8 @@ def main():
     parser.add_argument('--far-sweep',action='store_true',help='Run distant Low/Medium/High in one world, holding main graphics at Low')
     parser.add_argument('--far-details',action='store_true',help='Medium/High far slope shading and deterministic dithering')
     parser.add_argument('--far-view-depth',action='store_true',help='Constant view-depth march with folded pitch reciprocal')
+    parser.add_argument('--far-reproject',action='store_true',help='Reproject cached panorama heights/depths at the current eye height')
+    parser.add_argument('--far-coarse-eye',action='store_true',help='Ablation: same panorama renderer with the old one-block eye-height threshold')
     parser.add_argument('--far-skip-first',action='store_true',help='Visual experiment: leave the first heightmap strip to near geometry; may expose holes')
     parser.add_argument('--verify-collect',action='store_true',help='Compare every cached frame with a tight-frustum redraw; timings invalid')
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
@@ -138,7 +140,8 @@ def main():
     if args.quality_sweep and args.quality!='low': parser.error('--quality-sweep starts at Low; omit --quality')
     if args.quality_sweep and args.archive: parser.error('Quality sweeps are not comparable three-repeat archives')
     diagnostic=any((args.verify_f2b,args.verify_wall,args.f2b_stress,args.profile_draw,args.dump_frames))
-    if args.quality_sweep and diagnostic: parser.error('Quality sweep is for timing runs; use separate diagnostic processes')
+    if args.quality_sweep and any((args.verify_f2b,args.verify_wall,args.f2b_stress,args.profile_draw)):
+        parser.error('Quality sweep does not support renderer verification; use separate diagnostic processes')
     if not 32<=args.frames<=10000: parser.error('--frames must be between 32 and 10000')
     if args.timeout is None: args.timeout=900 if args.frames==32 else 900+args.frames*6
     output=OUTPUT/args.label
@@ -215,6 +218,12 @@ def main():
     if args.far_view_depth:
         if not args.far_field: parser.error('--far-view-depth requires --far-field')
         flags=(*flags,'-DDOS_FAR_VIEW_DEPTH')
+    if args.far_reproject:
+        if not args.far_field: parser.error('--far-reproject requires --far-field')
+        flags=(*flags,'-DDOS_FAR_REPROJECT')
+    if args.far_coarse_eye:
+        if not args.far_reproject: parser.error('--far-coarse-eye requires --far-reproject')
+        flags=(*flags,'-DDOS_BENCH_FAR_COARSE_EYE')
     if args.far_skip_first:
         if not args.far_field: parser.error('--far-skip-first requires --far-field')
         flags=(*flags,'-DDOS_FAR_SKIP_FIRST')

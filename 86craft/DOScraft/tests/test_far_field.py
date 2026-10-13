@@ -77,13 +77,15 @@ class FarTests(unittest.TestCase):
             (folder/'far_reference.inc').write_bytes(reference)
             baseline=folder/'reference.exe'
             self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',
+                '-DFAR_RENDER_TEST_LEGACY',
                 '-DFAR_RENDER_TEST_INCLUDE="far_reference.inc"',
                 '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
                 src/'blocks.c',src/'fmath.c',tables,'-o',baseline])
             expected=self.run_cmd([baseline]).stdout
             self.assertEqual(actual,expected,'far image changed versus checkpoint')
             base_hash=[line for line in actual.splitlines() if line.startswith('POSE_HASH=')]
-            for flags in (['-DDOS_FAR_DETAILS'],['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH']):
+            for flags in (['-DDOS_FAR_DETAILS'],['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH'],
+                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT']):
                 self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
                     '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
                     src/'blocks.c',src/'fmath.c',tables,'-o',exe])

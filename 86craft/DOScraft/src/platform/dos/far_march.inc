@@ -18,6 +18,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
         int dx=sy+((cy*u)>>14),dz=cy-((sy*u)>>14);
         int start=farDepthStart[x+width/2],depth=start,d=start>>8,first=1;
         int firstInv=(farDepthInv[x+width/2]*gain)>>14;
+        int previous=inv[MAX(1,(start>>8)-1)];
         int px=(g_cam.x<<8)+((dx*start)>>6),pz=(g_cam.z<<8)+((dz*start)>>6);
         int end=farDepthEnd[x+width/2],detail=farDepthDetail[x+width/2];
         while(depth<=end && top>0) {
@@ -26,6 +27,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
         int dz=((cy-((sy*u)>>14))*16384)/norm;
         int px=(g_cam.x<<8)+g_viewDist*(dx*4),pz=(g_cam.z<<8)+g_viewDist*(dz*4);
         int d=g_viewDist;
+        int previous=(((inv[MAX(1,d-1)]*norm)>>14)*gain)>>14;
         while(d<=limit && top>0) {
 #endif
             u8 b;
@@ -48,10 +50,16 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
                 int y=CLAMP(horizon-((elevation*gain)>>14),0,vh);
 #endif
                 if(y<top) {
-                    u8 material=far_material(wx,wz,b),color=farShade[fog][material],other=color;
+                    u8 material=far_material(wx,wz,b);
+                    int cap=top;
 #ifdef DOS_FAR_DETAILS
-                    if(level>=2 && b!=B_WATER && b!=B_GLASS)
-                        other=(color&240)|MIN(15,(color&15)+1);
+                    if(level>=2) {
+                        /* Project this sample's top at the previous depth.
+                         * Horizontal ground gets a full cap; a rise exposes
+                         * a side below it. This is a heightmap approximation. */
+                        cap=CLAMP(horizon-(((h*256-g_cam.y)*previous)>>16),y,top);
+                        if(cap==y) cap=MIN(top,y+1);
+                    }
 #endif
 #ifdef DOS_FAR_SKIP_FIRST
                     if(firstFill) {
@@ -62,13 +70,13 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
                     } else
 #endif
                     {
-                        far_fill_column(&column,y,color,other,material>>7);
+                        far_paint_surface(&column,y,cap,material,fog);
 #if FAR_CAPTURE
                         {
                             int n=farBandCount[cached];
                             if(n<32) {
                                 FarBandRun *r=&farBandRuns[cached][n];
-                                r->y=y; r->material=material; r->fog=fog; farBandCount[cached]=n+1;
+                                r->y=y; r->cap=cap; r->material=material; r->fog=fog; farBandCount[cached]=n+1;
                             } else cacheGood=0;
                         }
 #endif
@@ -77,6 +85,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
                 }
             }
 #ifdef DOS_FAR_VIEW_DEPTH
+            previous=reciprocal;
             if(first) {
                 first=0; d=(start>>8)+1;
                 px=(g_cam.x<<8)+dx*d*4; pz=(g_cam.z<<8)+dz*d*4;
@@ -86,6 +95,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
             }
             depth=d*256;
 #else
+            previous=(((reciprocal*norm)>>14)*gain)>>14;
             int step=d<16 ? 1 : 2;
             d+=step; px+=dx*4*step; pz+=dz*4*step;
 #endif
