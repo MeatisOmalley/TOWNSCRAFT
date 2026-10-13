@@ -44,7 +44,7 @@ class FarTests(unittest.TestCase):
             (folder/'dpmi.h').write_text('typedef struct { struct { unsigned short ax,bx,flags; } x; } __dpmi_regs;\nint __dpmi_int(int, __dpmi_regs *);\n')
             tables=src/'tables.c'; self.run_cmd([sys.executable,folder/'tools/gentables.py',tables])
             flags=[ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99','-fno-builtin',
-                '-DDOS_LARGE_WORLD','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD',
+                '-DDOS_LARGE_WORLD','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS',
                 '-Werror=implicit-function-declaration','-I',folder,'-I',src,'-I',ROOT/'src/platform/dos']
             obj=folder/'hdd.o'; self.run_cmd([*flags,'-Dopen=world_test_open','-c',ROOT/'src/platform/dos/hdd.c','-o',obj])
             exe=folder/'far.exe'
@@ -65,13 +65,35 @@ class FarTests(unittest.TestCase):
             self.run_cmd([sys.executable,folder/'tools/gentables.py',tables])
             data,_=dos_sources.adapt('raster.c',(src/'raster.c').read_bytes(),large_world=True,
                 raster_finish_skip=True,proven_rows=True,very_low_texels=True,low_planar=True,far_field=True)
-            text=data.decode(); begin=text.index('void raster_far_strip('); end=text.index('void raster_pixel(',begin)
+            text=data.decode(); begin=text.index('void raster_far_column('); end=text.index('void raster_pixel(',begin)
             (folder/'far_raster_test.inc').write_text(text[begin:end])
             exe=folder/'render.exe'
             self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',
                 '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
                 src/'blocks.c',src/'fmath.c',tables,'-o',exe])
-            self.assertIn('PASS: distant levels',self.run_cmd([exe]).stdout)
+            actual=self.run_cmd([exe]).stdout
+            self.assertIn('PASS: distant levels',actual)
+            reference=subprocess.run(['git','show','codex/b8-before-tweaks-2026-10-13:86craft/DOScraft/src/platform/dos/far_render.inc'],cwd=ROOT,capture_output=True,check=True).stdout
+            (folder/'far_reference.inc').write_bytes(reference)
+            baseline=folder/'reference.exe'
+            self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',
+                '-DFAR_RENDER_TEST_INCLUDE="far_reference.inc"',
+                '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
+                src/'blocks.c',src/'fmath.c',tables,'-o',baseline])
+            expected=self.run_cmd([baseline]).stdout
+            self.assertEqual(actual,expected,'far image changed versus checkpoint')
+            base_hash=[line for line in actual.splitlines() if line.startswith('POSE_HASH=')]
+            for flags in (['-DDOS_FAR_DETAILS'],['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH']):
+                self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
+                    '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
+                    src/'blocks.c',src/'fmath.c',tables,'-o',exe])
+                output=self.run_cmd([exe]).stdout
+                self.assertIn('PASS: distant levels',output)
+                hashes=[line for line in output.splitlines() if line.startswith('POSE_HASH=')]
+                self.assertEqual(len(hashes),432)
+                if len(flags)==1:
+                    for start in (0,216): self.assertEqual(hashes[start:start+72],base_hash[start:start+72],'Low received visual detail changes')
+                    self.assertNotEqual(hashes[72:216],base_hash[72:216],'Medium/High detail did not change colors')
 
     def run_cmd(self,args):
         r=subprocess.run(list(map(str,args)),capture_output=True,text=True,errors='replace',timeout=120)

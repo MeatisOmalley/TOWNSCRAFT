@@ -31,7 +31,28 @@ def adapt(name,data,*,low_planar=False):
         one('static void draw_sky(const RenderEnv *env)', '#include "far_render.inc"\n\nstatic void draw_sky(const RenderEnv *env)')
         one('\tdraw_clouds(env);','\tdraw_clouds(env);\n\tdraw_far_field(env);')
     else:
-        one('void raster_pixel(int x,int y,u8 color)', '''/* Clipped visual-only heightmap strip; uses the active raster layout. */
+        one('void raster_pixel(int x,int y,u8 color)', '''#include "far_fill.h"
+/* Resolve the active framebuffer once per ray, before entering its march. */
+void raster_far_column(FarColumn *c,int x,int width,int top)
+{
+    c->mode=-1; c->top=top; c->x=x; c->scale=rscale;
+    if((unsigned)x>=(unsigned)rw || x+width>rw) return;
+''' + ('''    if(rplanar) {
+        c->stride=PLANAR_ROW; c->mode=width==1 ? 9 : width==2 ? 10 : 12;
+        c->cursor=rbuf+top*PLANAR_ROW+(x&1)*PLANAR_C+(x>>1);
+        return;
+    }
+''' if low_planar else '') + '''    c->stride=rpitch*rscale; c->mode=width*rscale;
+    c->cursor=rbuf+top*c->stride+x*rscale;
+}
+void raster_far_pattern(int x,int width,int y0,int y1,u8 a,u8 b,int phase)
+{
+    y0=MAX(0,y0); y1=MIN(rh,y1);
+    if(y1<=y0) return;
+    FarColumn c; raster_far_column(&c,x,width,y1);
+    far_fill_column(&c,y0,a,b,phase);
+}
+/* Clipped visual-only heightmap strip; uses the active raster layout. */
 void raster_far_strip(int x,int width,int y0,int y1,u8 color)
 {
     if((unsigned)x>=(unsigned)rw) return;

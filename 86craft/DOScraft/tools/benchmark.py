@@ -108,6 +108,9 @@ def main():
     parser.add_argument('--far-field',choices=('off','on','low','medium','high'),help='Compile distant terrain at the selected level (on = medium)')
     parser.add_argument('--profile-far',action='store_true',help='Separate PIT timings for panorama preparation/drawing and the live heightmap')
     parser.add_argument('--far-sweep',action='store_true',help='Run distant Low/Medium/High in one world, holding main graphics at Low')
+    parser.add_argument('--far-details',action='store_true',help='Medium/High far slope shading and deterministic dithering')
+    parser.add_argument('--far-view-depth',action='store_true',help='Constant view-depth march with folded pitch reciprocal')
+    parser.add_argument('--far-skip-first',action='store_true',help='Visual experiment: leave the first heightmap strip to near geometry; may expose holes')
     parser.add_argument('--verify-collect',action='store_true',help='Compare every cached frame with a tight-frustum redraw; timings invalid')
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
@@ -206,6 +209,15 @@ def main():
         if args.far_field in (None,'off'): parser.error('--profile-far requires distant terrain enabled')
         flags=(*flags,'-DDOS_BENCH_PROFILE_FAR')
     if args.far_sweep: flags=(*flags,'-DDOS_BENCH_FAR_SWEEP')
+    if args.far_details:
+        if not args.far_field: parser.error('--far-details requires --far-field')
+        flags=(*flags,'-DDOS_FAR_DETAILS')
+    if args.far_view_depth:
+        if not args.far_field: parser.error('--far-view-depth requires --far-field')
+        flags=(*flags,'-DDOS_FAR_VIEW_DEPTH')
+    if args.far_skip_first:
+        if not args.far_field: parser.error('--far-skip-first requires --far-field')
+        flags=(*flags,'-DDOS_FAR_SKIP_FIRST')
     if args.collect_margin or args.verify_collect: flags=(*flags,'-DDOS_COLLECT_MARGIN')
     if args.verify_collect:
         flags=tuple(flag for flag in flags if flag!='-DDOS_LOW_PLANAR')+('-DDOS_COLLECT_VERIFY',)

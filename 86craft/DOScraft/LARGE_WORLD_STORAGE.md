@@ -132,3 +132,8 @@ migration checks preserve every base/edit byte, save and other root file.
 Edits update summaries in memory. Loading reconstructs summaries from the
 committed edited-column directory before rendering; no frame-time disk reads
 are added. [Settings, rendering limitations and costs](DISTANT_TERRAIN.md).
+
+The B8 detail revision reuses spare high material bits for slope and stable
+variation in RAM after validating the raw surface-map checksum. Disk map
+bytes, base/edit records, save offsets and the fixture stay unchanged. No
+extra map allocation or rendering-time HDD reads are required.

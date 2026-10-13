@@ -1630,3 +1630,28 @@ levels and both raster layouts, plus cave/water/full-pitch guards. New/reload
 release smoke exercises the setting through guest AT input and checks VGA,
 lighting and persistent edits. [Implementation and limits](DISTANT_TERRAIN.md),
 [timing evidence](tests/benchmarks/2026-10-13/distant-terrain.json).
+
+## B8 fill/cache/detail revision (2026-10-13)
+
+On June 1990 DX/40, ET4000AX and 8 MB SCSI, distant Low/Medium/High at main
+Low/eight blocks costs 27.36/33.24/41.49 ms still and 40.07/46.28/56.27 ms
+walking. The checkpoint was 30.15/38.08/57.26 and 41.08/48.02/61.41 ms.
+High saves 15.77 ms still and 5.14 ms walking, including new Medium/High
+slope shading, colour variation and paired-row dithering.
+
+High panorama drawing drops 10.06→5.16 ms still and 9.24→1.73 ms walking.
+Heightmap caching cuts standing 23.11→12.15 ms; the detailed moving heightmap
+increases 16.23→18.58 ms, outweighed by panorama savings. The plain radial
+ablation was faster while moving (High 52.32 ms) but lacks requested terrain
+detail and stationary caching. Renderer disk traffic and the 512 KB map
+allocation are unchanged; bounded static renderer metadata grows from about
+36 to 60 KB. Unchanged coarse summaries no longer trigger rebakes.
+
+Skipping the first strip was rejected after DOS captures showed sky holes.
+It remains an explicitly selectable benchmark experiment only. Unstyled
+radial output matches the checkpoint over 432 native poses/cache repeats;
+styled/view-depth paths cover real chunky/planar fills, edits, residency and
+render guards. Four native tests, ten benchmark tests and exact-release
+June 1990 new/load smoke pass. These instrumented frozen PIT graphics replays
+are not full simulation FPS. [Details](DISTANT_TERRAIN.md),
+[evidence](tests/benchmarks/2026-10-13/distant-terrain-tweaks.json).

@@ -15,7 +15,7 @@
 #include "video_backend.h"
 #ifdef DOS_FAR_FIELD
 #include "far_field.h"
-extern u32 dos_far_samples,dos_far_strips,dos_far_pan_builds;
+extern u32 dos_far_samples,dos_far_strips,dos_far_pan_builds,dos_far_frames;
 static int far_option_ok=1;
 #endif
 #ifdef DOS_GRAPHICS_PRESETS
@@ -177,7 +177,7 @@ static void finish(void)
     ok=ok && presets_ok && menus_ok;
 #endif
 #ifdef DOS_FAR_FIELD
-    ok=ok && far_option_ok && dos_far_samples>0 && dos_far_strips>0 && dos_far_pan_builds>=256;
+    ok=ok && far_option_ok && dos_far_frames>0 && dos_far_pan_builds>=256;
 #endif
     if(!file) exit(1);
     int written=fprintf(file,"DOScraft real game-loop smoke\nMODE=%s\nWORLD_WIDTH=%d\n"
@@ -200,8 +200,8 @@ static void finish(void)
 #endif
     if(vga_failed_snapshot && fprintf(file,"VGA_FAILED_SNAPSHOT=%s\n",vga_failed_snapshot)<0) written=0;
 #ifdef DOS_FAR_FIELD
-    if(fprintf(file,"DISTANT_TERRAIN=%s\nFAR_SAMPLES=%u\nFAR_STRIPS=%u\nPANORAMA_COLUMNS=%u\n",
-        far_option_ok?"PASS":"FAIL",dos_far_samples,dos_far_strips,dos_far_pan_builds)<0) written=0;
+    if(fprintf(file,"DISTANT_TERRAIN=%s\nFAR_DRAWS=%u\nPANORAMA_COLUMNS=%u\n",
+        far_option_ok?"PASS":"FAIL",dos_far_frames,dos_far_pan_builds)<0) written=0;
 #endif
 #ifdef DOS_STREAM_LIGHT_CACHE
     if(fprintf(file,"LIGHT_CACHE=%s\nLIGHT_CACHE_STATS=%u,%u,%u,%u\n",stream_light_ok?"PASS":"FAIL",
