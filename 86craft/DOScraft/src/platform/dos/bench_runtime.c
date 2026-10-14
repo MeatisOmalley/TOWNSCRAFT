@@ -19,6 +19,12 @@
 #include "hdd_backend.h"
 #include "save_backend.h"
 #include "video_backend.h"
+#ifdef DOS_VIEWMODEL
+#include "viewmodel.h"
+#endif
+#ifdef DOS_BENCH_VIEWMODEL_CASES
+#include "inventory.h"
+#endif
 #ifdef DOS_FAR_FIELD
 #include "far_field.h"
 #endif
@@ -88,6 +94,9 @@ int g_benchFreeze=1;
 unsigned int dos_bench_pack,dos_bench_upload,dos_bench_wait,dos_bench_timeouts;
 static unsigned int times[PHASES][FRAMES];
 static BenchTotal sections[PHASES][10];
+#ifdef DOS_VIEWMODEL
+static BenchTotal viewmodelTimes[PHASES];
+#endif
 static unsigned int edit_calls[PHASES][FRAMES];
 static BenchTotal packs[PHASES],uploads[PHASES],waits[PHASES],timeouts[PHASES];
 static BenchTotal pixels[PHASES],faces[PHASES],items[PHASES];
@@ -199,6 +208,9 @@ void __wrap_gfx_present(void)
 {
     const u8 *fb=g_fb;
     __real_gfx_present();
+#ifdef DOS_VIEWMODEL
+    if(measured && phase>=0) viewmodelTimes[phase]+=dos_viewmodel_us;
+#endif
 #ifdef DOS_BENCH_PROFILE_FAR
     if(measured && phase>=0) for(int i=0;i<3;++i) farTimes[phase][i]+=dos_far_us[i];
 #endif
@@ -263,7 +275,7 @@ static void select_quality(int index)
     g_renderScale=2; g_viewDist=8; g_flatDist=0; g_distanceMode=0;
 #ifdef DOS_BENCH_QUALITY
 #ifdef DOS_BENCH_FAR_SWEEP
-    dos_far_enabled=index+1;
+    dos_far_enabled=index+DOS_FAR_LOW;
     index=DOS_GRAPHICS_LOW;
 #endif
     const DosGraphicsSettings *quality=dos_graphics_settings(index);
@@ -271,6 +283,10 @@ static void select_quality(int index)
     g_flatDist=quality->flat_distance; g_distanceMode=quality->distance_mode;
     g_textureSubdivision=quality->texture_subdivision;
     dos_very_low_mode=index==DOS_GRAPHICS_VERY_LOW;
+    dos_potato_mode=0;
+#ifdef DOS_BENCH_RESOLUTION
+    g_renderScale=dos_resolution_set(DOS_BENCH_RESOLUTION);
+#endif
 #ifdef DOS_BENCH_A3_CEILING
     /* A3's best possible geometry saving, before paying for perspective UVs. */
     g_textureSubdivision=SUBDIV_OFF;
@@ -287,6 +303,9 @@ static void clear_samples(void)
     memset(timeouts,0,sizeof(timeouts)); memset(pixels,0,sizeof(pixels));
     memset(faces,0,sizeof(faces)); memset(items,0,sizeof(items));
     memset(hashes,0,sizeof(hashes));
+#ifdef DOS_VIEWMODEL
+    memset(viewmodelTimes,0,sizeof(viewmodelTimes));
+#endif
 #ifdef DOS_BENCH_PROFILE_CW
     memset(cw_times,0,sizeof(cw_times)); memset(cw_calls,0,sizeof(cw_calls));
     memset(cw_reasons,0,sizeof(cw_reasons));
@@ -338,6 +357,9 @@ static void finish(void)
         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
     fprintf(file,"REPLAY_CONTEXT=%s\n",suite?"POST_FIXTURE":"FRESH_WORLD");
     fprintf(file,"SAMPLES_PER_SCENE=%d\n",FRAMES);
+#ifdef DOS_BENCH_VIEWMODEL_CASES
+    fprintf(file,"HELD_CASE=%s\n",run==1 ? "empty_hand" : run==2 ? "cobblestone" : "iron_pickaxe");
+#endif
 #ifdef DOS_BENCH_DIAGONAL_ROUTE
     fprintf(file,"MOTION_POLICY=CONTINUOUS_WALK_OTHER_SCENES_32_POSES\nWALK_ROUTE=CONTINUOUS_DIAGONAL_XZ_FIXED_YAW_45_HORIZON\n");
 #else
@@ -387,6 +409,9 @@ static void finish(void)
         fprintf(file,"\nEDIT_CALLS=");
         for(f=0;f<phase_frames(p);++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
         fprintf(file,"\n");
+#ifdef DOS_VIEWMODEL
+        fprintf(file,"VIEWMODEL_US=%llu\n",(unsigned long long)viewmodelTimes[p]);
+#endif
 #ifdef DOS_BENCH_PROFILE_FAR
         fprintf(file,"FAR_TIMES=%u,%u,%u\n",farTimes[p][0],farTimes[p][1],farTimes[p][2]);
 #endif
@@ -547,6 +572,13 @@ void bench_frame(void)
         }
     }
     g_player.body.vx=g_player.body.vy=g_player.body.vz=0;
+#ifdef DOS_BENCH_VIEWMODEL_CASES
+    g_player.selected=0; g_inv[0].item=run==1 ? 0 : run==2 ? B_COBBLE : I_IRON_PICK;
+    g_inv[0].count=run==1 ? 0 : 1;
+#endif
+#ifdef DOS_VIEWMODEL
+    dos_viewmodel_us=0;
+#endif
     measured=frame>=WARM; dos_bench_pack=dos_bench_upload=dos_bench_wait=dos_bench_timeouts=0;
     g_statPixels=0;
 #ifdef DOS_BENCH_PROFILE_FAR

@@ -91,9 +91,11 @@ def adapt(name, data):
     before=text[start:end]
     text=replace_once(text,before,before[:-3]+'\n\tif(face==1) dos_tex_furnace_fire();\n}\n',recipe)
     text=replace_once(text,'void textures_init(void)\n',
-        '#include "../../../assets/textures/eagler_full.inc"\n\nstatic void dos_textures_build(void)\n',recipe)
+        '#include "../../../assets/textures/eagler_full.inc"\n'
+        '#include "../../../assets/textures/eagler_simple.inc"\n\nstatic void dos_textures_build(void)\n',recipe)
     text=replace_once(text,'\t/* Shaded copies of world textures, one atlas page per texture.  Pages\n',
-        '\tif(dos_texture_detail) dos_tex_import_full();\n\n'
+        '\tif(dos_texture_detail) dos_tex_import_full();\n'
+        '\telse dos_tex_import_simple();\n\n'
         '\t/* Shaded copies of world textures, one atlas page per texture.  Pages\n',recipe)
     text=replace_once(text,
         '\tg_texAtlas=(u8 *)(((u32)heap_alloc_low(NUM_SHADED_TEXTURES*4096+4095)+4095)&~4095u);',

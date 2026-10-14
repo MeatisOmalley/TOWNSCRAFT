@@ -1,0 +1,29 @@
+{
+  "exe_sha256": "d927518b3893373e8e5a61cc63141c3d1e5d3dd619d258faac103688cfec63da",
+  "iso_sha256": "3c28da82d6557b13d7bd576dae4ae3dedd6a0ec28187fc3ebaa5270c4f9f8190",
+  "terrain_sha256": "291d4ad257c8f1a8c4e7a2a811d303e6e1728f2e37b14cd913f6202bb97006b4",
+  "hardware_era": "1990-06-30",
+  "verified_smoke_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-7i3i87i3",
+  "preserved_player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-4dgqp9ch",
+  "preserved_hdd_sha256": "672d0c6acdd4d5362b3a5bbb3306d4c31c3ce805bfcc48d9872371facf0aba28",
+  "source_commit": "a8f76400",
+  "claude_tip": "da1d94b4",
+  "player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-wclrk76w",
+  "hdd_preservation": "byte-identical",
+  "claude_successful_flags_enabled": 14,
+  "disabled_failed_prototypes": [
+    "DOS_MULSHIFT",
+    "DOS_PLANAR_EXPAND_WORDS",
+    "DOS_VGA_SCAN_QUAD"
+  ],
+  "tests": {
+    "plant_geometry": "PASS; crossed geometry unchanged at ordinary resolutions, one facing quad at low resolutions",
+    "planar_row_fill_and_potato_native_raster": "PASS",
+    "leaf_texture_and_renderer_opacity": "PASS; both sets, repeated switches, baked flag normalization",
+    "production_codegen_flags": "3 PASS",
+    "benchmark_driver": "10 PASS",
+    "exact_guest_smoke": "new/load/V5 save/VGA PASS at 8 MiB",
+    "post_merge_binary_identity": "PASS",
+    "launcher": "ValidateOnly PASS"
+  }
+}

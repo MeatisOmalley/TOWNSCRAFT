@@ -1,7 +1,7 @@
 """Very Low visual tier: plants as one camera-facing upright quad.
 
 Flowers and tall grass are two crossed, double-sided quads (draw_cross).
-On the Very Low preset only, draw one quad through the cell's centre that
+At Very Low resolutions (80x100 and Potato), draw one quad through the cell's centre that
 always faces the camera instead. The camera has no roll, so its right axis
 is camera-space x: the quad is the cell's centre column widened along x,
 keeping the full cell height and the plant texture. Plants look the same

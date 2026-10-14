@@ -8,16 +8,23 @@ FAR_MAP_BYTES=512*512*2
 FAR_BYTES=LIT_BYTES+FAR_MAP_BYTES
 FAR_MAGIC=0x31465254
 LIGHT_MAGIC=0x314c4354
+TREE_MAGIC=0x31525446
 
 def check_terrain(terrain):
-    if terrain[:16]!=b'DOSCRAFT-1024-V1' or len(terrain) not in (BASE_BYTES,LIT_BYTES,FAR_BYTES):
+    if terrain[:16]!=b'DOSCRAFT-1024-V1' or (len(terrain) not in (BASE_BYTES,LIT_BYTES,FAR_BYTES) and len(terrain)<=FAR_BYTES):
         raise ValueError('Expected a checked prebaked 1024 terrain image')
     if len(terrain)>=LIT_BYTES and struct.unpack_from('<3I',terrain,52)!=(LIGHT_MAGIC,294977,13):
         raise ValueError('Invalid prebaked lighting appendix')
-    if len(terrain)==FAR_BYTES:
+    if len(terrain)>=FAR_BYTES:
         magic,sector,size,total,shift=struct.unpack_from('<5I',terrain,72)
         if (magic,sector,size,shift)!=(FAR_MAGIC,LIT_BYTES//512,FAR_MAP_BYTES,1):
             raise ValueError('Invalid distant terrain appendix')
+    if len(terrain)>FAR_BYTES:
+        magic,sector,size,total,cells,trees=struct.unpack_from('<6I',terrain,92)
+        expected=65536+cells*2;expected=(expected+3)&~3;expected+=4097*4+trees*8
+        if (magic,sector)!=(TREE_MAGIC,FAR_BYTES//512) or cells>262144 or trees>1048576 or \
+           size!=((expected+511)&~511) or len(terrain)!=FAR_BYTES+size:
+            raise ValueError('Invalid natural-tree appendix')
 
 def identity(terrain):
     check_terrain(terrain)
@@ -31,11 +38,17 @@ def upgrade_disk(old_disk,new_terrain):
     if any(attr&16 for name,attr,cluster,size in old.directory()):
         raise ValueError('Cannot migrate an unexpected player disk directory')
     previous=old.read('TERRAIN.TMP')
+    migrated_save=None
     if identity(previous)!=identity(new_terrain):
-        raise ValueError('Cannot retain player edits across a different baked seed')
-    merged=bytearray(new_terrain)
-    merged[33*512:BASE_BYTES]=previous[33*512:BASE_BYTES]
-    files=[(name,bytes(merged) if name=='TERRAIN.TMP' else old.read(name))
+        from leaf_flags_media import upgrade,MAGIC
+        if struct.unpack_from('<I',new_terrain,92)[0]!=MAGIC:
+            raise ValueError('Cannot retain player edits across a different baked seed')
+        merged,migrated_save=upgrade(previous,new_terrain,old.read('WORLD.SAV'))
+    else:
+        merged=bytearray(new_terrain)
+        merged[33*512:BASE_BYTES]=previous[33*512:BASE_BYTES]
+    files=[(name,bytes(merged) if name=='TERRAIN.TMP' else migrated_save
+            if name=='WORLD.SAV' and migrated_save is not None else old.read(name))
            for name,attr,cluster,size in old.directory() if not attr&16]
     disk=scratch_hdd(cylinders=800,heads=8,sectors=63)
     partition=struct.unpack_from('<I',disk,454)[0]*512

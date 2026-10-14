@@ -51,6 +51,8 @@ def parse(text):
             'p99_9':ordered[(999*count+999)//1000-1]/1000,'max':max(frames)/1000}
         row['fps']=frame_metrics(frames)
         row['stage_mean_ms']={name:value/(count*1000) for name,value in zip(SECTIONS,row['sections'])}
+        if 'viewmodel_us' in row:
+            row['viewmodel_mean_ms']=int(row['viewmodel_us'])/(count*1000)
         if 'far_times' in row:
             row['far_mean_ms']={name:value/(count*1000) for name,value in zip(('panorama_build','panorama_draw','heightmap'),row['far_times'])}
         row['transport_mean_ms']={name:int(row[name])/(count*1000) for name in ('pack','upload','wait')}
@@ -107,12 +109,14 @@ def main():
     parser.add_argument('--collect-margin',action='store_true',help='Wider conservative face-list reuse margin')
     parser.add_argument('--large-terrain',type=Path,help='Benchmark the prebaked 1024 HDD world')
     parser.add_argument('--stream-light',action='store_true',help='Restore baked and cached streamed lighting')
-    parser.add_argument('--far-field',choices=('off','on','low','medium','high'),help='Compile distant terrain at the selected level (on = medium)')
+    parser.add_argument('--far-field',choices=('off','on','very-low','low','medium','high'),help='Compile distant terrain at the selected level (on = medium)')
+    parser.add_argument('--resolution',choices=('full','low','very-low','potato'),help='Override view resolution independently of the graphics preset')
     parser.add_argument('--profile-far',action='store_true',help='Separate PIT timings for panorama preparation/drawing and the live heightmap')
     parser.add_argument('--far-sweep',action='store_true',help='Run distant Low/Medium/High in one world, holding main graphics at Low')
     parser.add_argument('--far-details',action='store_true',help='Medium/High far slope shading and deterministic dithering')
     parser.add_argument('--far-view-depth',action='store_true',help='Constant view-depth march with folded pitch reciprocal')
     parser.add_argument('--far-reproject',action='store_true',help='Reproject cached panorama heights/depths at the current eye height')
+    parser.add_argument('--viewmodel-cases',action='store_true',help='Three held-item cases in one world: empty hand, cobblestone, iron pickaxe')
     parser.add_argument('--diagonal-route',action='store_true',help='Replay walking diagonally in X/Z at fixed 45-degree yaw; distinct from the standard route')
     parser.add_argument('--far-coarse-eye',action='store_true',help='Ablation: same panorama renderer with the old one-block eye-height threshold')
     parser.add_argument('--far-skip-first',action='store_true',help='Visual experiment: leave the first heightmap strip to near geometry; may expose holes')
@@ -120,7 +124,7 @@ def main():
     parser.add_argument('--collect-vm',type=Path,help='Collect a finished private benchmark without launching it')
     parser.add_argument('--run-vm',type=Path,help='Run an untouched private benchmark prepared with --prepare-only')
     parser.add_argument('--label',default='baseline')
-    parser.add_argument('--candidate',choices=('reference','production','a3-ceiling','a1-census','async-flip','sync-flip','proven-rows','proven-vertical','hud-proof','raster-finish-skip','very-low','very-low-texels','low-planar','pre-planar','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip','texel-edx','row-pointer','flat-inline','row-mul','mulshift','planar-expand-words','pre-render-exact','stream-validate-once','light-offsets','mesh-edges','collect-swap','memmove-dwords','world-scans','baked-light-fast','sort-histograms','pre-world-exact','plant-billboards','scan-quad','pre-fill-rows'),default='reference')
+    parser.add_argument('--candidate',choices=('reference','production','pre-viewmodel','a3-ceiling','a1-census','async-flip','sync-flip','proven-rows','proven-vertical','hud-proof','raster-finish-skip','very-low','very-low-texels','low-planar','pre-planar','fused-low','fused-words','group-facing','pack-all','hud-cache','broadcast','pack-words','pack-words-c','omit-frame','et4000-chunky','et4000-strided','et4000-hud-words','et4000-strided-hud-words','trap-zero-gradient','trap-destination','trap-stable','trap-four','wall-visibility','split-reuse','depth-adaptive','occlusion','zero-dx','camera-reuse','packed-raster','early-split-cull','front-to-back','front-to-back-fast','edge-recip','texel-edx','row-pointer','flat-inline','row-mul','mulshift','planar-expand-words','pre-render-exact','stream-validate-once','light-offsets','mesh-edges','collect-swap','memmove-dwords','world-scans','baked-light-fast','sort-histograms','pre-world-exact','plant-billboards','scan-quad','pre-fill-rows'),default='reference')
     parser.add_argument('--timeout',type=int,help='Host timeout seconds; default 900 for short runs, increased for long runs')
     parser.add_argument('--quality',choices=('low','medium','high','very-low'),default='low')
     parser.add_argument('--quality-sweep',action='store_true',help='Run Low, Medium, High in one guest process and world')
@@ -172,6 +176,7 @@ def main():
                        '-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS')
     pre_world_exact_flags=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag not in world_exact_flags)
     variants={'reference':(), 'production':DEFAULT_ADAPTER_FLAGS,
+        'pre-viewmodel':tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag!='-DDOS_VIEWMODEL'),
         'a3-ceiling':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_BENCH_A3_CEILING'),
         'a1-census':(*DEFAULT_ADAPTER_FLAGS,'-DDOS_BENCH_A1_CENSUS'),
         'async-flip':DEFAULT_ADAPTER_FLAGS,
@@ -238,11 +243,12 @@ def main():
     if args.far_field:
         if not args.large_terrain: parser.error('--far-field requires --large-terrain')
         flags=(*flags,'-DDOS_FAR_FIELD')
-        if args.far_field!='off': flags=(*flags,'-DDOS_BENCH_FAR_LEVEL='+str({'low':1,'medium':2,'on':2,'high':3}[args.far_field]))
+        if args.far_field!='off': flags=(*flags,'-DDOS_BENCH_FAR_LEVEL='+str({'very-low':1,'low':2,'medium':3,'on':3,'high':4}[args.far_field]))
     if args.profile_far:
         if args.far_field in (None,'off'): parser.error('--profile-far requires distant terrain enabled')
         flags=(*flags,'-DDOS_BENCH_PROFILE_FAR')
     if args.far_sweep: flags=(*flags,'-DDOS_BENCH_FAR_SWEEP')
+    if args.resolution: flags=(*flags,'-DDOS_BENCH_RESOLUTION='+str(('full','low','very-low','potato').index(args.resolution)))
     if args.far_details:
         if not args.far_field: parser.error('--far-details requires --far-field')
         flags=(*flags,'-DDOS_FAR_DETAILS')
@@ -252,6 +258,9 @@ def main():
     if args.far_reproject:
         if not args.far_field: parser.error('--far-reproject requires --far-field')
         flags=(*flags,'-DDOS_FAR_REPROJECT')
+    if args.viewmodel_cases:
+        if args.quality_sweep: parser.error('--viewmodel-cases holds graphics quality fixed')
+        flags=(*flags,'-DDOS_BENCH_VIEWMODEL_CASES')
     if args.diagonal_route: flags=(*flags,'-DDOS_BENCH_DIAGONAL_ROUTE')
     if args.far_coarse_eye:
         if not args.far_reproject: parser.error('--far-coarse-eye requires --far-reproject')

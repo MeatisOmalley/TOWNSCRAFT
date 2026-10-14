@@ -7,7 +7,8 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 import build_imported,dos_sources
-from bake_far_field import surface
+from bake_far_field import surface,append_map
+from large_world_media import FAR_BYTES,LIT_BYTES,identity
 ZIG=ROOT.parents[1]/'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'
 TERRAIN=ROOT/'build/checks/large-world-proto/terrain1024-far.bin'
 
@@ -18,6 +19,10 @@ class FarTests(unittest.TestCase):
         self.assertEqual(surface(raw)[:2],bytes((20,2)))
         raw[48+46]=7
         self.assertEqual(surface(raw)[:2],bytes((47,7)))
+        self.assertEqual(surface(raw,leaves=False)[:2],bytes((20,2)))
+        raw[48+24]=6
+        self.assertEqual(surface(raw,leaves=False)[:2],bytes((25,6)))
+        self.assertEqual(surface(raw,leaves=True)[:2],bytes((47,7)))
 
     def test_overlay_replays_with_release_and_planar(self):
         for name in ('world.c','render.c','raster.c','column_cache.inc','column_hdd.inc'):
@@ -31,6 +36,17 @@ class FarTests(unittest.TestCase):
                 self.assertEqual(replay.count(before),step['count'])
                 replay=replay.replace(before,after)
             self.assertEqual(replay,data)
+
+    @unittest.skipUnless(TERRAIN.is_file(),'existing prebaked seed required')
+    def test_original_shared_map_preserves_seed_and_offsets(self):
+        original=TERRAIN.read_bytes();result=append_map(original)
+        self.assertEqual(len(result),FAR_BYTES)
+        self.assertEqual(identity(result),identity(original))
+        self.assertEqual(result[:72],original[:72])
+        self.assertEqual(result[116:LIT_BYTES],original[116:LIT_BYTES])
+        self.assertFalse(any(result[92:116]))
+        self.assertIn(7,result[LIT_BYTES+1:FAR_BYTES:2])
+        self.assertTrue(result[LIT_BYTES:]==original[LIT_BYTES:],'original surface appendix changed')
 
     @unittest.skipUnless(ZIG.is_file() and TERRAIN.is_file(),'native Zig and distant seed required')
     def test_actual_world_edit_reload_and_checksum(self):
@@ -50,8 +66,11 @@ class FarTests(unittest.TestCase):
             exe=folder/'far.exe'
             self.run_cmd([*flags,ROOT/'tests/far_world_native.c',ROOT/'src/platform/dos/heap.c',
                 *(src/s for s in ('blocks.c','fmath.c','libc.c')),tables,obj,'-o',exe])
-            terrain=folder/'terrain.tmp'; shutil.copyfile(TERRAIN,terrain)
-            self.assertIn('PASS: distant map',self.run_cmd([exe,terrain]).stdout)
+            terrain=folder/'terrain.tmp'
+            for source in (TERRAIN,TERRAIN.with_name('terrain1024-fixed-leaves.bin')):
+                if not source.exists():continue
+                shutil.copyfile(source,terrain)
+                self.assertIn('PASS: distant map',self.run_cmd([exe,terrain]).stdout)
             with terrain.open('r+b') as f:
                 f.seek(178291200); value=f.read(1); f.seek(178291200); f.write(bytes([value[0]^1]))
             r=subprocess.run([str(exe),str(terrain)],capture_output=True,text=True,timeout=120)
@@ -82,8 +101,16 @@ class FarTests(unittest.TestCase):
                 '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
                 src/'blocks.c',src/'fmath.c',tables,'-o',baseline])
             expected=self.run_cmd([baseline]).stdout
-            self.assertEqual(actual,expected,'far image changed versus checkpoint')
+            expected_hash=[line for line in expected.splitlines() if line.startswith('POSE_HASH=')]
             base_hash=[line for line in actual.splitlines() if line.startswith('POSE_HASH=')]
+            self.assertEqual(len(base_hash),576)
+            for scale in range(2):
+                for current,legacy in ((0,0),(1,0),(2,1),(3,2)):
+                    self.assertEqual(base_hash[scale*288+current*72:scale*288+(current+1)*72],
+                                     expected_hash[scale*216+legacy*72:scale*216+(legacy+1)*72],
+                                     'plain far image changed versus checkpoint')
+            previous=subprocess.run(['git','show','be642145:86craft/DOScraft/src/platform/dos/far_render.inc'],cwd=ROOT,capture_output=True,check=True).stdout
+            (folder/'far_previous.inc').write_bytes(previous)
             for flags in (['-DDOS_FAR_DETAILS'],['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH'],
                           ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT']):
                 self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
@@ -92,10 +119,22 @@ class FarTests(unittest.TestCase):
                 output=self.run_cmd([exe]).stdout
                 self.assertIn('PASS: distant levels',output)
                 hashes=[line for line in output.splitlines() if line.startswith('POSE_HASH=')]
-                self.assertEqual(len(hashes),432)
+                self.assertEqual(len(hashes),576)
                 if len(flags)==1:
-                    for start in (0,216): self.assertEqual(hashes[start:start+72],base_hash[start:start+72],'Low received visual detail changes')
-                    self.assertNotEqual(hashes[72:216],base_hash[72:216],'Medium/High detail did not change colors')
+                    for start in (0,288):
+                        self.assertEqual(hashes[start:start+72],base_hash[start:start+72],'Very Low received visual detail changes')
+                        self.assertNotEqual(hashes[start+72:start+144],base_hash[start+72:start+144],'Low lacks visual detail')
+                        self.assertNotEqual(hashes[start+144:start+288],base_hash[start+144:start+288],'Medium/High lack visual detail')
+                self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
+                    '-DFAR_TEST_LEVELS=3','-DFAR_RENDER_TEST_INCLUDE="far_previous.inc"',
+                    '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
+                    src/'blocks.c',src/'fmath.c',tables,'-o',baseline])
+                previous_hash=[line for line in self.run_cmd([baseline]).stdout.splitlines() if line.startswith('POSE_HASH=')]
+                for scale in range(2):
+                    for current,prior in ((0,0),(2,1),(3,2)):
+                        self.assertEqual(hashes[scale*288+current*72:scale*288+(current+1)*72],
+                                         previous_hash[scale*216+prior*72:scale*216+(prior+1)*72],
+                                         'Very Low or Medium/High image changed')
 
     def run_cmd(self,args):
         r=subprocess.run(list(map(str,args)),capture_output=True,text=True,errors='replace',timeout=120)

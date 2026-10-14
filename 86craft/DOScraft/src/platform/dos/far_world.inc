@@ -16,7 +16,7 @@ static void far_world_header(const u32 *h)
 int dos_far_available(void) { return farMapSector!=0; }
 const u8 *dos_far_ready_flags(void) { return residentReady; }
 void dos_far_change(int direction) {
-    if(dos_far_available()) dos_far_enabled=(dos_far_enabled+direction+4)%4;
+    if(dos_far_available()) dos_far_enabled=(dos_far_enabled+direction+DOS_FAR_COUNT)%DOS_FAR_COUNT;
 }
 void dos_far_toggle(void) { dos_far_change(1); }
 
@@ -26,7 +26,7 @@ static int far_world_cell(int cx,int cz,int lx,int lz,const u8 *blocks)
     int h=0,b=0;
     for(int dz=0;dz<2;++dz) for(int dx=0;dx<2;++dx) {
         const u8 *p=blocks+((lz+dz)*CS+lx+dx)*WH;
-        for(int y=WH-1;y>=h;--y) if(blk_flags(p[y])&BF_CUBE) {
+        for(int y=WH-1;y>=h;--y) if(dos_far_cube(p[y])) {
             h=y+1; b=BLK_ID(p[y]); break;
         }
     }
@@ -117,7 +117,7 @@ int dos_far_sample(int x,int z,int detailed,u8 *block)
         if(s>=0 && residentReady[s]) {
             int cell=(z&15)*CS+(x&15),h=g_height[s*CS*CS+cell];
             const u8 *p=g_blocks+s*COLUMN_CELLS+cell*WH;
-            while(h && !(blk_flags(p[h-1])&BF_CUBE)) --h;
+            while(h && !dos_far_cube(p[h-1])) --h;
             *block=h ? BLK_ID(p[h-1]) : B_AIR;
             return h;
         }

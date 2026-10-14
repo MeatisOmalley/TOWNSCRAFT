@@ -45,6 +45,13 @@ int dos_far_sample(int x,int z,int detail,u8 *b) {
 #define FAR_RENDER_TEST_INCLUDE "far_render.inc"
 #endif
 #include FAR_RENDER_TEST_INCLUDE
+#ifndef FAR_TEST_LEVELS
+#ifdef FAR_RENDER_TEST_LEGACY
+#define FAR_TEST_LEVELS 3
+#else
+#define FAR_TEST_LEVELS (DOS_FAR_COUNT-1)
+#endif
+#endif
 static unsigned changes(void) { unsigned n=0; for(int i=0;i<512*200;++i) n+=rbuf[i]!=0xee; return n; }
 static u32 frame_hash(void) {
     u32 hash=2166136261u;
@@ -78,7 +85,7 @@ static void material_patterns(void) {
         }
     }
     rplanar=0; rscale=g_renderScale=1; vw=rw=320; vh=rh=200;
-    dos_far_enabled=3;
+    dos_far_enabled=DOS_FAR_LOW;
     texAvg[T_GRASS_TOP]=P(R_GRASS,14); texAvg[T_DIRT]=P(R_DIRT,12);
     texAvg[T_LOG_SIDE]=P(R_BARK,10); texAvg[T_LOG_TOP]=P(R_BARK,14);
     RenderEnv day={0},night={0}; night.skyDarken=4;
@@ -95,6 +102,12 @@ static void material_patterns(void) {
     assert((far_color(B_LOG,0,&day,1)&240)==R_BARK*16);
     assert((far_color(B_GRASS,0,&night,0)&15)<(far_color(B_GRASS,0,&day,0)&15));
     assert(far_pattern(B_GRASS,0)==FAR_PATTERN_SOLID && far_pattern(B_WATER,0)==FAR_PATTERN_SOLID);
+    assert((far_ink(B_LEAVES,0,0)>>9)==FAR_PATTERN_LEAVES);
+    dos_far_enabled=DOS_FAR_VERY_LOW;
+    assert((far_ink(B_LEAVES,0,0)>>9)==FAR_PATTERN_SOLID);
+    memset(pixels,0xee,sizeof(pixels)); raster_far_column(&column,0,8,20);
+    far_paint_surface(&column,10,14,B_GRASS,0);
+    for(int y=10;y<20;++y) assert((logical_pixel(0,y)&240)==R_GRASS*16);
 }
 #endif
 int main(void) {
@@ -106,7 +119,7 @@ int main(void) {
     rw=vw; rh=vh; rpitch=512; rscale=2;
     RenderEnv env={0};
     memset(pixels,0xee,sizeof(pixels)); draw_far_field(&env); assert(!changes());
-    for(int scale=1;scale<=2;++scale) for(int level=1;level<=3;++level) {
+    for(int scale=1;scale<=2;++scale) for(int level=1;level<=FAR_TEST_LEVELS;++level) {
         g_renderScale=rscale=scale; vw=rw=320/scale; vh=rh=200/scale;
         focal16=172*16/scale; cx16=vw*8;
         dos_far_enabled=level;
@@ -128,7 +141,7 @@ int main(void) {
     for(int t=0;t<NUM_TEXTURES;++t) texAvg[t]=P(t%15,14);
     ++dos_far_version; farShadeDarken=-1;
     static const int points[]={0,512,1023};
-    for(int scale=1;scale<=2;++scale) for(int level=1;level<=3;++level)
+    for(int scale=1;scale<=2;++scale) for(int level=1;level<=FAR_TEST_LEVELS;++level)
     for(int p=0;p<3;++p) for(int pitch=-80;pitch<=80;pitch+=80)
     for(int yaw=0;yaw<1024;yaw+=128) {
         g_renderScale=rscale=scale; vw=rw=320/scale; vh=rh=200/scale;

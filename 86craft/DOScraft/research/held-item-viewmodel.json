@@ -1,0 +1,384 @@
+{
+  "date": "2026-10-14",
+  "hardware": "June 1990 DX/40, 8 MiB, ET4000AX ISA16, AHA-1542A SCSI, ST4385N timing",
+  "graphics": "Low 160x100; view 8; distant terrain Off",
+  "motion": "Frozen graphics/world-update replay; 256-frame continuous diagonal horizon walk; other scenes 32 poses",
+  "benchmark_on_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-ce97t5q8",
+  "benchmark_off_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-_6qyg4hr",
+  "cases": [
+    {
+      "held_case": "empty_hand",
+      "scenes": [
+        {
+          "scene": "open_static",
+          "samples": 32,
+          "without_mean_ms": 21.416875,
+          "with_mean_ms": 21.99953125,
+          "frame_delta_ms": 0.5826562499999994,
+          "model_draw_mean_ms": 0.570125,
+          "transport_with_ms": {
+            "pack": 1.360875,
+            "upload": 4.31696875,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.3608125,
+            "upload": 4.3101875,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "walk",
+          "samples": 256,
+          "without_mean_ms": 20.0680625,
+          "with_mean_ms": 20.957125,
+          "frame_delta_ms": 0.8890625000000014,
+          "model_draw_mean_ms": 0.56838671875,
+          "transport_with_ms": {
+            "pack": 1.372703125,
+            "upload": 4.93048046875,
+            "wait": 0.15583984375
+          },
+          "transport_without_ms": {
+            "pack": 1.38973046875,
+            "upload": 4.49132421875,
+            "wait": 0.273875
+          }
+        },
+        {
+          "scene": "walk_down",
+          "samples": 32,
+          "without_mean_ms": 43.98353125,
+          "with_mean_ms": 44.56678125,
+          "frame_delta_ms": 0.5832499999999996,
+          "model_draw_mean_ms": 0.566875,
+          "transport_with_ms": {
+            "pack": 1.138625,
+            "upload": 5.67546875,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.139125,
+            "upload": 5.67678125,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "walk_up",
+          "samples": 32,
+          "without_mean_ms": 17.67121875,
+          "with_mean_ms": 18.52634375,
+          "frame_delta_ms": 0.8551249999999975,
+          "model_draw_mean_ms": 0.568875,
+          "transport_with_ms": {
+            "pack": 1.309875,
+            "upload": 5.60046875,
+            "wait": 0.88065625
+          },
+          "transport_without_ms": {
+            "pack": 1.32684375,
+            "upload": 5.54171875,
+            "wait": 0.6515625
+          }
+        },
+        {
+          "scene": "house",
+          "samples": 32,
+          "without_mean_ms": 28.38721875,
+          "with_mean_ms": 28.968375,
+          "frame_delta_ms": 0.5811562500000029,
+          "model_draw_mean_ms": 0.568375,
+          "transport_with_ms": {
+            "pack": 1.152,
+            "upload": 5.66428125,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.15521875,
+            "upload": 5.671875,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "block_edits",
+          "samples": 32,
+          "without_mean_ms": 31.80765625,
+          "with_mean_ms": 32.392625,
+          "frame_delta_ms": 0.5849687500000016,
+          "model_draw_mean_ms": 0.56634375,
+          "transport_with_ms": {
+            "pack": 1.1515625,
+            "upload": 5.67546875,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.15134375,
+            "upload": 5.67584375,
+            "wait": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "held_case": "cobblestone",
+      "scenes": [
+        {
+          "scene": "open_static",
+          "samples": 32,
+          "without_mean_ms": 21.43509375,
+          "with_mean_ms": 22.5011875,
+          "frame_delta_ms": 1.0660937500000003,
+          "model_draw_mean_ms": 1.04525,
+          "transport_with_ms": {
+            "pack": 1.35975,
+            "upload": 4.32428125,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.36390625,
+            "upload": 4.3244375,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "walk",
+          "samples": 256,
+          "without_mean_ms": 20.04519140625,
+          "with_mean_ms": 21.268359375,
+          "frame_delta_ms": 1.2231679687499977,
+          "model_draw_mean_ms": 1.04623046875,
+          "transport_with_ms": {
+            "pack": 1.36187890625,
+            "upload": 4.9077890625,
+            "wait": 0.1205859375
+          },
+          "transport_without_ms": {
+            "pack": 1.3884296875,
+            "upload": 4.492703125,
+            "wait": 0.3476796875
+          }
+        },
+        {
+          "scene": "walk_down",
+          "samples": 32,
+          "without_mean_ms": 43.80353125,
+          "with_mean_ms": 44.8629375,
+          "frame_delta_ms": 1.059406250000002,
+          "model_draw_mean_ms": 1.05703125,
+          "transport_with_ms": {
+            "pack": 1.13453125,
+            "upload": 5.67584375,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.13546875,
+            "upload": 5.68,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "walk_up",
+          "samples": 32,
+          "without_mean_ms": 17.51175,
+          "with_mean_ms": 18.2140625,
+          "frame_delta_ms": 0.7023125000000014,
+          "model_draw_mean_ms": 1.0465625,
+          "transport_with_ms": {
+            "pack": 1.30175,
+            "upload": 5.60790625,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.3291875,
+            "upload": 5.53690625,
+            "wait": 0.4070625
+          }
+        },
+        {
+          "scene": "house",
+          "samples": 32,
+          "without_mean_ms": 30.49390625,
+          "with_mean_ms": 31.5539375,
+          "frame_delta_ms": 1.0600312500000015,
+          "model_draw_mean_ms": 1.04725,
+          "transport_with_ms": {
+            "pack": 1.15203125,
+            "upload": 5.67328125,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.15146875,
+            "upload": 5.66509375,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "block_edits",
+          "samples": 32,
+          "without_mean_ms": 29.1661875,
+          "with_mean_ms": 30.1774375,
+          "frame_delta_ms": 1.0112500000000004,
+          "model_draw_mean_ms": 1.0449375,
+          "transport_with_ms": {
+            "pack": 1.15740625,
+            "upload": 5.6688125,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.15903125,
+            "upload": 5.6745,
+            "wait": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "held_case": "iron_pickaxe",
+      "scenes": [
+        {
+          "scene": "open_static",
+          "samples": 32,
+          "without_mean_ms": 21.45196875,
+          "with_mean_ms": 23.20159375,
+          "frame_delta_ms": 1.7496250000000018,
+          "model_draw_mean_ms": 1.73509375,
+          "transport_with_ms": {
+            "pack": 1.35953125,
+            "upload": 4.3198125,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.359,
+            "upload": 4.31725,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "walk",
+          "samples": 256,
+          "without_mean_ms": 19.8572734375,
+          "with_mean_ms": 21.72244921875,
+          "frame_delta_ms": 1.8651757812499987,
+          "model_draw_mean_ms": 1.7366640625,
+          "transport_with_ms": {
+            "pack": 1.36012890625,
+            "upload": 4.99284375,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.392203125,
+            "upload": 4.44944921875,
+            "wait": 0.3997734375
+          }
+        },
+        {
+          "scene": "walk_down",
+          "samples": 32,
+          "without_mean_ms": 43.8839375,
+          "with_mean_ms": 45.63378125,
+          "frame_delta_ms": 1.7498437499999966,
+          "model_draw_mean_ms": 1.73353125,
+          "transport_with_ms": {
+            "pack": 1.13559375,
+            "upload": 5.675,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.14028125,
+            "upload": 5.664375,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "walk_up",
+          "samples": 32,
+          "without_mean_ms": 18.47484375,
+          "with_mean_ms": 20.2795,
+          "frame_delta_ms": 1.8046562499999972,
+          "model_draw_mean_ms": 1.7360625,
+          "transport_with_ms": {
+            "pack": 1.30759375,
+            "upload": 5.61365625,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.32315625,
+            "upload": 5.54515625,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "house",
+          "samples": 32,
+          "without_mean_ms": 28.65909375,
+          "with_mean_ms": 30.41184375,
+          "frame_delta_ms": 1.752749999999999,
+          "model_draw_mean_ms": 1.73959375,
+          "transport_with_ms": {
+            "pack": 1.1511875,
+            "upload": 5.66403125,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.1521875,
+            "upload": 5.6705,
+            "wait": 0.0
+          }
+        },
+        {
+          "scene": "block_edits",
+          "samples": 32,
+          "without_mean_ms": 31.91203125,
+          "with_mean_ms": 33.66459375,
+          "frame_delta_ms": 1.7525625000000034,
+          "model_draw_mean_ms": 1.7331875,
+          "transport_with_ms": {
+            "pack": 1.149625,
+            "upload": 5.6745625,
+            "wait": 0.0
+          },
+          "transport_without_ms": {
+            "pack": 1.1576875,
+            "upload": 5.668,
+            "wait": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "One matched pass per held-item case; not repeated case-specific trials",
+    "Physics frozen; rest pose, not sustained swinging or bob",
+    "Component timer is benchmark-only and included in Finish; whole-frame differences also include presentation phase/dirty-row changes",
+    "Small scenes do not establish reliable tail-percentile FPS"
+  ],
+  "memory_object": {
+    "text": 2960,
+    "data": 16,
+    "bss": 4208,
+    "icon_buffer": 4096
+  },
+  "publication": {
+    "exe_sha256": "98a71d27349621b665417df0f13dddabcf5806a90de358808613b0c8652bb9dd",
+    "iso_sha256": "bb5e46898cbf2f892e62102b960868b716bbfd24e4602ce93c5eae5297d7905f",
+    "terrain_sha256": "291d4ad257c8f1a8c4e7a2a811d303e6e1728f2e37b14cd913f6202bb97006b4",
+    "hardware_era": "1990-06-30",
+    "verified_smoke_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-hvgr2at0",
+    "preserved_player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-g6t2vjg5",
+    "preserved_hdd_sha256": "672d0c6acdd4d5362b3a5bbb3306d4c31c3ce805bfcc48d9872371facf0aba28"
+  },
+  "player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-zqr6txtm",
+  "hdd_preservation": "byte-identical",
+  "tests": {
+    "native_actual_raster_all_items_all_resolutions": "PASS; includes opaque/transparent/flat paths, animation image differences, light, protected HUD and allocation guards",
+    "production_codegen_defaults": "3 PASS",
+    "benchmark_controls_parser": "10 PASS",
+    "exact_production_guest_smoke_new_reload": "PASS; VGA readback, streaming, torch place/break, presets/resolutions, V5 save/load",
+    "launcher_validate_only": "PASS June 1990 shared path"
+  },
+  "feature_source_sha256": {
+    "src\\platform\\dos\\viewmodel.c": "6c36a1e1398f91e015cb38b679c4da08cd9bb612cc1dd2ea45644f4050a3e657",
+    "src\\platform\\dos\\viewmodel.h": "4afa6785ba95d72a8ed7de94e075c31222991da08381a2a3805b9f09af74b84c",
+    "tools\\dos_viewmodel.py": "0c2bedd056117b5731933b2dcfba400c5c4f76d064a3c454aa72e6e36f6110f3"
+  }
+}

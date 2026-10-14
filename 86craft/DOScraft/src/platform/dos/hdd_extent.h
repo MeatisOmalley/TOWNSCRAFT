@@ -6,6 +6,19 @@ static unsigned extent_u16(const unsigned char *p)
 { return (unsigned)p[0] | (unsigned)p[1]<<8; }
 static unsigned extent_u32(const unsigned char *p)
 { return extent_u16(p) | extent_u16(p+2)<<16; }
+static int dos_terrain_known_medium(unsigned bytes,const unsigned char *header)
+{
+    if(memcmp(header,"DOSCRAFT-1024-V1",16)) return 0;
+    if(bytes==151011840u || bytes==178291200u || bytes==178815488u) return 1;
+    if(bytes<=178815488u || extent_u32(header+52)!=0x314c4354u ||
+       extent_u32(header+72)!=0x31465254u || extent_u32(header+76)!=178291200u/512 ||
+       extent_u32(header+80)!=524288u || extent_u32(header+88)!=1 ||
+       extent_u32(header+92)!=0x31525446u || extent_u32(header+96)!=178815488u/512) return 0;
+    unsigned cells=extent_u32(header+108),trees=extent_u32(header+112);
+    if(cells>262144u || trees>1048576u) return 0;
+    unsigned payload=(((65536u+cells*2+3)&~3u)+4097u*4+trees*8+511)&~511u;
+    return extent_u32(header+100)==payload && bytes-178815488u==payload;
+}
 static int dos_terrain_edit_range(unsigned lba,unsigned count)
 {
     if(lba<33 || lba>=294945u || !count || count>24 || count>294945u-lba) return 0;

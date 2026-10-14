@@ -136,6 +136,7 @@ static u32 cpuSpeedIndex,fake_ticks;
 static const char *message;
 static void game_message(const char *s) { message=s; ++message_count; }
 static void save_game(void) { ++saves; }
+static void render_sync_texture_resolution(void) { }
 #include "graphics_apply.inc"
 #define g_ticks (++fake_ticks)
 #include "graphics_init.inc"
@@ -230,7 +231,7 @@ class CompiledTests(unittest.TestCase):
             folder = Path(folder)
             imported.stage_sources(imported.VENDOR, folder / 'imported')
             data, _ = dos_graphics.adapt('game.c', SOURCE.read_bytes())
-            (folder / 'game.c').write_bytes(data)
+            (folder / 'game.c').write_bytes(b'void render_sync_texture_resolution(void);\n'+data)
             for source in (folder / 'game.c', PLATFORM / 'graphics_presets.c'):
                 self.run_command([imported.COMPILER, *imported.CFLAGS,
                                   '-I', folder / 'imported/src', '-I', PLATFORM,

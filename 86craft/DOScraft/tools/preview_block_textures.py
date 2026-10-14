@@ -39,10 +39,30 @@ def generate(output):
             exe=folder/(mode+'.exe'); raw=output/(mode+'.bin')
             subprocess.run(list(map(str,[ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',
                 *(['-DDOS_TEXTURE_CHECK'] if mode=='after' else []),'-I',src,'-I',ROOT/'src/platform/dos',
-                ROOT/'tests/block_textures_native.c',src/'textures.c','-o',exe])),check=True)
+                ROOT/'tests/block_textures_native.c',src/'textures.c',src/'blocks.c','-o',exe])),check=True)
             subprocess.run([str(exe),str(raw.resolve())],check=True)
     draw_sheet(output)
     draw_sheet(output,('simple','after'),('Small view','Full resolution'),'resolution-styles.png')
+    draw_tools(output)
+
+
+def draw_tools(output):
+    from compare_eagler_textures import names
+    from import_eagler_textures import tool_material
+    ids=names();indices=[i for i,n in enumerate(ids) if tool_material(n)]
+    raws=[(output/(mode+'.bin')).read_bytes() for mode in ('simple','after')]
+    sheet=Image.new('RGB',(840,65+((len(indices)+3)//4)*130),(26,29,33));d=ImageDraw.Draw(sheet)
+    d.text((18,12),'16 x 16 TOOLS - Small view / Full resolution',(230,230,230))
+    d.text((18,30),'Eaglercraft silhouettes, brown handles and material-specific heads.',(190,195,200))
+    for slot,i in enumerate(indices):
+        x=18+(slot%4)*210;y=62+(slot//4)*130
+        d.text((x,y),ids[i][4:].replace('_',' ').title(),(235,235,235))
+        for side,raw in enumerate(raws):
+            tex=Image.frombytes('P',(16,16),raw[768+i*256:768+(i+1)*256]);tex.putpalette(raw[:768])
+            rgb=tex.convert('RGB').resize((80,80),Image.Resampling.NEAREST)
+            sheet.paste(rgb,(x+side*96,y+19))
+            d.text((x+side*96,y+104),('Small view','Full resolution')[side],(175,180,185))
+    sheet.save(output/'tool-styles.png')
 
 def draw_sheet(output,modes=('before','after'),labels=('Before','After'),filename='comparison.png'):
     raws=[(output/(mode+'.bin')).read_bytes() for mode in modes]

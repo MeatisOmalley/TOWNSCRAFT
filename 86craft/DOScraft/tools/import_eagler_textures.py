@@ -88,6 +88,8 @@ def source_tile(name,index,files):
 
 
 def ramps_for(name):
+    if tool_material(name):
+        return (5,6) if tool_material(name)=='WOOD' else (0,5,6,12) if tool_material(name)=='DIAMOND' else (0,5,6)
     if name in ('T_DIRT',):return (1,)
     if name=='T_LEAVES':return (3,)
     if name=='T_TALLGRASS':return (2,)
@@ -98,6 +100,12 @@ def ramps_for(name):
     if name in ('T_PLANKS','T_LOG_SIDE','T_LOG_TOP'):return (1,5,6)
     if name in ('T_CHEST_TOP','T_CHEST_FRONT'):return (0,1,5,6)
     return tuple(range(16))
+
+
+def tool_material(name):
+    if not name.startswith('T_I_'): return None
+    parts=name[4:].split('_')
+    return parts[0] if len(parts)==2 and parts[1] in ('PICK','SWORD','AXE','SHOVEL') else None
 
 
 def convert(assets):
@@ -119,6 +127,13 @@ def convert(assets):
                 options=candidates
                 if name=='T_GRASS_SIDE':
                     options=[ramp*16+s for ramp in ((2,) if g>r else (1,)) for s in range(1,16)]
+                material=tool_material(name)
+                if material:
+                    # Keep wooden handles brown; unrestricted nearest-color
+                    # mapping had sent them into the olive ramp.
+                    wood=material=='WOOD' or (r>g*1.12 and g>b*1.12)
+                    ramps=(5,6) if wood else (0,12) if material=='DIAMOND' else (0,)
+                    options=[ramp*16+s for ramp in ramps for s in range(1,16)]
                 mapped[pixel]=min(options,key=lambda i:sum(w*(v-c)**2 for w,v,c in zip((2,4,3),pixel,rgb[i])))
             tile.append(mapped[pixel])
         data[index*256:(index+1)*256]=bytes(tile)
@@ -126,6 +141,7 @@ def convert(assets):
             converted_sha256=sha256(bytes(tile)).hexdigest(),colors=len(set(tile)),transparent_pixels=tile.count(0))
         if name=='T_LEAVES':record['rule']+='; alpha holes filled dark green'
         if name=='T_DIRT':record['rule']+='; grey flecks converted to brown'
+        if tool_material(name):record['rule']+='; wooden handle/head colors constrained to brown, other heads to their material'
         rows.append(record)
     return bytes(data),dict(assets_sha256=sha256(Path(assets).read_bytes()).hexdigest(),
         palette_sha256=sha256(palette).hexdigest(),conversion='nearest existing ramp shade; no dithering',

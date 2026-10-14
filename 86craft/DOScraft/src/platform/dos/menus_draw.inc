@@ -1,7 +1,7 @@
 /* Included in staged game.c; the pinned Towns sources remain immutable. */
 #ifdef DOS_FAR_FIELD
 #include "far_field.h"
-static const char *const distantNames[]={"Off","Low (64)","Medium (96)","High (128)"};
+static const char *const distantNames[]={"Off","Very Low (64)","Low (64)","Medium (96)","High (128)"};
 #endif
 enum { DM_PAUSE,DM_SETTINGS,DM_GRAPHICS,DM_DIAGNOSTICS,DM_CONTROLS };
 
@@ -57,7 +57,7 @@ static void draw_dos_menu(void)
 	else if(menuPage==DM_GRAPHICS)
 	{
 		menu_value(0,"Preset: ",graphicsPresetSel<0 ? "Custom" : preset[graphicsPresetSel]);
-		menu_value(1,"View resolution: ",g_renderScale==1 ? "320x200" : (dos_very_low_mode ? "80x100" : "160x100"));
+		menu_value(1,"View resolution: ",dos_resolution_name(g_renderScale));
 		menu_value(2,"Textured distance: ",itoa_dec(g_flatDist ? g_flatDist : g_viewDist,number));
 		menu_value(3,"Flat distance: ",itoa_dec(g_viewDist,number));
 #ifdef DOS_FAR_FIELD

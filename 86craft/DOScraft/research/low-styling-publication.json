@@ -1,0 +1,14 @@
+{
+  "exe_sha256": "c05f076ad5a3ff6e4a82348b16bb385bad4e4d518686bcd27855bd9b4f405e5e",
+  "iso_sha256": "2451f880c515d1c3b12908e1ed4c43395111ed5ceaec553776d151cffa4b2721",
+  "terrain_sha256": "291d4ad257c8f1a8c4e7a2a811d303e6e1728f2e37b14cd913f6202bb97006b4",
+  "hardware_era": "1990-06-30",
+  "verified_smoke_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-9exvugak",
+  "preserved_player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-8mpoas1d",
+  "preserved_hdd_sha256": "672d0c6acdd4d5362b3a5bbb3306d4c31c3ce805bfcc48d9872371facf0aba28",
+  "source_commit": "17ac63cd",
+  "player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-4dgqp9ch",
+  "hdd_preservation": "byte-identical",
+  "smoke": "new/load/V5 save/menu selection/VGA readback PASS",
+  "launcher": "June 1990 shared ISO launcher ValidateOnly PASS"
+}

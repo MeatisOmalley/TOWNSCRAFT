@@ -16,6 +16,17 @@ static void dword(unsigned char *p,unsigned n) { word(p,n); word(p+2,n>>16); }
 int main(void)
 {
     unsigned first=999;
+    unsigned char appendix[512]={0};memcpy(appendix,"DOSCRAFT-1024-V1",16);
+    assert(dos_terrain_known_medium(178815488,appendix));
+    assert(!dos_terrain_known_medium(179024384,appendix));
+    dword(appendix+52,0x314c4354u);dword(appendix+72,0x31465254u);
+    dword(appendix+76,178291200u/512);dword(appendix+80,524288);dword(appendix+88,1);
+    dword(appendix+92,0x31525446u);dword(appendix+96,178815488u/512);
+    dword(appendix+100,208896);dword(appendix+108,37273);dword(appendix+112,6533);
+    assert(dos_terrain_known_medium(179024384,appendix));
+    assert(!dos_terrain_known_medium(179024896,appendix));
+    dword(appendix+108,~0u);assert(!dos_terrain_known_medium(179024384,appendix));
+    dword(appendix+108,37273);appendix[92]^=1;assert(!dos_terrain_known_medium(179024384,appendix));
     assert(!dos_terrain_edit_range(0,1) && !dos_terrain_edit_range(33,24));
     assert(dos_terrain_edit_range(57,24) && dos_terrain_edit_range(81,24));
     assert(!dos_terrain_edit_range(80,2) && !dos_terrain_edit_range(104,2));

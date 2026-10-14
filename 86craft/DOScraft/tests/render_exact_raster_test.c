@@ -16,6 +16,7 @@ void raster_set_odd_copy_policy(int,int,int,int,int);
 extern int reference_g_fastFlat;
 extern u32 reference_g_statPixels;
 int dos_very_low_mode;
+int dos_potato_mode;
 static u8 planeA[38400*2+64],planeB[sizeof(planeA)];
 static u8 *planeNext;
 unsigned char *dos_video_planar_target(void) { return planeNext; }

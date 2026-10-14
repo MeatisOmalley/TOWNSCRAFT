@@ -52,6 +52,10 @@ static int stream_light_ok=1;
 #endif
 #endif
 static int rendered_frames;
+#ifdef DOS_VIEWMODEL
+static int held_done,held_selection;
+static Slot held_slot;
+#endif
 static int fullres_ok;
 static unsigned int inventory_ticks,inventory_started_at;
 static int inventory_frames,inventory_started_frame;
@@ -121,6 +125,17 @@ static void snapshot(const char *path,const u8 *frame)
 #endif
 #ifdef DOS_VERY_LOW
     dos_video_complete_very_low_source((u8 *)frame,512);
+#ifdef DOS_VERY_LOW_TEXELS
+    if(dos_potato_mode && dos_video_last_present_proven()) {
+        extern u8 dos_very_low_rows[VIEW_H/2];
+        for(int y=1;y<VIEW_H/2;y+=2)
+            /* UI drawn after the world can change the crosshair, mining,
+             * message, item-name and debug bands independently. */
+            if(y*2>=114 && y*2<176 && (dos_very_low_rows[y]&2) &&
+               memcmp(frame+y*1024,frame+(y-1)*1024,320))
+                vga_ok=0;
+    }
+#endif
 #endif
     outportb(0x3c7,0);
     for(i=0;i<768;++i) palette[i]=(inportb(0x3c9)&63)*255/63;
@@ -247,14 +262,18 @@ void __wrap_gfx_present(void)
         arrow(0x50); arrow(0x50); arrow(0x50); arrow(0x50); tap(0x1c);
         until=g_ticks+30; stage=50; return;
     } else if(stage==50 && (int)(g_ticks-until)>=0) {
-        far_option_ok=far_option_ok && dos_far_enabled==1 && preset_matches(2,8,0);
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_VERY_LOW && preset_matches(2,8,0);
         snapshot("C:\\FAROPT.RAW",frame);
         arrow(0x4d); until=g_ticks+30; stage=51; return;
     } else if(stage==51 && (int)(g_ticks-until)>=0) {
-        far_option_ok=far_option_ok && dos_far_enabled==2;
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_LOW;
+        snapshot("C:\\FARLOW.RAW",frame);
         arrow(0x4d); until=g_ticks+30; stage=52; return;
     } else if(stage==52 && (int)(g_ticks-until)>=0) {
-        far_option_ok=far_option_ok && dos_far_enabled==3;
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_MEDIUM;
+        arrow(0x4d); until=g_ticks+30; stage=53; return;
+    } else if(stage==53 && (int)(g_ticks-until)>=0) {
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_HIGH;
         snapshot("C:\\FARHIGH.RAW",frame);
 #endif
         tap(0x01); tap(0x01);
@@ -266,6 +285,13 @@ void __wrap_gfx_present(void)
     /* During generation the actual game's progress screens also present. */
     if(stage==1 && rendered_frames>0 && !save_busy &&
        g_player.body.h>0 && g_player.health>0 && g_meshQuads>0) {
+#ifdef DOS_VIEWMODEL
+        if(!held_done) {
+            held_selection=g_player.selected; held_slot=g_inv[held_selection];
+            g_inv[held_selection].item=g_inv[held_selection].count=0;
+            until=g_ticks+30;stage=60;return;
+        }
+#endif
         if(load_smoke) chicken_ok=chicken_loaded();
         snapshot("C:\\WORLD.RAW",frame);
 #ifdef DOS_LARGE_WORLD
@@ -286,6 +312,18 @@ void __wrap_gfx_present(void)
         }
         x0=g_player.body.x; z0=g_player.body.z; key(0x11); /* W held */
         until=g_ticks+100; stage=2;
+#ifdef DOS_VIEWMODEL
+    } else if(stage>=60 && stage<=63 && (int)(g_ticks-until)>=0) {
+        const char *name=stage==60 ? "C:\\HAND.RAW" : stage==61 ? "C:\\HELD.RAW" :
+            stage==62 ? "C:\\TOOL.RAW" : "C:\\TORCH.RAW";
+        snapshot(name,frame);
+        if(stage==63) {
+            g_inv[held_selection]=held_slot;g_player.selected=held_selection;
+            held_done=1;stage=1;return;
+        }
+        g_inv[held_selection].item=stage==60 ? B_COBBLE : stage==61 ? I_IRON_PICK : B_TORCH;
+        g_inv[held_selection].count=1;until=g_ticks+30;++stage;
+#endif
     } else if(stage==2 && (int)(g_ticks-until)>=0) {
         key(0x91); walk_ok=g_player.body.x!=x0 || g_player.body.z!=z0;
         if(!walk_ok) {
@@ -361,7 +399,25 @@ void __wrap_gfx_present(void)
         snapshot("C:\\SETTINGS.RAW",frame); tap(0x1c); until=g_ticks+30; stage=20;
     } else if(stage==20 && (int)(g_ticks-until)>=0) {
         snapshot("C:\\GRAPHICS.RAW",frame);
-        arrow(0x50); arrow(0x50); arrow(0x4d); arrow(0x50); arrow(0x4d);
+        arrow(0x50); arrow(0x4d); until=g_ticks+30; stage=55;
+    } else if(stage==55 && (int)(g_ticks-until)>=0) {
+        menus_ok=menus_ok && g_renderScale==2 && dos_very_low_mode && !dos_potato_mode;
+        tap(0x01); tap(0x01); tap(0x01); until=g_ticks+30; stage=56;
+    } else if(stage==56 && (int)(g_ticks-until)>=0) {
+        snapshot("C:\\MENU80.RAW",frame);
+        tap(0x01); arrow(0x50); tap(0x1c); tap(0x1c);
+        arrow(0x50); arrow(0x4d); until=g_ticks+30; stage=57;
+    } else if(stage==57 && (int)(g_ticks-until)>=0) {
+        menus_ok=menus_ok && g_renderScale==2 && dos_very_low_mode && dos_potato_mode;
+        snapshot("C:\\POTMENU.RAW",frame);
+        tap(0x01); tap(0x01); tap(0x01); until=g_ticks+30; stage=58;
+    } else if(stage==58 && (int)(g_ticks-until)>=0) {
+        snapshot("C:\\POTATO.RAW",frame);
+        tap(0x01); arrow(0x50); tap(0x1c); tap(0x1c);
+        arrow(0x50); arrow(0x4d); arrow(0x4d); until=g_ticks+30; stage=59;
+    } else if(stage==59 && (int)(g_ticks-until)>=0) {
+        menus_ok=menus_ok && g_renderScale==2 && !dos_very_low_mode && !dos_potato_mode;
+        arrow(0x50); arrow(0x4d); arrow(0x50); arrow(0x4d);
         until=g_ticks+30; stage=21;
     } else if(stage==21 && (int)(g_ticks-until)>=0) {
         menus_ok=menus_ok && g_viewDist==10 && g_flatDist==9;
