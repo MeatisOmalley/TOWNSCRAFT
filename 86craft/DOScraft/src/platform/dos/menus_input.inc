@@ -70,7 +70,7 @@ static void menu_graphics_change(int direction)
 	if(menuSel==0)
 	{
 		int next=graphicsPresetSel<0 ? DOS_GRAPHICS_DEFAULT :
-			(graphicsPresetSel+direction+DOS_GRAPHICS_COUNT)%DOS_GRAPHICS_COUNT;
+			dos_graphics_step(graphicsPresetSel,direction);
 		apply_graphics_preset(next);
 		return;
 	}
@@ -80,13 +80,13 @@ static void menu_graphics_change(int direction)
 	}
 	else if(menuSel==2)
 	{
-		textured=CLAMP(textured+direction,4,16);
+		textured=CLAMP(textured+direction,4,DOS_GRAPHICS_MAX_DISTANCE);
 		if(g_viewDist<textured) g_viewDist=textured;
 		g_flatDist=textured<g_viewDist ? textured : 0;
 	}
 	else if(menuSel==3)
 	{
-		g_viewDist=CLAMP(g_viewDist+direction,textured,16);
+		g_viewDist=CLAMP(g_viewDist+direction,textured,DOS_GRAPHICS_MAX_DISTANCE);
 		g_flatDist=textured<g_viewDist ? textured : 0;
 	}
 	else return;

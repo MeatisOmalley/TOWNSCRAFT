@@ -24,6 +24,10 @@ Camera g_cam;
 int g_viewDist=8,g_renderScale=2,dos_far_enabled;
 u32 dos_far_version=1;
 u8 *dos_far_map;
+/* Whole-map window, as on 8 MiB and up. */
+u32 dos_far_mask=511;
+int dos_far_shift=9,dos_far_x0,dos_far_z0,dos_far_cells=512;
+void dos_far_follow(int x,int z) { (void)x; (void)z; }
 u8 g_shadeLUT[16][256];
 static u8 texAvg[NUM_TEXTURES];
 static int vw=160,vh=100,focal16=86*16,cx16=160*8;
@@ -103,11 +107,14 @@ static void material_patterns(void) {
     assert((far_color(B_GRASS,0,&night,0)&15)<(far_color(B_GRASS,0,&day,0)&15));
     assert(far_pattern(B_GRASS,0)==FAR_PATTERN_SOLID && far_pattern(B_WATER,0)==FAR_PATTERN_SOLID);
     assert((far_ink(B_LEAVES,0,0)>>9)==FAR_PATTERN_LEAVES);
+#ifndef FAR_RENDER_TEST_INCLUDE
+    /* Very Low distant terrain is styled like Low (older references are not). */
     dos_far_enabled=DOS_FAR_VERY_LOW;
-    assert((far_ink(B_LEAVES,0,0)>>9)==FAR_PATTERN_SOLID);
+    assert((far_ink(B_LEAVES,0,0)>>9)==FAR_PATTERN_LEAVES);
     memset(pixels,0xee,sizeof(pixels)); raster_far_column(&column,0,8,20);
     far_paint_surface(&column,10,14,B_GRASS,0);
-    for(int y=10;y<20;++y) assert((logical_pixel(0,y)&240)==R_GRASS*16);
+    for(int y=10;y<20;++y) assert((logical_pixel(0,y)&240)==(y<14 ? R_GRASS : R_DIRT)*16);
+#endif
 }
 #endif
 int main(void) {

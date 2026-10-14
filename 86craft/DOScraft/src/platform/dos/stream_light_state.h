@@ -7,6 +7,11 @@ static int streamLightBaked,streamLightRead=-1,streamLightPrepared=-1,streamLigh
 static u32 streamLightSum[4096],streamLightVersion[4096];
 static u8 streamLightDirty[4096];
 static u8 *streamLightScratch,*streamLightCache;
+/* V2 medium: per-column stored records (run-length encoded unless raw). */
+static int streamLightCompact;
+static u32 streamLightOff[4096];
+static u16 streamLightLen[4096];
+static u8 *streamLightPacked;
 static short streamLightTags[STREAM_LIGHT_CACHE];
 static u32 streamLightRevision[STREAM_LIGHT_CACHE],streamLightAge[STREAM_LIGHT_CACHE],streamLightClock;
 u32 g_streamLightStats[4]; /* baked restores, RAM restores, recomputations, invalidations */

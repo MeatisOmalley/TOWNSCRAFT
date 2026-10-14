@@ -52,8 +52,8 @@ void dos_video_prove_low_row_pairs(unsigned int begin, unsigned int end)
 }
 #endif
 #endif
-#if defined(DOS_VGA_HUD_PROOF) && (!defined(DOS_VGA_PROVEN_ROWS) || !defined(DOS_VGA_BROADCAST) || !defined(DOS_ET4000_CHUNKY))
-#error HUD proof requires proven rows, broadcast, and ET4000 page-path tracking
+#if defined(DOS_VGA_HUD_PROOF) && (!defined(DOS_VGA_PROVEN_ROWS) || !defined(DOS_VGA_BROADCAST))
+#error HUD proof requires proven rows and broadcast
 #endif
 static int hud_proof_page=-1;
 void dos_video_prove_hud_unchanged(int page)
@@ -95,6 +95,11 @@ void dos_video_set_repeated_pixel_hint(int enabled)
 #include "vga_hud_cache.h"
 static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
 #endif
+#ifndef DOS_ET4000_CHUNKY
+/* Without the ET4000 chunky path every page's HUD comes from the planar
+ * upload; a page is valid once that upload completed (HUD proof). */
+static unsigned char planar_hud_valid[3];
+#endif
 #ifdef DOS_VGA_FUSED
 #if !defined(DOS_VGA_BROADCAST) || !defined(DOS_VGA_PACK_ALL)
 #error Fused packing requires accepted all-plane broadcast transport
@@ -115,6 +120,24 @@ static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
  * Restore bank zero/unchained access before any normal path or readback. */
 static unsigned char chunky_hud[3][40*320];
 static unsigned char planar_hud_valid[3],chunky_hud_valid[3];
+/* Set by video_init when the card is an ET4000; any other VGA keeps the
+ * plain Mode X planar transport for every frame. */
+static int et4000;
+/* 3CD (segment select) and CRTC 33h bits 0-3 (extended start) are read/write
+ * on the ET4000 only; 3CD alone would also accept an ET3000. */
+static int et4000_detect(void)
+{
+    unsigned char bank=inportb(0x3cd),start;
+    int ok;
+    outportb(0x3cd,0x55); ok=inportb(0x3cd)==0x55;
+    outportb(0x3cd,0xaa); ok=ok && inportb(0x3cd)==0xaa;
+    outportb(0x3cd,bank);
+    if(!ok) return 0;
+    outportb(0x3d4,0x33); start=inportb(0x3d5);
+    outportb(0x3d5,start^0x0f); ok=((inportb(0x3d5)^start)&0x0f)==0x0f;
+    outportb(0x3d5,start);
+    return ok;
+}
 #ifdef DOS_ET4000_STRIDED
 /* gfx_present rotates three RAM pages. The previously presented RAM page
  * remains untouched while the next one is drawn, so it is an exact shadow
@@ -312,7 +335,8 @@ int dos_video_inventory_canvas_save(const unsigned char *source, unsigned int pi
 {
 #if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED) && defined(DOS_VGA_PACK_ALL)
     unsigned int y;
-    if(!source || pitch<320) return 0;
+    /* Plain VGA packs inventory frames through this buffer. */
+    if(!et4000 || !source || pitch<320) return 0;
     for(y=0;y<INVENTORY_H;++y)
         memcpy(packed+y*INVENTORY_W,
                source+(size_t)(y+INVENTORY_Y)*pitch+INVENTORY_X,INVENTORY_W);
@@ -337,7 +361,8 @@ int dos_video_inventory_canvas_restore(unsigned char *target, unsigned int pitch
     return 0;
 #endif
 }
-static unsigned char readback[DOS_VGA_PLANE_BYTES];
+/* Diagnostic readback only (smoke/bench/probes): allocated on first use. */
+static unsigned char *readback;
 #ifdef DOS_LOW_PLANAR
 #if !defined(DOS_VGA_PROVEN_ROWS) || !defined(DOS_VGA_PROVEN_VERTICAL)
 #error Planar Low requires the producer-proven vertical presenter
@@ -472,14 +497,20 @@ void video_init(void)
     outportw(0x3ce, 0x0506); /* A0000 mapping, graphics, no odd/even. */
     outportw(0x3ce, 0xff08); /* All bits writable. */
 #ifdef DOS_ET4000_CHUNKY
-    outportb(0x3d4,0x36);
-    if(inportb(0x3d5)&0x10) {
-        dos_video_restore(); fputs("ET4000 banked memory unavailable\n",stderr); exit(1);
+    et4000=et4000_detect();
+    if(et4000) {
+        outportb(0x3d4,0x36);
+        if(inportb(0x3d5)&0x10) {
+            dos_video_restore(); fputs("ET4000 banked memory unavailable\n",stderr); exit(1);
+        }
+        outportb(0x3cd,0);
     }
-    outportb(0x3cd,0);
     memset(chunky_hud,0,sizeof(chunky_hud));
     memset(planar_hud_valid,1,sizeof(planar_hud_valid));
     memset(chunky_hud_valid,1,sizeof(chunky_hud_valid));
+#endif
+#ifndef DOS_ET4000_CHUNKY
+    memset(planar_hud_valid,1,sizeof(planar_hud_valid));
 #endif
     memset(packed, 0, sizeof(packed));
 #ifdef DOS_VGA_HUD_CACHE
@@ -589,7 +620,7 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #if defined(DOS_VGA_PACK_ALL)
     if(!inventory) inventory_canvas_valid=0;
 #endif
-    if(inventory && inventory_shadow_valid && inventory_shadow_page==shown_page) {
+    if(et4000 && inventory && inventory_shadow_valid && inventory_shadow_page==shown_page) {
         if(!source || pitch<320) {
             dos_video_restore(); fputs("Invalid inventory framebuffer\n",stderr); exit(1);
         }
@@ -626,7 +657,7 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
     /* Low/Medium keep repeated-pixel broadcast. High uses row-gathered bytes,
      * not four-way deinterleaving. All 240 rows, three pages and HUD identity
      * survive transitions between access paths. No visible-page upload. */
-    if(!repeated_pixel_hint) {
+    if(et4000 && !repeated_pixel_hint) {
         unsigned int y,bytes=320*200;
         int changed;
         if(!source || pitch<320) {
@@ -865,8 +896,8 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         dos_bench_upload+=bench_us()-stamp;
 #endif
     }
-#ifdef DOS_ET4000_CHUNKY
     planar_hud_valid[next_page]=1;
+#ifdef DOS_ET4000_CHUNKY
 page_flip:
 #endif
     outportw(0x3c4, 0x0f02);
@@ -911,7 +942,7 @@ page_flip:
     }
 #endif
 #if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
-    if(inventory) {
+    if(et4000 && inventory) {
         inventory_shadow=source;
         inventory_shadow_pitch=pitch;
         inventory_shadow_page=shown_page;
@@ -937,6 +968,7 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
     unsigned int plane;
     unsigned int offset = shown_page * DOS_VGA_PLANE_BYTES;
     unsigned int display_start;
+    if (!readback && !(readback = malloc(DOS_VGA_PLANE_BYTES))) return -1;
 #ifdef DOS_VGA_ASYNC_FLIP
     if(latch_pending) {
 #ifdef DOS_VGA_SCAN_QUAD
@@ -988,7 +1020,7 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
         }
 #endif
         outportw(0x3ce, (plane << 8) | 4);
-        dosmemget(0xa0000 + offset, sizeof(readback), readback);
+        dosmemget(0xa0000 + offset, DOS_VGA_PLANE_BYTES, readback);
         if (memcmp(packed, readback, DOS_VGA_PLANE_BYTES)) return -1;
     }
     outportw(0x3ce, 0x0004);

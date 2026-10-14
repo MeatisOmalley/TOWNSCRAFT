@@ -21,10 +21,11 @@ class CodegenTests(unittest.TestCase):
             '-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE','-DDOS_STREAM_VALIDATE_ONCE',
             '-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS',
             '-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS',
-            '-DDOS_FILL_ROWS','-DDOS_PLANT_BILLBOARDS','-DDOS_VIEWMODEL'))
+            '-DDOS_FILL_ROWS','-DDOS_PLANT_BILLBOARDS','-DDOS_VIEWMODEL','-DDOS_VERY_LOW_PLANAR'))
         self.assertEqual(portable_experiment_flags(DEFAULT_ADAPTER_FLAGS),
             ('-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL',
-             '-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR'))
+             '-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR',
+             '-DDOS_VERY_LOW_PLANAR'))
 
     def test_explicit_allowlist_preserves_order_and_integer_target(self):
         self.assertEqual(portable_experiment_flags(('-DDOS_VGA_PACK_ALL',)),())

@@ -25,6 +25,7 @@
 	.set T_TILE,60
 	.set T_MAXX,64
 	.set T_PIXELS,68
+	.set T_ROW_INDEX,72	/* Very Low texels' row index (DOS_VERY_LOW_PLANAR). */
 	.set PLANE_C,38400	/* Two 19,200-byte Mode X planes: plane 2 base. */
 
 	/* One texel step and byte store at OFS(%edi); see trap.S TEXEL. */
@@ -54,7 +55,31 @@
 1:
 	.endm
 
-	.macro TRAPP name,TRANSP,WRAP
+#ifdef DOS_VERY_LOW_PLANAR
+#ifndef DOS_TEXEL_EDX
+#error Very Low planar loops double the DOS_TEXEL_EDX steps
+#endif
+	/* Advance UV past a texel Very Low does not show. */
+	.macro PSKIP WRAP
+	.if \WRAP
+	addl	duFracP,%ecx
+	.else
+	addl	%esi,%ecx
+	.endif
+	adcb	%dl,%bl
+#ifdef DOS_TEXEL_EDX
+	addl	%ebp,%edx
+#else
+	addw	%bp,%cx
+#endif
+	adcb	%dh,%bh
+	.if \WRAP
+	andl	$0x0F0F,%ebx
+	.endif
+	.endm
+#endif
+
+	.macro TRAPP name,TRANSP,WRAP,VL=0
 	.globl \name
 \name:
 	pushl	%ebp
@@ -68,6 +93,11 @@
 
 10:	/* ---- per row (identical to trap.S) ---- */
 	movl	trapPtrP,%ebp
+	.if \VL
+	movl	T_ROW_INDEX(%ebp),%eax
+	testb	$2,_dos_very_low_rows(%eax)	/* Potato: row omitted */
+	jnz	80f
+	.endif
 	movl	T_LX(%ebp),%eax
 	addl	$0x7FFF,%eax
 	sarl	$16,%eax
@@ -202,6 +232,12 @@
 	movb	%al,%dh
 #endif
 
+	.if \VL
+	movl	trapPtrP,%eax
+	movl	T_ROW_INDEX(%eax),%eax
+	testb	$1,_dos_very_low_rows(%eax)
+	jnz	30f
+	.endif
 	/* Odd first pixel: C byte, then continue on even-aligned pairs. */
 	testb	$1,rowXP
 	jz	20f
@@ -238,6 +274,61 @@
 	testb	$1,rowWP
 	jz	80f
 	PTEXEL	\TRANSP,\WRAP,0
+	.if \VL
+	jmp	80f
+
+30:	/* Very Low row: even logical pixels only, one A byte each. */
+	testb	$1,rowXP
+	jz	31f
+	PSKIP	\WRAP
+	incl	%edi
+	decl	rowWP
+31:	/* From here every step spans two logical pixels. Two 16.16 steps
+	 * and one doubled step are the same modular sums, so the texels match
+	 * stepping over each odd pixel. */
+	movl	rowDUP,%eax
+	addl	%eax,%eax
+	roll	$16,%eax		/* frac:int */
+	movb	%al,%dl
+	xorw	%ax,%ax
+	.if \WRAP
+	movl	%eax,duFracP
+	.else
+	movl	%eax,%esi
+	.endif
+	movl	rowDVP,%eax
+	addl	%eax,%eax
+	roll	$16,%eax
+	movb	%al,%dh
+	xorw	%ax,%ax
+	movl	%eax,%ebp
+	movl	rowWP,%eax
+	shrl	$1,%eax			/* Shown pixels before a trailing odd one */
+	jz	33f
+	testb	$1,%al
+	jz	34f
+	PTEXEL	\TRANSP,\WRAP,0
+	incl	%edi
+	movl	rowWP,%eax
+	shrl	$2,%eax			/* Remaining two-pixel groups */
+	jz	33f
+	jmp	35f
+34:
+	shrl	$1,%eax
+35:
+	decl	%eax
+	shll	$16,%eax
+32:
+	PTEXEL	\TRANSP,\WRAP,0
+	PTEXEL	\TRANSP,\WRAP,1
+	addl	$2,%edi
+	subl	$0x10000,%eax
+	jnc	32b
+33:
+	testb	$1,rowWP
+	jz	80f
+	PTEXEL	\TRANSP,\WRAP,0
+	.endif
 
 80:	/* ---- next row (identical to trap.S) ---- */
 	movl	trapPtrP,%ebp
@@ -255,6 +346,9 @@
 	addl	%eax,T_RV(%ebp)
 	movl	T_STRIDE(%ebp),%eax
 	addl	%eax,T_ROW(%ebp)
+	.if \VL
+	incl	T_ROW_INDEX(%ebp)
+	.endif
 	decl	T_ROWS(%ebp)
 	jnz	10b
 99:
@@ -269,6 +363,12 @@
 	TRAPP _trap_transpP,1,0
 	TRAPP _trap_opaquePw,0,1
 	TRAPP _trap_transpPw,1,1
+#ifdef DOS_VERY_LOW_PLANAR
+	TRAPP _trap_opaquePv,0,0,1
+	TRAPP _trap_transpPv,1,0,1
+	TRAPP _trap_opaquePwv,0,1,1
+	TRAPP _trap_transpPwv,1,1,1
+#endif
 
 	.bss
 	.align 4

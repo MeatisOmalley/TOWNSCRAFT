@@ -18,6 +18,11 @@ static struct {
  * supports this ordinary COFF-aligned page with the atlas 256-byte row stride. */
 static u8 iconPage[4096];
 static int iconId=-1,iconLight=-1,iconScale=-1;
+/* Opaque texel bounds of the icon plus one transparent texel each side:
+ * at the Very Low tier (the 386's resolutions) the item quad is trimmed to
+ * them, so a torch no longer scans the whole transparent square. */
+static int iconX0,iconX1,iconY0,iconY1;
+extern int dos_very_low_mode;
 static int matrix[3][3],origin[3];
 static const u8 corners[6][4][3]={
     {{0,1,1},{0,1,0},{0,0,0},{0,0,1}},
@@ -84,6 +89,24 @@ static void polygon(const VmPoint *p,const u8 *tile,int flags,int width,int heig
     ++g_statFaces;
 }
 
+/* polygon() over texels [u0,u1)x[v0,v1) of the tile, with the same
+ * half-step inset per texel as the full-tile mapping. */
+static void polygon_uv(const VmPoint *p,const u8 *tile,int flags,int width,int height,
+                       int u0,int u1,int v0,int v1)
+{
+    RVert v[4]; int focal=(width*172/320)*16;
+    for(int i=0;i<4;++i) {
+        if(p[i].z<64) return;
+        int tu=(i==1 || i==2) ? u1 : u0,tv=i>=2 ? v1 : v0;
+        v[i].x=width*8+(p[i].x*focal)/p[i].z;
+        v[i].y=height*8-(p[i].y*focal)/p[i].z;
+        v[i].u=512+tu*(65536-64);
+        v[i].v=512+tv*(65536-64);
+    }
+    raster_poly(v,4,tile,flags);
+    ++g_statFaces;
+}
+
 static void box(int halfX,int halfY,int halfZ,const u8 *textures,int opaque,int width,int height)
 {
     VmPoint vertex[8]; int face[6],depth[6],count=0;
@@ -118,6 +141,13 @@ static const u8 *item_texture(int item)
             u8 c=g_tex[icon][y*16+x];
             iconPage[y*256+x]=c ? MAX(1,g_shadeLUT[vm.light][c]) : 0;
         }
+        iconX0=iconY0=16; iconX1=iconY1=0;
+        for(int y=0;y<16;++y) for(int x=0;x<16;++x) if(g_tex[icon][y*16+x]) {
+            iconX0=MIN(iconX0,x); iconX1=MAX(iconX1,x+1);
+            iconY0=MIN(iconY0,y); iconY1=MAX(iconY1,y+1);
+        }
+        iconX0=MAX(0,iconX0-1); iconY0=MAX(0,iconY0-1);
+        iconX1=MIN(16,iconX1+1); iconY1=MIN(16,iconY1+1);
         iconId=icon;iconLight=vm.light;iconScale=g_renderScale;
     }
     return iconPage;
@@ -126,9 +156,19 @@ static const u8 *item_texture(int item)
 static void item_plane(int item,int width,int height)
 {
     VmPoint p[4];
+    const u8 *tile=item_texture(item);
+    if(dos_very_low_mode) {
+        if(iconX1<=iconX0) return; /* Fully transparent icon. */
+        /* Texel bounds on the plane: x -96..96 and y 116..-116 span 16 texels. */
+        int x0=-96+12*iconX0,x1=-96+12*iconX1,y0=116-(29*iconY0)/2,y1=116-(29*iconY1)/2;
+        p[0]=transform(x0,y0,-16);p[1]=transform(x1,y0,-16);
+        p[2]=transform(x1,y1,-16);p[3]=transform(x0,y1,-16);
+        polygon_uv(p,tile,RP_TRANSPARENT|RP_WRAP,width,height,iconX0,iconX1,iconY0,iconY1);
+        return;
+    }
     p[0]=transform(-96,116,-16);p[1]=transform(96,116,-16);
     p[2]=transform(96,-116,-16);p[3]=transform(-96,-116,-16);
-    polygon(p,item_texture(item),RP_TRANSPARENT|RP_WRAP,width,height);
+    polygon(p,tile,RP_TRANSPARENT|RP_WRAP,width,height);
 }
 
 void dos_viewmodel_draw(int width,int height)

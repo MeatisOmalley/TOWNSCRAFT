@@ -20,7 +20,7 @@ def adapt(name,data):
             '\t   buffer is being filled. Avoid hashing 12 KB again per poll. */\n'
             '\tif(preparedColumn==cz*g_NC+cx && streamLightRead==preparedColumn) return 1;')
     elif name=='column_hdd.inc':
-        one('\t\tfor(int sector=0; sector<32; sector+=24)', '\t\tstream_light_header(header);\n\t\tfor(int sector=0; sector<32; sector+=24)')
+        one('\t\t/* Optional appendix headers. */\n', '\t\t/* Optional appendix headers. */\n\t\tstream_light_header(header);\n')
         one('static void terrain_cache_allocate(void)\n{', 'static void terrain_cache_allocate(void)\n{\n\tstream_light_allocate();')
         one('\tterrainClock=0;', '\tterrainClock=0;\n\tstream_light_reset();')
         one('\tconst ColumnRecord *r=record;', '\tif(stream_light_quiesce()<=0) return streamError ? -1 : 0;\n\tconst ColumnRecord *r=record;')

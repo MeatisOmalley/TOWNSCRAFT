@@ -6,8 +6,18 @@ static unsigned extent_u16(const unsigned char *p)
 { return (unsigned)p[0] | (unsigned)p[1]<<8; }
 static unsigned extent_u32(const unsigned char *p)
 { return extent_u16(p) | extent_u16(p+2)<<16; }
+/* V2 (compact) media: writes may only land inside one edit-pool slot. */
+static unsigned dos_terrain_pool_first,dos_terrain_pool_end;
 static int dos_terrain_known_medium(unsigned bytes,const unsigned char *header)
 {
+    dos_terrain_pool_first=dos_terrain_pool_end=0;
+    if(!memcmp(header,"DOSCRAFT-1024-V2",16)) {
+        unsigned pool=extent_u32(header+132),pairs=extent_u32(header+136),total=extent_u32(header+140);
+        if(extent_u32(header+16)!=2 || !pool || pairs>4096 || total!=pool+pairs*48u ||
+           bytes!=total*512u) return 0;
+        dos_terrain_pool_first=pool; dos_terrain_pool_end=total;
+        return 1;
+    }
     if(memcmp(header,"DOSCRAFT-1024-V1",16)) return 0;
     if(bytes==151011840u || bytes==178291200u || bytes==178815488u) return 1;
     if(bytes<=178815488u || extent_u32(header+52)!=0x314c4354u ||
@@ -21,6 +31,11 @@ static int dos_terrain_known_medium(unsigned bytes,const unsigned char *header)
 }
 static int dos_terrain_edit_range(unsigned lba,unsigned count)
 {
+    if(dos_terrain_pool_end) {
+        if(lba<dos_terrain_pool_first || lba>=dos_terrain_pool_end || !count || count>24 ||
+           count>dos_terrain_pool_end-lba) return 0;
+        return count<=24-(lba-dos_terrain_pool_first)%24;
+    }
     if(lba<33 || lba>=294945u || !count || count>24 || count>294945u-lba) return 0;
     unsigned at=(lba-33)%72;
     return at>=24 && count<=24-(at%24);

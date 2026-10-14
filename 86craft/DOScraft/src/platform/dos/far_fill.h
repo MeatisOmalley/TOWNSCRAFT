@@ -48,6 +48,10 @@ static inline void far_fill_pattern(FarColumn *c,int y0,u8 a,u8 b,int phase,int 
     case 9: FAR_ROWS *p=even[k]; FAR_END break;
     case 10: FAR_ROWS *p=even[k]; p[38400]=odd[k]; FAR_END break;
     case 12: FAR_ROWS *(u16 *)p=even[k]; *(u16 *)(p+38400)=odd[k]; FAR_END break;
+#ifdef DOS_VERY_LOW_PLANAR
+    case 11: FAR_ROWS if(y&1) continue; *(u16 *)p=even[k]; FAR_END break;
+    case 13: FAR_ROWS if(y&1) continue; *p=even[k]; FAR_END break;
+#endif
     }
 #undef FAR_ROWS
 #undef FAR_END
@@ -86,6 +90,12 @@ static inline void far_fill_column(FarColumn *c,int y0,u8 a,u8 b,int phase)
     case 9: FAR_ROWS *p=(u8)planes[((y>>1)+phase)&mask]; FAR_END break;
     case 10: FAR_ROWS int k=((y>>1)+phase)&mask; *p=(u8)planes[k]; p[38400]=(u8)planes[k^mask]; FAR_END break;
     case 12: FAR_ROWS int k=((y>>1)+phase)&mask; *(u16 *)p=planes[k]; *(u16 *)(p+38400)=planes[k^mask]; FAR_END break;
+#ifdef DOS_VERY_LOW_PLANAR
+    /* Potato planar: plane-0 bytes of kept rows only (odd rows repeat the
+     * row above at finish; plane-2 bytes are never shown). */
+    case 11: FAR_ROWS if(y&1) continue; *(u16 *)p=planes[((y>>1)+phase)&mask]; FAR_END break;
+    case 13: FAR_ROWS if(y&1) continue; *p=(u8)planes[((y>>1)+phase)&mask]; FAR_END break;
+#endif
     }
 #undef FAR_ROWS
 #undef FAR_END

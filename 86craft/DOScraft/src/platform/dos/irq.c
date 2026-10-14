@@ -20,7 +20,12 @@
 int _crt0_startup_flags = _CRT0_FLAG_NONMOVE_SBRK | _CRT0_FLAG_LOCK_MEMORY;
 
 volatile u32 g_ticks;
-u32 g_profSamples[4096], g_profCount;
+/* EIP samples for the benchmark/probe profiler. The game never enables it,
+ * so game builds pass -DDOS_PROFILE_SAMPLES=1. */
+#ifndef DOS_PROFILE_SAMPLES
+#define DOS_PROFILE_SAMPLES 4096
+#endif
+u32 g_profSamples[DOS_PROFILE_SAMPLES], g_profCount;
 int g_profEnable;
 volatile unsigned int dos_irq_keyboard_count, dos_irq_bios_count;
 unsigned short dos_irq_data_selector, dos_irq_code_selector;
@@ -198,7 +203,7 @@ int dos_irq_timer_body(unsigned int eip, unsigned int cs)
     while ((int)(now - next_tick_at) >= 0) {
         next_tick_at += DOS_PIT_DIVISOR;
         ++g_ticks;
-        if (g_profEnable && g_profCount < 4096 && (cs & 0xFFFFu) == dos_irq_code_selector &&
+        if (g_profEnable && g_profCount < DOS_PROFILE_SAMPLES && (cs & 0xFFFFu) == dos_irq_code_selector &&
             eip >= 0x1000 && eip < (unsigned int)&code_end)
             g_profSamples[g_profCount++] = eip;
         if (tick_hook) tick_hook();
@@ -213,7 +218,7 @@ int dos_irq_timer_body(unsigned int eip, unsigned int cs)
     return chained; /* Previous handler owns the EOI on chained interrupts. */
 #else
     ++g_ticks;
-    if (g_profEnable && g_profCount < 4096 && (cs & 0xFFFFu) == dos_irq_code_selector &&
+    if (g_profEnable && g_profCount < DOS_PROFILE_SAMPLES && (cs & 0xFFFFu) == dos_irq_code_selector &&
         eip >= 0x1000 && eip < (unsigned int)&code_end)
         g_profSamples[g_profCount++] = eip;
     if (tick_hook) tick_hook();

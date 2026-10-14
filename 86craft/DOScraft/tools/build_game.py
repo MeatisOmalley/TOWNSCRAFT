@@ -5,6 +5,7 @@ from the pinned renderer. Audio is deliberately silent.
 """
 import argparse
 import json
+import struct
 from pathlib import Path
 import subprocess
 import sys
@@ -17,17 +18,38 @@ OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c',
     'craft_grid.c','viewmodel.c')
-DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR','-DDOS_TEXEL_EDX','-DDOS_ROW_MUL','-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE','-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS','-DDOS_FILL_ROWS','-DDOS_PLANT_BILLBOARDS','-DDOS_VIEWMODEL')
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR','-DDOS_TEXEL_EDX','-DDOS_ROW_MUL','-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE','-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS','-DDOS_FILL_ROWS','-DDOS_PLANT_BILLBOARDS','-DDOS_VIEWMODEL','-DDOS_VERY_LOW_PLANAR')
+# One executable for the 386 and 486: 386 instructions, 486 scheduling. The
+# ET4000 transport (High) is used when video_init detects that card; any other
+# VGA gets plain Mode X. A 386 CPU keeps to the Low/Very Low presets (system.c).
+ARCH_CFLAGS=('-march=i386','-mtune=i486')
 PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR')
 
 
+# Main stack, as system.c's _stklen. DJGPP uses the larger of _stklen and the
+# stub's minstack (512 KiB by default), so the stub field is set to match, as
+# DJGPP's stubedit minstack= does.
+MAIN_STACK_BYTES=64*1024
+
+
+def set_min_stack(exe):
+    data=bytearray(exe.read_bytes())
+    at=data.find(b'go32stub, v 2.')
+    if at!=512 or struct.unpack_from('<I',data,at+16)[0]<24:
+        raise ValueError('Unexpected DJGPP stub info in '+str(exe))
+    struct.pack_into('<I',data,at+20,MAIN_STACK_BYTES)
+    exe.write_bytes(bytes(data))
+
+
 def portable_experiment_flags(flags):
-    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR'))
+    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_VERY_LOW_PLANAR'))
 
 
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):
     if extra_adapter_flags is None: extra_adapter_flags=DEFAULT_ADAPTER_FLAGS
     if graphics is None: graphics=not benchmark
+    # Later -march/-mtune options override the i486 defaults in imported.CFLAGS.
+    arch=ARCH_CFLAGS
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
     report={'stage':'Full game link; silent audio; gameplay acceptance pending',
@@ -61,6 +83,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         very_low='-DDOS_VERY_LOW' in extra_adapter_flags
         very_low_texels='-DDOS_VERY_LOW_TEXELS' in extra_adapter_flags
         low_planar='-DDOS_LOW_PLANAR' in extra_adapter_flags
+        very_low_planar='-DDOS_VERY_LOW_PLANAR' in extra_adapter_flags
         a1_census='-DDOS_BENCH_A1_CENSUS' in extra_adapter_flags
         profile_cw='-DDOS_BENCH_PROFILE_CW' in extra_adapter_flags
         large_world='-DDOS_LARGE_WORLD' in extra_adapter_flags
@@ -75,6 +98,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         if low_planar and not (raster_finish_skip and '-DDOS_VGA_PACK_ALL' in extra_adapter_flags and
                                '-DDOS_VGA_BROADCAST' in extra_adapter_flags):
             raise ValueError('Planar Low requires the finish-skip bands and all-plane broadcast presenter')
+        if very_low_planar and not (low_planar and very_low_texels and '-DDOS_FLAT_INLINE' in extra_adapter_flags):
+            raise ValueError('Very Low planar output requires planar Low, Very Low texels and inline flat spans')
         if proven_rows and ('-DDOS_VGA_FUSED' in extra_adapter_flags or
                             '-DDOS_VGA_FUSED_TRANSPOSE' in extra_adapter_flags):
             raise ValueError('Measure proven rows independently of fused packing')
@@ -107,9 +132,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             planar_expand_words='-DDOS_PLANAR_EXPAND_WORDS' in extra_adapter_flags,
             plant_billboards='-DDOS_PLANT_BILLBOARDS' in extra_adapter_flags,
             fill_rows='-DDOS_FILL_ROWS' in extra_adapter_flags,
-            viewmodel='-DDOS_VIEWMODEL' in extra_adapter_flags)
+            viewmodel='-DDOS_VIEWMODEL' in extra_adapter_flags,very_low_planar=very_low_planar)
         portable=imported.build(output=output/'imported',
-            extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
+            extra_cflags=(*arch,*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
         platform=adapters.stage(output/'platform',large_world=large_world,chickens=True)
         report['imported']=portable
@@ -141,7 +166,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')
-            command=[imported.COMPILER,*imported.CFLAGS,*extra,*extra_adapter_flags,
+            # Only benchmark builds sample the profiler.
+            profile=() if benchmark else ('-DDOS_PROFILE_SAMPLES=1',)
+            command=[imported.COMPILER,*imported.CFLAGS,*arch,*extra,*profile,*extra_adapter_flags,
                 *(('-DDOS_GRAPHICS_PRESETS',) if graphics else ()),'-I',output/'platform/src',
                 '-I',ROOT/'src/platform/dos','-c',source,'-o',obj]
             subprocess.run(list(map(str,command)),check=True)
@@ -156,8 +183,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         if front_to_back:
             wraps+=''.join(',--wrap=trap_'+name for name in
                 ('opaque1','opaque2','transp1','transp2','opaque1w','opaque2w','transp1w','transp2w'))
-        command=[imported.COMPILER,*imported.CFLAGS,*objects,wraps,'-o',exe]
+        command=[imported.COMPILER,*imported.CFLAGS,*arch,*objects,wraps,'-o',exe]
         subprocess.run(list(map(str,command)),check=True)
+        set_min_stack(exe)
         report.update(status='linked',linked=True,exe_sha256=imported.sha256(exe.read_bytes()),
             executable_bytes=exe.stat().st_size,link_command=list(map(str,command)))
         return report
@@ -170,8 +198,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
-    report=build()
-    print(f'Linked {OUTPUT / "DOSCRAFT.EXE"} ({report["executable_bytes"]} bytes); gameplay acceptance pending.')
+    output=OUTPUT
+    report=build(output)
+    print(f'Linked {output / "DOSCRAFT.EXE"} ({report["executable_bytes"]} bytes); gameplay acceptance pending.')
 
 
 if __name__=='__main__': main()

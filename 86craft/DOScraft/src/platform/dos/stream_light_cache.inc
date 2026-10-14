@@ -2,9 +2,33 @@
  * Edited neighborhoods retain the original initialization/flood-fill path. */
 static void stream_light_header(const u32 *h)
 {
-    streamLightBaked=0;
+    streamLightBaked=streamLightCompact=0;
     if(h[13]!=STREAM_LIGHT_MAGIC) return;
     u32 indexSum=h[16];
+    if(h[15]==0) {
+        /* V2: index of u32 byte offset, length and sum per column at h[32]. */
+        u32 sum=2166136261u,region=h[14],end=h[33]*512u;
+        if(h[17]!=STREAM_LIGHT_BYTES || h[32]!=97 || region<h[30] || region>=h[33])
+            fatal("Invalid prebaked lighting medium");
+        for(int s=0;s<96;s+=24) {
+            if(hdd_transfer_sync(h[32]+s,24,0,columnScratch)!=1)
+                fatal("Cannot read prebaked lighting index");
+            for(u32 i=0;i<24*512;++i) sum=(sum^columnScratch[i])*16777619u;
+            for(int e=0;e<1024;++e) {
+                const u32 *entry=(const u32 *)columnScratch+e*3;
+                int id=s/24*1024+e;
+                if(entry[0]%512 || entry[0]/512<region || !entry[1] ||
+                   entry[1]>STREAM_LIGHT_BYTES || entry[0]+entry[1]>end)
+                    fatal("Corrupt prebaked lighting index");
+                streamLightOff[id]=entry[0]; streamLightLen[id]=entry[1]; streamLightSum[id]=entry[2];
+            }
+        }
+        if(sum!=indexSum) fatal("Corrupt prebaked lighting index");
+        if(!streamLightScratch) streamLightScratch=heap_alloc_high(13*512);
+        if(!streamLightPacked) streamLightPacked=heap_alloc_high(13*512);
+        streamLightCompact=streamLightBaked=1;
+        return;
+    }
     if(h[14]!=STREAM_LIGHT_BASE || h[15]!=13 || h[17]!=6400 ||
        hdd_sector_count()<STREAM_LIGHT_BASE+4096u*13)
         fatal("Invalid prebaked lighting medium");
@@ -43,15 +67,35 @@ static void stream_light_invalidate(int x,int z)
     }
     ++g_streamLightStats[3];
 }
+/* V2 stored record to the 6400-byte light layout; 0 if malformed. */
+static int stream_light_unpack(int id)
+{
+    u32 len=streamLightLen[id],n=0;
+    const u8 *p=streamLightPacked;
+    if(len==STREAM_LIGHT_BYTES) { memcpy(streamLightScratch,p,len); return 1; }
+    if(len&1) return 0;
+    for(u32 i=0;i<len;i+=2) {
+        if(!p[i] || n+p[i]>STREAM_LIGHT_BYTES) return 0;
+        memset(streamLightScratch+n,p[i+1],p[i]); n+=p[i];
+    }
+    return n==STREAM_LIGHT_BYTES;
+}
 static int stream_light_quiesce(void)
 {
     if(streamLightRead<0) return 1;
-    int id=streamLightRead;
-    int status=terrainBlocking ? hdd_transfer_sync(STREAM_LIGHT_BASE+id*13,13,0,streamLightScratch) :
-                                hdd_transfer(STREAM_LIGHT_BASE+id*13,13,0,streamLightScratch);
+    int id=streamLightRead,status;
+    if(streamLightCompact) {
+        u32 lba=streamLightOff[id]/512,count=(streamLightLen[id]+511)/512;
+        status=terrainBlocking ? hdd_transfer_sync(lba,count,0,streamLightPacked) :
+                                 hdd_transfer(lba,count,0,streamLightPacked);
+    } else
+        status=terrainBlocking ? hdd_transfer_sync(STREAM_LIGHT_BASE+id*13,13,0,streamLightScratch) :
+                                 hdd_transfer(STREAM_LIGHT_BASE+id*13,13,0,streamLightScratch);
     if(!status) return 0;
     streamLightRead=-1;
-    if(status<0 || column_checksum(streamLightScratch,6400)!=streamLightSum[id]) {
+    if(status<0 || (streamLightCompact ?
+           column_checksum(streamLightPacked,streamLightLen[id])!=streamLightSum[id] || !stream_light_unpack(id) :
+           column_checksum(streamLightScratch,6400)!=streamLightSum[id])) {
         streamLightPrepared=-1; streamError=1; return -1;
     }
     for(int i=0;i<CS*CS;++i) if(streamLightScratch[i]>WH) { streamError=1; return -1; }

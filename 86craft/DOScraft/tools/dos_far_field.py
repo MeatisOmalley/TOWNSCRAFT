@@ -21,11 +21,9 @@ def adapt(name,data,*,low_planar=False):
         if 'stream_light_header(header);' in text:
             one('stream_light_header(header);','far_world_header(header);\n        stream_light_header(header);')
         else:
-            one('\t\tfor(int sector=0; sector<32; sector+=24)', '\t\tfar_world_header(header);\n\t\tfor(int sector=0; sector<32; sector+=24)')
+            one('\t\t/* Optional appendix headers. */\n', '\t\t/* Optional appendix headers. */\n\t\tfar_world_header(header);\n')
     elif name=='column_cache.inc':
         one('\tresidentReady[slot]=cacheBoot;', '\tresidentReady[slot]=cacheBoot;\n\tif(columnRecords[cz*g_NC+cx].off!=large_column_offset(cz*g_NC+cx,0))\n\t\tfar_world_column(cx,cz,g_blocks+slot*COLUMN_CELLS);')
-        # large_column_offset is defined later, so use the equivalent constant expression.
-        one('large_column_offset(cz*g_NC+cx,0)', '(33u+(cz*g_NC+cx)*TERRAIN_SECTORS*3u)*512u')
     elif name=='render.c':
         one('#include "gfx.h"','#include "gfx.h"\n#include "far_field.h"')
         one('static void draw_sky(const RenderEnv *env)', '#include "far_render.inc"\n\nstatic void draw_sky(const RenderEnv *env)')

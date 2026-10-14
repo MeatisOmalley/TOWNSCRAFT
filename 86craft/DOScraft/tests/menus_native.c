@@ -5,6 +5,7 @@
 #include "graphics_presets.h"
 #include "far_field.h"
 int dos_far_enabled;
+int dos_cpu386;
 int dos_far_available(void) { return 1; }
 void dos_far_change(int direction) { dos_far_enabled=(dos_far_enabled+direction+DOS_FAR_COUNT)%DOS_FAR_COUNT; }
 enum { GS_TITLE,GS_PLAY,GS_HELP,GS_MENU };

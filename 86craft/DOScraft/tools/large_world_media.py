@@ -11,6 +11,9 @@ LIGHT_MAGIC=0x314c4354
 TREE_MAGIC=0x31525446
 
 def check_terrain(terrain):
+    if terrain[:16]==b'DOSCRAFT-1024-V2':
+        from convert_large_v2 import check_v2
+        check_v2(terrain); return
     if terrain[:16]!=b'DOSCRAFT-1024-V1' or (len(terrain) not in (BASE_BYTES,LIT_BYTES,FAR_BYTES) and len(terrain)<=FAR_BYTES):
         raise ValueError('Expected a checked prebaked 1024 terrain image')
     if len(terrain)>=LIT_BYTES and struct.unpack_from('<3I',terrain,52)!=(LIGHT_MAGIC,294977,13):
