@@ -52,8 +52,8 @@ void dos_video_prove_low_row_pairs(unsigned int begin, unsigned int end)
 }
 #endif
 #endif
-#if defined(DOS_VGA_HUD_PROOF) && (!defined(DOS_VGA_PROVEN_ROWS) || !defined(DOS_VGA_BROADCAST) || !defined(DOS_ET4000_CHUNKY))
-#error HUD proof requires proven rows, broadcast, and ET4000 page-path tracking
+#if defined(DOS_VGA_HUD_PROOF) && (!defined(DOS_VGA_PROVEN_ROWS) || !defined(DOS_VGA_BROADCAST))
+#error HUD proof requires proven rows and broadcast
 #endif
 static int hud_proof_page=-1;
 void dos_video_prove_hud_unchanged(int page)
@@ -94,6 +94,11 @@ void dos_video_set_repeated_pixel_hint(int enabled)
 #ifdef DOS_VGA_HUD_CACHE
 #include "vga_hud_cache.h"
 static unsigned char hud_shadow[3][4][DOS_VGA_HUD_CACHE_MAX_BYTES];
+#endif
+#ifndef DOS_ET4000_CHUNKY
+/* Without the ET4000 chunky path every page's HUD comes from the planar
+ * upload; a page is valid once that upload completed (HUD proof). */
+static unsigned char planar_hud_valid[3];
 #endif
 #ifdef DOS_VGA_FUSED
 #if !defined(DOS_VGA_BROADCAST) || !defined(DOS_VGA_PACK_ALL)
@@ -482,6 +487,9 @@ void video_init(void)
     memset(planar_hud_valid,1,sizeof(planar_hud_valid));
     memset(chunky_hud_valid,1,sizeof(chunky_hud_valid));
 #endif
+#ifndef DOS_ET4000_CHUNKY
+    memset(planar_hud_valid,1,sizeof(planar_hud_valid));
+#endif
     memset(packed, 0, sizeof(packed));
 #ifdef DOS_VGA_HUD_CACHE
     /* The following all-plane clear establishes the same known zero content
@@ -866,8 +874,8 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         dos_bench_upload+=bench_us()-stamp;
 #endif
     }
-#ifdef DOS_ET4000_CHUNKY
     planar_hud_valid[next_page]=1;
+#ifdef DOS_ET4000_CHUNKY
 page_flip:
 #endif
     outportw(0x3c4, 0x0f02);
