@@ -1748,8 +1748,9 @@ text, host i386 trap/raster/sort/memmove parity).
 
 ## Visual-tier and presenter prototypes (2026-10-13)
 
-Selectable flags only; none is a production default. June 1990 DX/40,
-three-repeat replay, same release flags as above.
+Measured as selectable prototypes on June 1990 DX/40, three-repeat replay,
+same release flags as above. Row fills and plant billboards were subsequently
+promoted; see the production tier audit below.
 
 **`DOS_PLANT_BILLBOARDS` (Very Low only).** Flowers and tall grass become one
 upright camera-facing quad instead of two crossed double-sided quads. Very Low
@@ -1757,7 +1758,8 @@ mean frame: still 21.19→20.19, walk 30.49→28.98, looking down 39.41→38.96,
 clouds 20.21→19.94, house 28.39→28.26 ms. Images change only where plants are
 visible; at 80×100 output the difference is hard to see
 ([before/after crops](tests/benchmarks/2026-10-13/prototypes/very-low-plant-billboards.png)).
-Plants no longer show crossed depth when circled. Awaiting a visual decision.
+Plants no longer show crossed depth when circled. Enabled for 80x100/80x50
+after user acceptance; standard resolutions retain crossed plants.
 
 **Sky at half rate: not useful.** Cloud drift is one offset per frame; the
 framebuffer is redrawn every frame, so clouds must be rasterized every frame
@@ -1845,3 +1847,21 @@ now excludes the established sharp overlay bands. Actual VGA readback passed
 in that attempt. Completed diagnostic emulators are closed.
 
 Evidence: [research/potato-resolution.json](research/potato-resolution.json).
+
+## Claude production tier audit (2026-10-13)
+
+All fourteen successful Claude optimizations are now enabled in the release,
+including `DOS_FILL_ROWS` and `DOS_PLANT_BILLBOARDS`. The latest Claude row-fill
+default commit `da1d94b4` is merged. Twelve exact optimizations apply across
+graphics tiers; row fills optimize the planar 160x100 sky/fog target, and
+single facing plant quads apply at 80x100/80x50, independently of distant
+quality. Failed MULSHIFT, planar-expansion and scan-quad prototypes stay off.
+
+Full/small leaf pixels are opaque; the actual renderer transparency metadata
+and opaque block flags are checked after repeated resolution changes. Internal
+faces touching leaves are culled, including flagged leaves in the baked seed.
+No leaf art, gameplay, lighting or save changes were required. Native plant,
+row-fill/raster, texture switching, production-flag and benchmark tests pass.
+The exact combined release passes automated new/reload/V5 save/VGA smoke at
+8 MiB. After merging the newest Claude commit, a rebuild reproduces the exact
+smoke-tested executable. [Tier audit](research/claude-optimization-tier-audit.md).
