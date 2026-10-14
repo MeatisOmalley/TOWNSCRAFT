@@ -120,6 +120,24 @@ static unsigned char planar_hud_valid[3];
  * Restore bank zero/unchained access before any normal path or readback. */
 static unsigned char chunky_hud[3][40*320];
 static unsigned char planar_hud_valid[3],chunky_hud_valid[3];
+/* Set by video_init when the card is an ET4000; any other VGA keeps the
+ * plain Mode X planar transport for every frame. */
+static int et4000;
+/* 3CD (segment select) and CRTC 33h bits 0-3 (extended start) are read/write
+ * on the ET4000 only; 3CD alone would also accept an ET3000. */
+static int et4000_detect(void)
+{
+    unsigned char bank=inportb(0x3cd),start;
+    int ok;
+    outportb(0x3cd,0x55); ok=inportb(0x3cd)==0x55;
+    outportb(0x3cd,0xaa); ok=ok && inportb(0x3cd)==0xaa;
+    outportb(0x3cd,bank);
+    if(!ok) return 0;
+    outportb(0x3d4,0x33); start=inportb(0x3d5);
+    outportb(0x3d5,start^0x0f); ok=((inportb(0x3d5)^start)&0x0f)==0x0f;
+    outportb(0x3d5,start);
+    return ok;
+}
 #ifdef DOS_ET4000_STRIDED
 /* gfx_present rotates three RAM pages. The previously presented RAM page
  * remains untouched while the next one is drawn, so it is an exact shadow
@@ -317,7 +335,8 @@ int dos_video_inventory_canvas_save(const unsigned char *source, unsigned int pi
 {
 #if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED) && defined(DOS_VGA_PACK_ALL)
     unsigned int y;
-    if(!source || pitch<320) return 0;
+    /* Plain VGA packs inventory frames through this buffer. */
+    if(!et4000 || !source || pitch<320) return 0;
     for(y=0;y<INVENTORY_H;++y)
         memcpy(packed+y*INVENTORY_W,
                source+(size_t)(y+INVENTORY_Y)*pitch+INVENTORY_X,INVENTORY_W);
@@ -478,11 +497,14 @@ void video_init(void)
     outportw(0x3ce, 0x0506); /* A0000 mapping, graphics, no odd/even. */
     outportw(0x3ce, 0xff08); /* All bits writable. */
 #ifdef DOS_ET4000_CHUNKY
-    outportb(0x3d4,0x36);
-    if(inportb(0x3d5)&0x10) {
-        dos_video_restore(); fputs("ET4000 banked memory unavailable\n",stderr); exit(1);
+    et4000=et4000_detect();
+    if(et4000) {
+        outportb(0x3d4,0x36);
+        if(inportb(0x3d5)&0x10) {
+            dos_video_restore(); fputs("ET4000 banked memory unavailable\n",stderr); exit(1);
+        }
+        outportb(0x3cd,0);
     }
-    outportb(0x3cd,0);
     memset(chunky_hud,0,sizeof(chunky_hud));
     memset(planar_hud_valid,1,sizeof(planar_hud_valid));
     memset(chunky_hud_valid,1,sizeof(chunky_hud_valid));
@@ -598,7 +620,7 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
 #if defined(DOS_VGA_PACK_ALL)
     if(!inventory) inventory_canvas_valid=0;
 #endif
-    if(inventory && inventory_shadow_valid && inventory_shadow_page==shown_page) {
+    if(et4000 && inventory && inventory_shadow_valid && inventory_shadow_page==shown_page) {
         if(!source || pitch<320) {
             dos_video_restore(); fputs("Invalid inventory framebuffer\n",stderr); exit(1);
         }
@@ -635,7 +657,7 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
     /* Low/Medium keep repeated-pixel broadcast. High uses row-gathered bytes,
      * not four-way deinterleaving. All 240 rows, three pages and HUD identity
      * survive transitions between access paths. No visible-page upload. */
-    if(!repeated_pixel_hint) {
+    if(et4000 && !repeated_pixel_hint) {
         unsigned int y,bytes=320*200;
         int changed;
         if(!source || pitch<320) {
@@ -920,7 +942,7 @@ page_flip:
     }
 #endif
 #if defined(DOS_ET4000_CHUNKY) && defined(DOS_ET4000_STRIDED)
-    if(inventory) {
+    if(et4000 && inventory) {
         inventory_shadow=source;
         inventory_shadow_pitch=pitch;
         inventory_shadow_page=shown_page;

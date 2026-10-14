@@ -16,6 +16,8 @@
 #define LOW_BYTES MIB
 #define HIGH_BYTES (8u * MIB)
 u32 g_ramMB;
+/* The CPU is a 386 (DPMI CPU type 3): the game keeps to its 386 settings. */
+int dos_cpu386;
 /* Main stack. Measured peak is 27 KiB (DOS_MEM_REPORT: new world, play, save,
  * reload at the 2 and 4 MiB tiers); the Towns original ran in 32 KiB. The
  * DJGPP default of 512 KiB would take that much more DPMI memory. */
@@ -106,13 +108,9 @@ void sys_init(void)
     unsigned char *aligned;
     unsigned int low_bytes, high_bytes;
     if (initialized) fatal("System already initialized");
-#ifdef DOS_CPU386
     if (__dpmi_get_version(&version) || version.cpu < 3)
-        fatal("This build requires a 386 CPU");
-#else
-    if (__dpmi_get_version(&version) || version.cpu < 4)
-        fatal("This build requires a 486 CPU");
-#endif
+        fatal("DOScraft requires a 386 or later CPU");
+    dos_cpu386 = version.cpu == 3;
     /* BIOS AH=88 gives installed extended KiB on this pinned ISA-486 BIOS.
      * Add the conventional/address-hole MiB, as in the Towns installed-RAM
      * register. Do not infer installed RAM from DPMI's currently free pages. */

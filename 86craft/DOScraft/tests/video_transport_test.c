@@ -21,6 +21,8 @@ static unsigned int mask=15,readplane,index,start_hi,start_lo,retrace,bytes_writ
 static unsigned int vsync_reads,start_lo_writes;
 static uclock_t test_clock;
 static unsigned int chain4,bank,bank_writes;
+/* ET4000 registers the presenter's card probe reads back. */
+static unsigned int reg3cd,crtc33;
 /* PIT channel 2 (mode 2, modulo 65536) and the 100 Hz tick, in PIT counts. */
 static unsigned int pit_now,pit2_base,pit2_latch,pit2_byte;
 #ifdef DOS_VGA_ASYNC_FLIP
@@ -37,6 +39,8 @@ unsigned char inportb(unsigned int p)
     if(p==0x3da) { ++vsync_reads; return (retrace++&1)?8:0; }
     if(p==0x3d5 && index==0x0c) return start_hi;
     if(p==0x3d5 && index==0x0d) return start_lo;
+    if(p==0x3d5 && index==0x33) return crtc33;
+    if(p==0x3cd) return reg3cd;
     if(p==0x42) return (pit2_latch>>(8*(pit2_byte++&1)))&255;
     return 0;
 }
@@ -44,7 +48,12 @@ void outportb(unsigned int p,unsigned int v) {
     if(p==0x3d4) index=v;
     if(p==0x43 && v==0xb4) pit2_base=pit_now;
     if(p==0x43 && v==0x80) { pit2_latch=(pit2_base-pit_now)&65535u; pit2_byte=0; }
-    if(p==0x3cd) { assert(v<4); bank=v; ++bank_writes; }
+    if(p==0x3d5 && index==0x33) crtc33=v&15;
+    if(p==0x3cd) {
+        reg3cd=v;
+        if(v==0x55 || v==0xaa) return; /* Card probe patterns. */
+        assert(v<4); bank=v; ++bank_writes;
+    }
 }
 void outportw(unsigned int p,unsigned int v)
 {

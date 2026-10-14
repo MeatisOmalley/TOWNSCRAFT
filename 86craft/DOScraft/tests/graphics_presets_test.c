@@ -6,6 +6,8 @@
 #include "render.h"
 #include "graphics_presets.h"
 
+int dos_cpu386;
+
 static void check_settings(int index, int scale, int view, int flat)
 {
     const DosGraphicsSettings *s=dos_graphics_settings(index);
@@ -47,6 +49,24 @@ int main(void)
         scale=dos_resolution_change(scale,-1);
         assert(dos_resolution_index(scale)==i);
     }
+    /* A 386 CPU keeps to Low (80x100, 4/8) and Very Low (80x50, 4). */
+    dos_cpu386=1;
+    check_settings(DOS_GRAPHICS_LOW,2,8,4);
+    check_settings(DOS_GRAPHICS_MEDIUM,2,8,4);
+    check_settings(DOS_GRAPHICS_HIGH,2,8,4);
+    check_settings(DOS_GRAPHICS_VERY_LOW,2,4,0);
+    assert(DOS_GRAPHICS_MAX_DISTANCE==8);
+    assert(dos_graphics_index(DOS_GRAPHICS_HIGH)==DOS_GRAPHICS_LOW);
+    assert(dos_graphics_next(DOS_GRAPHICS_LOW)==DOS_GRAPHICS_VERY_LOW);
+    assert(dos_graphics_step(DOS_GRAPHICS_VERY_LOW,-1)==DOS_GRAPHICS_LOW);
+    dos_graphics_apply_resolution(DOS_GRAPHICS_LOW);
+    assert(dos_very_low_mode && !dos_potato_mode);
+    dos_graphics_apply_resolution(DOS_GRAPHICS_VERY_LOW);
+    assert(dos_very_low_mode && dos_potato_mode);
+    assert(dos_resolution_index(dos_resolution_change(2,1))==DOS_RES_VERY_LOW);
+    assert(dos_resolution_index(dos_resolution_change(2,-1))==DOS_RES_POTATO);
+    dos_cpu386=0;
+    assert(DOS_GRAPHICS_MAX_DISTANCE==16);
     puts("PASS: pure graphics policy, bounds, cycles, imported adaptive enum");
     return 0;
 }

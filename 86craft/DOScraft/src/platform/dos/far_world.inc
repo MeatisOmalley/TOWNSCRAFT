@@ -29,11 +29,8 @@ const u8 *dos_far_ready_flags(void) { return residentReady; }
  * rebuild distance); High needs the whole map. */
 int dos_far_max_level(void)
 {
-#ifdef DOS_CPU386
-    return DOS_FAR_LOW;
-#else
+    if(dos_cpu386) return DOS_FAR_LOW;
     return dos_far_cells>=512 ? DOS_FAR_HIGH : DOS_FAR_MEDIUM;
-#endif
 }
 void dos_far_change(int direction) {
     if(dos_far_available()) {

@@ -18,14 +18,11 @@ OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c',
     'craft_grid.c','viewmodel.c')
-DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR','-DDOS_TEXEL_EDX','-DDOS_ROW_MUL','-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE','-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS','-DDOS_FILL_ROWS','-DDOS_PLANT_BILLBOARDS','-DDOS_VIEWMODEL')
-# ET4000-only transport: chain-4 banked uploads (High). Without these the
-# presenter is plain VGA Mode X on any card.
-ET4000_ADAPTER_FLAGS=('-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS')
-# 386 build: any VGA card, accepts a 386 at startup, i386 code generation.
-CPU386_ADAPTER_FLAGS=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag not in ET4000_ADAPTER_FLAGS)+('-DDOS_CPU386','-DDOS_VERY_LOW_PLANAR')
-CPU386_CFLAGS=('-march=i386','-mtune=i386')
-OUTPUT_386=ROOT/'build/game/386-vga'
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR','-DDOS_TEXEL_EDX','-DDOS_ROW_MUL','-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE','-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS','-DDOS_FILL_ROWS','-DDOS_PLANT_BILLBOARDS','-DDOS_VIEWMODEL','-DDOS_VERY_LOW_PLANAR')
+# One executable for the 386 and 486: 386 instructions, 486 scheduling. The
+# ET4000 transport (High) is used when video_init detects that card; any other
+# VGA gets plain Mode X. A 386 CPU keeps to the Low/Very Low presets (system.c).
+ARCH_CFLAGS=('-march=i386','-mtune=i486')
 PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR')
 
 
@@ -45,14 +42,14 @@ def set_min_stack(exe):
 
 
 def portable_experiment_flags(flags):
-    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_CPU386','-DDOS_VERY_LOW_PLANAR'))
+    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_VERY_LOW_PLANAR'))
 
 
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):
     if extra_adapter_flags is None: extra_adapter_flags=DEFAULT_ADAPTER_FLAGS
     if graphics is None: graphics=not benchmark
     # Later -march/-mtune options override the i486 defaults in imported.CFLAGS.
-    arch=CPU386_CFLAGS if '-DDOS_CPU386' in extra_adapter_flags else ()
+    arch=ARCH_CFLAGS
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
     report={'stage':'Full game link; silent audio; gameplay acceptance pending',
@@ -200,11 +197,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--cpu386',action='store_true',
-                        help='386 and any-VGA build (no ET4000 transport) in build/game/386-vga')
-    args=parser.parse_args()
-    output=OUTPUT_386 if args.cpu386 else OUTPUT
-    report=build(output,extra_adapter_flags=CPU386_ADAPTER_FLAGS if args.cpu386 else None)
+    parser.parse_args()
+    output=OUTPUT
+    report=build(output)
     print(f'Linked {output / "DOSCRAFT.EXE"} ({report["executable_bytes"]} bytes); gameplay acceptance pending.')
 
 

@@ -342,8 +342,8 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         data,steps=dos_viewmodel.adapt(name,data)
         recipe.extend(steps)
     if very_low_planar:
-        # 386 build: Very Low/Potato frames render into plane 0 (after all raster.c overlays).
+        # Very Low/Potato frames render into plane 0 (after all raster.c overlays).
         import dos_very_low_planar
-        data,steps=dos_very_low_planar.adapt(name,data)
+        data,steps=dos_very_low_planar.adapt(name,data,far_field=far_field)
         recipe.extend(steps)
     return data,recipe

@@ -14,7 +14,7 @@ raster.c overlay.
 from build_imported import replace_once
 
 
-def adapt(name, data):
+def adapt(name, data, *, far_field=False):
     if name != 'raster.c':
         return data, []
     recipe = []
@@ -31,35 +31,55 @@ def adapt(name, data):
     one('static u8 *planarFb,*planarSrc;\n',
         'static u8 *planarFb,*planarSrc;\n'
         '/* Planar frame of a Very Low resolution: rows with dos_very_low_rows bit 0\n'
-        '   hold only the A bytes (see low_planar.S, VL loops). */\n'
+        '   hold only the A bytes (see low_planar.S, VL loops). Such a frame sets\n'
+        '   rplanar to 2. */\n'
         'static int planarVL;\n'
         'void trap_opaquePv(Trap *t);\nvoid trap_transpPv(Trap *t);\n'
         'void trap_opaquePwv(Trap *t);\nvoid trap_transpPwv(Trap *t);\n'
         'static void (*const trapFuncPlanarVL[4])(Trap *)=\n{\n'
         '\ttrap_opaquePv,trap_transpPv,trap_opaquePwv,trap_transpPwv,\n};\n')
-    one('static inline void planar_span(u8 *row,int xl,int xr,u8 color)\n',
-        'static inline void planar_span(u8 *row,int xl,int xr,u8 color,int aOnly)\n')
-    one('\tflat_fill(row+PLANAR_C+c,(xr>>1)-c,word);\n',
-        '\tif(!aOnly) flat_fill(row+PLANAR_C+c,(xr>>1)-c,word);\n')
-    old = 'if(rplanar) planar_span(row,xl,xr,flat);'
-    if text.count(old) != 2:
-        raise ValueError('Expected two planar span calls')
-    new = 'if(rplanar) planar_span(row,xl,xr,flat,planarVL && (dos_very_low_rows[s]&1));'
-    recipe.append(dict(operation='replace', before=old, after=new, count=2))
-    text = text.replace(old, new)
+    one('\tflat_fill(row+PLANAR_C+c,(xr>>1)-c,word);\n}\n',
+        '\tflat_fill(row+PLANAR_C+c,(xr>>1)-c,word);\n}\n\n'
+        '/* Very Low planar row: the A bytes (even logical pixels) only. */\n'
+        'static inline void planar_span_a(u8 *row,int xl,int xr,u8 color)\n{\n'
+        '\tint a=(xl+1)>>1;\n'
+        '\tflat_fill(row+a,((xr+1)>>1)-a,(u32)color*0x01010101u);\n}\n')
+    # Very Low planar frames get their own flat loop; the others keep theirs.
+    one('\t\t\telse\n\t\t\t{\n\t\t\t\tif(g_fastFlat)\n',
+        '\t\t\telse if(rplanar>1)\n\t\t\t{\n'
+        '\t\t\t\tfor(; s<end; ++s,row+=stride)\n\t\t\t\t{\n'
+        '\t\t\t\t\tint xl=(left->x16+0x7FFF)>>16,xr=(right->x16+0x7FFF)>>16;\n'
+        '\t\t\t\t\tif(xr>rw) xr=rw;\n'
+        '\t\t\t\t\tif(xl<0) xl=0;\n'
+        '\t\t\t\t\tif(xr>xl && !(dos_very_low_rows[s]&2))\n\t\t\t\t\t{\n'
+        '\t\t\t\t\t\tBENCH_HOOK(if(!g_fastFlat) g_benchCnt[S_FLATPX]+=xr-xl);\n'
+        '\t\t\t\t\t\tif(dos_very_low_rows[s]&1) planar_span_a(row,xl,xr,flat);\n'
+        '\t\t\t\t\t\telse planar_span(row,xl,xr,flat);\n'
+        '\t\t\t\t\t}\n'
+        '\t\t\t\t\tleft->x16+=left->dx;\n'
+        '\t\t\t\t\tright->x16+=right->dx;\n'
+        '\t\t\t\t}\n\t\t\t}\n'
+        '\t\t\telse\n\t\t\t{\n\t\t\t\tif(g_fastFlat)\n')
     one('rplanar ? trapFuncPlanar[flags&(RP_TRANSPARENT|RP_WRAP)]',
-        'rplanar ? (planarVL ? trapFuncPlanarVL : trapFuncPlanar)[flags&(RP_TRANSPARENT|RP_WRAP)]')
-    one('\t\t\tfill_plane_row(rbuf+y*PLANAR_ROW+PLANAR_C,word);\n',
-        '\t\t\tif(!planarVL || !(dos_very_low_rows[y]&1))\n'
-        '\t\t\t\tfill_plane_row(rbuf+y*PLANAR_ROW+PLANAR_C,word);\n')
-    one('\t\tif(rplanar)\n\t\t{\n\t\t\tfill_plane_row(rbuf+y*PLANAR_ROW,word);\n',
-        '\t\tif(rplanar)\n\t\t{\n'
-        '\t\t\tif(planarVL && (dos_very_low_rows[y]&2)) continue; /* Potato repeats it. */\n'
-        '\t\t\tfill_plane_row(rbuf+y*PLANAR_ROW,word);\n')
-    one('        c->stride=PLANAR_ROW; c->mode=width==1 ? 9 : width==2 ? 10 : 12;\n',
-        '        c->stride=PLANAR_ROW; c->mode=width==1 ? 9 : width==2 ? 10 : 12;\n'
-        '        /* Potato: A bytes of kept rows only (far_fill.h modes 13/11). */\n'
-        '        if(planarVL && dos_potato_mode && width>1 && !(x&1)) c->mode=width==2 ? 13 : 11;\n')
+        'rplanar ? (rplanar>1 ? trapFuncPlanarVL : trapFuncPlanar)[flags&(RP_TRANSPARENT|RP_WRAP)]')
+    one('\tu32 word=color*0x01010101u;\n\tfor(y=MAX(0,y0); y<MIN(rh,y1); ++y)\n',
+        '\tu32 word=color*0x01010101u;\n'
+        '\tif(rplanar>1)\n\t{\n'
+        '\t\t/* Very Low rows take only A bytes; Potato repeats odd rows. */\n'
+        '\t\tfor(y=MAX(0,y0); y<MIN(rh,y1); ++y)\n\t\t{\n'
+        '\t\t\tif(dos_very_low_rows[y]&2) continue;\n'
+        '\t\t\tfill_plane_row(rbuf+y*PLANAR_ROW,word);\n'
+        '\t\t\tif(!(dos_very_low_rows[y]&1)) fill_plane_row(rbuf+y*PLANAR_ROW+PLANAR_C,word);\n'
+        '\t\t}\n\t\treturn;\n\t}\n'
+        '\tfor(y=MAX(0,y0); y<MIN(rh,y1); ++y)\n')
+    if far_field:
+        one('        c->stride=PLANAR_ROW; c->mode=width==1 ? 9 : width==2 ? 10 : 12;\n',
+            '        c->stride=PLANAR_ROW; c->mode=width==1 ? 9 : width==2 ? 10 : 12;\n'
+            '        /* Potato: A bytes of kept rows only (far_fill.h modes 13/11). */\n'
+            '        if(planarVL && dos_potato_mode && width>1 && !(x&1)) c->mode=width==2 ? 13 : 11;\n')
+    one('\trplanar=planarPolicy && 2==scale && SCR_W/2==w && VIEW_H/2==h;\n',
+        '\trplanar=planarPolicy && 2==scale && SCR_W/2==w && VIEW_H/2==h;\n'
+        '\tif(rplanar && planarVL) rplanar=2;\n')
     one('    planarPolicy=skip && !dos_very_low_mode;\n',
         '    planarPolicy=skip;\n    planarVL=dos_very_low_mode;\n')
     one('    const u8 *a=planarSrc+y*PLANAR_ROW,*c=a+PLANAR_C;\n    int x;\n',

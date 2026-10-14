@@ -28,11 +28,10 @@ int dos_resolution_change(int scale,int direction);
 const char *dos_resolution_name(int scale);
 /* Sets dos_very_low_mode/dos_potato_mode for a preset's resolution. */
 void dos_graphics_apply_resolution(int index);
-#ifdef DOS_CPU386
-#define DOS_GRAPHICS_MAX_DISTANCE 8
-#else
-#define DOS_GRAPHICS_MAX_DISTANCE 16
-#endif
+/* Set at startup when the CPU is a 386 (system.c): the 386 keeps to the Low
+ * and Very Low presets and 8 blocks. */
+extern int dos_cpu386;
+#define DOS_GRAPHICS_MAX_DISTANCE (dos_cpu386 ? 8 : 16)
 
 /* Invalid indices resolve to Low. Invalid next indices also return Low. */
 int dos_graphics_index(int index);

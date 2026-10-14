@@ -129,6 +129,7 @@ CONTROL_HARNESS = r'''
 #include "graphics_presets.h"
 int g_viewDist,g_renderScale,g_flatDist,g_distanceMode,g_occlusion,g_textureSubdivision;
 int g_musicOn,g_sfxOn,g_profEnable;
+int dos_cpu386;
 u32 g_profCount;
 enum { GS_TITLE, GS_PLAY };
 static int state,showDebug,saves,message_count;

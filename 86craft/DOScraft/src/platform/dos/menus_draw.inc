@@ -66,11 +66,7 @@ static void draw_dos_menu(void)
 #else
 		menu_row(4,"Back",menuSel==4,1);
 #endif
-#ifdef DOS_CPU386
-		gfx_text_center(g_fb,192,"Blocks: 4-8.",P(R_GRAY,11),C_BLACK);
-#else
-		gfx_text_center(g_fb,192,"Blocks: 4-16. Distant: 64/96/128.",P(R_GRAY,11),C_BLACK);
-#endif
+		gfx_text_center(g_fb,192,dos_cpu386 ? "Blocks: 4-8." : "Blocks: 4-16. Distant: 64/96/128.",P(R_GRAY,11),C_BLACK);
 	}
 	else if(menuPage==DM_DIAGNOSTICS)
 	{
