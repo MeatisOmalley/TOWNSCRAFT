@@ -294,9 +294,7 @@ static inline int far_boundary_sample(int x,int z,u8 *b)
         if(s>=0 && farReady[s]) {
             int cell=((z&15)<<4)+(x&15),h=g_height[s*256+cell];
             const u8 *p=g_blocks+s*12288+cell*48;
-            while(h && !(blk_flags(p[h-1])&BF_CUBE)) --h;
-            if(dos_far_compact && h && BLK_ID(p[h-1])==B_LEAVES)
-                return dos_far_sample(x,z,1,b);
+            while(h && !dos_far_cube(p[h-1])) --h;
             *b=h ? BLK_ID(p[h-1]) : B_AIR; return h;
         }
     }

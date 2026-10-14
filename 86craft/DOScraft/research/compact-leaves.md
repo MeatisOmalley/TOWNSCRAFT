@@ -1,5 +1,8 @@
 # Original distant renderer with compact leaf coverage
 
+Superseded by the destroy-only leaf policy: [prebaked leaf exclusion](fixed-leaves.md).
+This document records the dynamic inference checkpoint at `a28d7982`.
+
 This trial follows the user's request to use the original system and retain
 the trunk column plus its eight horizontal neighbors. Both the heightmap and
 panorama consume one shared surface map again. The separate crown projection,

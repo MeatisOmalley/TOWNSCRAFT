@@ -1,0 +1,468 @@
+{
+  "status": "static exclusion tested; shared ISO held; visual review pending",
+  "hardware": "June 1990 DX40, 8 MiB, ET4000AX 16-bit ISA, AHA1542A SCSI",
+  "surface_map_bytes": 524288,
+  "additional_heap_bytes": 0,
+  "additional_runtime_eligibility_arrays": false,
+  "runtime_trunk_searches": false,
+  "runtime_neighbor_reads_for_eligibility": false,
+  "leaf_flag_byte": 71,
+  "original_leaf_cells": 37273,
+  "retained_leaf_cells": 20949,
+  "executable_sections": {
+    "text": 360472,
+    "data": 20992,
+    "bss": 1053184
+  },
+  "original_sections_identical": true,
+  "terrain_bytes": 178815488,
+  "terrain_sha256": "291d4ad257c8f1a8c4e7a2a811d303e6e1728f2e37b14cd913f6202bb97006b4",
+  "preview_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-1gsl5h4b",
+  "release_exe_sha256": "9c6ed861b225ebc53258e099cf1ae0380c6d4ffa9fade1f830be4fa416ec9571",
+  "smoke_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-6ps8fezz",
+  "smoke": {
+    "new": "DOScraft real game-loop smoke\nMODE=NEW\nWORLD_WIDTH=1024\nRESIDENT_COLUMNS=25\nMESH_QUADS=4136\nPRESENTED_FRAMES=357\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=2690\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nMOB_DESPAWN=PASS\nSAVE_RESULT=0\nLOAD_RESULT=0\nINVENTORY_PRESENTS=1\nINVENTORY_100HZ_TICKS=30\nAUDIO=SILENT_DEFERRED\nRESULT=PASS\nGRAPHICS_PRESETS=PASS\nMENUS=PASS\nTERRAIN_PERSIST=PASS\nEDGE_STREAM=PASS\nCHICKENS=PASS\nDISTANT_TERRAIN=PASS\nFAR_DRAWS=32\nPANORAMA_COLUMNS=436\nLIGHT_CACHE=PASS\nLIGHT_CACHE_STATS=0,0,25,1\n",
+    "load": "DOScraft real game-loop smoke\nMODE=LOAD\nWORLD_WIDTH=1024\nRESIDENT_COLUMNS=25\nMESH_QUADS=3480\nPRESENTED_FRAMES=443\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=2552\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nMOB_DESPAWN=PASS\nSAVE_RESULT=-1\nLOAD_RESULT=0\nINVENTORY_PRESENTS=1\nINVENTORY_100HZ_TICKS=30\nAUDIO=SILENT_DEFERRED\nRESULT=PASS\nGRAPHICS_PRESETS=PASS\nMENUS=PASS\nTERRAIN_PERSIST=PASS\nEDGE_STREAM=PASS\nCHICKENS=PASS\nDISTANT_TERRAIN=PASS\nFAR_DRAWS=14\nPANORAMA_COLUMNS=256\nLIGHT_CACHE=PASS\nLIGHT_CACHE_STATS=18,72,70,9\n",
+    "save_version": 5
+  },
+  "player_migration": {
+    "primary_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-zgu2sm29",
+    "old_save_sha256": "92ecf3e62e8ea67a2e618b58cf57e6a8db0f7a4ca5891507d53854285fe108f2",
+    "new_save_sha256": "92ecf3e62e8ea67a2e618b58cf57e6a8db0f7a4ca5891507d53854285fe108f2",
+    "same_logical_world": true,
+    "same_player_inventory_mobs_chests": true,
+    "new_terrain_sha256": "c19e826af7978b3da887ba40b252c85ee4c9458afd3f59e1f176a8140f131f0c"
+  },
+  "candidate_vm": "game-play-pm1sie1z",
+  "candidate_exe_sha256": "04af4756a993575711afa4ba94803720d68339db9300d68af75ac2487ea6df09",
+  "emulator_sha256": "f64194c42d5cc832e48b3d04e178abe83fc8f585fbb5d9adc6ad41ae6ce87055",
+  "replay_flags": [
+    "-DDOS_VGA_PACK_ALL",
+    "-DDOS_VGA_HUD_CACHE",
+    "-DDOS_VGA_BROADCAST",
+    "-fomit-frame-pointer",
+    "-DDOS_ET4000_CHUNKY",
+    "-DDOS_TRAP_FOUR",
+    "-DDOS_ET4000_STRIDED",
+    "-DDOS_ET4000_HUD_WORDS",
+    "-DDOS_VGA_PROVEN_ROWS",
+    "-DDOS_VGA_PROVEN_VERTICAL",
+    "-DDOS_VGA_ASYNC_FLIP",
+    "-DDOS_VGA_HUD_PROOF",
+    "-DDOS_RASTER_FINISH_SKIP",
+    "-DDOS_VERY_LOW",
+    "-DDOS_VERY_LOW_TEXELS",
+    "-DDOS_LOW_PLANAR",
+    "-DDOS_BENCH_QUALITY=0",
+    "-DDOS_LARGE_WORLD",
+    "-DDOS_STREAM_LIGHT_CACHE",
+    "-DDOS_FAR_FIELD",
+    "-DDOS_BENCH_FAR_LEVEL=3",
+    "-DDOS_BENCH_PROFILE_FAR",
+    "-DDOS_BENCH_FAR_SWEEP",
+    "-DDOS_FAR_DETAILS",
+    "-DDOS_FAR_VIEW_DEPTH",
+    "-DDOS_FAR_REPROJECT",
+    "-DDOS_BENCH_DIAGONAL_ROUTE",
+    "-DDOS_COLLECT_MARGIN",
+    "-DDOS_BENCH_FRAMES=256"
+  ],
+  "candidate_results": {
+    "low": {
+      "open_static": {
+        "mean_ms": 27.43971875,
+        "p95_ms": 48.991,
+        "far_mean_ms": {
+          "panorama_build": 0.11053125,
+          "panorama_draw": 1.44984375,
+          "heightmap": 2.40240625
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk": {
+        "mean_ms": 28.72426171875,
+        "p95_ms": 43.641,
+        "far_mean_ms": {
+          "panorama_build": 0.09573046875,
+          "panorama_draw": 1.47798828125,
+          "heightmap": 4.8386015625
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_down": {
+        "mean_ms": 48.19553125,
+        "p95_ms": 63.877,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_up": {
+        "mean_ms": 19.49971875,
+        "p95_ms": 26.594,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "house": {
+        "mean_ms": 37.67396875,
+        "p95_ms": 49.891,
+        "far_mean_ms": {
+          "panorama_build": 0.10915625,
+          "panorama_draw": 1.93971875,
+          "heightmap": 3.90378125
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "block_edits": {
+        "mean_ms": 41.709875,
+        "p95_ms": 59.299,
+        "far_mean_ms": {
+          "panorama_build": 0.0740625,
+          "panorama_draw": 1.69934375,
+          "heightmap": 3.9076875
+        },
+        "edit_call_mean_ms": 11.885625
+      }
+    },
+    "medium": {
+      "open_static": {
+        "mean_ms": 35.223125,
+        "p95_ms": 60.269,
+        "far_mean_ms": {
+          "panorama_build": 0.01540625,
+          "panorama_draw": 3.79640625,
+          "heightmap": 7.43725
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk": {
+        "mean_ms": 40.2785703125,
+        "p95_ms": 53.961,
+        "far_mean_ms": {
+          "panorama_build": 0.278140625,
+          "panorama_draw": 3.485140625,
+          "heightmap": 13.9388046875
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_down": {
+        "mean_ms": 47.8859375,
+        "p95_ms": 65.887,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_up": {
+        "mean_ms": 19.2375625,
+        "p95_ms": 33.437,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "house": {
+        "mean_ms": 49.81859375,
+        "p95_ms": 69.026,
+        "far_mean_ms": {
+          "panorama_build": 0.2548125,
+          "panorama_draw": 5.15875,
+          "heightmap": 10.596375
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "block_edits": {
+        "mean_ms": 46.89421875,
+        "p95_ms": 49.997,
+        "far_mean_ms": {
+          "panorama_build": 0.01528125,
+          "panorama_draw": 4.83659375,
+          "heightmap": 10.59265625
+        },
+        "edit_call_mean_ms": 0.4911875
+      }
+    },
+    "high": {
+      "open_static": {
+        "mean_ms": 46.69740625,
+        "p95_ms": 79.241,
+        "far_mean_ms": {
+          "panorama_build": 0.0153125,
+          "panorama_draw": 6.3431875,
+          "heightmap": 16.108125
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk": {
+        "mean_ms": 60.42407421875,
+        "p95_ms": 76.155,
+        "far_mean_ms": {
+          "panorama_build": 0.36450390625,
+          "panorama_draw": 4.10082421875,
+          "heightmap": 32.99866015625
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_down": {
+        "mean_ms": 48.07190625,
+        "p95_ms": 61.848,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_up": {
+        "mean_ms": 21.0790625,
+        "p95_ms": 27.814,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "house": {
+        "mean_ms": 66.6393125,
+        "p95_ms": 82.908,
+        "far_mean_ms": {
+          "panorama_build": 0.28959375,
+          "panorama_draw": 7.81353125,
+          "heightmap": 26.52953125
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "block_edits": {
+        "mean_ms": 70.16121875,
+        "p95_ms": 86.526,
+        "far_mean_ms": {
+          "panorama_build": 0.01540625,
+          "panorama_draw": 7.47715625,
+          "heightmap": 26.53253125
+        },
+        "edit_call_mean_ms": 11.76815625
+      }
+    }
+  },
+  "primary_disk_sha256": "3a588a6614c9991ff6869764a33b5352da7282a1139e363ade8beab1c60db0de",
+  "primary_iso_sha256": "a5e69ab2405a665bc8ffc2e67987d718904fbe3573f587f6ce5132fd58b75db0",
+  "shared_iso_updated": false,
+  "control_vm": "game-play-4isaff9e",
+  "control_exe_sha256": "04af4756a993575711afa4ba94803720d68339db9300d68af75ac2487ea6df09",
+  "control_results": {
+    "low": {
+      "open_static": {
+        "mean_ms": 27.471375,
+        "p95_ms": 49.062,
+        "far_mean_ms": {
+          "panorama_build": 0.1094375,
+          "panorama_draw": 1.43809375,
+          "heightmap": 2.4418125
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk": {
+        "mean_ms": 28.62680078125,
+        "p95_ms": 43.59,
+        "far_mean_ms": {
+          "panorama_build": 0.09573046875,
+          "panorama_draw": 1.370984375,
+          "heightmap": 4.86408203125
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_down": {
+        "mean_ms": 48.19290625,
+        "p95_ms": 63.839,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_up": {
+        "mean_ms": 19.4988125,
+        "p95_ms": 26.633,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "house": {
+        "mean_ms": 37.6630625,
+        "p95_ms": 49.918,
+        "far_mean_ms": {
+          "panorama_build": 0.1093125,
+          "panorama_draw": 1.85728125,
+          "heightmap": 3.98065625
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "block_edits": {
+        "mean_ms": 41.671125,
+        "p95_ms": 59.245,
+        "far_mean_ms": {
+          "panorama_build": 0.07396875,
+          "panorama_draw": 1.58946875,
+          "heightmap": 3.9813125
+        },
+        "edit_call_mean_ms": 11.88803125
+      }
+    },
+    "medium": {
+      "open_static": {
+        "mean_ms": 35.2363125,
+        "p95_ms": 60.342,
+        "far_mean_ms": {
+          "panorama_build": 0.01540625,
+          "panorama_draw": 3.57878125,
+          "heightmap": 7.66909375
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk": {
+        "mean_ms": 39.7326328125,
+        "p95_ms": 52.897,
+        "far_mean_ms": {
+          "panorama_build": 0.27873828125,
+          "panorama_draw": 3.09819921875,
+          "heightmap": 13.741578125
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_down": {
+        "mean_ms": 47.88409375,
+        "p95_ms": 65.882,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_up": {
+        "mean_ms": 19.23509375,
+        "p95_ms": 33.44,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "house": {
+        "mean_ms": 49.5199375,
+        "p95_ms": 68.366,
+        "far_mean_ms": {
+          "panorama_build": 0.25253125,
+          "panorama_draw": 4.67684375,
+          "heightmap": 10.78315625
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "block_edits": {
+        "mean_ms": 46.62221875,
+        "p95_ms": 49.814,
+        "far_mean_ms": {
+          "panorama_build": 0.0155,
+          "panorama_draw": 4.38234375,
+          "heightmap": 10.775875
+        },
+        "edit_call_mean_ms": 0.49609375
+      }
+    },
+    "high": {
+      "open_static": {
+        "mean_ms": 46.903875,
+        "p95_ms": 79.547,
+        "far_mean_ms": {
+          "panorama_build": 0.015375,
+          "panorama_draw": 5.8858125,
+          "heightmap": 16.76759375
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk": {
+        "mean_ms": 59.06860546875,
+        "p95_ms": 75.518,
+        "far_mean_ms": {
+          "panorama_build": 0.36514453125,
+          "panorama_draw": 3.70954296875,
+          "heightmap": 32.03783203125
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_down": {
+        "mean_ms": 48.07325,
+        "p95_ms": 61.849,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "walk_up": {
+        "mean_ms": 21.07953125,
+        "p95_ms": 27.777,
+        "far_mean_ms": {
+          "panorama_build": 0.0,
+          "panorama_draw": 0.0,
+          "heightmap": 0.0
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "house": {
+        "mean_ms": 65.6144375,
+        "p95_ms": 81.418,
+        "far_mean_ms": {
+          "panorama_build": 0.28965625,
+          "panorama_draw": 7.1221875,
+          "heightmap": 26.20090625
+        },
+        "edit_call_mean_ms": 0.0
+      },
+      "block_edits": {
+        "mean_ms": 69.1585,
+        "p95_ms": 84.999,
+        "far_mean_ms": {
+          "panorama_build": 0.015375,
+          "panorama_draw": 6.804,
+          "heightmap": 26.20428125
+        },
+        "edit_call_mean_ms": 11.769625
+      }
+    }
+  },
+  "comparisons": {
+    "low": {
+      "open_static": -0.0316562499999975,
+      "walk": 0.09746093749999929,
+      "edit_call_delta_ms": -0.002406249999999943
+    },
+    "medium": {
+      "open_static": -0.01318749999999369,
+      "walk": 0.5459375000000009,
+      "edit_call_delta_ms": -0.004906250000000001
+    },
+    "high": {
+      "open_static": -0.2064687499999991,
+      "walk": 1.35546875,
+      "edit_call_delta_ms": -0.0014687499999990195
+    }
+  }
+}

@@ -24,7 +24,6 @@ Camera g_cam;
 int g_viewDist=8,g_renderScale=2,dos_far_enabled;
 u32 dos_far_version=1;
 u8 *dos_far_map;
-int dos_far_compact;
 u8 g_shadeLUT[16][256];
 static u8 texAvg[NUM_TEXTURES];
 static int vw=160,vh=100,focal16=86*16,cx16=160*8;

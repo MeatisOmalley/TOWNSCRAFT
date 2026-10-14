@@ -67,7 +67,7 @@ class FarTests(unittest.TestCase):
             self.run_cmd([*flags,ROOT/'tests/far_world_native.c',ROOT/'src/platform/dos/heap.c',
                 *(src/s for s in ('blocks.c','fmath.c','libc.c')),tables,obj,'-o',exe])
             terrain=folder/'terrain.tmp'
-            for source in (TERRAIN,TERRAIN.with_name('terrain1024-compact-leaves.bin')):
+            for source in (TERRAIN,TERRAIN.with_name('terrain1024-fixed-leaves.bin')):
                 if not source.exists():continue
                 shutil.copyfile(source,terrain)
                 self.assertIn('PASS: distant map',self.run_cmd([exe,terrain]).stdout)

@@ -38,11 +38,17 @@ def upgrade_disk(old_disk,new_terrain):
     if any(attr&16 for name,attr,cluster,size in old.directory()):
         raise ValueError('Cannot migrate an unexpected player disk directory')
     previous=old.read('TERRAIN.TMP')
+    migrated_save=None
     if identity(previous)!=identity(new_terrain):
-        raise ValueError('Cannot retain player edits across a different baked seed')
-    merged=bytearray(new_terrain)
-    merged[33*512:BASE_BYTES]=previous[33*512:BASE_BYTES]
-    files=[(name,bytes(merged) if name=='TERRAIN.TMP' else old.read(name))
+        from leaf_flags_media import upgrade,MAGIC
+        if struct.unpack_from('<I',new_terrain,92)[0]!=MAGIC:
+            raise ValueError('Cannot retain player edits across a different baked seed')
+        merged,migrated_save=upgrade(previous,new_terrain,old.read('WORLD.SAV'))
+    else:
+        merged=bytearray(new_terrain)
+        merged[33*512:BASE_BYTES]=previous[33*512:BASE_BYTES]
+    files=[(name,bytes(merged) if name=='TERRAIN.TMP' else migrated_save
+            if name=='WORLD.SAV' and migrated_save is not None else old.read(name))
            for name,attr,cluster,size in old.directory() if not attr&16]
     disk=scratch_hdd(cylinders=800,heads=8,sectors=63)
     partition=struct.unpack_from('<I',disk,454)[0]*512

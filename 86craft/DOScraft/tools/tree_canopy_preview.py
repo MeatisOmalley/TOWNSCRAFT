@@ -32,7 +32,10 @@ def prepare_preview(terrain,output,smoke,preview=PREVIEW):
     old=large_volume(original);new=large_volume(migrated)
     for name,attr,cluster,size in old.directory():
         if not attr&16 and name!='TERRAIN.TMP' and old.read(name)!=new.read(name):
-            raise ValueError('Preview did not preserve '+name)
+            if name=='WORLD.SAV':
+                from leaf_flags_media import validate_save_preservation
+                validate_save_preservation(old.read(name),new.read(name))
+            else:raise ValueError('Preview did not preserve '+name)
     if running(player) or sha((player/'scratch-large.img').read_bytes())!=original_hash:
         raise ValueError('Player changed during the copy')
     (vm/'scratch-large.img').write_bytes(migrated)
@@ -42,7 +45,7 @@ def prepare_preview(terrain,output,smoke,preview=PREVIEW):
     (vm/'build.json').write_text(json.dumps(record,indent=2)+'\n');validate(vm)
     preview.mkdir(parents=True,exist_ok=True);(preview/'player-vm.txt').write_text(str(vm))
     script=ROOT/'tools/tree_canopy_preview.py'
-    filename={'capped-trees':'Play-Capped-Trees.cmd','compact-leaves':'Play-Compact-Leaves.cmd'}.get(preview.name,'Play-Tree-Preview.cmd')
+    filename={'capped-trees':'Play-Capped-Trees.cmd','compact-leaves':'Play-Compact-Leaves.cmd','fixed-leaves':'Play-Fixed-Leaves.cmd'}.get(preview.name,'Play-Tree-Preview.cmd')
     (preview/filename).write_text('@echo off\n"'+str(Path(sys.executable))+
         '" "'+str(script)+'" --preview-directory "'+str(preview)+'" --launch\nif errorlevel 1 pause\n')
     return vm
