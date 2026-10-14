@@ -56,6 +56,9 @@
 	.endm
 
 #ifdef DOS_VERY_LOW_PLANAR
+#ifndef DOS_TEXEL_EDX
+#error Very Low planar loops double the DOS_TEXEL_EDX steps
+#endif
 	/* Advance UV past a texel Very Low does not show. */
 	.macro PSKIP WRAP
 	.if \WRAP
@@ -280,16 +283,45 @@
 	PSKIP	\WRAP
 	incl	%edi
 	decl	rowWP
-31:
+31:	/* From here every step spans two logical pixels. Two 16.16 steps
+	 * and one doubled step are the same modular sums, so the texels match
+	 * stepping over each odd pixel. */
+	movl	rowDUP,%eax
+	addl	%eax,%eax
+	roll	$16,%eax		/* frac:int */
+	movb	%al,%dl
+	xorw	%ax,%ax
+	.if \WRAP
+	movl	%eax,duFracP
+	.else
+	movl	%eax,%esi
+	.endif
+	movl	rowDVP,%eax
+	addl	%eax,%eax
+	roll	$16,%eax
+	movb	%al,%dh
+	xorw	%ax,%ax
+	movl	%eax,%ebp
 	movl	rowWP,%eax
-	shrl	$1,%eax
+	shrl	$1,%eax			/* Shown pixels before a trailing odd one */
 	jz	33f
+	testb	$1,%al
+	jz	34f
+	PTEXEL	\TRANSP,\WRAP,0
+	incl	%edi
+	movl	rowWP,%eax
+	shrl	$2,%eax			/* Remaining two-pixel groups */
+	jz	33f
+	jmp	35f
+34:
+	shrl	$1,%eax
+35:
 	decl	%eax
 	shll	$16,%eax
 32:
 	PTEXEL	\TRANSP,\WRAP,0
-	PSKIP	\WRAP
-	incl	%edi
+	PTEXEL	\TRANSP,\WRAP,1
+	addl	$2,%edi
 	subl	$0x10000,%eax
 	jnc	32b
 33:
