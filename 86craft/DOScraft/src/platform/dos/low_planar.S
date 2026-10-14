@@ -37,7 +37,11 @@
 	addl	%esi,%ecx
 	.endif
 	adcb	%dl,%bl
+#ifdef DOS_TEXEL_EDX
+	addl	%ebp,%edx		/* v frac in the upper half; no 0x66 prefix */
+#else
 	addw	%bp,%cx
+#endif
 	adcb	%dh,%bh
 	.if \WRAP
 	andl	$0x0F0F,%ebx
@@ -103,13 +107,21 @@
 	movl	T_RU(%ebp),%eax
 	subl	T_LU(%ebp),%eax
 	sarl	$8,%eax
+#ifdef DOS_ROW_MUL
+	mull	%ecx			/* Same low 32 bits; EDX is reloaded below */
+#else
 	imull	%ecx,%eax
+#endif
 	sarl	$6,%eax
 	movl	%eax,rowDUP
 	movl	T_RV(%ebp),%eax
 	subl	T_LV(%ebp),%eax
 	sarl	$8,%eax
+#ifdef DOS_ROW_MUL
+	mull	%ecx			/* Same low 32 bits; EDX is reloaded below */
+#else
 	imull	%ecx,%eax
+#endif
 	sarl	$6,%eax
 	movl	%eax,rowDVP
 
@@ -145,6 +157,28 @@
 	shrl	$16,%eax
 	andl	$15,%eax
 	orl	%eax,%ebx
+#ifdef DOS_TEXEL_EDX
+	/* ECX = u frac:0, EDX = v frac:dv int:du int, EBP = dv frac:0 */
+	shll	$16,%ecx
+	shll	$16,%edx
+	.if \WRAP
+	movl	T_TILE(%ebp),%esi
+	.else
+	addl	T_TILE(%ebp),%ebx
+	.endif
+
+	movl	rowDUP,%eax
+	shll	$16,%eax
+	.if \WRAP
+	movl	%eax,duFracP
+	.else
+	movl	%eax,%esi
+	.endif
+	movb	rowDUP+2,%dl
+	movb	rowDVP+2,%dh
+	movl	rowDVP,%ebp
+	shll	$16,%ebp
+#else
 	shll	$16,%ecx
 	movw	%dx,%cx
 	.if \WRAP
@@ -166,6 +200,7 @@
 	movl	%ebp,%eax
 	sarl	$16,%eax
 	movb	%al,%dh
+#endif
 
 	/* Odd first pixel: C byte, then continue on even-aligned pairs. */
 	testb	$1,rowXP

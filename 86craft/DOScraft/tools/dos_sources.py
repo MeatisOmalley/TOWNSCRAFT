@@ -10,7 +10,11 @@ from build_imported import replace_once
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
           packed_raster=False, early_split_cull=False, front_to_back=False, edge_recip=False,far_field=False,
-          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False,low_planar=False,a1_census=False,profile_cw=False,large_world=False,collect_margin=False,stream_light=False):
+          trap_zero_gradient=False, trap_destination=False,split_reuse=False,depth_adaptive=False,trap_stable=False,trap_four=False,wall_visibility=False,wall_verify=False,group_facing=False,proven_rows=False,hud_proof=False,raster_finish_skip=False,very_low_texels=False,low_planar=False,a1_census=False,profile_cw=False,large_world=False,collect_margin=False,stream_light=False,
+          stream_validate_once=False,light_offsets=False,mesh_edges=False,collect_swap=False,memmove_dwords=False,
+          world_scans=False,baked_light_fast=False,sort_histograms=False,
+          texel_edx=False,row_pointer=False,flat_inline=False,row_mul=False,mulshift=False,
+          planar_expand_words=False,plant_billboards=False,fill_rows=False):
     recipe=[]
     import dos_chickens
     data,steps=dos_chickens.adapt(name,data)
@@ -257,5 +261,76 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         if not large_world: raise ValueError('Distant terrain requires a prebaked large world')
         import dos_far_field
         data,steps=dos_far_field.adapt(name,data,low_planar=low_planar)
+        recipe.extend(steps)
+    if stream_validate_once:
+        import dos_stream_validate_once
+        data,steps=dos_stream_validate_once.adapt(name,data)
+        recipe.extend(steps)
+    if light_offsets:
+        import dos_light_offsets
+        data,steps=dos_light_offsets.adapt(name,data)
+        recipe.extend(steps)
+    if mesh_edges:
+        import dos_mesh_edges
+        data,steps=dos_mesh_edges.adapt(name,data)
+        recipe.extend(steps)
+    if collect_swap and collect_margin:
+        # Only the collect-margin overlay has wide planes to swap.
+        import dos_collect_swap
+        data,steps=dos_collect_swap.adapt(name,data)
+        recipe.extend(steps)
+    if memmove_dwords:
+        import dos_memmove_dwords
+        data,steps=dos_memmove_dwords.adapt(name,data)
+        recipe.extend(steps)
+    if world_scans:
+        import dos_world_scans
+        data,steps=dos_world_scans.adapt(name,data)
+        recipe.extend(steps)
+    if baked_light_fast and stream_light:
+        # Without baked/cached stream light every column is cleared and seeded.
+        import dos_baked_light_fast
+        data,steps=dos_baked_light_fast.adapt(name,data)
+        recipe.extend(steps)
+    if sort_histograms:
+        import dos_sort_histograms
+        data,steps=dos_sort_histograms.adapt(name,data)
+        recipe.extend(steps)
+    # Exact raster setup/texel probes; each is separately selectable.
+    if texel_edx:
+        import dos_texel_edx
+        data,steps=dos_texel_edx.adapt(name,data,very_low_texels=very_low_texels)
+        recipe.extend(steps)
+    if row_mul:
+        import dos_row_mul
+        data,steps=dos_row_mul.adapt(name,data)
+        recipe.extend(steps)
+    if row_pointer:
+        if front_to_back:
+            raise ValueError('The front-to-back trap wrappers do not promise an advanced T_ROW')
+        import dos_row_pointer
+        data,steps=dos_row_pointer.adapt(name,data,low_planar=low_planar)
+        recipe.extend(steps)
+    if flat_inline:
+        import dos_flat_inline
+        data,steps=dos_flat_inline.adapt(name,data,low_planar=low_planar)
+        recipe.extend(steps)
+    if mulshift:
+        import dos_mulshift
+        data,steps=dos_mulshift.adapt(name,data)
+        recipe.extend(steps)
+    if planar_expand_words:
+        if not low_planar: raise ValueError('Planar row expansion requires planar Low')
+        import dos_planar_expand_words
+        data,steps=dos_planar_expand_words.adapt(name,data)
+        recipe.extend(steps)
+    if fill_rows:
+        import dos_fill_rows
+        data,steps=dos_fill_rows.adapt(name,data)
+        recipe.extend(steps)
+    if plant_billboards:
+        # Very Low visual tier; selectable, not a production default.
+        import dos_plant_billboards
+        data,steps=dos_plant_billboards.adapt(name,data)
         recipe.extend(steps)
     return data,recipe
