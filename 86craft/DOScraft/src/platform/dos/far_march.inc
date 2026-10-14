@@ -1,3 +1,10 @@
+#ifndef FAR_LOOKUP
+/* Single-addressing includers name the samplers directly. */
+#define FAR_LOOKUP far_lookup
+#define FAR_MATERIAL far_material
+#define FAR_BOUNDARY far_boundary_sample
+#define FAR_MARCH_DEFAULT_SAMPLERS
+#endif
 /* Compile separate plain/capture loops so moving frames never pay for
  * recording an immediately obsolete strip list. Included twice. */
 static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *inv,u8 *skyline)
@@ -33,11 +40,11 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
             u8 b;
             int wx=px>>16,wz=pz>>16;
 #ifdef DOS_FAR_VIEW_DEPTH
-            int h=depth<=detail ? far_boundary_sample(wx,wz,&b) : far_lookup(wx,wz,&b);
+            int h=depth<=detail ? FAR_BOUNDARY(wx,wz,&b) : FAR_LOOKUP(wx,wz,&b);
             int reciprocal=first ? firstInv : inv[d];
             int fog=MIN(8,((depth*norm)>>22)/16);
 #else
-            int h=d<=g_viewDist+4 ? far_boundary_sample(wx,wz,&b) : far_lookup(wx,wz,&b);
+            int h=d<=g_viewDist+4 ? FAR_BOUNDARY(wx,wz,&b) : FAR_LOOKUP(wx,wz,&b);
             int reciprocal=inv[d],fog=d/16;
 #endif
             FAR_COUNT(dos_far_samples);
@@ -50,10 +57,10 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
                 int y=CLAMP(horizon-((elevation*gain)>>14),0,vh);
 #endif
                 if(y<top) {
-                    u8 material=far_material(wx,wz,b);
+                    u8 material=FAR_MATERIAL(wx,wz,b);
                     int cap=top;
 #ifdef DOS_FAR_DETAILS
-                    if(level>=DOS_FAR_LOW) {
+                    if(level>=DOS_FAR_VERY_LOW) {
                         /* Project this sample's top at the previous depth.
                          * Horizontal ground gets a full cap; a rise exposes
                          * a side below it. This is a heightmap approximation. */
@@ -104,3 +111,9 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
     }
     return cacheGood;
 }
+#ifdef FAR_MARCH_DEFAULT_SAMPLERS
+#undef FAR_LOOKUP
+#undef FAR_MATERIAL
+#undef FAR_BOUNDARY
+#undef FAR_MARCH_DEFAULT_SAMPLERS
+#endif

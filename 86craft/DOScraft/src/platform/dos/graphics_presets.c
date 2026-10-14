@@ -1,5 +1,8 @@
 #include "graphics_presets.h"
 #include "render.h"
+#if defined(DOS_CPU386) && defined(DOS_FAR_FIELD)
+#include "far_field.h"
+#endif
 
 #ifdef DOS_CPU386
 /* 386: only Low and Very Low (Medium/High resolve to Low). Low is 80x100,
@@ -56,6 +59,10 @@ void dos_graphics_apply_resolution(int index)
 {
 #ifdef DOS_CPU386
     dos_resolution_set(index==DOS_GRAPHICS_VERY_LOW ? DOS_RES_POTATO : DOS_RES_VERY_LOW);
+#ifdef DOS_FAR_FIELD
+    /* Both 386 presets try Low distant terrain (map availability permitting). */
+    if(dos_far_available()) dos_far_enabled=DOS_FAR_LOW;
+#endif
 #else
     dos_very_low_mode=index==DOS_GRAPHICS_VERY_LOW;
     dos_potato_mode=0;

@@ -13,6 +13,17 @@ static int initialized;
 #ifdef DOS_MEM_REPORT
 /* Diagnostic: largest arena use seen, including later-rewound temporaries. */
 unsigned int dos_heap_low_peak, dos_heap_high_peak;
+/* Every arena allocation: caller, size, arena ('L'/'H') and use after it. */
+struct DosHeapLog { void *caller; unsigned int size, used; char arena; };
+struct DosHeapLog dos_heap_log[256];
+unsigned int dos_heap_log_count;
+static void heap_log(void *caller, unsigned int size, unsigned int used, char arena)
+{
+    if (dos_heap_log_count < 256) {
+        struct DosHeapLog *e = &dos_heap_log[dos_heap_log_count++];
+        e->caller = caller; e->size = size; e->used = used; e->arena = arena;
+    }
+}
 #endif
 
 static int valid_range(void *base, unsigned int size)
@@ -65,6 +76,7 @@ void *heap_alloc_low(unsigned int size)
     low_arena.used = p + size;
 #ifdef DOS_MEM_REPORT
     if (low_arena.used > dos_heap_low_peak) dos_heap_low_peak = low_arena.used;
+    heap_log(__builtin_return_address(0), size, low_arena.used, 'L');
 #endif
     return low_arena.base + p;
 }
@@ -81,6 +93,7 @@ void *heap_alloc_high(unsigned int size)
     high_arena.used = p + size;
 #ifdef DOS_MEM_REPORT
     if (high_arena.used > dos_heap_high_peak) dos_heap_high_peak = high_arena.used;
+    heap_log(__builtin_return_address(0), size, high_arena.used, 'H');
 #endif
     return high_arena.base + p;
 }

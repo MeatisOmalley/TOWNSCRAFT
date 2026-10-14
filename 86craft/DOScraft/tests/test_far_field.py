@@ -122,7 +122,7 @@ class FarTests(unittest.TestCase):
                 self.assertEqual(len(hashes),576)
                 if len(flags)==1:
                     for start in (0,288):
-                        self.assertEqual(hashes[start:start+72],base_hash[start:start+72],'Very Low received visual detail changes')
+                        self.assertEqual(hashes[start:start+72],hashes[start+72:start+144],'Very Low is not styled like Low')
                         self.assertNotEqual(hashes[start+72:start+144],base_hash[start+72:start+144],'Low lacks visual detail')
                         self.assertNotEqual(hashes[start+144:start+288],base_hash[start+144:start+288],'Medium/High lack visual detail')
                 self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
@@ -131,10 +131,11 @@ class FarTests(unittest.TestCase):
                     src/'blocks.c',src/'fmath.c',tables,'-o',baseline])
                 previous_hash=[line for line in self.run_cmd([baseline]).stdout.splitlines() if line.startswith('POSE_HASH=')]
                 for scale in range(2):
-                    for current,prior in ((0,0),(2,1),(3,2)):
+                    # Very Low is now styled like Low (checked above), not pinned here.
+                    for current,prior in ((2,1),(3,2)):
                         self.assertEqual(hashes[scale*288+current*72:scale*288+(current+1)*72],
                                          previous_hash[scale*216+prior*72:scale*216+(prior+1)*72],
-                                         'Very Low or Medium/High image changed')
+                                         'Medium/High image changed')
 
     def run_cmd(self,args):
         r=subprocess.run(list(map(str,args)),capture_output=True,text=True,errors='replace',timeout=120)

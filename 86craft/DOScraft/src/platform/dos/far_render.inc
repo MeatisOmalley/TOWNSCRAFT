@@ -69,13 +69,24 @@ static void far_depth_setup(int level,int f)
     }
 }
 #endif
-static inline int far_lookup(int x,int z,u8 *b);
-static inline u8 far_material(int x,int z,u8 b)
+/* Map samplers come in two builds: _full keeps the original constant
+ * addressing of the whole 512x512 map (8 MiB and up); _win addresses the
+ * sliding window used below 8 MiB. Callers pick one per frame. */
+static inline u8 far_material_full(int x,int z,u8 b)
 {
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=DOS_FAR_LOW && b!=B_WATER && b!=B_GLASS &&
+    if(dos_far_enabled>=DOS_FAR_VERY_LOW && b!=B_WATER && b!=B_GLASS &&
        (unsigned)x<1024 && (unsigned)z<1024)
         b|=dos_far_map[((z&~1)<<9)+(x&~1)+1]&224;
+#endif
+    return b;
+}
+static inline u8 far_material_win(int x,int z,u8 b)
+{
+#ifdef DOS_FAR_DETAILS
+    if(dos_far_enabled>=DOS_FAR_VERY_LOW && b!=B_WATER && b!=B_GLASS &&
+       dos_far_in_window(x>>1,z>>1))
+        b|=dos_far_map[dos_far_index(x>>1,z>>1)+1]&224;
 #endif
     return b;
 }
@@ -97,7 +108,7 @@ static u16 far_ink(u8 b,int fog,int side)
     u8 color=farShade[fog][b];
     int pattern=FAR_PATTERN_SOLID;
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=DOS_FAR_LOW) {
+    if(dos_far_enabled>=DOS_FAR_VERY_LOW) {
         if(side) color=farSideShade[fog][b];
         pattern=far_pattern(BLK_ID(b),side);
     }
@@ -118,7 +129,7 @@ static void far_paint(FarColumn *column,int y,u8 b,int fog,int side)
 static void far_paint_surface(FarColumn *column,int y,int cap,u8 b,int fog)
 {
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=DOS_FAR_LOW && BLK_ID(b)!=B_LEAVES && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS) {
+    if(dos_far_enabled>=DOS_FAR_VERY_LOW && BLK_ID(b)!=B_LEAVES && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS) {
         if(cap<column->top) far_paint(column,MAX(y,cap),b,fog,1);
         if(y<column->top) far_paint(column,y,b,fog,0);
         return;
@@ -158,58 +169,31 @@ static void far_rays(void)
         farAngle[x]=u<0 ? -lo : lo;
     }
 }
+static inline int far_lookup_full(int x,int z,u8 *b);
+static inline int far_lookup_win(int x,int z,u8 *b);
+#define FAR_PAN_NAME far_pan_column_full
+#define FAR_LOOKUP far_lookup_full
+#define FAR_MATERIAL far_material_full
+#include "far_pan.inc"
+#undef FAR_PAN_NAME
+#undef FAR_LOOKUP
+#undef FAR_MATERIAL
+#define FAR_PAN_NAME far_pan_column_win
+#define FAR_LOOKUP far_lookup_win
+#define FAR_MATERIAL far_material_win
+#include "far_pan.inc"
+#undef FAR_PAN_NAME
+#undef FAR_LOOKUP
+#undef FAR_MATERIAL
 static void far_pan_column(int a)
 {
-#ifdef DOS_FAR_REPROJECT
-    int sx=fsin(a*4),sz=fcos(a*4),n=0;
-    for(int d=farBandLimit[farPanLevel];d<=farHorizonLimit[farPanLevel];d+=4) {
-        u8 b;
-        int x=(farPanX+((sx*d*256)>>14))>>8;
-        int z=(farPanZ+((sz*d*256)>>14))>>8;
-        int h=far_lookup(x,z,&b);
-        if(h) {
-            FarRun *r=&farPan[a][n++];
-            r->h=h; r->depth=d; r->block=far_material(x,z,b); r->fog=d/16;
-        }
-    }
-    farPanCount[a]=n; ++dos_far_pan_builds;
-    farPanStamp[a]=0;
-#else
-    u16 rows[FAR_PAN_ROWS]={0};
-    int sx=fsin(a*4),sz=fcos(a*4),top=FAR_PAN_ROWS;
-    for(int d=farBandLimit[farPanLevel];d<=farHorizonLimit[farPanLevel] && top>0;d+=4) {
-        u8 b;
-        int x=(farPanX+((sx*d*256)>>14))>>8;
-        int z=(farPanZ+((sz*d*256)>>14))>>8;
-        int h=far_lookup(x,z,&b);
-        if(!h) continue;
-        int y=CLAMP(64-((h*256-farPanY)*86)/(d*256),0,FAR_PAN_ROWS);
-        if(y>=top) continue;
-        u16 c=far_material(x,z,b)|((d/16)<<8);
-        for(int r=y;r<top;++r) rows[r]=c;
-        top=y;
-    }
-    int n=0;
-    for(int y=0;y<FAR_PAN_ROWS;) {
-        int end=y+1;
-        while(end<FAR_PAN_ROWS && rows[end]==rows[y]) ++end;
-        if(rows[y]) {
-            if(n==FAR_PAN_RUNS) { farPan[a][n-1].b=end; }
-            else {
-                FarRun *r=&farPan[a][n++];
-                r->a=y; r->b=end; r->block=rows[y]&255; r->fog=rows[y]>>8;
-            }
-        }
-        y=end;
-    }
-    farPanCount[a]=n; ++dos_far_pan_builds;
-#endif
+    if(dos_far_cells>=512) far_pan_column_full(a); else far_pan_column_win(a);
 }
 static u8 far_color(u8 b,int fog,const RenderEnv *env,int side)
 {
     int darken=env->skyDarken+fog;
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=DOS_FAR_LOW && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS)
+    if(dos_far_enabled>=DOS_FAR_VERY_LOW && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS)
         darken+=(((b>>5)&3)>=2)+side;
 #endif
     int light=CLAMP(15-darken,0,15);
@@ -253,7 +237,7 @@ static void far_project_runs(int a,int horizon,const int *inv)
         int y=CLAMP(horizon-((delta*reciprocal)>>16),0,vh);
         if(y<top) {
 #ifdef DOS_FAR_DETAILS
-            if(dos_far_enabled>=DOS_FAR_LOW && BLK_ID(r->block)!=B_LEAVES &&
+            if(dos_far_enabled>=DOS_FAR_VERY_LOW && BLK_ID(r->block)!=B_LEAVES &&
                BLK_ID(r->block)!=B_WATER && BLK_ID(r->block)!=B_GLASS) {
                 int cap=CLAMP(horizon-((delta*previous)>>16),y,top);
                 if(cap==y) cap=MIN(top,y+1);
@@ -280,36 +264,68 @@ static void far_project_column(FarColumn *column,int a,int horizon,const int *in
     }
 }
 #endif
-static inline int far_lookup(int x,int z,u8 *b)
+static inline int far_lookup_full(int x,int z,u8 *b)
 {
     if((unsigned)x>=1024 || (unsigned)z>=1024) return 0;
     const u8 *p=dos_far_map+((z&~1)<<9)+(x&~1);
     *b=BLK_ID(p[1]); return p[0];
 }
-static inline int far_boundary_sample(int x,int z,u8 *b)
+static inline int far_lookup_win(int x,int z,u8 *b)
 {
-    if((unsigned)x>=1024 || (unsigned)z>=1024) return 0;
-    if(farReady) {
-        int s=g_columnMap[(z>>4)*64+(x>>4)];
-        if(s>=0 && farReady[s]) {
-            int cell=((z&15)<<4)+(x&15),h=g_height[s*256+cell];
-            const u8 *p=g_blocks+s*12288+cell*48;
-            while(h && !dos_far_cube(p[h-1])) --h;
-            *b=h ? BLK_ID(p[h-1]) : B_AIR; return h;
-        }
-    }
-    return far_lookup(x,z,b);
+    if(!dos_far_in_window(x>>1,z>>1)) return 0;
+    const u8 *p=dos_far_map+dos_far_index(x>>1,z>>1);
+    *b=BLK_ID(p[1]); return p[0];
 }
-#define FAR_MARCH_NAME far_march_plain
+#define FAR_BOUNDARY_SAMPLE(name,lookup) \
+static inline int name(int x,int z,u8 *b) \
+{ \
+    if((unsigned)x>=1024 || (unsigned)z>=1024) return 0; \
+    if(farReady) { \
+        int s=g_columnMap[(z>>4)*64+(x>>4)]; \
+        if(s>=0 && farReady[s]) { \
+            int cell=((z&15)<<4)+(x&15),h=g_height[s*256+cell]; \
+            const u8 *p=g_blocks+s*12288+cell*48; \
+            while(h && !dos_far_cube(p[h-1])) --h; \
+            *b=h ? BLK_ID(p[h-1]) : B_AIR; return h; \
+        } \
+    } \
+    return lookup(x,z,b); \
+}
+FAR_BOUNDARY_SAMPLE(far_boundary_sample_full,far_lookup_full)
+FAR_BOUNDARY_SAMPLE(far_boundary_sample_win,far_lookup_win)
+#undef FAR_BOUNDARY_SAMPLE
+#define FAR_LOOKUP far_lookup_full
+#define FAR_MATERIAL far_material_full
+#define FAR_BOUNDARY far_boundary_sample_full
+#define FAR_MARCH_NAME far_march_plain_full
 #define FAR_CAPTURE 0
 #include "far_march.inc"
 #undef FAR_CAPTURE
 #undef FAR_MARCH_NAME
-#define FAR_MARCH_NAME far_march_capture
+#define FAR_MARCH_NAME far_march_capture_full
 #define FAR_CAPTURE 1
 #include "far_march.inc"
 #undef FAR_CAPTURE
 #undef FAR_MARCH_NAME
+#undef FAR_LOOKUP
+#undef FAR_MATERIAL
+#undef FAR_BOUNDARY
+#define FAR_LOOKUP far_lookup_win
+#define FAR_MATERIAL far_material_win
+#define FAR_BOUNDARY far_boundary_sample_win
+#define FAR_MARCH_NAME far_march_plain_win
+#define FAR_CAPTURE 0
+#include "far_march.inc"
+#undef FAR_CAPTURE
+#undef FAR_MARCH_NAME
+#define FAR_MARCH_NAME far_march_capture_win
+#define FAR_CAPTURE 1
+#include "far_march.inc"
+#undef FAR_CAPTURE
+#undef FAR_MARCH_NAME
+#undef FAR_LOOKUP
+#undef FAR_MATERIAL
+#undef FAR_BOUNDARY
 
 static void far_replay_band(int width,int level,u8 *skyline)
 {
@@ -328,6 +344,7 @@ static void far_replay_band(int width,int level,u8 *skyline)
 static void draw_far_field(const RenderEnv *env)
 {
     if(!dos_far_enabled || !dos_far_map || env->underground || env->underwater) return;
+    dos_far_follow(g_cam.x>>8,g_cam.z>>8);
     /* Heightmap/cylindrical projection is for shallow pitch. Full near-world
      * pitch stays untouched; do not shear a distant landscape into the sky. */
     if(ABS(g_cam.pitch)>80) return;
@@ -338,14 +355,14 @@ static void draw_far_field(const RenderEnv *env)
     int sp=fsin(g_cam.pitch),cp=fcos(g_cam.pitch),f=focal16>>4;
     int horizon=vh/2+(f*sp)/cp;
     int gain=(16384*16384)/(cp*cp>>14);
-    if(farShadeDarken!=env->skyDarken || farShadeDetail!=(dos_far_enabled>=DOS_FAR_LOW)) {
+    if(farShadeDarken!=env->skyDarken || farShadeDetail!=(dos_far_enabled>=DOS_FAR_VERY_LOW)) {
         for(int fog=0;fog<9;++fog) for(int style=0;style<8;++style)
         for(int b=0;b<NUM_BLOCKS;++b) {
             farShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,0);
             farSideShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,1);
         }
         farShadeDarken=env->skyDarken;
-        farShadeDetail=dos_far_enabled>=DOS_FAR_LOW;
+        farShadeDetail=dos_far_enabled>=DOS_FAR_VERY_LOW;
     }
     far_rays();
     int level=dos_far_enabled,move=(level<=DOS_FAR_LOW ? 8 : 4)*256;
@@ -393,8 +410,10 @@ static void draw_far_field(const RenderEnv *env)
     far_depth_setup(level,f);
 #endif
     if(reuse) far_replay_band(width,level,skyline);
-    else if(capture) cacheGood=far_march_capture(width,level,horizon,gain,inv,skyline);
-    else cacheGood=far_march_plain(width,level,horizon,gain,inv,skyline);
+    else if(dos_far_cells>=512)
+        cacheGood=(capture ? far_march_capture_full : far_march_plain_full)(width,level,horizon,gain,inv,skyline);
+    else
+        cacheGood=(capture ? far_march_capture_win : far_march_plain_win)(width,level,horizon,gain,inv,skyline);
     farBandValid=cacheGood && (reuse || capture); farBandCamera=g_cam;
     farBandView=g_viewDist; farBandScale=g_renderScale; farBandLevel=level;
     farBandVersion=dos_far_version; farBandBoundary=dos_far_boundary_version; farBandResident=resident;
