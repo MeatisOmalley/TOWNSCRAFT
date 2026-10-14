@@ -10,6 +10,7 @@ from dos_block_textures import adapt
 from build_imported import VENDOR
 from import_eagler_textures import ROOT,convert,palette_bytes
 from compare_eagler_textures import names
+from simplify_textures import generate as simple_tiles
 
 class BlockTextureTests(unittest.TestCase):
     def test_imported_pixels_resolution_switch_and_atlas_contract(self):
@@ -34,9 +35,18 @@ class BlockTextureTests(unittest.TestCase):
             # The local EPK is only needed for import/provenance verification.
             source=ROOT/'build/checks/biome-texture-study/assets-unpacked.bin'
             if source.exists():self.assertEqual(convert(source)[0],packed)
-            # Small-view alpha silhouettes remain unchanged from our original art.
+            updates=simple_tiles(packed)
+            changed={name for i,name,tile,rule in updates}
+            for i,name,tile,rule in updates:
+                self.assertEqual(simple[768+i*256:768+(i+1)*256],tile,name)
+                if name in ('T_DOOR_TOP','T_FLOWER') or name.startswith('T_I_'):
+                    self.assertEqual([j for j,c in enumerate(tile) if c==0],
+                        [j for j,c in enumerate(packed[i*256:(i+1)*256]) if c==0],name)
+            i=ids.index('T_STONEBRICK')
+            self.assertEqual(len(set(simple[768+i*256:768+(i+1)*256])),2)
+            # All other small-view alpha silhouettes remain unchanged.
             for i,name in enumerate(ids):
-                if 'CHICKEN' in name or name=='T_I_FEATHER':continue
+                if 'CHICKEN' in name or name=='T_I_FEATHER' or name in changed:continue
                 start=768+i*256;end=start+256
                 self.assertEqual([j for j,b in enumerate(before[start:end]) if b==0],
                                  [j for j,b in enumerate(simple[start:end]) if b==0],name)

@@ -1,0 +1,21 @@
+{
+  "exe_sha256": "506ea0430287402510107e41534e5c4b9cde691675bf0831c2e511fdeef3c134",
+  "iso_sha256": "100e8565327f3a05db658b2fd240c6cd3383356f126e00abc17263560d81fcc1",
+  "terrain_sha256": "291d4ad257c8f1a8c4e7a2a811d303e6e1728f2e37b14cd913f6202bb97006b4",
+  "hardware_era": "1990-06-30",
+  "preserved_player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-zqr6txtm",
+  "preserved_hdd_sha256": "672d0c6acdd4d5362b3a5bbb3306d4c31c3ce805bfcc48d9872371facf0aba28",
+  "player_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-wh21dcor",
+  "validation": {
+    "scope": "texture-only",
+    "baseline_exe_sha256": "98a71d27349621b665417df0f13dddabcf5806a90de358808613b0c8652bb9dd",
+    "baseline_smoke_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-hvgr2at0",
+    "focused_checks": "PASS: test_block_textures.py (2); actual native atlas reuse/style switching/renderer metadata/distant-cache refresh",
+    "platform_objects_changed": [],
+    "imported_objects_changed": [
+      "obj/textures.o"
+    ],
+    "new_emulator_smoke": "not run for pixel-only art changes, per AGENTS.md"
+  },
+  "hdd_preservation": "byte-identical"
+}
