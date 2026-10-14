@@ -23,7 +23,7 @@ DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BRO
 # presenter is plain VGA Mode X on any card.
 ET4000_ADAPTER_FLAGS=('-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS')
 # 386 build: any VGA card, accepts a 386 at startup, i386 code generation.
-CPU386_ADAPTER_FLAGS=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag not in ET4000_ADAPTER_FLAGS)+('-DDOS_CPU386',)
+CPU386_ADAPTER_FLAGS=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag not in ET4000_ADAPTER_FLAGS)+('-DDOS_CPU386','-DDOS_VERY_LOW_PLANAR')
 CPU386_CFLAGS=('-march=i386','-mtune=i386')
 OUTPUT_386=ROOT/'build/game/386-vga'
 PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR')
@@ -86,6 +86,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         very_low='-DDOS_VERY_LOW' in extra_adapter_flags
         very_low_texels='-DDOS_VERY_LOW_TEXELS' in extra_adapter_flags
         low_planar='-DDOS_LOW_PLANAR' in extra_adapter_flags
+        very_low_planar='-DDOS_VERY_LOW_PLANAR' in extra_adapter_flags
         a1_census='-DDOS_BENCH_A1_CENSUS' in extra_adapter_flags
         profile_cw='-DDOS_BENCH_PROFILE_CW' in extra_adapter_flags
         large_world='-DDOS_LARGE_WORLD' in extra_adapter_flags
@@ -100,6 +101,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         if low_planar and not (raster_finish_skip and '-DDOS_VGA_PACK_ALL' in extra_adapter_flags and
                                '-DDOS_VGA_BROADCAST' in extra_adapter_flags):
             raise ValueError('Planar Low requires the finish-skip bands and all-plane broadcast presenter')
+        if very_low_planar and not (low_planar and very_low_texels and '-DDOS_FLAT_INLINE' in extra_adapter_flags):
+            raise ValueError('Very Low planar output requires planar Low, Very Low texels and inline flat spans')
         if proven_rows and ('-DDOS_VGA_FUSED' in extra_adapter_flags or
                             '-DDOS_VGA_FUSED_TRANSPOSE' in extra_adapter_flags):
             raise ValueError('Measure proven rows independently of fused packing')
@@ -132,7 +135,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             planar_expand_words='-DDOS_PLANAR_EXPAND_WORDS' in extra_adapter_flags,
             plant_billboards='-DDOS_PLANT_BILLBOARDS' in extra_adapter_flags,
             fill_rows='-DDOS_FILL_ROWS' in extra_adapter_flags,
-            viewmodel='-DDOS_VIEWMODEL' in extra_adapter_flags)
+            viewmodel='-DDOS_VIEWMODEL' in extra_adapter_flags,very_low_planar=very_low_planar)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*arch,*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)

@@ -14,7 +14,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
           stream_validate_once=False,light_offsets=False,mesh_edges=False,collect_swap=False,memmove_dwords=False,
           world_scans=False,baked_light_fast=False,sort_histograms=False,
           texel_edx=False,row_pointer=False,flat_inline=False,row_mul=False,mulshift=False,
-          planar_expand_words=False,plant_billboards=False,fill_rows=False,viewmodel=False):
+          planar_expand_words=False,plant_billboards=False,fill_rows=False,viewmodel=False,very_low_planar=False):
     recipe=[]
     import dos_chickens
     data,steps=dos_chickens.adapt(name,data)
@@ -340,5 +340,10 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     if viewmodel:
         import dos_viewmodel
         data,steps=dos_viewmodel.adapt(name,data)
+        recipe.extend(steps)
+    if very_low_planar:
+        # 386 build: Very Low/Potato frames render into plane 0 (after all raster.c overlays).
+        import dos_very_low_planar
+        data,steps=dos_very_low_planar.adapt(name,data)
         recipe.extend(steps)
     return data,recipe

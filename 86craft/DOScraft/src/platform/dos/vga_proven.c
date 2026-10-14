@@ -9,6 +9,9 @@
 #ifdef DOS_VERY_LOW
 extern int dos_very_low_mode;
 #endif
+#if defined(DOS_VERY_LOW_PLANAR) && (!defined(DOS_VERY_LOW) || !defined(DOS_LOW_PLANAR))
+#error Very Low planar output requires Very Low and planar Low
+#endif
 #if (defined(__GNUC__) || defined(__clang__)) && UINT_MAX == 0xffffffffu && \
     CHAR_BIT == 8 && !defined(DOS_VGA_PROVEN_PORTABLE)
 typedef unsigned int ProvenWord __attribute__((__may_alias__, __aligned__(1)));
@@ -49,6 +52,18 @@ static int pack_plan(const unsigned char *source, unsigned int pitch,
         unsigned char *d=c+DOS_VGA_PLANE_BYTES;
 #ifdef DOS_LOW_PLANAR
         if (planar && y<VIEW_ROWS && !(y&1u) && planar[y>>1]) {
+#ifdef DOS_VERY_LOW_PLANAR
+            if (dos_very_low_mode) {
+                /* Very Low planar rows: plane-0 bytes only, broadcast. */
+                memcpy(a+ROW_BYTES,a,ROW_BYTES);
+                masks[0][y]=masks[0][y+1]=15;
+                masks[1][y]=masks[1][y+1]=0;
+                masks[2][y]=masks[2][y+1]=0;
+                masks[3][y]=masks[3][y+1]=0;
+                ++y;
+                continue;
+            }
+#endif
             /* The renderer wrote this row of planes 0 and 2 directly. */
             memcpy(a+ROW_BYTES,a,ROW_BYTES);
             memcpy(c+ROW_BYTES,c,ROW_BYTES);
