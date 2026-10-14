@@ -98,6 +98,10 @@ int main(int argc,char **argv)
             }
             assert(texAvg[t]==texture_average(t) && texTransparent[t]==transparent);
         }
+        assert(!texTransparent[T_LEAVES]);
+        for(int i=0;i<256;++i) assert(g_tex[T_LEAVES][i]!=0);
+        assert((blk_flags(B_LEAVES)&(BF_OPAQUE|BF_CUBE))==(BF_OPAQUE|BF_CUBE));
+        assert(blk_flags(B_LEAVES|64)==blk_flags(B_LEAVES));
         verify_atlas(); assert(atlas==g_texAtlas && allocations==1);
         serial=farProjectionSerial; render_sync_texture_resolution();
         assert(serial==farProjectionSerial); /* Same-resolution settings do nothing. */

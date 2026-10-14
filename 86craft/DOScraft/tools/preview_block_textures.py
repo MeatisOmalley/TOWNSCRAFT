@@ -39,7 +39,7 @@ def generate(output):
             exe=folder/(mode+'.exe'); raw=output/(mode+'.bin')
             subprocess.run(list(map(str,[ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',
                 *(['-DDOS_TEXTURE_CHECK'] if mode=='after' else []),'-I',src,'-I',ROOT/'src/platform/dos',
-                ROOT/'tests/block_textures_native.c',src/'textures.c','-o',exe])),check=True)
+                ROOT/'tests/block_textures_native.c',src/'textures.c',src/'blocks.c','-o',exe])),check=True)
             subprocess.run([str(exe),str(raw.resolve())],check=True)
     draw_sheet(output)
     draw_sheet(output,('simple','after'),('Small view','Full resolution'),'resolution-styles.png')

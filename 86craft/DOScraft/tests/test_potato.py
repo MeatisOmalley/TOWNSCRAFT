@@ -19,7 +19,7 @@ class PotatoTests(unittest.TestCase):
                     original=f.read_bytes()
                     data,recipe=dos_sources.adapt(f.name,original,trap_four=True,
                         very_low_texels=True,raster_finish_skip=True,proven_rows=True,
-                        low_planar=True,texel_edx=True,row_mul=True,row_pointer=True,flat_inline=True)
+                        low_planar=True,texel_edx=True,row_mul=True,row_pointer=True,flat_inline=True,fill_rows=True)
                     replay=original
                     for step in recipe: replay=replay.replace(step['before'].encode(),step['after'].encode())
                     self.assertEqual(replay,data)

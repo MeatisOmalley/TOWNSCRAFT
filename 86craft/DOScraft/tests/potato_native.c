@@ -34,6 +34,17 @@ static void draw(u8 *allocation,int potato,int skip,int flat)
 }
 int main(void)
 {
+    /* Exercise the actual inline planar sky/fog row fills and their bounds. */
+    dos_very_low_mode=dos_potato_mode=0;
+    raster_set_odd_copy_policy(1,0,0,0,0);
+    memset(planes,0xee,sizeof(planes));
+    raster_set_target(candidate+16,160,100,512,2);
+    raster_fill_rows(-2,7,19); raster_fill_rows(3,5,31); raster_fill_rows(99,140,43);
+    for(int i=0;i<(int)sizeof(planes);++i) {
+        int local=i>=38400 ? i-38400 : i,y=local/160,x=local%160;
+        int expected=x>=80 || y>=100 ? 0xee : y>=99 ? 43 : y>=3 && y<5 ? 31 : y<7 ? 19 : 0xee;
+        assert(planes[i]==expected);
+    }
     for(int i=0;i<256;++i) tile[i]=i%11 ? (i%239)+1 : 0;
     for(int skip=0;skip<=1;++skip) for(int flat=0;flat<=1;++flat) {
         draw(reference,0,skip,flat); draw(candidate,1,skip,flat);

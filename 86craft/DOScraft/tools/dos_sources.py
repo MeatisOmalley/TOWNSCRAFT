@@ -324,12 +324,12 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         import dos_planar_expand_words
         data,steps=dos_planar_expand_words.adapt(name,data)
         recipe.extend(steps)
-    if fill_rows:
+    if fill_rows and low_planar:
         import dos_fill_rows
         data,steps=dos_fill_rows.adapt(name,data)
         recipe.extend(steps)
     if plant_billboards:
-        # Very Low visual tier; selectable, not a production default.
+        # Very Low resolutions (80x100 and Potato); other resolutions unchanged.
         import dos_plant_billboards
         data,steps=dos_plant_billboards.adapt(name,data)
         recipe.extend(steps)
