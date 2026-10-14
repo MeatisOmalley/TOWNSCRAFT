@@ -5,6 +5,7 @@ from the pinned renderer. Audio is deliberately silent.
 """
 import argparse
 import json
+import struct
 from pathlib import Path
 import subprocess
 import sys
@@ -28,8 +29,23 @@ OUTPUT_386=ROOT/'build/game/386-vga'
 PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR')
 
 
+# Main stack, as system.c's _stklen. DJGPP uses the larger of _stklen and the
+# stub's minstack (512 KiB by default), so the stub field is set to match, as
+# DJGPP's stubedit minstack= does.
+MAIN_STACK_BYTES=64*1024
+
+
+def set_min_stack(exe):
+    data=bytearray(exe.read_bytes())
+    at=data.find(b'go32stub, v 2.')
+    if at!=512 or struct.unpack_from('<I',data,at+16)[0]<24:
+        raise ValueError('Unexpected DJGPP stub info in '+str(exe))
+    struct.pack_into('<I',data,at+20,MAIN_STACK_BYTES)
+    exe.write_bytes(bytes(data))
+
+
 def portable_experiment_flags(flags):
-    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR'))
+    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_CPU386'))
 
 
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):
@@ -150,7 +166,9 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')
-            command=[imported.COMPILER,*imported.CFLAGS,*arch,*extra,*extra_adapter_flags,
+            # Only benchmark builds sample the profiler.
+            profile=() if benchmark else ('-DDOS_PROFILE_SAMPLES=1',)
+            command=[imported.COMPILER,*imported.CFLAGS,*arch,*extra,*profile,*extra_adapter_flags,
                 *(('-DDOS_GRAPHICS_PRESETS',) if graphics else ()),'-I',output/'platform/src',
                 '-I',ROOT/'src/platform/dos','-c',source,'-o',obj]
             subprocess.run(list(map(str,command)),check=True)
@@ -167,6 +185,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
                 ('opaque1','opaque2','transp1','transp2','opaque1w','opaque2w','transp1w','transp2w'))
         command=[imported.COMPILER,*imported.CFLAGS,*arch,*objects,wraps,'-o',exe]
         subprocess.run(list(map(str,command)),check=True)
+        set_min_stack(exe)
         report.update(status='linked',linked=True,exe_sha256=imported.sha256(exe.read_bytes()),
             executable_bytes=exe.stat().st_size,link_command=list(map(str,command)))
         return report

@@ -15,6 +15,10 @@
 #define LOW_BYTES MIB
 #define HIGH_BYTES (8u * MIB)
 u32 g_ramMB;
+/* Main stack. Measured peak is 27 KiB (DOS_MEM_REPORT: new world, play, save,
+ * reload at the 2 and 4 MiB tiers); the Towns original ran in 32 KiB. The
+ * DJGPP default of 512 KiB would take that much more DPMI memory. */
+unsigned _stklen = 64u * 1024u;
 static void *backing;
 static int initialized, cleanup_registered;
 #ifdef DOS_MEM_REPORT

@@ -1,12 +1,23 @@
 #include "graphics_presets.h"
 #include "render.h"
 
+#ifdef DOS_CPU386
+/* 386: only Low and Very Low (Medium/High resolve to Low). Low is 80x100,
+ * textured to 4 blocks and flat to 8; Very Low is 80x50 to 4 blocks. */
+static const DosGraphicsSettings presets[DOS_GRAPHICS_COUNT] = {
+    {2, 8, 4, 0, SUBDIV_ADAPTIVE},
+    {2, 8, 4, 0, SUBDIV_ADAPTIVE},
+    {2, 8, 4, 0, SUBDIV_ADAPTIVE},
+    {2, 4, 0, 0, SUBDIV_ADAPTIVE}
+};
+#else
 static const DosGraphicsSettings presets[DOS_GRAPHICS_COUNT] = {
     {2, 8, 0, 0, SUBDIV_ADAPTIVE},
     {2, 8, 0, 0, SUBDIV_ADAPTIVE},
     {1, 8, 0, 0, SUBDIV_ADAPTIVE},
     {2, 8, 0, 0, SUBDIV_ADAPTIVE}
 };
+#endif
 
 static const char *const messages[DOS_GRAPHICS_COUNT] = {
     "Graphics: Low", "Graphics: Medium", "Graphics: High", "Graphics: Very Low"
@@ -31,7 +42,24 @@ int dos_resolution_set(int index)
 
 int dos_resolution_change(int scale,int direction)
 {
+#ifdef DOS_CPU386
+    /* 386: 80x100 and 80x50 only. */
+    (void)direction;
+    return dos_resolution_set(dos_resolution_index(scale)==DOS_RES_VERY_LOW ?
+        DOS_RES_POTATO : DOS_RES_VERY_LOW);
+#else
     return dos_resolution_set((dos_resolution_index(scale)+direction+DOS_RES_COUNT)%DOS_RES_COUNT);
+#endif
+}
+
+void dos_graphics_apply_resolution(int index)
+{
+#ifdef DOS_CPU386
+    dos_resolution_set(index==DOS_GRAPHICS_VERY_LOW ? DOS_RES_POTATO : DOS_RES_VERY_LOW);
+#else
+    dos_very_low_mode=index==DOS_GRAPHICS_VERY_LOW;
+    dos_potato_mode=0;
+#endif
 }
 
 const char *dos_resolution_name(int scale)
@@ -42,13 +70,28 @@ const char *dos_resolution_name(int scale)
 
 int dos_graphics_index(int index)
 {
+#ifdef DOS_CPU386
+    if(index == DOS_GRAPHICS_VERY_LOW) return index;
+    return DOS_GRAPHICS_DEFAULT;
+#else
     return index >= 0 && index < DOS_GRAPHICS_COUNT ? index : DOS_GRAPHICS_DEFAULT;
+#endif
 }
 
 int dos_graphics_next(int index)
 {
+    return dos_graphics_step(index, 1);
+}
+
+int dos_graphics_step(int index, int direction)
+{
     if(index < 0 || index >= DOS_GRAPHICS_COUNT) return DOS_GRAPHICS_DEFAULT;
-    return (index + 1) % DOS_GRAPHICS_COUNT;
+#ifdef DOS_CPU386
+    (void)direction;
+    return index == DOS_GRAPHICS_VERY_LOW ? DOS_GRAPHICS_LOW : DOS_GRAPHICS_VERY_LOW;
+#else
+    return (index + direction + DOS_GRAPHICS_COUNT) % DOS_GRAPHICS_COUNT;
+#endif
 }
 
 const DosGraphicsSettings *dos_graphics_settings(int index)

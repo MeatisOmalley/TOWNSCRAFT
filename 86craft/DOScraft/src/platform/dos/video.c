@@ -337,7 +337,8 @@ int dos_video_inventory_canvas_restore(unsigned char *target, unsigned int pitch
     return 0;
 #endif
 }
-static unsigned char readback[DOS_VGA_PLANE_BYTES];
+/* Diagnostic readback only (smoke/bench/probes): allocated on first use. */
+static unsigned char *readback;
 #ifdef DOS_LOW_PLANAR
 #if !defined(DOS_VGA_PROVEN_ROWS) || !defined(DOS_VGA_PROVEN_VERTICAL)
 #error Planar Low requires the producer-proven vertical presenter
@@ -937,6 +938,7 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
     unsigned int plane;
     unsigned int offset = shown_page * DOS_VGA_PLANE_BYTES;
     unsigned int display_start;
+    if (!readback && !(readback = malloc(DOS_VGA_PLANE_BYTES))) return -1;
 #ifdef DOS_VGA_ASYNC_FLIP
     if(latch_pending) {
 #ifdef DOS_VGA_SCAN_QUAD
@@ -988,7 +990,7 @@ int dos_video_verify(const unsigned char *source, unsigned int pitch)
         }
 #endif
         outportw(0x3ce, (plane << 8) | 4);
-        dosmemget(0xa0000 + offset, sizeof(readback), readback);
+        dosmemget(0xa0000 + offset, DOS_VGA_PLANE_BYTES, readback);
         if (memcmp(packed, readback, DOS_VGA_PLANE_BYTES)) return -1;
     }
     outportw(0x3ce, 0x0004);

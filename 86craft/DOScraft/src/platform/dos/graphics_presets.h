@@ -26,10 +26,18 @@ int dos_resolution_index(int scale);
 int dos_resolution_set(int index);
 int dos_resolution_change(int scale,int direction);
 const char *dos_resolution_name(int scale);
+/* Sets dos_very_low_mode/dos_potato_mode for a preset's resolution. */
+void dos_graphics_apply_resolution(int index);
+#ifdef DOS_CPU386
+#define DOS_GRAPHICS_MAX_DISTANCE 8
+#else
+#define DOS_GRAPHICS_MAX_DISTANCE 16
+#endif
 
 /* Invalid indices resolve to Low. Invalid next indices also return Low. */
 int dos_graphics_index(int index);
 int dos_graphics_next(int index);
+int dos_graphics_step(int index, int direction);
 const DosGraphicsSettings *dos_graphics_settings(int index);
 const char *dos_graphics_message(int index);
 
