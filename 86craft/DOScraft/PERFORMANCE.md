@@ -1768,7 +1768,8 @@ fill 0.79 ms in every scene, clouds 0.33 ms (1.30 ms looking up), sun/moon
 **`DOS_FILL_ROWS` (invisible).** The background fill made two out-of-line
 80-byte memset calls per planar row (200 per frame). Inline dword stores write
 the same bytes: −0.31 ms in all six Low scenes (sky stage 1.19→0.87 ms), every
-scene hash identical. Candidate for the defaults.
+scene hash identical. Now a production default (`--candidate pre-fill-rows`
+rebuilds the previous defaults).
 
 **`DOS_VGA_SCAN_QUAD` (A2, rejected for now).** Scale-2 play frames store the
 100 logical view rows once; CRTC max-scan 3 shows each four scanlines, a
