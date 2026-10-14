@@ -52,7 +52,7 @@ static u32 far_resident_signature(void)
     }
     return signature;
 }
-static const int farBandLimit[4]={0,24,32,40},farHorizonLimit[4]={0,64,96,128};
+static const int farBandLimit[DOS_FAR_COUNT]={0,24,24,32,40},farHorizonLimit[DOS_FAR_COUNT]={0,64,64,96,128};
 #ifdef DOS_FAR_VIEW_DEPTH
 static int farDepthStart[SCR_W],farDepthEnd[SCR_W],farDepthDetail[SCR_W],farDepthInv[SCR_W];
 static int farDepthWidth,farDepthView,farDepthLevel;
@@ -73,7 +73,7 @@ static inline int far_lookup(int x,int z,u8 *b);
 static inline u8 far_material(int x,int z,u8 b)
 {
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=2 && b!=B_WATER && b!=B_GLASS &&
+    if(dos_far_enabled>=DOS_FAR_LOW && b!=B_WATER && b!=B_GLASS &&
        (unsigned)x<1024 && (unsigned)z<1024)
         b|=dos_far_map[((z&~1)<<9)+(x&~1)+1]&224;
 #endif
@@ -97,7 +97,7 @@ static u16 far_ink(u8 b,int fog,int side)
     u8 color=farShade[fog][b];
     int pattern=FAR_PATTERN_SOLID;
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=2) {
+    if(dos_far_enabled>=DOS_FAR_LOW) {
         if(side) color=farSideShade[fog][b];
         pattern=far_pattern(BLK_ID(b),side);
     }
@@ -118,7 +118,7 @@ static void far_paint(FarColumn *column,int y,u8 b,int fog,int side)
 static void far_paint_surface(FarColumn *column,int y,int cap,u8 b,int fog)
 {
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=2 && BLK_ID(b)!=B_LEAVES && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS) {
+    if(dos_far_enabled>=DOS_FAR_LOW && BLK_ID(b)!=B_LEAVES && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS) {
         if(cap<column->top) far_paint(column,MAX(y,cap),b,fog,1);
         if(y<column->top) far_paint(column,y,b,fog,0);
         return;
@@ -209,7 +209,7 @@ static u8 far_color(u8 b,int fog,const RenderEnv *env,int side)
 {
     int darken=env->skyDarken+fog;
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=2 && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS)
+    if(dos_far_enabled>=DOS_FAR_LOW && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS)
         darken+=(((b>>5)&3)>=2)+side;
 #endif
     int light=CLAMP(15-darken,0,15);
@@ -253,7 +253,7 @@ static void far_project_runs(int a,int horizon,const int *inv)
         int y=CLAMP(horizon-((delta*reciprocal)>>16),0,vh);
         if(y<top) {
 #ifdef DOS_FAR_DETAILS
-            if(dos_far_enabled>=2 && BLK_ID(r->block)!=B_LEAVES &&
+            if(dos_far_enabled>=DOS_FAR_LOW && BLK_ID(r->block)!=B_LEAVES &&
                BLK_ID(r->block)!=B_WATER && BLK_ID(r->block)!=B_GLASS) {
                 int cap=CLAMP(horizon-((delta*previous)>>16),y,top);
                 if(cap==y) cap=MIN(top,y+1);
@@ -338,17 +338,17 @@ static void draw_far_field(const RenderEnv *env)
     int sp=fsin(g_cam.pitch),cp=fcos(g_cam.pitch),f=focal16>>4;
     int horizon=vh/2+(f*sp)/cp;
     int gain=(16384*16384)/(cp*cp>>14);
-    if(farShadeDarken!=env->skyDarken || farShadeDetail!=(dos_far_enabled>=2)) {
+    if(farShadeDarken!=env->skyDarken || farShadeDetail!=(dos_far_enabled>=DOS_FAR_LOW)) {
         for(int fog=0;fog<9;++fog) for(int style=0;style<8;++style)
         for(int b=0;b<NUM_BLOCKS;++b) {
             farShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,0);
             farSideShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,1);
         }
         farShadeDarken=env->skyDarken;
-        farShadeDetail=dos_far_enabled>=2;
+        farShadeDetail=dos_far_enabled>=DOS_FAR_LOW;
     }
     far_rays();
-    int level=dos_far_enabled,move=(level==1 ? 8 : 4)*256;
+    int level=dos_far_enabled,move=(level<=DOS_FAR_LOW ? 8 : 4)*256;
     if(!farPanValid || ABS(g_cam.x-farPanX)>=move ||
        ABS(g_cam.z-farPanZ)>=move ||
 #if !defined(DOS_FAR_REPROJECT) || defined(DOS_BENCH_FAR_COARSE_EYE)
@@ -364,13 +364,13 @@ static void draw_far_field(const RenderEnv *env)
             farPanNext=FAR_PAN_COLS; farPanValid=1;
         }
     }
-    for(int n=0;n<(level==1 ? 4 : level==2 ? 8 : 12) && farPanNext<FAR_PAN_COLS;++n) far_pan_column(farPanNext++);
+    for(int n=0;n<(level<=DOS_FAR_LOW ? 4 : level==DOS_FAR_MEDIUM ? 8 : 12) && farPanNext<FAR_PAN_COLS;++n) far_pan_column(farPanNext++);
 #ifdef DOS_BENCH_PROFILE_FAR
     farMark=bench_us(); dos_far_us[0]+=farMark-farStart; farStart=farMark;
 #endif
     /* Draw the live band first and retain each column's skyline. Panorama
      * pixels below that skyline were previously drawn and then overwritten. */
-    int width=(level==1 ? 8 : level==2 ? 4 : 2)/g_renderScale;
+    int width=(level<=DOS_FAR_LOW ? 8 : level==DOS_FAR_MEDIUM ? 4 : 2)/g_renderScale;
     farReady=dos_far_ready_flags();
     u32 resident=far_resident_signature();
     int samePose=farBandCamera.x==g_cam.x && farBandCamera.y==g_cam.y &&

@@ -333,4 +333,8 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         import dos_plant_billboards
         data,steps=dos_plant_billboards.adapt(name,data)
         recipe.extend(steps)
+    if very_low_texels:
+        import dos_potato
+        data,steps=dos_potato.adapt(name,data)
+        recipe.extend(steps)
     return data,recipe

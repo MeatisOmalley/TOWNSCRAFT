@@ -121,6 +121,17 @@ static void snapshot(const char *path,const u8 *frame)
 #endif
 #ifdef DOS_VERY_LOW
     dos_video_complete_very_low_source((u8 *)frame,512);
+#ifdef DOS_VERY_LOW_TEXELS
+    if(dos_potato_mode && dos_video_last_present_proven()) {
+        extern u8 dos_very_low_rows[VIEW_H/2];
+        for(int y=1;y<VIEW_H/2;y+=2)
+            /* UI drawn after the world can change the crosshair, mining,
+             * message, item-name and debug bands independently. */
+            if(y*2>=114 && y*2<176 && (dos_very_low_rows[y]&2) &&
+               memcmp(frame+y*1024,frame+(y-1)*1024,320))
+                vga_ok=0;
+    }
+#endif
 #endif
     outportb(0x3c7,0);
     for(i=0;i<768;++i) palette[i]=(inportb(0x3c9)&63)*255/63;
@@ -247,14 +258,18 @@ void __wrap_gfx_present(void)
         arrow(0x50); arrow(0x50); arrow(0x50); arrow(0x50); tap(0x1c);
         until=g_ticks+30; stage=50; return;
     } else if(stage==50 && (int)(g_ticks-until)>=0) {
-        far_option_ok=far_option_ok && dos_far_enabled==1 && preset_matches(2,8,0);
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_VERY_LOW && preset_matches(2,8,0);
         snapshot("C:\\FAROPT.RAW",frame);
         arrow(0x4d); until=g_ticks+30; stage=51; return;
     } else if(stage==51 && (int)(g_ticks-until)>=0) {
-        far_option_ok=far_option_ok && dos_far_enabled==2;
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_LOW;
+        snapshot("C:\\FARLOW.RAW",frame);
         arrow(0x4d); until=g_ticks+30; stage=52; return;
     } else if(stage==52 && (int)(g_ticks-until)>=0) {
-        far_option_ok=far_option_ok && dos_far_enabled==3;
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_MEDIUM;
+        arrow(0x4d); until=g_ticks+30; stage=53; return;
+    } else if(stage==53 && (int)(g_ticks-until)>=0) {
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_HIGH;
         snapshot("C:\\FARHIGH.RAW",frame);
 #endif
         tap(0x01); tap(0x01);
@@ -361,7 +376,25 @@ void __wrap_gfx_present(void)
         snapshot("C:\\SETTINGS.RAW",frame); tap(0x1c); until=g_ticks+30; stage=20;
     } else if(stage==20 && (int)(g_ticks-until)>=0) {
         snapshot("C:\\GRAPHICS.RAW",frame);
-        arrow(0x50); arrow(0x50); arrow(0x4d); arrow(0x50); arrow(0x4d);
+        arrow(0x50); arrow(0x4d); until=g_ticks+30; stage=55;
+    } else if(stage==55 && (int)(g_ticks-until)>=0) {
+        menus_ok=menus_ok && g_renderScale==2 && dos_very_low_mode && !dos_potato_mode;
+        tap(0x01); tap(0x01); tap(0x01); until=g_ticks+30; stage=56;
+    } else if(stage==56 && (int)(g_ticks-until)>=0) {
+        snapshot("C:\\MENU80.RAW",frame);
+        tap(0x01); arrow(0x50); tap(0x1c); tap(0x1c);
+        arrow(0x50); arrow(0x4d); until=g_ticks+30; stage=57;
+    } else if(stage==57 && (int)(g_ticks-until)>=0) {
+        menus_ok=menus_ok && g_renderScale==2 && dos_very_low_mode && dos_potato_mode;
+        snapshot("C:\\POTMENU.RAW",frame);
+        tap(0x01); tap(0x01); tap(0x01); until=g_ticks+30; stage=58;
+    } else if(stage==58 && (int)(g_ticks-until)>=0) {
+        snapshot("C:\\POTATO.RAW",frame);
+        tap(0x01); arrow(0x50); tap(0x1c); tap(0x1c);
+        arrow(0x50); arrow(0x4d); arrow(0x4d); until=g_ticks+30; stage=59;
+    } else if(stage==59 && (int)(g_ticks-until)>=0) {
+        menus_ok=menus_ok && g_renderScale==2 && !dos_very_low_mode && !dos_potato_mode;
+        arrow(0x50); arrow(0x4d); arrow(0x50); arrow(0x4d);
         until=g_ticks+30; stage=21;
     } else if(stage==21 && (int)(g_ticks-until)>=0) {
         menus_ok=menus_ok && g_viewDist==10 && g_flatDist==9;

@@ -6,7 +6,7 @@
 #include "far_field.h"
 int dos_far_enabled;
 int dos_far_available(void) { return 1; }
-void dos_far_change(int direction) { dos_far_enabled=(dos_far_enabled+direction+4)%4; }
+void dos_far_change(int direction) { dos_far_enabled=(dos_far_enabled+direction+DOS_FAR_COUNT)%DOS_FAR_COUNT; }
 enum { GS_TITLE,GS_PLAY,GS_HELP,GS_MENU };
 enum { DM_PAUSE,DM_SETTINGS,DM_GRAPHICS,DM_DIAGNOSTICS,DM_CONTROLS };
 static int state,menuPage,menuSel,menuOrigin,helpReturn,titleSel,saveAvailable;
@@ -21,11 +21,13 @@ const char *save_error_text(int err) { (void)err; return "Disk error"; }
 static void new_game(u32 seed) { (void)seed; ++newCalls; }
 static void load_game(void) { ++loadCalls; state=GS_PLAY; }
 static int save_game(void) { ++saveCalls; if(saveResult==SAVE_OK) saveAvailable=1; return saveResult; }
+static void render_sync_texture_resolution(void) { }
 static void apply_graphics_preset(int index) {
     const DosGraphicsSettings *s=dos_graphics_settings(index);
     graphicsPresetSel=index; g_viewDist=s->view_distance;
     g_flatDist=s->flat_distance; g_renderScale=s->render_scale;
     dos_very_low_mode=index==DOS_GRAPHICS_VERY_LOW;
+    dos_potato_mode=0;
 }
 #include "menus_input.inc"
 int main(void) {
@@ -40,7 +42,14 @@ int main(void) {
     assert(menuPage==DM_SETTINGS && menuOrigin==GS_PLAY);
     menu_key(KEY_RETURN); assert(menuPage==DM_GRAPHICS);
     apply_graphics_preset(DOS_GRAPHICS_VERY_LOW); menuSel=1; menu_key(KEY_RETURN);
+    assert(g_renderScale==2 && dos_very_low_mode && dos_potato_mode && graphicsPresetSel==-1);
+    menu_key(KEY_RETURN);
     assert(g_renderScale==1 && !dos_very_low_mode && graphicsPresetSel==-1);
+    menu_key(KEY_RETURN); assert(g_renderScale==2 && !dos_very_low_mode && !dos_potato_mode);
+    menu_key(KEY_RETURN); assert(g_renderScale==2 && dos_very_low_mode && !dos_potato_mode);
+    menu_key(KEY_LEFT); assert(g_renderScale==2 && !dos_very_low_mode);
+    menu_key(KEY_LEFT); assert(g_renderScale==1 && !dos_potato_mode);
+    menu_key(KEY_LEFT); assert(g_renderScale==2 && dos_potato_mode);
     apply_graphics_preset(DOS_GRAPHICS_MEDIUM);
     menuSel=2; menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==9 && graphicsPresetSel==-1);
     menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==10);
@@ -55,8 +64,8 @@ int main(void) {
 #ifdef DOS_FAR_FIELD
     menuSel=4; menu_key(KEY_RETURN); assert(dos_far_enabled && g_viewDist==8 && graphicsPresetSel==DOS_GRAPHICS_LOW);
     menu_key(KEY_LEFT); assert(!dos_far_enabled);
-    menu_key(KEY_LEFT); assert(dos_far_enabled==3);
-    menuSel=0; menu_key(KEY_RETURN); assert(dos_far_enabled==3 && g_viewDist==8);
+    menu_key(KEY_LEFT); assert(dos_far_enabled==DOS_FAR_HIGH);
+    menuSel=0; menu_key(KEY_RETURN); assert(dos_far_enabled==DOS_FAR_HIGH && g_viewDist==8);
     menuSel=4; menu_key(KEY_RIGHT); assert(!dos_far_enabled);
 #endif
     menu_key(KEY_ESC); assert(menuPage==DM_SETTINGS);

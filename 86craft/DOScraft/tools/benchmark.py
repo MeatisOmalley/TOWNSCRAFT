@@ -107,7 +107,8 @@ def main():
     parser.add_argument('--collect-margin',action='store_true',help='Wider conservative face-list reuse margin')
     parser.add_argument('--large-terrain',type=Path,help='Benchmark the prebaked 1024 HDD world')
     parser.add_argument('--stream-light',action='store_true',help='Restore baked and cached streamed lighting')
-    parser.add_argument('--far-field',choices=('off','on','low','medium','high'),help='Compile distant terrain at the selected level (on = medium)')
+    parser.add_argument('--far-field',choices=('off','on','very-low','low','medium','high'),help='Compile distant terrain at the selected level (on = medium)')
+    parser.add_argument('--resolution',choices=('full','low','very-low','potato'),help='Override view resolution independently of the graphics preset')
     parser.add_argument('--profile-far',action='store_true',help='Separate PIT timings for panorama preparation/drawing and the live heightmap')
     parser.add_argument('--far-sweep',action='store_true',help='Run distant Low/Medium/High in one world, holding main graphics at Low')
     parser.add_argument('--far-details',action='store_true',help='Medium/High far slope shading and deterministic dithering')
@@ -238,11 +239,12 @@ def main():
     if args.far_field:
         if not args.large_terrain: parser.error('--far-field requires --large-terrain')
         flags=(*flags,'-DDOS_FAR_FIELD')
-        if args.far_field!='off': flags=(*flags,'-DDOS_BENCH_FAR_LEVEL='+str({'low':1,'medium':2,'on':2,'high':3}[args.far_field]))
+        if args.far_field!='off': flags=(*flags,'-DDOS_BENCH_FAR_LEVEL='+str({'very-low':1,'low':2,'medium':3,'on':3,'high':4}[args.far_field]))
     if args.profile_far:
         if args.far_field in (None,'off'): parser.error('--profile-far requires distant terrain enabled')
         flags=(*flags,'-DDOS_BENCH_PROFILE_FAR')
     if args.far_sweep: flags=(*flags,'-DDOS_BENCH_FAR_SWEEP')
+    if args.resolution: flags=(*flags,'-DDOS_BENCH_RESOLUTION='+str(('full','low','very-low','potato').index(args.resolution)))
     if args.far_details:
         if not args.far_field: parser.error('--far-details requires --far-field')
         flags=(*flags,'-DDOS_FAR_DETAILS')

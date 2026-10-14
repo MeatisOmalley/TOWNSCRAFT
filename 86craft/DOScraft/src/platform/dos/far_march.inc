@@ -53,7 +53,7 @@ static int FAR_MARCH_NAME(int width,int level,int horizon,int gain,const int *in
                     u8 material=far_material(wx,wz,b);
                     int cap=top;
 #ifdef DOS_FAR_DETAILS
-                    if(level>=2) {
+                    if(level>=DOS_FAR_LOW) {
                         /* Project this sample's top at the previous depth.
                          * Horizontal ground gets a full cap; a rise exposes
                          * a side below it. This is a heightmap approximation. */

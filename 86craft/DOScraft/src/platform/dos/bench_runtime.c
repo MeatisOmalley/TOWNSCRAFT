@@ -263,7 +263,7 @@ static void select_quality(int index)
     g_renderScale=2; g_viewDist=8; g_flatDist=0; g_distanceMode=0;
 #ifdef DOS_BENCH_QUALITY
 #ifdef DOS_BENCH_FAR_SWEEP
-    dos_far_enabled=index+1;
+    dos_far_enabled=index+DOS_FAR_LOW;
     index=DOS_GRAPHICS_LOW;
 #endif
     const DosGraphicsSettings *quality=dos_graphics_settings(index);
@@ -271,6 +271,10 @@ static void select_quality(int index)
     g_flatDist=quality->flat_distance; g_distanceMode=quality->distance_mode;
     g_textureSubdivision=quality->texture_subdivision;
     dos_very_low_mode=index==DOS_GRAPHICS_VERY_LOW;
+    dos_potato_mode=0;
+#ifdef DOS_BENCH_RESOLUTION
+    g_renderScale=dos_resolution_set(DOS_BENCH_RESOLUTION);
+#endif
 #ifdef DOS_BENCH_A3_CEILING
     /* A3's best possible geometry saving, before paying for perspective UVs. */
     g_textureSubdivision=SUBDIV_OFF;

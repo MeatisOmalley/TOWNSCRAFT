@@ -37,6 +37,16 @@ int main(void)
         assert(dos_graphics_settings(invalid[i])==dos_graphics_settings(DOS_GRAPHICS_LOW));
         assert(!strcmp(dos_graphics_message(invalid[i]),names[0]));
     }
+    for(i=0;i<DOS_RES_COUNT;++i) {
+        int scale=dos_resolution_set(i);
+        assert(dos_resolution_index(scale)==i);
+        assert(dos_potato_mode==(i==DOS_RES_POTATO));
+        assert(dos_very_low_mode==(i>=DOS_RES_VERY_LOW));
+        scale=dos_resolution_change(scale,1);
+        assert(dos_resolution_index(scale)==(i+1)%DOS_RES_COUNT);
+        scale=dos_resolution_change(scale,-1);
+        assert(dos_resolution_index(scale)==i);
+    }
     puts("PASS: pure graphics policy, bounds, cycles, imported adaptive enum");
     return 0;
 }

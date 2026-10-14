@@ -75,7 +75,7 @@ static void menu_graphics_change(int direction)
 		return;
 	}
 	if(menuSel==1) {
-		g_renderScale=3-g_renderScale; dos_very_low_mode=0;
+		g_renderScale=dos_resolution_change(g_renderScale,direction);
 		render_sync_texture_resolution();
 	}
 	else if(menuSel==2)

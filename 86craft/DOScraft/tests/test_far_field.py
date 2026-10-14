@@ -101,8 +101,16 @@ class FarTests(unittest.TestCase):
                 '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
                 src/'blocks.c',src/'fmath.c',tables,'-o',baseline])
             expected=self.run_cmd([baseline]).stdout
-            self.assertEqual(actual,expected,'far image changed versus checkpoint')
+            expected_hash=[line for line in expected.splitlines() if line.startswith('POSE_HASH=')]
             base_hash=[line for line in actual.splitlines() if line.startswith('POSE_HASH=')]
+            self.assertEqual(len(base_hash),576)
+            for scale in range(2):
+                for current,legacy in ((0,0),(1,0),(2,1),(3,2)):
+                    self.assertEqual(base_hash[scale*288+current*72:scale*288+(current+1)*72],
+                                     expected_hash[scale*216+legacy*72:scale*216+(legacy+1)*72],
+                                     'plain far image changed versus checkpoint')
+            previous=subprocess.run(['git','show','be642145:86craft/DOScraft/src/platform/dos/far_render.inc'],cwd=ROOT,capture_output=True,check=True).stdout
+            (folder/'far_previous.inc').write_bytes(previous)
             for flags in (['-DDOS_FAR_DETAILS'],['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH'],
                           ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT']):
                 self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
@@ -111,10 +119,22 @@ class FarTests(unittest.TestCase):
                 output=self.run_cmd([exe]).stdout
                 self.assertIn('PASS: distant levels',output)
                 hashes=[line for line in output.splitlines() if line.startswith('POSE_HASH=')]
-                self.assertEqual(len(hashes),432)
+                self.assertEqual(len(hashes),576)
                 if len(flags)==1:
-                    for start in (0,216): self.assertEqual(hashes[start:start+72],base_hash[start:start+72],'Low received visual detail changes')
-                    self.assertNotEqual(hashes[72:216],base_hash[72:216],'Medium/High detail did not change colors')
+                    for start in (0,288):
+                        self.assertEqual(hashes[start:start+72],base_hash[start:start+72],'Very Low received visual detail changes')
+                        self.assertNotEqual(hashes[start+72:start+144],base_hash[start+72:start+144],'Low lacks visual detail')
+                        self.assertNotEqual(hashes[start+144:start+288],base_hash[start+144:start+288],'Medium/High lack visual detail')
+                self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
+                    '-DFAR_TEST_LEVELS=3','-DFAR_RENDER_TEST_INCLUDE="far_previous.inc"',
+                    '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
+                    src/'blocks.c',src/'fmath.c',tables,'-o',baseline])
+                previous_hash=[line for line in self.run_cmd([baseline]).stdout.splitlines() if line.startswith('POSE_HASH=')]
+                for scale in range(2):
+                    for current,prior in ((0,0),(2,1),(3,2)):
+                        self.assertEqual(hashes[scale*288+current*72:scale*288+(current+1)*72],
+                                         previous_hash[scale*216+prior*72:scale*216+(prior+1)*72],
+                                         'Very Low or Medium/High image changed')
 
     def run_cmd(self,args):
         r=subprocess.run(list(map(str,args)),capture_output=True,text=True,errors='replace',timeout=120)

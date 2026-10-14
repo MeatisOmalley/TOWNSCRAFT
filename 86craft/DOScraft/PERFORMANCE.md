@@ -1794,3 +1794,53 @@ message, so play frames qualify):
 Not worth pursuing at the current upload cost. A retry would need a
 drift-free time base (PIT channel 2, with channel-2 readers made atomic)
 before any visual acceptance.
+
+## Low distant styling and selectable 80x50 (2026-10-13)
+
+Distant options are now Off / Very Low / Low / Medium / High. Very Low is the
+previous solid-colour Low renderer. Low gets the Medium material treatment
+without widening its 24-block heightmap band, 64-block panorama or eight-pixel
+strips. Native pose tests preserve Very Low and Medium/High images against
+be642145 at both scales and all existing detail/view-depth/reprojection builds.
+The earlier private styling ablation estimated +1.03 ms still / +2.07 ms walk;
+see research/merged-leaves-publication.md. These are not universal costs.
+
+Graphics -> View resolution now cycles 320x200 / 160x100 / 80x100 / 80x50
+(Potato), in either direction and independently of distant quality. Presets
+retain their old resolutions; choosing a preset clears Potato. Projection,
+FOV, distance, HUD and menu sharpness are preserved. Potato marks alternate
+logical rows in the existing Very Low row mask, skips their texture row setup
+and texels in assembly, skips flat fills while advancing edges, and repeats
+the retained rows before overlays. Sharp backgrounds are expanded where
+needed, including the weather/menu fallback. It adds no second row mask or
+terrain cache. Far-map setup/marching and VGA upload bytes versus 80x100 are
+unchanged; pixel output is sampled vertically by the common finish stage.
+
+Matched June 1990 DX/40 / 8 MiB / ET4000AX / SCSI frozen graphics replay,
+view8, distant Off, prebaked fixed-leaf world. Each build uses three passes in
+one world, including a 256-frame continuous diagonal horizon walk. Other
+scenes use 32 poses. These guest PIT timings are not full-simulation FPS.
+
+| Scene | 80x100 (ms) | 80x50 (ms) | Saved (ms) |
+| --- | ---: | ---: | ---: |
+| Standing | 21.257 | 19.665 | 1.592 |
+| Walking at horizon | 19.544 | 18.452 | 1.092 |
+| Looking down | 43.770 | 37.414 | 6.356 |
+| House / turning | 28.565 | 25.089 | 3.476 |
+| Edit following frame | 30.370 | 26.785 | 3.585 |
+
+Real native i386 raster/assembly tests cover textured, transparent and flat
+polygons, bounds, overlay backgrounds, fallback and resolution reset. Menu,
+graphics policy, codegen, benchmark and far-field tests pass. Two older test
+harnesses needed the existing texture-resolution callback declaration/stub;
+no game logic was changed to fix them. Host Linux GCC parity tests remain
+skipped on this Windows host; the new Potato raster test runs actual x86
+assembly as a native 32-bit Windows executable.
+
+Exact release smoke new/reload, V5 save, guest-driven menu selection,
+80x100/80x50 captures and VGA readback pass at 8 MiB. An initial additional
+quartet assertion incorrectly compared post-world crosshair rows; its scope
+now excludes the established sharp overlay bands. Actual VGA readback passed
+in that attempt. Completed diagnostic emulators are closed.
+
+Evidence: [research/potato-resolution.json](research/potato-resolution.json).

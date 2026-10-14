@@ -1,6 +1,6 @@
 # Optional distant terrain (B8)
 
-Settings → Graphics → Distant terrain cycles **Off / Low / Medium / High**.
+Settings → Graphics → Distant terrain cycles **Off / Very Low / Low / Medium / High**.
 It starts Off and is independent of the main graphics preset. Every main
 preset now starts with an eight-block total polygon distance; manual textured
 and flat distance controls still work. Distant terrain begins at the **total**
@@ -8,11 +8,21 @@ polygon distance, behind both textured and flat-shaded blocks.
 
 | Distant setting | Live heightmap band | Cached panorama | Horizontal sample width |
 | --- | --- | --- | --- |
+| Very Low | Total polygon distance–24 blocks | 24–64 blocks | 8 display pixels |
 | Low | Total polygon distance–24 blocks | 24–64 blocks | 8 display pixels |
 | Medium | Total polygon distance–32 blocks | 32–96 blocks | 4 display pixels |
 | High | Total polygon distance–40 blocks | 40–128 blocks | 2 display pixels |
 
 These are approximate terrain distances, not entity/simulation distances.
+Very Low keeps the original solid material colours. Low now adds Medium's
+grass tops/dirt sides, slope and side shading, and subtle material patterns,
+while retaining Very Low's distance and sampling width. Main view resolution
+is selected independently: 320x200, 160x100, 80x100, or 80x50 (Potato).
+Potato retains the original projection and field of view, omits alternate
+polygon raster rows and repeats each retained sample vertically. Overlay
+backgrounds are expanded before sharp text/crosshair drawing; the HUD and
+menus retain full resolution. This reduces texel and flat-span work, but does
+not halve face collection, setup, world updates or distant-map marching.
 Normal sky/clouds draw first, then the live heightmap band, then only the
 exposed panorama above its skyline, then the unchanged polygon world. The band
 marches front to back at constant view depth. Gain is folded into the shared

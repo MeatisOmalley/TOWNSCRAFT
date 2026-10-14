@@ -16,7 +16,7 @@ static void far_world_header(const u32 *h)
 int dos_far_available(void) { return farMapSector!=0; }
 const u8 *dos_far_ready_flags(void) { return residentReady; }
 void dos_far_change(int direction) {
-    if(dos_far_available()) dos_far_enabled=(dos_far_enabled+direction+4)%4;
+    if(dos_far_available()) dos_far_enabled=(dos_far_enabled+direction+DOS_FAR_COUNT)%DOS_FAR_COUNT;
 }
 void dos_far_toggle(void) { dos_far_change(1); }
 

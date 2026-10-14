@@ -1,0 +1,222 @@
+{
+  "scope": "June 1990 DX/40, 8 MiB, ET4000AX, SCSI. Frozen graphics replay; view8, distant Off, large fixed-leaf prebaked fixture. Each build uses three passes in one world; 256-frame diagonal horizon walk and 32 poses in other scenes. Render timings are not full simulation FPS.",
+  "results": {
+    "80x100": {
+      "exe_sha256": "102d735bcccc4cddf7ec53d59e330842d162223db6a7860d254d7eface59cabb",
+      "vm": "game-play-fjvyp7gz",
+      "scene_results": [
+        {
+          "name": "open_static",
+          "frame_mean_ms": 21.256520833333333,
+          "p95_ms": [
+            34.024,
+            34.004,
+            34.045
+          ],
+          "hashes": [
+            "8dcaee0e",
+            "8dcaee0e",
+            "8dcaee0e"
+          ],
+          "draw_ms": 9.612385416666667,
+          "finish_ms": 0.09822916666666666,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "walk",
+          "frame_mean_ms": 19.54390625,
+          "p95_ms": [
+            32.146,
+            30.856,
+            32.123
+          ],
+          "hashes": [
+            "2adf297e",
+            "2adf297e",
+            "2adf297e"
+          ],
+          "draw_ms": 6.704470052083334,
+          "finish_ms": 0.16964192708333334,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "walk_down",
+          "frame_mean_ms": 43.7700625,
+          "p95_ms": [
+            55.345,
+            55.66,
+            57.662
+          ],
+          "hashes": [
+            "8e73eff1",
+            "8e73eff1",
+            "8e73eff1"
+          ],
+          "draw_ms": 30.539052083333335,
+          "finish_ms": 0.6985416666666667,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "walk_up",
+          "frame_mean_ms": 16.932708333333334,
+          "p95_ms": [
+            23.669,
+            26.845,
+            23.36
+          ],
+          "hashes": [
+            "2c909b69",
+            "2c909b69",
+            "2c909b69"
+          ],
+          "draw_ms": 2.9346145833333335,
+          "finish_ms": 0.09764583333333333,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "house",
+          "frame_mean_ms": 28.565197916666666,
+          "p95_ms": [
+            38.178,
+            41.519,
+            38.72
+          ],
+          "hashes": [
+            "1cf880a0",
+            "1cf880a0",
+            "1cf880a0"
+          ],
+          "draw_ms": 14.173979166666667,
+          "finish_ms": 0.72540625,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "block_edits",
+          "frame_mean_ms": 30.3699375,
+          "p95_ms": [
+            41.965,
+            31.552,
+            41.316
+          ],
+          "hashes": [
+            "1cf880a0",
+            "1cf880a0",
+            "1cf880a0"
+          ],
+          "draw_ms": 14.165875,
+          "finish_ms": 0.7600416666666666,
+          "edit_call_ms": 7.284729166666667
+        }
+      ]
+    },
+    "80x50": {
+      "exe_sha256": "8c9d1104083485ce878faf7d06c272bd4ba8900ec534a2af261c35d49577e09f",
+      "vm": "game-play-qtlpfjx4",
+      "scene_results": [
+        {
+          "name": "open_static",
+          "frame_mean_ms": 19.66459375,
+          "p95_ms": [
+            32.406,
+            32.381,
+            32.426
+          ],
+          "hashes": [
+            "89848abe",
+            "89848abe",
+            "89848abe"
+          ],
+          "draw_ms": 7.38309375,
+          "finish_ms": 0.74353125,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "walk",
+          "frame_mean_ms": 18.452350260416665,
+          "p95_ms": [
+            29.011,
+            27.75,
+            28.908
+          ],
+          "hashes": [
+            "3b89303e",
+            "3b89303e",
+            "3b89303e"
+          ],
+          "draw_ms": 5.17355859375,
+          "finish_ms": 0.8123802083333334,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "walk_down",
+          "frame_mean_ms": 37.41432291666667,
+          "p95_ms": [
+            47.057,
+            49.766,
+            49.289
+          ],
+          "hashes": [
+            "b53a46e1",
+            "b53a46e1",
+            "b53a46e1"
+          ],
+          "draw_ms": 23.549864583333335,
+          "finish_ms": 1.3400625,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "walk_up",
+          "frame_mean_ms": 16.21452083333333,
+          "p95_ms": [
+            23.494,
+            22.879,
+            21.67
+          ],
+          "hashes": [
+            "c23e2cdb",
+            "c23e2cdb",
+            "c23e2cdb"
+          ],
+          "draw_ms": 2.23615625,
+          "finish_ms": 0.7392083333333334,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "house",
+          "frame_mean_ms": 25.088645833333334,
+          "p95_ms": [
+            34.121,
+            38.541,
+            34.753
+          ],
+          "hashes": [
+            "03e71a62",
+            "03e71a62",
+            "03e71a62"
+          ],
+          "draw_ms": 10.08659375,
+          "finish_ms": 1.3662395833333334,
+          "edit_call_ms": 0.0
+        },
+        {
+          "name": "block_edits",
+          "frame_mean_ms": 26.784697916666666,
+          "p95_ms": [
+            37.809,
+            27.194,
+            37.45
+          ],
+          "hashes": [
+            "03e71a62",
+            "03e71a62",
+            "03e71a62"
+          ],
+          "draw_ms": 9.973489583333333,
+          "finish_ms": 1.4008645833333333,
+          "edit_call_ms": 7.284260416666666
+        }
+      ]
+    }
+  },
+  "implementation": "Existing 100-row Very Low mask uses bit1 for omitted logical rows. Texture traps skip before row gradient/setup; flat rows omit fills but still advance edges. Finish repeats owners and expands backgrounds before sharp UI. Normal resolution paths leave bit1 zero. FOV, near distance, HUD and menu resolution unchanged. No extra mask/cache allocation. The far march retains 100 logical rows; this initial feature does not halve its setup/march work. VGA upload bytes are unchanged relative to 80x100."
+}

@@ -30,6 +30,7 @@ static void apply_graphics_preset(int i)
 	const DosGraphicsSettings *settings=dos_graphics_settings(i);
 	graphicsPresetSel=dos_graphics_index(i);
 	dos_very_low_mode=graphicsPresetSel==DOS_GRAPHICS_VERY_LOW;
+	dos_potato_mode=0;
 	g_renderScale=settings->render_scale;
 	g_viewDist=settings->view_distance;
 	g_flatDist=settings->flat_distance;

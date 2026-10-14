@@ -6,6 +6,7 @@
 #define DOS_FAR_MAGIC 0x31465254u
 #define DOS_FAR_BYTES (512u*512u*2u)
 #define DOS_FAR_SECTOR (178291200u/512u)
+enum { DOS_FAR_OFF,DOS_FAR_VERY_LOW,DOS_FAR_LOW,DOS_FAR_MEDIUM,DOS_FAR_HIGH,DOS_FAR_COUNT };
 extern int dos_far_enabled;
 extern u32 dos_far_version;
 extern u32 dos_far_boundary_version;
