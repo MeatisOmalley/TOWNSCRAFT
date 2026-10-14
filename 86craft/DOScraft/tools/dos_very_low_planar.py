@@ -52,6 +52,14 @@ def adapt(name, data):
     one('\t\t\tfill_plane_row(rbuf+y*PLANAR_ROW+PLANAR_C,word);\n',
         '\t\t\tif(!planarVL || !(dos_very_low_rows[y]&1))\n'
         '\t\t\t\tfill_plane_row(rbuf+y*PLANAR_ROW+PLANAR_C,word);\n')
+    one('\t\tif(rplanar)\n\t\t{\n\t\t\tfill_plane_row(rbuf+y*PLANAR_ROW,word);\n',
+        '\t\tif(rplanar)\n\t\t{\n'
+        '\t\t\tif(planarVL && (dos_very_low_rows[y]&2)) continue; /* Potato repeats it. */\n'
+        '\t\t\tfill_plane_row(rbuf+y*PLANAR_ROW,word);\n')
+    one('        c->stride=PLANAR_ROW; c->mode=width==1 ? 9 : width==2 ? 10 : 12;\n',
+        '        c->stride=PLANAR_ROW; c->mode=width==1 ? 9 : width==2 ? 10 : 12;\n'
+        '        /* Potato: A bytes of kept rows only (far_fill.h modes 13/11). */\n'
+        '        if(planarVL && dos_potato_mode && width>1 && !(x&1)) c->mode=width==2 ? 13 : 11;\n')
     one('    planarPolicy=skip && !dos_very_low_mode;\n',
         '    planarPolicy=skip;\n    planarVL=dos_very_low_mode;\n')
     one('    const u8 *a=planarSrc+y*PLANAR_ROW,*c=a+PLANAR_C;\n    int x;\n',
