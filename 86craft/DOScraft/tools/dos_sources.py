@@ -14,7 +14,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
           stream_validate_once=False,light_offsets=False,mesh_edges=False,collect_swap=False,memmove_dwords=False,
           world_scans=False,baked_light_fast=False,sort_histograms=False,
           texel_edx=False,row_pointer=False,flat_inline=False,row_mul=False,mulshift=False,
-          planar_expand_words=False,plant_billboards=False,fill_rows=False):
+          planar_expand_words=False,plant_billboards=False,fill_rows=False,viewmodel=False):
     recipe=[]
     import dos_chickens
     data,steps=dos_chickens.adapt(name,data)
@@ -336,5 +336,9 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     if very_low_texels:
         import dos_potato
         data,steps=dos_potato.adapt(name,data)
+        recipe.extend(steps)
+    if viewmodel:
+        import dos_viewmodel
+        data,steps=dos_viewmodel.adapt(name,data)
         recipe.extend(steps)
     return data,recipe

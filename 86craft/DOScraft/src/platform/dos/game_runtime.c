@@ -52,6 +52,10 @@ static int stream_light_ok=1;
 #endif
 #endif
 static int rendered_frames;
+#ifdef DOS_VIEWMODEL
+static int held_done,held_selection;
+static Slot held_slot;
+#endif
 static int fullres_ok;
 static unsigned int inventory_ticks,inventory_started_at;
 static int inventory_frames,inventory_started_frame;
@@ -281,6 +285,13 @@ void __wrap_gfx_present(void)
     /* During generation the actual game's progress screens also present. */
     if(stage==1 && rendered_frames>0 && !save_busy &&
        g_player.body.h>0 && g_player.health>0 && g_meshQuads>0) {
+#ifdef DOS_VIEWMODEL
+        if(!held_done) {
+            held_selection=g_player.selected; held_slot=g_inv[held_selection];
+            g_inv[held_selection].item=g_inv[held_selection].count=0;
+            until=g_ticks+30;stage=60;return;
+        }
+#endif
         if(load_smoke) chicken_ok=chicken_loaded();
         snapshot("C:\\WORLD.RAW",frame);
 #ifdef DOS_LARGE_WORLD
@@ -301,6 +312,18 @@ void __wrap_gfx_present(void)
         }
         x0=g_player.body.x; z0=g_player.body.z; key(0x11); /* W held */
         until=g_ticks+100; stage=2;
+#ifdef DOS_VIEWMODEL
+    } else if(stage>=60 && stage<=63 && (int)(g_ticks-until)>=0) {
+        const char *name=stage==60 ? "C:\\HAND.RAW" : stage==61 ? "C:\\HELD.RAW" :
+            stage==62 ? "C:\\TOOL.RAW" : "C:\\TORCH.RAW";
+        snapshot(name,frame);
+        if(stage==63) {
+            g_inv[held_selection]=held_slot;g_player.selected=held_selection;
+            held_done=1;stage=1;return;
+        }
+        g_inv[held_selection].item=stage==60 ? B_COBBLE : stage==61 ? I_IRON_PICK : B_TORCH;
+        g_inv[held_selection].count=1;until=g_ticks+30;++stage;
+#endif
     } else if(stage==2 && (int)(g_ticks-until)>=0) {
         key(0x91); walk_ok=g_player.body.x!=x0 || g_player.body.z!=z0;
         if(!walk_ok) {
