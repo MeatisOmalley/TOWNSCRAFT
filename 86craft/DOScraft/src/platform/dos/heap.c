@@ -10,6 +10,10 @@ struct Arena {
 };
 static struct Arena low_arena, high_arena;
 static int initialized;
+#ifdef DOS_MEM_REPORT
+/* Diagnostic: largest arena use seen, including later-rewound temporaries. */
+unsigned int dos_heap_low_peak, dos_heap_high_peak;
+#endif
 
 static int valid_range(void *base, unsigned int size)
 {
@@ -59,6 +63,9 @@ void *heap_alloc_low(unsigned int size)
     if (!initialized || !low_arena.base || size > low_arena.size - p)
         return heap_alloc_high(size);
     low_arena.used = p + size;
+#ifdef DOS_MEM_REPORT
+    if (low_arena.used > dos_heap_low_peak) dos_heap_low_peak = low_arena.used;
+#endif
     return low_arena.base + p;
 }
 
@@ -72,6 +79,9 @@ void *heap_alloc_high(unsigned int size)
         return 0;
     }
     high_arena.used = p + size;
+#ifdef DOS_MEM_REPORT
+    if (high_arena.used > dos_heap_high_peak) dos_heap_high_peak = high_arena.used;
+#endif
     return high_arena.base + p;
 }
 

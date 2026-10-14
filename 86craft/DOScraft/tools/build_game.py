@@ -18,6 +18,13 @@ GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c'
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c',
     'craft_grid.c')
 DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR','-DDOS_TEXEL_EDX','-DDOS_ROW_MUL','-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE','-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS','-DDOS_FILL_ROWS')
+# ET4000-only transport: chain-4 banked uploads (High) and the HUD proof that
+# tracks them. Without these the presenter is plain VGA Mode X on any card.
+ET4000_ADAPTER_FLAGS=('-DDOS_ET4000_CHUNKY','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_HUD_PROOF')
+# 386 build: any VGA card, accepts a 386 at startup, i386 code generation.
+CPU386_ADAPTER_FLAGS=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS if flag not in ET4000_ADAPTER_FLAGS)+('-DDOS_CPU386',)
+CPU386_CFLAGS=('-march=i386','-mtune=i386')
+OUTPUT_386=ROOT/'build/game/386-vga'
 PORTABLE_EXPERIMENT_FLAGS=('-DDOS_F2B_VERIFY','-DDOS_F2B_STRESS','-fomit-frame-pointer','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR')
 
 
@@ -28,6 +35,8 @@ def portable_experiment_flags(flags):
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):
     if extra_adapter_flags is None: extra_adapter_flags=DEFAULT_ADAPTER_FLAGS
     if graphics is None: graphics=not benchmark
+    # Later -march/-mtune options override the i486 defaults in imported.CFLAGS.
+    arch=CPU386_CFLAGS if '-DDOS_CPU386' in extra_adapter_flags else ()
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
     report={'stage':'Full game link; silent audio; gameplay acceptance pending',
@@ -108,7 +117,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             plant_billboards='-DDOS_PLANT_BILLBOARDS' in extra_adapter_flags,
             fill_rows='-DDOS_FILL_ROWS' in extra_adapter_flags)
         portable=imported.build(output=output/'imported',
-            extra_cflags=(*extra,*portable_experiment_flags(extra_adapter_flags),
+            extra_cflags=(*arch,*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
         platform=adapters.stage(output/'platform',large_world=large_world,chickens=True)
         report['imported']=portable
@@ -140,7 +149,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         for name in names:
             source=ROOT/'src/platform/dos'/name
             obj=objdir/(Path(name).stem+'.o')
-            command=[imported.COMPILER,*imported.CFLAGS,*extra,*extra_adapter_flags,
+            command=[imported.COMPILER,*imported.CFLAGS,*arch,*extra,*extra_adapter_flags,
                 *(('-DDOS_GRAPHICS_PRESETS',) if graphics else ()),'-I',output/'platform/src',
                 '-I',ROOT/'src/platform/dos','-c',source,'-o',obj]
             subprocess.run(list(map(str,command)),check=True)
@@ -155,7 +164,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         if front_to_back:
             wraps+=''.join(',--wrap=trap_'+name for name in
                 ('opaque1','opaque2','transp1','transp2','opaque1w','opaque2w','transp1w','transp2w'))
-        command=[imported.COMPILER,*imported.CFLAGS,*objects,wraps,'-o',exe]
+        command=[imported.COMPILER,*imported.CFLAGS,*arch,*objects,wraps,'-o',exe]
         subprocess.run(list(map(str,command)),check=True)
         report.update(status='linked',linked=True,exe_sha256=imported.sha256(exe.read_bytes()),
             executable_bytes=exe.stat().st_size,link_command=list(map(str,command)))
@@ -168,9 +177,12 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.parse_args()
-    report=build()
-    print(f'Linked {OUTPUT / "DOSCRAFT.EXE"} ({report["executable_bytes"]} bytes); gameplay acceptance pending.')
+    parser.add_argument('--cpu386',action='store_true',
+                        help='386 and any-VGA build (no ET4000 transport) in build/game/386-vga')
+    args=parser.parse_args()
+    output=OUTPUT_386 if args.cpu386 else OUTPUT
+    report=build(output,extra_adapter_flags=CPU386_ADAPTER_FLAGS if args.cpu386 else None)
+    print(f'Linked {output / "DOSCRAFT.EXE"} ({report["executable_bytes"]} bytes); gameplay acceptance pending.')
 
 
 if __name__=='__main__': main()
