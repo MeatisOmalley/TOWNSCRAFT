@@ -31,6 +31,10 @@ Follow DOScraft's structure: Phase A is a direct port to parity, Phase B is
 separate N64-specific improvement and only starts after the user accepts
 parity.
 
+Project philosophy (user, 2026-10-15): squeeze out every last millisecond.
+Choices between otherwise-equal options go to whichever leaves more room
+for hand-tuned code, and every performance claim needs a measurement.
+
 ## 2. Target hardware
 
 | Component | Target | Notes |
@@ -40,8 +44,8 @@ parity.
 | RCP | RSP (vector coprocessor, microcode) + RDP (rasterizer), 62.5 MHz | RDP has 4 KB TMEM for textures. |
 | RAM | 4 MB RDRAM base; Expansion Pak decision open | See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) Q2. |
 | Cartridge ROM | Up to 64 MB | Size class open; a larger ROM costs nothing on emulator/flashcart but matters for authenticity. |
-| Save | FlashRAM 128 KB, SRAM 32 KB, EEPROM 512 B/2 KB, Controller Pak 32 KB | Choice tied to save design, §6. |
-| Input | Standard controller; N64 Mouse optional | Controller mapping open, Q5. |
+| Save | FlashRAM 128 KB (Q6) | Cartridge only; no 64DD. See §6. |
+| Input | Official: N64 Mouse (NUS-005) + Randnet keyboard. Fallback: standard controller, Turok-style | Q5. Keyboard needs our own Joybus driver; emulator support unconfirmed. |
 | Video | 320x240, 16-bit color, NTSC | 640x480 not considered for gameplay. |
 
 ## 3. Source baseline
@@ -110,7 +114,7 @@ Hard fits on the N64, to resolve with Q2 and Q6:
 | Video, page flipping | `video.c`, `gfx.c` | SDK display/framebuffer management. HUD and font drawn as RDP rectangles or a CPU blit. |
 | Sound | `sound.c` | YM2612/RF5c68 → RSP mixer (§7). |
 | Storage | `hdd.c`, `save.c`, `column_*.inc` | ROM + RAM delta + cartridge save (§6). |
-| Input | keyboard/mouse/pad in `game.c`/`sys.c` | Controller via the SDK's joybus API. |
+| Input | keyboard/mouse/pad in `game.c`/`sys.c` | Randnet keyboard (own Joybus driver), N64 Mouse and controller via libdragon's Joybus/joypad API. |
 
 ### Port hazards to check first
 
@@ -128,8 +132,10 @@ Hard fits on the N64, to resolve with Q2 and Q6:
 
 Phase A goal: the same world, view distances, HUD and visible content,
 drawn by the RDP. Not pixel parity: the N64 gives perspective-correct
-texturing and Z for free, and the user may prefer to keep the point-sampled
-look (Q4).
+texturing and Z for free. Style (Q4, decided 2026-10-15): DOScraft look in
+Phase A — point sampling, per-face light, RDP anti-aliasing off. Filtering,
+fog, smooth light and similar are Phase B presets, each kept only if it
+earns its measured cost.
 
 Mapping of existing techniques:
 
@@ -174,21 +180,22 @@ residency at that size does not fit next to the framebuffers. The existing
 
 ## 6. World and saves
 
-Proposed model (needs approval, Q6):
+Model (Q6, decided 2026-10-15: cartridge only, no 64DD):
 
 1. **Base world in ROM.** Prebaked seed(s) stored compressed on the
    cartridge, read by DMA on demand. Replaces Towns' HDD scratch backing and
    DOScraft's prebaked HDD seed. Seed generation on the console is optional;
    the generator still runs at build time.
-2. **Edits as a RAM delta.** Changed columns stay in RAM, compressed, on top
-   of the ROM base.
-3. **Save = delta + player/inventory/mobs** written to FlashRAM (128 KB).
-   This caps how much of the world a player can change per save. The cap
-   must be measured with real edit patterns and shown to the player.
+2. **Edits as a block-level RAM store.** Unlike DOScraft, which pages whole
+   edited columns out to HDD, an edited column leaving the resident window
+   keeps only its changed blocks (~3 bytes each, or the RLE column if
+   smaller) in a fixed RAM budget. Page-in = ROM column + apply its edits.
+3. **Save = that edit store + player/inventory/mobs** written to FlashRAM
+   (128 KB). One budget for RAM and save (*estimate* ~40,000 changed
+   blocks), shown to the player.
 
-This is a behavior change from both existing ports (they can save
-arbitrarily large edits) and needs user sign-off before Phase A treats it as
-parity.
+This is a behavior change from DOScraft (effectively unlimited edits), so
+the edit volume of real play must be measured at N5 against the budget.
 
 ## 7. Audio
 
@@ -204,9 +211,10 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
 
 ## 8. Toolchain and test platforms
 
-- **SDK.** Recommendation: libdragon (open source, GCC toolchain, maintained,
-  hardware-accurate RDP command layer). Nintendo's libultra is proprietary
-  and only available through leaks; avoid it. Q3.
+- **SDK: libdragon** (Q3, decided 2026-10-15). Pin the libdragon revision
+  and toolchain like DOScraft pins DJGPP. The project goal is maximum
+  performance, so the 3D layer (GL port, tiny3d or custom microcode) is
+  picked by measurement, and custom RSP microcode is in scope.
 - **Emulator.** ares for development and measurement; it is the
   low-level emulator the libdragon project recommends. High-level emulators
   give misleading performance and should not be used for numbers. How close
