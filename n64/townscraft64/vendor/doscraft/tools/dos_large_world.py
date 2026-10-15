@@ -4,19 +4,15 @@ The main build keeps the established 256-block storage format until the
 large-world medium, save format, and guest acceptance are complete.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name not in ('world.c', 'world.h', 'column_store.inc', 'column_hdd.inc',
                     'mobs.c', 'inventory.h', 'render.c'):
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
 
     def one(before, after):
         nonlocal text
@@ -228,31 +224,34 @@ def adapt_save_codec(text, recipe):
         nonlocal text
         text = replace_once(text, before, after, recipe)
 
+    # Version 6: version 5's layout with 6-bit block IDs and items from 64.
+    # Older large saves hold the previous item IDs and are never loaded.
     one('if(!streamOk || get32()!=SAVE_MAGIC || get32()!=4) continue;',
-        'if(!streamOk || get32()!=SAVE_MAGIC || get32()!=5) continue;')
+        'if(!streamOk || get32()!=SAVE_MAGIC || get32()!=6) continue;')
+    one('(version=get32())<1 || version>SAVE_VERSION', '(version=get32())!=SAVE_VERSION')
     one('static void put_chests(void)', 'static void put_chests(int version)')
     one('put8(c->x); put8(c->y); put8(c->z);',
         'if(version>=5) { put32(c->x); put8(c->y); put32(c->z); }\n'
         '\t\t\telse { put8(c->x); put8(c->y); put8(c->z); }')
     one('int ok,version=world_cache_active() && g_W<256 ? SAVE_VERSION : 3;',
-        'int ok,version=g_W==1024 ? 5 : (world_cache_active() && g_W<256 ? 4 : 3);')
+        'int ok,version=g_W==1024 ? 6 : (world_cache_active() && g_W<256 ? 4 : 3);')
     one('if(!world_backing_idle()) return SAVE_DISK_ERROR;\n\tworld_set_backing_reader(save_column_read);',
         'if(!world_backing_idle()) return SAVE_DISK_ERROR;\n'
-        '\tif(version==5 && !world_store_flush()) return SAVE_DISK_ERROR;\n'
+        '\tif(version>=5 && !world_store_flush()) return SAVE_DISK_ERROR;\n'
         '\tworld_set_backing_reader(save_column_read);')
     one('if(version>=4)\n\t{\n\t\tif(!writeBackup)',
-        'if(version==5)\n\t{\n'
+        'if(version>=5)\n\t{\n'
         '\t\tif(!world_save_large_columns(put32)) streamOk=0;\n'
         '\t}\n\telse if(version>=4)\n\t{\n\t\tif(!writeBackup)')
     one('\tput_chests();', '\tput_chests(version);')
     one('if(ok && version>=4) world_commit_columns();',
-        'if(ok && version==5) world_commit_large_columns();\n'
+        'if(ok && version>=5) world_commit_large_columns();\n'
         '\telse if(ok && version>=4) world_commit_columns();')
     one('if(version>=4)\n\t{\n\t\tworld_load_position(g_player.body.x/FU,g_player.body.z/FU);\n'
         '\t\tif(!world_load_columns(get32,stream_position)) streamOk=0;\n\t}',
         'if(version>=4)\n\t{\n'
         '\t\tworld_load_position(g_player.body.x/FU,g_player.body.z/FU);\n'
-        '\t\tif(version==5)\n\t\t{ if(!world_load_large_columns(get32)) streamOk=0; }\n'
+        '\t\tif(version>=5)\n\t\t{ if(!world_load_large_columns(get32)) streamOk=0; }\n'
         '\t\telse if(!world_load_columns(get32,stream_position)) streamOk=0;\n\t}')
     one('ch->x=get8(); ch->y=get8(); ch->z=get8();',
         'if(version>=5) { ch->x=get32(); ch->y=get8(); ch->z=get32(); }\n'

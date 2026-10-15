@@ -1,6 +1,6 @@
 # Townscraft64 feature checklist (DOScraft parity)
 
-Reference: DOScraft at `2ce6b443`, imported read-only into
+Reference: DOScraft at `c4ce3b7b` (re-pinned at N2b), imported read-only into
 [vendor/doscraft](vendor/doscraft/MANIFEST.json) (Q1). Phase A parity (N7)
 means every row below is done or explicitly waived by the user.
 
@@ -38,6 +38,7 @@ Tags:
 | Feature | Source | Tag | Notes |
 | --- | --- | --- | --- |
 | Blocks, tool tiers, breaking/placing | `blocks.c`, `game.c` | core | |
+| 6-bit block IDs; wall torches and open doors as their own blocks | `dos_block_ids.py` | extract | Changes the one-byte cell layout (id bits 0-5, metadata 6-7) and so the world bake. |
 | Inventory, hotbar, chests (27 stacks) | `inventory.c`, `game.c` | core | |
 | Crafting by hand, crafting table, furnace/smelting/fuel | `game.c`, `ui.c` | core | |
 | Combined inventory/crafting menu | `dos_crafting.py`, `craft_grid.c` | extract | DOScraft UI over the Towns rules. |
@@ -60,7 +61,7 @@ Tags:
 | Baked skylight for prebaked columns | `bake_large_light.py`, `dos_stream_light.py`, `stream_light_*` | extract | |
 | Column cache (25 resident columns) | `column_cache.inc` | core | Host tests: `column_cache_test`, `stream_test`. |
 | Terrain backing (HDD scratch, V2/V3 media) | `hdd.c`, `column_hdd.inc`, `hdd.c` (DOS) | reimplement | ROM base + RAM edit store (Q6). |
-| Saves: V5 directory, V3 edit log, two banks | `save.c` (DOS), `LARGE_WORLD_STORAGE.md` | reimplement | FlashRAM block-level edits (Q6); 64DD path at N8. |
+| Saves: large-world save version 6, V3 edit log, two banks | `save.c` (DOS), `LARGE_WORLD_STORAGE.md` | reimplement | FlashRAM block-level edits (Q6); 64DD path at N8. |
 | Single save slot, New Game / Load Game semantics | `dos_menus.py`, `menus_*.inc` | extract | |
 
 ## Rendering and presentation
@@ -101,10 +102,18 @@ Tags:
 | Music: original piano piece plus MIDI songs, per-song settings, Minecraft-style spacing, master level | `opl_music.c`, `build_music_pack.py`, `assets/music` | reimplement | Sequencer on the libdragon mixer with sampled instruments; song data and settings extracted. |
 | F6 music / F7 effects toggles | `game.c` | core | |
 
+## Planned in DOScraft (not yet implemented)
+
+| Feature | Source | Notes |
+| --- | --- | --- |
+| Early game: clay, copper, bronze, spear, hunger | `EARLY_GAME.md` | Design only at `c4ce3b7b`. Track as DOScraft implements it. |
+
 ## Diagnostics and tests
 
 | Item | Source | Tag | Notes |
 | --- | --- | --- | --- |
 | Towns host tests for code the N64 runs unchanged: player, mobs, mob regions | `vendor/towns-tests` (Towns `d706a67d`) | core | Pass big-endian in ares (N2). Other Towns tests cover generation, the 256-world path, or replaced hardware; see the N2 report. |
+| DOScraft tests: chickens, mob codec (7 cases), immediate edit light | `vendor/doscraft/tests` | extract | Pass big-endian in ares (N2b). |
+| DOScraft tests needing the baked world: stream light, far world | `vendor/doscraft/tests` | extract | Need an N64 sector backend, a current bake and a byte-order decision; see the N2b report. |
 | DOScraft native tests | `86craft/DOScraft/tests` (not imported) | extract | Bring individual tests over with the feature they cover. |
 | Benchmark routes, frame-time reports | `bench.c`, `tools/benchmark*.py` | reimplement | N64 profiler and ares-based runs. |

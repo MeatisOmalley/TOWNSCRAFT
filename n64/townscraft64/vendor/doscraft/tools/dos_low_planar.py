@@ -6,7 +6,7 @@ framebuffer; every other view row reaches VGA from the presenter's plane
 buffer without packing. Very Low, rain, menus and High keep the chunky path.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 STATE = '''
 /* DOS planar Low: logical pixel x of a scale-2 play frame goes straight into
@@ -98,11 +98,7 @@ def adapt(name, data):
     if name != 'raster.c':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, 'static int rw,rh,rpitch,rscale;\n',
         'static int rw,rh,rpitch,rscale;\n' + STATE, recipe)
     text = replace_once(text, '\trpitch=pitch;\n\trscale=scale;\n',

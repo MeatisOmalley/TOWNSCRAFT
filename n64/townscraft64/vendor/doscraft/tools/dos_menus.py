@@ -1,15 +1,12 @@
 """DOS main/pause/settings menus, applied after the existing game overlays."""
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name != 'game.c':
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text = text.replace('\r\n','\n')
+    text = lf_text(data, recipe)
 
     def one(before, after):
         nonlocal text

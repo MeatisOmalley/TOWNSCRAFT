@@ -6,7 +6,7 @@ collect_planes(0). The wide planes now go to separate arrays; restoring the
 tight planes is a pointer swap that returns setup_camera()'s exact values,
 instead of a second pass of four multiplies per grid line.
 """
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 DECLS = '''static int *PX[NPLANES],*PY[NPLANES],*PZ[NPLANES];
 /* Wide planes live in separate arrays; restoring the tight ones is a swap. */
@@ -37,11 +37,8 @@ static void collect_planes_tight(void)
 def adapt(name, data, *, very_low_only=False):
     if name != 'render.c':
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, 'static int *PX[NPLANES],*PY[NPLANES],*PZ[NPLANES];\n', DECLS, recipe)
     text = replace_once(text, '\n/* A steep downward view', HELPERS, recipe)
     text = replace_once(text,

@@ -25,12 +25,8 @@ def save_codec_source(vendor=imported.VENDOR, large_world=False):
         raise ValueError('Unexpected save codec boundary')
     start = data.index(marker)
     selected = data[start:]
-    text = selected.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = imported.lf_text(selected, recipe)
     text = imported.replace_once(text,
         '\tfdc_stop();\n\tpageState=pageMotor=0;\n',
         '\tif(!dos_save_finish()) ok=0;\n\tpageState=pageMotor=0;\n', recipe)
@@ -108,6 +104,14 @@ def stage(output, vendor=imported.VENDOR, large_world=False, chickens=False):
             path=output/'src'/name
             data,steps=dos_chickens.adapt(name,path.read_bytes());path.write_bytes(data)
             record['chicken_headers'].append(dict(path='src/'+name,
+                staged_sha256=imported.sha256(data),transformations=steps))
+        # Platform code must see the same cell layout as the game it links with.
+        import dos_block_ids
+        record['block_id_headers']=[]
+        for name in ('blocks.h','world.h'):
+            path=output/'src'/name
+            data,steps=dos_block_ids.adapt(name,path.read_bytes());path.write_bytes(data)
+            record['block_id_headers'].append(dict(path='src/'+name,
                 staged_sha256=imported.sha256(data),transformations=steps))
     (output / selection['staged']).write_bytes(portable)
     record['gfx_selection'] = selection

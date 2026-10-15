@@ -3,7 +3,7 @@ import struct
 from bake_large_world import checksum
 from convert_large_v2 import convert,check_v2,CELLS,DEFAULT_POOL_PAIRS
 from large_world_media import check_terrain,FAR_BYTES
-from leaf_flags_media import BANK,DIRECTORY,DIRECTORY_END,decode,encode,save_sum,validate_save_preservation
+from leaf_flags_media import BANK,DIRECTORY,DIRECTORY_END,SAVE_VERSIONS,decode,encode,save_sum,validate_save_preservation
 
 
 def grow_edit_pool(terrain,pool_pairs):
@@ -37,7 +37,7 @@ def convert_player(previous,save,pool_pairs=DEFAULT_POOL_PAIRS):
         start=bank*BANK
         magic,version,total,length,generation=struct.unpack_from('<5I',save,start)
         if magic!=0x46435354:continue
-        if version!=5 or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
+        if version not in SAVE_VERSIONS or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
             raise ValueError('Invalid committed V1 save bank')
         seed,index,count=struct.unpack_from('<3I',save,start+DIRECTORY)
         if (seed,index,count)!=(struct.unpack_from('<I',previous,36)[0],struct.unpack_from('<I',previous,48)[0],4096):

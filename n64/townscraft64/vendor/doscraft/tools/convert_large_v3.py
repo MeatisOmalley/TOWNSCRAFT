@@ -26,6 +26,7 @@ import struct
 
 from bake_large_world import checksum
 from convert_large_v2 import V2_MAGIC, COLUMNS, CELLS, check_v2, decode, sectors
+from leaf_flags_media import SAVE_VERSIONS
 
 V3_MAGIC = b'DOSCRAFT-1024-V3'
 SECTOR = 512
@@ -127,7 +128,7 @@ def committed_banks(save):
         magic, version, total, length, generation = struct.unpack_from('<5I', save, start)
         if magic != SAVE_MAGIC:
             continue
-        if version != 5 or not DIRECTORY_END - 20 <= length <= BANK - 20 or \
+        if version not in SAVE_VERSIONS or not DIRECTORY_END - 20 <= length <= BANK - 20 or \
                 save_sum(save[start + 20:start + 20 + length]) != total:
             raise ValueError('Invalid committed save bank')
         banks.append((start, length, generation))

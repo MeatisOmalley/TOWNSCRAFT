@@ -1,13 +1,11 @@
 """Exact constant-gradient opaque scale-2 specialization, independently selectable."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 
 def adapt(name,data):
     if name!='trap.S': return data,[]
-    recipe=[]; text=data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    recipe=[]
+    text=lf_text(data,recipe)
     start=text.index('\t/* Span width in pixels for the gradient */\n')
     end=text.index('\tmovl\t%eax,rowDV\n',start)+len('\tmovl\t%eax,rowDV\n')
     gradient=text[start:end]

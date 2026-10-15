@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]

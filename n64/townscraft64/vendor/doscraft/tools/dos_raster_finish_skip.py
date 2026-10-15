@@ -1,17 +1,13 @@
 """Keep scale-2 odd rows only where later gameplay overlays need them."""
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name not in ('game.c', 'raster.c', 'raster.h'):
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     if name == 'raster.h':
         text = replace_once(text, 'void raster_finish(void);\n',
             'void raster_finish(void);\n'

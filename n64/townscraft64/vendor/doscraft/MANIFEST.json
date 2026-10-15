@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_commit": "2ce6b443ddda1e1c9b5288da5e83a12f4b396a93",
+  "source_commit": "c4ce3b7b2638fd6ad62f1cb975786bd4fa9bda00",
   "source_root": "86craft/DOScraft",
   "files": [
     {
@@ -26,6 +26,14 @@
       "git_mode": "100644",
       "sha256": "d97e93880ecae5ae31debf81e556b9308b61676414fa3e2a571e3aca3178c041",
       "size": 15763
+    },
+    {
+      "path": "EARLY_GAME.md",
+      "source_path": "86craft/DOScraft/EARLY_GAME.md",
+      "git_blob": "139a00b3e27a482dd81f53a956b1df611e2adc0e",
+      "git_mode": "100644",
+      "sha256": "0211a1e4c262e9466f5d7d6c7b05f26aaf54ef0ee92c34f6a05f50ddfe0541b7",
+      "size": 16869
     },
     {
       "path": "KNOWN_PORT_ISSUES.md",
@@ -70,10 +78,10 @@
     {
       "path": "README.md",
       "source_path": "86craft/DOScraft/README.md",
-      "git_blob": "322b7908eeeec5087ddd3c932b03f7bae7d03807",
+      "git_blob": "0b5a220f59ac7aefe8df9eaac1416f10c3ac1464",
       "git_mode": "100644",
-      "sha256": "3db53c5b9b7412e0572c4bb6aff2917be0c7c610f0c9587219a73ce6b3667d18",
-      "size": 36713
+      "sha256": "bcbe3c852827868bca6336a532fa3d1e4693bf685974cd81824ad416e2c223cc",
+      "size": 36864
     },
     {
       "path": "assets/audio/CREDITS.md",
@@ -676,6 +684,14 @@
       "size": 97
     },
     {
+      "path": "assets/music/midi/Mice on Venus - C418 (Zerg).json",
+      "source_path": "86craft/DOScraft/assets/music/midi/Mice on Venus - C418 (Zerg).json",
+      "git_blob": "5e1b1b3f294d0865378acd78453ef1ba1f540765",
+      "git_mode": "100644",
+      "sha256": "06565fcead6f02689e842747b675a1c3fefc58763f5b24161fca07f0d536227d",
+      "size": 16
+    },
+    {
       "path": "assets/textures/eagler_full.bin",
       "source_path": "86craft/DOScraft/assets/textures/eagler_full.bin",
       "git_blob": "5bdfc4bf5246183f122272ae75ba16dd431ea0be",
@@ -918,10 +934,10 @@
     {
       "path": "src/platform/dos/far_field.h",
       "source_path": "86craft/DOScraft/src/platform/dos/far_field.h",
-      "git_blob": "226a6c6bd80475f81acb82ce9ac68a2563850f28",
+      "git_blob": "a220ceee6e44a14e14030c1b6cc2f46593424102",
       "git_mode": "100644",
-      "sha256": "f62b1705cc4db62eac56c1da48caf84493c74b24520bf044f7215353a9081b90",
-      "size": 1622
+      "sha256": "cfecfe236b4d42a7078479c234dd356e21f33f5e4153ab45e8df62673c32c4ce",
+      "size": 1920
     },
     {
       "path": "src/platform/dos/far_fill.h",
@@ -950,18 +966,18 @@
     {
       "path": "src/platform/dos/far_render.inc",
       "source_path": "86craft/DOScraft/src/platform/dos/far_render.inc",
-      "git_blob": "cb74d12dc447ca0782d1b3516e8689eb9a4f31ec",
+      "git_blob": "2e869e4436d438340389f22cb17527b15decff24",
       "git_mode": "100644",
-      "sha256": "4a064d13664df0870237411cbd8fbffd19ca950245f5bcffa1503d1785a0d61a",
-      "size": 18769
+      "sha256": "b388bf3d4ff09a12574c3814efcb60764d2243eb4624c704013d387cae7ad820",
+      "size": 18782
     },
     {
       "path": "src/platform/dos/far_world.inc",
       "source_path": "86craft/DOScraft/src/platform/dos/far_world.inc",
-      "git_blob": "b0c6e63b16a370f6c084f746c04bc1a288e2b320",
+      "git_blob": "c9c9cd06d2b405cd70635fa74b30d0beae2b7a9b",
       "git_mode": "100644",
-      "sha256": "f4a976cb159a6f028c43f7c3e168434c83d19e36ec37ffe54f099337fd247ac5",
-      "size": 10808
+      "sha256": "abcecb3b328ffe5b7c53e1af687ea4c6ec0c2439804d4c2b0533ecda637fffed",
+      "size": 10802
     },
     {
       "path": "src/platform/dos/file_commit.h",
@@ -998,10 +1014,10 @@
     {
       "path": "src/platform/dos/game_runtime.c",
       "source_path": "86craft/DOScraft/src/platform/dos/game_runtime.c",
-      "git_blob": "2b8fa5499a56d85c90d729d43ae9d3079adb361f",
+      "git_blob": "be27eb07c5ece5ed37f25993c32389ff4da5ee63",
       "git_mode": "100644",
-      "sha256": "7a6eb2b8a43bf3472317f18ca5cb7ed83412b0ae613146759456d7725d934706",
-      "size": 24069
+      "sha256": "d772f1045922ce6a3c0232ffee9f856af657fd602632e9c7a8ec557e5720ba47",
+      "size": 24106
     },
     {
       "path": "src/platform/dos/gfx.c",
@@ -1214,10 +1230,10 @@
     {
       "path": "src/platform/dos/save.c",
       "source_path": "86craft/DOScraft/src/platform/dos/save.c",
-      "git_blob": "3b1faf06a4f97c8502f9e910dc98268c91aa089a",
+      "git_blob": "2e5046c65648b025c6d1f833157631e66f83f0d0",
       "git_mode": "100644",
-      "sha256": "9d5ef4e472695dabe2a3ff6677b455a71c1ccf0b796b6f1a894363e533a0d52b",
-      "size": 6554
+      "sha256": "991eb95287444f0c19971b303edcc7387c42dfd36ea8970d1cfcfb5f29b6bb1a",
+      "size": 6734
     },
     {
       "path": "src/platform/dos/save_backend.h",
@@ -1532,6 +1548,86 @@
       "size": 2497
     },
     {
+      "path": "tests/chickens_native.c",
+      "source_path": "86craft/DOScraft/tests/chickens_native.c",
+      "git_blob": "10dae6e0080492614786bd2daf8182ea7c813085",
+      "git_mode": "100644",
+      "sha256": "8bc9d9c44eb20f58f4ce05d22ff3a91bb397966e455b9daff7f537497f709999",
+      "size": 5136
+    },
+    {
+      "path": "tests/far_world_native.c",
+      "source_path": "86craft/DOScraft/tests/far_world_native.c",
+      "git_blob": "a231adb48566f61f58d70bf6ea738f20f9e5a52c",
+      "git_mode": "100644",
+      "sha256": "e04bf8e7ac5f287f67082e80057ea307a79e635e90443cb2ee42c459be439c1f",
+      "size": 6178
+    },
+    {
+      "path": "tests/immediate_light_native.c",
+      "source_path": "86craft/DOScraft/tests/immediate_light_native.c",
+      "git_blob": "f5b8cb38bd874f8bcb9c08384f870b83749c7e95",
+      "git_mode": "100644",
+      "sha256": "03db8534decf054b6dc4d80443e3d128c6c48727f0acb780aa92282276430ddc",
+      "size": 818
+    },
+    {
+      "path": "tests/mob_codec_test.c",
+      "source_path": "86craft/DOScraft/tests/mob_codec_test.c",
+      "git_blob": "fdea7365bd05d614f739260ba892d6cc39b8851e",
+      "git_mode": "100644",
+      "sha256": "71e3e036f3dcf4200035809992a9aaa4267a2a79ea1e15f3a731bf36dff6e45a",
+      "size": 16570
+    },
+    {
+      "path": "tests/stream_light_native.c",
+      "source_path": "86craft/DOScraft/tests/stream_light_native.c",
+      "git_blob": "a9333341b61d04233e84184561a6521306839388",
+      "git_mode": "100644",
+      "sha256": "49a1c153d4df17b6632cc4ac935830319084ff070cbec3387c4725512809db56",
+      "size": 2844
+    },
+    {
+      "path": "tests/test_chickens.py",
+      "source_path": "86craft/DOScraft/tests/test_chickens.py",
+      "git_blob": "732f7ae118eee07034229f75519e46e72ff95ed7",
+      "git_mode": "100644",
+      "sha256": "579540ebf5b0361ac92a6b41b2aa0bd2ce0f6156a6c5ca496f36b4e8cb6a891c",
+      "size": 2054
+    },
+    {
+      "path": "tests/test_far_field.py",
+      "source_path": "86craft/DOScraft/tests/test_far_field.py",
+      "git_blob": "b75dc92a51f7f50deeef4a05e5f10944eac612dd",
+      "git_mode": "100644",
+      "sha256": "7fcc5a646368ef44f977409b6261abdb54e3f7b964f13408df2ce5c2b96968e5",
+      "size": 9822
+    },
+    {
+      "path": "tests/test_immediate_light.py",
+      "source_path": "86craft/DOScraft/tests/test_immediate_light.py",
+      "git_blob": "134c07bf0ace91e66e3f8bab27fac9f7f3b4e382",
+      "git_mode": "100644",
+      "sha256": "3ab36f7e0f2fa4e227395acecfd1ac33a5ab0b38acb1c4decd73b24eb9797bfc",
+      "size": 2561
+    },
+    {
+      "path": "tests/test_mob_codec.py",
+      "source_path": "86craft/DOScraft/tests/test_mob_codec.py",
+      "git_blob": "0ac9bd52dda20cecfaae888536f28c129d3ddb92",
+      "git_mode": "100644",
+      "sha256": "445408a261de30fda6db47d6180e1926d556eb23dc117f78e87f0d0a8671bd0b",
+      "size": 4945
+    },
+    {
+      "path": "tests/test_stream_light.py",
+      "source_path": "86craft/DOScraft/tests/test_stream_light.py",
+      "git_blob": "fa24a46d6bf6b726325bda0ef13bc555d4b68c7b",
+      "git_mode": "100644",
+      "sha256": "04a8c4160a6a4041499689e723c299f8fa006817ed09c973c5d1f0af6dbd013f",
+      "size": 3255
+    },
+    {
       "path": "tools/a1_census.py",
       "source_path": "86craft/DOScraft/tools/a1_census.py",
       "git_blob": "e209457ed7776d8aaa091572a15580ad87e4c02f",
@@ -1550,25 +1646,25 @@
     {
       "path": "tools/audit_atlas_relocation.py",
       "source_path": "86craft/DOScraft/tools/audit_atlas_relocation.py",
-      "git_blob": "ff9b6aa476ebf617cc42b4bd59707407a7be0fc5",
+      "git_blob": "8fec021b9f178adbbe5b35d00299c910406bba4a",
       "git_mode": "100644",
-      "sha256": "de6b1337e243f347e6da7ab654f549c0c570768a10a111f1bead27cf45e9d6ea",
-      "size": 1602
+      "sha256": "42b68807ad03acd2cd9e3127a1779a3e5c4dd75b68f8bd6acfd117cf2754171a",
+      "size": 1577
     },
     {
       "path": "tools/audit_towns_house.py",
       "source_path": "86craft/DOScraft/tools/audit_towns_house.py",
-      "git_blob": "260dfc51572289d27f0dac456eeab1b7afc8092e",
+      "git_blob": "47b55d85f489cbc5f406997d4253b6ca788c373e",
       "git_mode": "100644",
-      "sha256": "4e4677648d9e9bd03f3eb2e71844ad97b597983ae6c751fc0452c90586da6d39",
-      "size": 4330
+      "sha256": "edde41360e9d5131caef3d5c19a80fba789bdaef8cadc0c9f89e560ec76faab2",
+      "size": 4319
     },
     {
       "path": "tools/bake_far_field.py",
       "source_path": "86craft/DOScraft/tools/bake_far_field.py",
-      "git_blob": "722f61d3c390de3917faf9585f0ecfbbf8dd59fe",
+      "git_blob": "872b06b88b971c3eac2c13c12d9a89089bb25da0",
       "git_mode": "100644",
-      "sha256": "f5cb781ec15235ef4f8d2146d618015ce02f80cef9f3e0c56be4a5ca701d103d",
+      "sha256": "67bbafa3c6a0c8162d74b7bdb4e4a963893ee7a7b77c9e2b5058e9b48bcb1b05",
       "size": 5055
     },
     {
@@ -1622,42 +1718,42 @@
     {
       "path": "tools/benchmark_audio.py",
       "source_path": "86craft/DOScraft/tools/benchmark_audio.py",
-      "git_blob": "6693946d62d0fbbfa3c5d8c9098f4bd45b897b2d",
+      "git_blob": "1b3e6a668a8bcd2667f886cec60b19c592cba406",
       "git_mode": "100644",
-      "sha256": "5caf88d51cac75d8877def87bce976733eeb54ddaffe1747ed977d4ed8c7d54e",
-      "size": 3304
+      "sha256": "672ac27dc6cc98ae3c1ef484b91fc332bb70ef7b5340f4b6b934720e228d0285",
+      "size": 3291
     },
     {
       "path": "tools/build_386_86box.py",
       "source_path": "86craft/DOScraft/tools/build_386_86box.py",
-      "git_blob": "fffed2e1d6fa6c2f2e16ddde61f3cd3897d6ad6b",
+      "git_blob": "bda523175b3fee496924b923172aadae558cf2d7",
       "git_mode": "100644",
-      "sha256": "c79b09b6e56aba220ae3b1a71a908d4a4c69bab01137b12bdf2965f53c63a38b",
-      "size": 2643
+      "sha256": "56bb5ff0d2529cdf61cd88ee3f25650600fa520b493e1b4500e05dcef1a3f58c",
+      "size": 2618
     },
     {
       "path": "tools/build_adapters.py",
       "source_path": "86craft/DOScraft/tools/build_adapters.py",
-      "git_blob": "a2b6675e9856c8ae907116e68ba9d5ba72261bdb",
+      "git_blob": "53841683eb3349ee21fcefa430adace4590bafdd",
       "git_mode": "100644",
-      "sha256": "da9f4f2ba4a57f5cefe430e450b5e5a2466fda125978d7c7ee659b77693a3c35",
-      "size": 8408
+      "sha256": "37a59e2827869c1dae1928d69c831bb6e89aef44d35940fb141efba5eefbe4fc",
+      "size": 8686
     },
     {
       "path": "tools/build_game.py",
       "source_path": "86craft/DOScraft/tools/build_game.py",
-      "git_blob": "ee27c04c63f6f9dbedbdc16406cf4fbda90fffcf",
+      "git_blob": "18df8c77a9b12bf5462d269ae6ab284b99b7ca9a",
       "git_mode": "100644",
-      "sha256": "ba6efbe8c687fe5d063ad40d731345b5375cd04944a5496725b58430b06cd3b7",
-      "size": 15492
+      "sha256": "e6f049e741697e51fa8564b1fcd8110c827558460f94105a9b25fc5aaf6d36bb",
+      "size": 15481
     },
     {
       "path": "tools/build_imported.py",
       "source_path": "86craft/DOScraft/tools/build_imported.py",
-      "git_blob": "196d09e679e257dba6bd612981fced63adaceb60",
+      "git_blob": "3ef3fcfdd96db5172de4f2252c8b01272beff4f8",
       "git_mode": "100644",
-      "sha256": "80dfaf51251d1315096e63bd4ba8b734ace641a053a2389ee6fae53497f91ae7",
-      "size": 17838
+      "sha256": "c3dd3c82ae2b0a1879ee624b23df6f43dd91378fbb746236d952f6aa22f2eec4",
+      "size": 17991
     },
     {
       "path": "tools/build_music_pack.py",
@@ -1702,10 +1798,10 @@
     {
       "path": "tools/compact_world_media.py",
       "source_path": "86craft/DOScraft/tools/compact_world_media.py",
-      "git_blob": "7676c402e01333776b7e583de9798dc8accb1caa",
+      "git_blob": "daf305446859d19f8c61811bc545e2e6c8018ebc",
       "git_mode": "100644",
-      "sha256": "a640bd9218c29b0b4e08af95e57724274344dbcfff3e540334bc11b49a014425",
-      "size": 5102
+      "sha256": "86c9a6273bc92a11354ca3b4e34b7fae9c0b60a001df5ed4cd1f8df90b1dd416",
+      "size": 5134
     },
     {
       "path": "tools/compare_eagler_textures.py",
@@ -1726,10 +1822,10 @@
     {
       "path": "tools/convert_large_v3.py",
       "source_path": "86craft/DOScraft/tools/convert_large_v3.py",
-      "git_blob": "675d6ee08420c710adb9fbe872b27d8003edc320",
+      "git_blob": "137a0c9064bf6eaeea36599a01b14d7e19ef5517",
       "git_mode": "100644",
-      "sha256": "ce22b091dbfccc0bb43f4aa587e97f90096d373b26734dcde1c454fad68b1b69",
-      "size": 14363
+      "sha256": "b5b51db843de4fd9ffa6248db9d1a6f03abc0ce9dbfb9dc00765ec9dc6868a52",
+      "size": 14422
     },
     {
       "path": "tools/crown_leaves_media.py",
@@ -1742,74 +1838,82 @@
     {
       "path": "tools/dos_a1_census.py",
       "source_path": "86craft/DOScraft/tools/dos_a1_census.py",
-      "git_blob": "a5f1fee735e7cb4b9a4182d559731991f830f6d0",
+      "git_blob": "478c1eb3084c803d512225fd726bab1897da1296",
       "git_mode": "100644",
-      "sha256": "e12c3ad42018bdab1baaded825d38bc1be9bec52bff78a598c5dfec709ab2bdc",
-      "size": 2138
+      "sha256": "c3610ef4c158457f846379f56609b6e906edb8757b8e2b84182488e37586a3cb",
+      "size": 1981
     },
     {
       "path": "tools/dos_baked_light_fast.py",
       "source_path": "86craft/DOScraft/tools/dos_baked_light_fast.py",
-      "git_blob": "743b409ea5539c807e3324e416d400eff548413f",
+      "git_blob": "2ef1050747d9bf049dfc288115aa7d3c07bb2cca",
       "git_mode": "100644",
-      "sha256": "72406cb2775c0ace4acb6754aba3a97392e85d54849558741857ae19457e6251",
-      "size": 1216
+      "sha256": "43d6a4d603477727fa29fd9450dd78910673fe85661ae462f9f5c2f0493ec438",
+      "size": 1059
+    },
+    {
+      "path": "tools/dos_block_ids.py",
+      "source_path": "86craft/DOScraft/tools/dos_block_ids.py",
+      "git_blob": "f03348a1d7fbfa6c4309f9a140786cef57386514",
+      "git_mode": "100644",
+      "sha256": "1812c28b6ba80bd17bd55d10ca272978ba7c31253c093044e735c3e9c93e8949",
+      "size": 7955
     },
     {
       "path": "tools/dos_block_textures.py",
       "source_path": "86craft/DOScraft/tools/dos_block_textures.py",
-      "git_blob": "bb4e9f2f74bef27ca9089fdf134cbff611b5aeca",
+      "git_blob": "f15fbae82939055e46b63ef2de26744ee87e305b",
       "git_mode": "100644",
-      "sha256": "66636dae4bec4b8ec310a696eddb64112cab6effe340041d567dce378d849fb5",
-      "size": 6606
+      "sha256": "35f73e3e8e752763d1a3f770db7bebd37e7a21fc729050960f396169a3007c4b",
+      "size": 6452
     },
     {
       "path": "tools/dos_chickens.py",
       "source_path": "86craft/DOScraft/tools/dos_chickens.py",
-      "git_blob": "35b63e1a8f68d5df19fb8c0b54a6abe74f59b5b6",
+      "git_blob": "fe091d12c168ce80765c51e44a369efc6253da42",
       "git_mode": "100644",
-      "sha256": "fb53e65f7734c2ff9c9cefe6c78c6b9444c50e8b648a7bc8609325f8428d601d",
-      "size": 5167
+      "sha256": "fcf81f737f7651a73fa14e23647ef1bf59157ad33932904d79db3074ead4e709",
+      "size": 5025
     },
     {
       "path": "tools/dos_collect_margin.py",
       "source_path": "86craft/DOScraft/tools/dos_collect_margin.py",
-      "git_blob": "00a0a9a2804a840563de98e8966a86e4966e5ef5",
+      "git_blob": "f0079afaaa1917b6e9736b9ceb141ea99f0d8f22",
       "git_mode": "100644",
-      "sha256": "c98fad08a7b049a1e730998959cf7e8ac029939739c734350900eb829d4469d4",
-      "size": 8089
+      "sha256": "e55e45368dcb46f4fbbd4b977a9e3565940fdc01ea3dc7919d9bd758c0af9867",
+      "size": 8026
     },
     {
       "path": "tools/dos_collect_swap.py",
       "source_path": "86craft/DOScraft/tools/dos_collect_swap.py",
-      "git_blob": "023a383c13027fd32b355d1f057756d54e24f5c9",
+      "git_blob": "21b11a956f95eb357878384b84d96cc92a327c8d",
       "git_mode": "100644",
-      "sha256": "b46781aa355f98a7028d920f6281207e878f2ab78a5027c8935be89b032e6341",
-      "size": 2493
+      "sha256": "f1ac09ecf28ce086c1fe62c93a159db812c6ee9f6f28e980d6875bef2e21b304",
+      "size": 2336
     },
     {
       "path": "tools/dos_crafting.py",
       "source_path": "86craft/DOScraft/tools/dos_crafting.py",
-      "git_blob": "fa1dca8a44fbc9af8e6eb7c7ac4b1097228219b4",
+      "git_blob": "6a9b9c1e8cfd0f82e92a68699cfa237d8c2469e3",
       "git_mode": "100644",
-      "sha256": "afcc44491c691976b525e331168a22e1fc416a8b81818e3af2833d46f3ccb3cf",
-      "size": 10865
+      "sha256": "b73c5c61ab9ef01be058eca8be15ed5770af4ecf060e46472ec05a0cd0f7f98c",
+      "size": 10681
     },
     {
       "path": "tools/dos_day_length.py",
       "source_path": "86craft/DOScraft/tools/dos_day_length.py",
-      "git_blob": "f6afdddae2252c5c6a2419fce507f2da572c54df",
+      "git_blob": "4d3bb65f39aaae91e9be9730e1c6f1a8771b0fb7",
       "git_mode": "100644",
-      "sha256": "3915fa18f096ba0730e55d2bc2116eb3a417558c71f70e3d64f771047a06b077",
-      "size": 889
+      "sha256": "c2fd49402c5bf760cd70306bdfebe2e470e875cd8ada343edafe7d2de6542c6d",
+      "size": 732
     },
     {
       "path": "tools/dos_depth_adaptive.py",
       "source_path": "86craft/DOScraft/tools/dos_depth_adaptive.py",
-      "git_blob": "328b3cc3bd4aac700efbc1597ad4f079539a6e65",
+      "git_blob": "52559d30556860093eeebba1bd17ec3a67ae813a",
       "git_mode": "100644",
-      "sha256": "9f7ae2bb095ca34989099c7f904cbe961b4f0aa84952284136ffd4f0d4db29b6",
-      "size": 1517
+      "sha256": "7a08a8797f2db34061379c4a45aef08f7a6502dbff552c57d1b7a2c8c65841be",
+      "size": 1367
     },
     {
       "path": "tools/dos_far_field.py",
@@ -1822,10 +1926,10 @@
     {
       "path": "tools/dos_fill_rows.py",
       "source_path": "86craft/DOScraft/tools/dos_fill_rows.py",
-      "git_blob": "21e49cf6b3caa76cd0c97b25d8b2daa7a285f0ff",
+      "git_blob": "3c4abe102e25c3da11d854494840a6eb45a96ffb",
       "git_mode": "100644",
-      "sha256": "dcb96be8826acf9fbe738ff3a279f93616b9d589e25c90cce1f36639bc0fa8e5",
-      "size": 1816
+      "sha256": "9a60d85b7bb604dbf01b22b1b210dc92a91bdb32e4c5a94e5cd69277af5cbe1b",
+      "size": 1659
     },
     {
       "path": "tools/dos_flat_distance.py",
@@ -1838,26 +1942,26 @@
     {
       "path": "tools/dos_flat_inline.py",
       "source_path": "86craft/DOScraft/tools/dos_flat_inline.py",
-      "git_blob": "946593e4fcfa119d49efba9e96efa5a27a502e85",
+      "git_blob": "cc62d627b56e73f01a8c7298ed9ee39c0ce16a38",
       "git_mode": "100644",
-      "sha256": "850f4ac51ad9d7ba57c1732a1f3b3bfa5796f290917cb2878f4a64c758fe8428",
-      "size": 1606
+      "sha256": "35b06074422eb6f61f3010ffddf498f3df9a3910fd9d28b1aef19b7ca97a2b82",
+      "size": 1422
     },
     {
       "path": "tools/dos_front_to_back.py",
       "source_path": "86craft/DOScraft/tools/dos_front_to_back.py",
-      "git_blob": "f5925f59fab5510f535104f25df65823999cbafb",
+      "git_blob": "36985b5fde2c6b355a9f381c2e59c1bd8d5504bc",
       "git_mode": "100644",
-      "sha256": "c53229eb6634d2798698b045f61eb55afaeb936cf66e06ea4615148f5ef1b8ca",
-      "size": 7927
+      "sha256": "38f35369028bda97afde30c445e2f05ecf3955f7994311326ea9f2f4b801b08b",
+      "size": 7828
     },
     {
       "path": "tools/dos_game_audio.py",
       "source_path": "86craft/DOScraft/tools/dos_game_audio.py",
-      "git_blob": "1618691390783038d2d59fdf64ed56ca1fedd483",
+      "git_blob": "d903fb6c4fdfe110f1547fc7b75b84580a8e7459",
       "git_mode": "100644",
-      "sha256": "72ce006dd0b78c75f871bfda793539c86b9fc85f69fc8b295101a7e136f2734d",
-      "size": 3749
+      "sha256": "92fa01b8abf66b1a1f047db2da4be32a40ccc6178fed3fb7d86fe7bfba51e109",
+      "size": 3703
     },
     {
       "path": "tools/dos_graphics.py",
@@ -1870,10 +1974,10 @@
     {
       "path": "tools/dos_group_facing.py",
       "source_path": "86craft/DOScraft/tools/dos_group_facing.py",
-      "git_blob": "9353283327adda5f52770ece834769977651df0a",
+      "git_blob": "f398b1bba30c9759a6047f887dfb982a7c5039b1",
       "git_mode": "100644",
-      "sha256": "f7750052f80c5354d041926d184cbd1a0c8ee08e5e2a321024fbe9ab9c1179c4",
-      "size": 1057
+      "sha256": "c38a202d200f2afbf34215921ad7c3fbde7ecd9ef1a038d27458439f6e52db17",
+      "size": 908
     },
     {
       "path": "tools/dos_hud_proof.py",
@@ -1894,66 +1998,66 @@
     {
       "path": "tools/dos_large_world.py",
       "source_path": "86craft/DOScraft/tools/dos_large_world.py",
-      "git_blob": "34b131e80b49a9f9ba5bc13f02d04f9009241aa3",
+      "git_blob": "0f939730b21b49dfae92e0c1fcd66055fddd07cb",
       "git_mode": "100644",
-      "sha256": "a37c2c656a1561d32b2e1b3d64c2981e2756d5f42ba8baad7d4d7d4f3988a6f8",
-      "size": 13578
+      "sha256": "ebe6904209cc264b73a9bce22734c5add436d9824cdf103e1bf2a2dfd8a90a14",
+      "size": 13633
     },
     {
       "path": "tools/dos_light_offsets.py",
       "source_path": "86craft/DOScraft/tools/dos_light_offsets.py",
-      "git_blob": "2414468178930b8d5e3756656b5788fdd50509f5",
+      "git_blob": "8c532a55244d51b13f9ba93d68952b0d57540620",
       "git_mode": "100644",
-      "sha256": "1f948467e50ba9a123c4fb5a355a8f369128afcbcd6bc438adbd83f83600c844",
-      "size": 2282
+      "sha256": "5341f46b42da2be0a2a986ac62869b88a5921577fcda6e81dba537fc5c70b992",
+      "size": 2125
     },
     {
       "path": "tools/dos_low_planar.py",
       "source_path": "86craft/DOScraft/tools/dos_low_planar.py",
-      "git_blob": "6f87df716bfc2a82ba40c43b8f37360821cca1de",
+      "git_blob": "0a696fb13ef8442555a59818ccd579ec6a208bf5",
       "git_mode": "100644",
-      "sha256": "70c76be6023c5b864d87299bc1df504df5154c6a588039a8eaa0a14fb9898a7a",
-      "size": 5678
+      "sha256": "0301b81a651308bed5b4ad5694371a16be370734c4295fc3286fd7644c8e3359",
+      "size": 5494
     },
     {
       "path": "tools/dos_memmove_dwords.py",
       "source_path": "86craft/DOScraft/tools/dos_memmove_dwords.py",
-      "git_blob": "6e3123bff9b8c6d0a9ab9a2ae4f9c96fe22d58bd",
+      "git_blob": "ce7e0f3f2a180b6f712c8f690a74b5fd2df0461d",
       "git_mode": "100644",
-      "sha256": "26450af137ea4aac16a2cdb6a78c3510a79a99aecaa49552ae4343dd603f5844",
-      "size": 1421
+      "sha256": "3cee78264690e9a7c0f69c7e7345f07c28078ac8a654c41276a9f61fdbe1c780",
+      "size": 1264
     },
     {
       "path": "tools/dos_menus.py",
       "source_path": "86craft/DOScraft/tools/dos_menus.py",
-      "git_blob": "377869e0fc047bc5e972d1b5c22941c8d9a93c77",
+      "git_blob": "fc6038cbd0c2b813763816ae04f8e0d353968145",
       "git_mode": "100644",
-      "sha256": "06ae8b749f447fece2ec76ca170d0464d393f48b729a3495a921cb0518893ecc",
-      "size": 4008
+      "sha256": "b0c6195cb1d36fd5bba1cc84624b7e79de79cac070e7843fe0206b0cfdf367d4",
+      "size": 3855
     },
     {
       "path": "tools/dos_mesh_edges.py",
       "source_path": "86craft/DOScraft/tools/dos_mesh_edges.py",
-      "git_blob": "e611f37438c24607237fa90c0850a7a2bbd7ff27",
+      "git_blob": "254e7557f9fc327c9812401a06f70596d9223696",
       "git_mode": "100644",
-      "sha256": "57cab6c7a4df999db3360e43a91a8df5be1f9ef27b71e40d92df38a141129cf0",
-      "size": 3063
+      "sha256": "48027add00a9416b6604cda5410c0702f89eb73426b23933176113bcfffd1129",
+      "size": 2906
     },
     {
       "path": "tools/dos_mob_despawn.py",
       "source_path": "86craft/DOScraft/tools/dos_mob_despawn.py",
-      "git_blob": "00a5f11dbd9ece362d9ec8686f680af16c0b9bd3",
+      "git_blob": "6b1001d2b5dd9ed0583b62c54302b6d489928d9f",
       "git_mode": "100644",
-      "sha256": "5a95000911f53b2d8739c5cb649ca7a4bafd07b9c0fba95c5a811c9af8c2b565",
-      "size": 1831
+      "sha256": "77258fb4bbc0112e06e953bafea6a79ed14aef64c334657123e5757450592a50",
+      "size": 1674
     },
     {
       "path": "tools/dos_mulshift.py",
       "source_path": "86craft/DOScraft/tools/dos_mulshift.py",
-      "git_blob": "15abb29bfd1fa60baa897074b95ac2e1bd7116e3",
+      "git_blob": "f74bac76b09408ba03cce9d24150d9236227618e",
       "git_mode": "100644",
-      "sha256": "6a063042c5722c2eeea6fd1870a825cbc9b00f6bb25f61e9056b34a4825c9208",
-      "size": 1535
+      "sha256": "82069d121e8c84463506c91844a1edc050bd535bd1734c7b298baabdd5876f0f",
+      "size": 1351
     },
     {
       "path": "tools/dos_next4.py",
@@ -1966,18 +2070,18 @@
     {
       "path": "tools/dos_planar_expand_words.py",
       "source_path": "86craft/DOScraft/tools/dos_planar_expand_words.py",
-      "git_blob": "647a1739c3ad6a8fdd44619e9b9842c9439d2c44",
+      "git_blob": "1d71e1dc354086ee4e2945ca4eaa63cb51f98e97",
       "git_mode": "100644",
-      "sha256": "64b140d5d78d01a5c9069ef1e8f73d63ec7bba4f6351836af44acfd9235ce6cc",
-      "size": 1051
+      "sha256": "f1bb0ecc2854b74dc8d8daedf3393e5e900008f6617e8dfc99c427db4611f1a6",
+      "size": 867
     },
     {
       "path": "tools/dos_plant_billboards.py",
       "source_path": "86craft/DOScraft/tools/dos_plant_billboards.py",
-      "git_blob": "6bb826d4b685787afacd12dabad5289db1b85a7d",
+      "git_blob": "0104ed3b968cabdb0abaf85bb199feef5068b404",
       "git_mode": "100644",
-      "sha256": "8eeb5cfe25abcff8ec15e4c75a4dd03693cdb4cf0c882de88e6149969196a1d0",
-      "size": 1969
+      "sha256": "2bc59649e8687d5cdb89dd718bdd4b1ab4263b49d27ce3d35b6d25c9573418a7",
+      "size": 1812
     },
     {
       "path": "tools/dos_plant_placement.py",
@@ -1990,114 +2094,114 @@
     {
       "path": "tools/dos_potato.py",
       "source_path": "86craft/DOScraft/tools/dos_potato.py",
-      "git_blob": "c72175bb3d4be33951e62e7970637d21a3d73856",
+      "git_blob": "0a8c513986fa13169941d1708b751a076a346575",
       "git_mode": "100644",
-      "sha256": "675a9126ed05a23ead2df63293b7a4988f06bafac12a13ed8d8f602375d87693",
-      "size": 3136
+      "sha256": "f36a7c9ce4e8bfcdfeceb576aa74cfd2c45274eb43dc7a50c069ef22b7b31b23",
+      "size": 2983
     },
     {
       "path": "tools/dos_profile_collect_world.py",
       "source_path": "86craft/DOScraft/tools/dos_profile_collect_world.py",
-      "git_blob": "1fbec5fc90203fe07e275fee2794b08cf7803c52",
+      "git_blob": "885ecdc0acc0d0986ec924bb235042b2c2bf1180",
       "git_mode": "100644",
-      "sha256": "12542545ad9898d5e12a855555489c094de0cdce471523a7a828109bbb04b355",
-      "size": 7375
+      "sha256": "07bfb0f36baa8b3232cfc1be69bd5061ce98bad6558f0a4d3cd5e63f6136ecac",
+      "size": 7218
     },
     {
       "path": "tools/dos_proven_rows.py",
       "source_path": "86craft/DOScraft/tools/dos_proven_rows.py",
-      "git_blob": "88a7e9cd66a87f8770b65c6cedc6df961a7019f6",
+      "git_blob": "e2a54ec89e2f09210a701e41052bbfca528329ef",
       "git_mode": "100644",
-      "sha256": "2e5692c4cac7c03b0b320ac0e799912defbd65a8219d196d58198895ee03365a",
-      "size": 1821
+      "sha256": "b8cb2114a5f98101818a831ea92bce4bc662ed2d7b8bb766a158d652ff7de961",
+      "size": 1637
     },
     {
       "path": "tools/dos_raster_finish_skip.py",
       "source_path": "86craft/DOScraft/tools/dos_raster_finish_skip.py",
-      "git_blob": "d0f7a6ac1088d81a37f599abce33e87c56f9dedc",
+      "git_blob": "3ce45717af32040d2f8e96c780cff0ad4364668b",
       "git_mode": "100644",
-      "sha256": "2cff9c7cf273edfe364689f15a89d4661121ec8b37c0868846f210d3ed368d3b",
-      "size": 2977
+      "sha256": "5d239e2da9a6f6f88bb0f345a2a735ecd82cc1283357079ad3e6e27d46ac6188",
+      "size": 2793
     },
     {
       "path": "tools/dos_row_mul.py",
       "source_path": "86craft/DOScraft/tools/dos_row_mul.py",
-      "git_blob": "d9ef890b1c687d5c8bca736e1fc83c73932d3e4f",
+      "git_blob": "1efd5f6b93eb41507793690be031dcbfc4f6d3b4",
       "git_mode": "100644",
-      "sha256": "ee867b7e72424808d41afc69ba2238bfa43af83a677ae5ab6458621c929d5dda",
-      "size": 1166
+      "sha256": "43892a70d406c7b6d01fe4dcbfaa14b3c72d65a72d6138feb34f40418fb22404",
+      "size": 982
     },
     {
       "path": "tools/dos_row_pointer.py",
       "source_path": "86craft/DOScraft/tools/dos_row_pointer.py",
-      "git_blob": "a2c27a6d3fb499c04f339a7a4236c53a9cdb1413",
+      "git_blob": "257360643670092182e201c1750c67ec4f5b4536",
       "git_mode": "100644",
-      "sha256": "a1e2c3038cfee05f5c8407f0572fb9847be01fd239169bd4dd9fc776d1aaa4ee",
-      "size": 2002
+      "sha256": "112b7f561d88f5569d4ec23d5ae06c1c59ce5087f4c4996e99f97ebc0a4c3c39",
+      "size": 1818
     },
     {
       "path": "tools/dos_sort_histograms.py",
       "source_path": "86craft/DOScraft/tools/dos_sort_histograms.py",
-      "git_blob": "12db463d47015886cb5cb99465b2dd41dfdd8e1b",
+      "git_blob": "f7b138ac77cc84c90cbe53e5c093bdb696ca20a8",
       "git_mode": "100644",
-      "sha256": "2552748266468f31957664d0c801eb53e0335f77389d63a58874e2627c9eef57",
-      "size": 2181
+      "sha256": "eba221b4b2082aed085511bc2513c9a55f33a458c17a286f07fc5a04d54ffd94",
+      "size": 2024
     },
     {
       "path": "tools/dos_sources.py",
       "source_path": "86craft/DOScraft/tools/dos_sources.py",
-      "git_blob": "2fdfd0b4171d28e9d9b1f44a5f86dfecd40eef61",
+      "git_blob": "0efc17d3c73fdb0ecdcbc98d332dabb102a5a25c",
       "git_mode": "100644",
-      "sha256": "9a6f726ca85c6832e545ceb2a1826a30f81a32b9f08ef5fbc77857553ef3b106",
-      "size": 18033
+      "sha256": "e5d51624d31d4cbbbb7730e36ae290c5785fdef9efa8ee042d7fae6356631995",
+      "size": 16926
     },
     {
       "path": "tools/dos_split_reuse.py",
       "source_path": "86craft/DOScraft/tools/dos_split_reuse.py",
-      "git_blob": "ede73472caddfcc142bdc5d6a87f8113451993f8",
+      "git_blob": "6bfff485b56aada14c0593cc660ff1e7131bd152",
       "git_mode": "100644",
-      "sha256": "e68c767a0d3ef65a923c474a1f7909bc35232ac005306ea9627578c12bda247c",
-      "size": 3826
+      "sha256": "83073db28c3d3e0cb7eabb03a34fb23f170b0380d5f6e42754e215e6ad1309f0",
+      "size": 3676
     },
     {
       "path": "tools/dos_stream_light.py",
       "source_path": "86craft/DOScraft/tools/dos_stream_light.py",
-      "git_blob": "2514e4cd9fd3d218e9d8e534e7b36fe6795daaa2",
+      "git_blob": "a3460f64ce2d5ee01139d778cf0282792dfbaed6",
       "git_mode": "100644",
-      "sha256": "66f241c5ef0d50b50ad137ccad51d4d9e268c56aca512ce3772dfa7b41655bc9",
-      "size": 3005
+      "sha256": "23efb9d4fe5f15c6576101ea8e46e72da447378eedfac66a9783a0eb52ed1624",
+      "size": 2957
     },
     {
       "path": "tools/dos_stream_validate_once.py",
       "source_path": "86craft/DOScraft/tools/dos_stream_validate_once.py",
-      "git_blob": "e72a451300764873d83db1fd7ab42072cc949465",
+      "git_blob": "d04f7f021d5313603357a4c951b9f8aa47ae21e8",
       "git_mode": "100644",
-      "sha256": "31993ea9dff6e79e5efef890fc40ba4d883b689dfaa1e738a1d7410a820056f2",
-      "size": 2587
+      "sha256": "245db0e0ddc33488d3a103b35de3068e0a1010deeb79cbbb9ec8530d00645ca7",
+      "size": 2430
     },
     {
       "path": "tools/dos_texel_edx.py",
       "source_path": "86craft/DOScraft/tools/dos_texel_edx.py",
-      "git_blob": "d5bcb695ca26ecedbfd2958fd5dbecd00efcb8ae",
+      "git_blob": "980d3b36dc24ab0638b3b769a3e2e61a5b0ff6d9",
       "git_mode": "100644",
-      "sha256": "0b41f4ee99825a18b96173323c045c8e27a85bbddc67e5796651b1b8f9669caf",
-      "size": 2924
+      "sha256": "f68936175a620138865354e5da1912b6f68392fcd739ede001dd178ab95cfa16",
+      "size": 2740
     },
     {
       "path": "tools/dos_trap_four.py",
       "source_path": "86craft/DOScraft/tools/dos_trap_four.py",
-      "git_blob": "9114e30402af6043aea4f890a447c3449faff1a2",
+      "git_blob": "644766198c6effa20452ef9c272d89377780b49e",
       "git_mode": "100644",
-      "sha256": "934939584df3bf01f634fe0442505c622caab3681b190727f4c5cb43e6fd5c4f",
-      "size": 1339
+      "sha256": "52fc1dec798426f26e1a59da4b57b70dea10e0b6362ffeee8e9d661cd47a4ae1",
+      "size": 1189
     },
     {
       "path": "tools/dos_trap_stable.py",
       "source_path": "86craft/DOScraft/tools/dos_trap_stable.py",
-      "git_blob": "4a2b91fed0069bf7dd0f1f3f22e993b47eeaea45",
+      "git_blob": "be4d891f65699764614c3f53482769cb3ee96ea1",
       "git_mode": "100644",
-      "sha256": "219c643f93a2abfc4d821eb6fae5b57dabe145832a50ed281e582509bed62ead",
-      "size": 2008
+      "sha256": "5def8a5aa3dd16e41ac39ab9fd2fa2880771ef42609a5c23332279e510c29de8",
+      "size": 1858
     },
     {
       "path": "tools/dos_very_low_coarse.py",
@@ -2118,42 +2222,42 @@
     {
       "path": "tools/dos_very_low_planar.py",
       "source_path": "86craft/DOScraft/tools/dos_very_low_planar.py",
-      "git_blob": "a29a1486f2ca8996325325e33ffc92accd93fb5a",
+      "git_blob": "455dd84ec46bc3d99826cbaf8917e6d9241db690",
       "git_mode": "100644",
-      "sha256": "1a2c8f0ee7c1c376bba4219c2cc799042b4cd0684f9a2b904726b9fe994c382f",
-      "size": 5870
+      "sha256": "90c7d73185e3406f2eb94118b214d5993c3e88da915ea67338fc4915c3d02e1b",
+      "size": 5686
     },
     {
       "path": "tools/dos_very_low_texels.py",
       "source_path": "86craft/DOScraft/tools/dos_very_low_texels.py",
-      "git_blob": "cf2af59766773ae5aa8589c61e1e2c69d0a90ba2",
+      "git_blob": "8b368127c0ce3f67857f653eaf41eb75b9c1d1bf",
       "git_mode": "100644",
-      "sha256": "329f03b19c6782d403f21b783e15bb529325491d66c7b49b79dcdcf70cfe32e3",
-      "size": 4320
+      "sha256": "d46c3b1061f3a0e162be409ef04375a2eae5eed5443b09d90b9ee5cb427391f1",
+      "size": 4167
     },
     {
       "path": "tools/dos_viewmodel.py",
       "source_path": "86craft/DOScraft/tools/dos_viewmodel.py",
-      "git_blob": "60af15bc63fb499b11c9497bc2a358bc2433011e",
+      "git_blob": "1e2089db96bf8cbfbaafb409bf6891e4910935e7",
       "git_mode": "100644",
-      "sha256": "0c2bedd056117b5731933b2dcfba400c5c4f76d064a3c454aa72e6e36f6110f3",
-      "size": 1470
+      "sha256": "4a70229db80a887544b49d7b9ccdab8ac337560741eddf8cc6cad535e6d46eee",
+      "size": 1328
     },
     {
       "path": "tools/dos_wall_visibility.py",
       "source_path": "86craft/DOScraft/tools/dos_wall_visibility.py",
-      "git_blob": "858c7e390edd19fcdfa6d15bdb5702b88d562f35",
+      "git_blob": "fc6f680601b4089d015655517eef15da54aa878f",
       "git_mode": "100644",
-      "sha256": "c9422fb3c41150b966f7052a28acaf85697b0b36bb2e68f2e88f148a31288158",
-      "size": 6116
+      "sha256": "b20d55e31c12c497b0a7a6cac9010e78cff2a575e300f0b062a14ab1486af42f",
+      "size": 5966
     },
     {
       "path": "tools/dos_world_scans.py",
       "source_path": "86craft/DOScraft/tools/dos_world_scans.py",
-      "git_blob": "f474a0bdd6f1fca8522df5aad6aaa50c6647b532",
+      "git_blob": "eef73d09824ddbaea6bf5d403bcec320e74cf211",
       "git_mode": "100644",
-      "sha256": "1b300f4ae8c339d32dbbcf9cc6f2f46a05000d4777bf60d0f6bc3ff40e90b02a",
-      "size": 2267
+      "sha256": "a3bbb8c54b956d1703ff84a456d2901012e4bc2d093efb34be3fc9244105baf4",
+      "size": 2110
     },
     {
       "path": "tools/fat_image.py",
@@ -2180,6 +2284,110 @@
       "size": 2232
     },
     {
+      "path": "tools/fm_lab/README.md",
+      "source_path": "86craft/DOScraft/tools/fm_lab/README.md",
+      "git_blob": "623679563d91754982d679e8cdee85ae84626312",
+      "git_mode": "100644",
+      "sha256": "7c1c54a9f17bb8a34ab5a03b1eba629e81503a86961230431c351ec795bec3d0",
+      "size": 6303
+    },
+    {
+      "path": "tools/fm_lab/build_fm_lab.py",
+      "source_path": "86craft/DOScraft/tools/fm_lab/build_fm_lab.py",
+      "git_blob": "bad5cb08457af184d8f4179f94a7d422e4f2b31a",
+      "git_mode": "100644",
+      "sha256": "04ee7f06c3d0588ea1f35b295221e7b63d0ee1b8a72cbf53d6e059dc98d82bd8",
+      "size": 4756
+    },
+    {
+      "path": "tools/fm_lab/fm_lab.html",
+      "source_path": "86craft/DOScraft/tools/fm_lab/fm_lab.html",
+      "git_blob": "b1203e83a6b4d0ce477b90a1a4a0d45fdd8a870d",
+      "git_mode": "100644",
+      "sha256": "17470fce85da75421cefed903a9c97cee44534af615e5dadff5ea1273c58df18",
+      "size": 193551
+    },
+    {
+      "path": "tools/fm_lab/nuked/LICENSE",
+      "source_path": "86craft/DOScraft/tools/fm_lab/nuked/LICENSE",
+      "git_blob": "8000a6faacf471c537530805ab29523c7732e11a",
+      "git_mode": "100644",
+      "sha256": "20c17d8b8c48a600800dfd14f95d5cb9ff47066a9641ddeab48dc54aec96e331",
+      "size": 26526
+    },
+    {
+      "path": "tools/fm_lab/nuked/opl3.c",
+      "source_path": "86craft/DOScraft/tools/fm_lab/nuked/opl3.c",
+      "git_blob": "4847022d53d5905702a45bef188102197601b7d9",
+      "git_mode": "100644",
+      "sha256": "59eb873fdb6d52bc7977a0fcbb97c1bae03dd71cc88e3acddbcc01b7121bfe03",
+      "size": 41716
+    },
+    {
+      "path": "tools/fm_lab/nuked/opl3.h",
+      "source_path": "86craft/DOScraft/tools/fm_lab/nuked/opl3.h",
+      "git_blob": "4abc29fc6e0ce6733efac346929c78de01c7deb1",
+      "git_mode": "100644",
+      "sha256": "a84266b8d71a4929f15f573afbe407fd24310b77757d855835dacabf68763679",
+      "size": 4397
+    },
+    {
+      "path": "tools/fm_lab/opl3.wasm",
+      "source_path": "86craft/DOScraft/tools/fm_lab/opl3.wasm",
+      "git_blob": "0f06a3831a25969a2ef5ae20234d91552773e184",
+      "git_mode": "100644",
+      "sha256": "44a50b3f03ece50d4f12d365d3c08e1799f964c93ce7bad6e9198b082c4df081",
+      "size": 10027
+    },
+    {
+      "path": "tools/fm_lab/opl3_asm.js",
+      "source_path": "86craft/DOScraft/tools/fm_lab/opl3_asm.js",
+      "git_blob": "54141c248252f47dd8d876edbdae6366e77eda86",
+      "git_mode": "100644",
+      "sha256": "68be0beb73c01137d5e144774b9a19f6629a8328133fd544a9564d7bcaa9f787",
+      "size": 43598
+    },
+    {
+      "path": "tools/fm_lab/src/engine.js",
+      "source_path": "86craft/DOScraft/tools/fm_lab/src/engine.js",
+      "git_blob": "0615eaa4c48bb5bf4074fcf4e8920e65ac479701",
+      "git_mode": "100644",
+      "sha256": "15cfc5c6fff4c697ae1a7b6dd593215895f5f95d4a3bbc13f11f74c144a8373e",
+      "size": 2458
+    },
+    {
+      "path": "tools/fm_lab/src/lab.html",
+      "source_path": "86craft/DOScraft/tools/fm_lab/src/lab.html",
+      "git_blob": "6b39a01936e2970b14d6e7ef35b6d75de8fd20f7",
+      "git_mode": "100644",
+      "sha256": "3b3b366e9fc9947bb74ab0785c42ac7a66da92db5efe936a604b6b4bb2fe0600",
+      "size": 29375
+    },
+    {
+      "path": "tools/fm_lab/src/lab.js",
+      "source_path": "86craft/DOScraft/tools/fm_lab/src/lab.js",
+      "git_blob": "4de391ba855ce9b8de359e2a74499750d993a947",
+      "git_mode": "100644",
+      "sha256": "9ce34f3273ac250367a48a1e95f5b9bbb840f4646283067d777cb8113fcc3342",
+      "size": 56772
+    },
+    {
+      "path": "tools/fm_lab/src/opl_wasm.c",
+      "source_path": "86craft/DOScraft/tools/fm_lab/src/opl_wasm.c",
+      "git_blob": "6d86b2a654a003306268c7c37b213ebd8e9aefe5",
+      "git_mode": "100644",
+      "sha256": "35d879ac2b9da3ce49e41ae6d2496ada03336ae5867eeb2952c8cbf9edc66fdd",
+      "size": 1928
+    },
+    {
+      "path": "tools/fm_lab/src/worklet.js",
+      "source_path": "86craft/DOScraft/tools/fm_lab/src/worklet.js",
+      "git_blob": "8e547add7964f61c778a7bb664ec0d56ed127007",
+      "git_mode": "100644",
+      "sha256": "e318f070f3d902d569dfbaf2c3947dda6abb5dd1119f0eb68c03ca423b10d335",
+      "size": 796
+    },
+    {
       "path": "tools/frame_metrics.py",
       "source_path": "86craft/DOScraft/tools/frame_metrics.py",
       "git_blob": "0564ef3ce2c20371b484157b9e09a77bc5acba20",
@@ -2190,10 +2398,10 @@
     {
       "path": "tools/game_media.py",
       "source_path": "86craft/DOScraft/tools/game_media.py",
-      "git_blob": "6b421a83dcfeb959dd7b56f6874e6fe85368994a",
+      "git_blob": "ec74cf10ed0012709795160e2a2628fcda014f47",
       "git_mode": "100644",
-      "sha256": "d53a470066144656e5576e150c9a7197ad39258b84a03089c9bf811e891fdd82",
-      "size": 17862
+      "sha256": "f4fcce71122ad715a455e8c95e6eb77b8200b8977b00c96dee10a543c3fca609",
+      "size": 17831
     },
     {
       "path": "tools/game_report.py",
@@ -2238,26 +2446,26 @@
     {
       "path": "tools/large_game_smoke.py",
       "source_path": "86craft/DOScraft/tools/large_game_smoke.py",
-      "git_blob": "0a0740b622ed810e90865b2255a9ebedd7a4a18a",
+      "git_blob": "9c34d6b5d14e6954e43aa3c4b482ba70cfd64951",
       "git_mode": "100644",
-      "sha256": "5393e549cfce6b1c6c4ca010309ba274310bbeb013e6dfda29bbf7fa15460519",
-      "size": 3993
+      "sha256": "ee7825bc2c0e5dfa5699b07259aaf3922d754aeaeac904650cf7df34eecff425",
+      "size": 4092
     },
     {
       "path": "tools/large_world_media.py",
       "source_path": "86craft/DOScraft/tools/large_world_media.py",
-      "git_blob": "eacf244d826f28e1661c48f3121f3c7566acd328",
+      "git_blob": "e4a4941e60fefa492b2938f63903bd6b8ac6fbc4",
       "git_mode": "100644",
-      "sha256": "0b2314ede8b2736482be2e3ad289c6f327602ec9ce67f9b4292c87715e437e0d",
-      "size": 7745
+      "sha256": "921ac8c94d9f85e80da6a19596f46f6c060b9240c407747cb87a100158af02fc",
+      "size": 7733
     },
     {
       "path": "tools/leaf_flags_media.py",
       "source_path": "86craft/DOScraft/tools/leaf_flags_media.py",
-      "git_blob": "d3528eba6fa0afc1910ea09784f07b63106b9da6",
+      "git_blob": "9860b1d17fff43dc98f0cb9f8947ee5c9719752f",
       "git_mode": "100644",
-      "sha256": "364288321d92649257017b3f902dd806c989a1b40e56daf8a42d3d9f14fb79cb",
-      "size": 11390
+      "sha256": "1231fbf276b79cd6ee2f3c3eaf5cdbf12e084a6889b085074993e61c41fa1eb2",
+      "size": 11620
     },
     {
       "path": "tools/log_player_vm.py",
@@ -2294,26 +2502,26 @@
     {
       "path": "tools/prepare_large_vm.py",
       "source_path": "86craft/DOScraft/tools/prepare_large_vm.py",
-      "git_blob": "ced69f8815a2d1d9c496a8af9729a425cf9aa3ab",
+      "git_blob": "5b60f07e82b56bf61d351d8518ce099c0c68d573",
       "git_mode": "100644",
-      "sha256": "3bf8751319db4b247282526d15543edb76d2a3009d7c795f900116b41fcef783",
-      "size": 2777
+      "sha256": "5c1a8920b11537b5c4f38fae2c36b4fe1f1a8921d6ea24ee7c2537d9c26280ef",
+      "size": 2763
     },
     {
       "path": "tools/preview_block_textures.py",
       "source_path": "86craft/DOScraft/tools/preview_block_textures.py",
-      "git_blob": "1425fa3f84d19be61807681be3d34dfec6868501",
+      "git_blob": "d1628dedb63e20cc9f1a19d223ff88bc4bab79c8",
       "git_mode": "100644",
-      "sha256": "9d0cc6979fdc4859117da59f95dd6d2be87fa73c52da111efc5c3f9ca48488c1",
-      "size": 5523
+      "sha256": "0b78e529ddc91cd7828d947293bfa81dc675eeeafbd51247caf388b8827d7de7",
+      "size": 5512
     },
     {
       "path": "tools/preview_terrain_biomes.py",
       "source_path": "86craft/DOScraft/tools/preview_terrain_biomes.py",
-      "git_blob": "8fabc1bc20830e200a0efc6d610052056b96ceb7",
+      "git_blob": "bdbb77d22d31b57b730df96f50d0ce4d24aaa2bd",
       "git_mode": "100644",
-      "sha256": "5bab2d989622e84a59465367c3f8d3077c341d8139c91fc19e9b631a011cb946",
-      "size": 2312
+      "sha256": "26a7cccc13873fda8534ee1e966cc04894e16d29d4fa0d761e5395a6fc90bb4c",
+      "size": 2304
     },
     {
       "path": "tools/profile_draw.py",
@@ -2326,10 +2534,10 @@
     {
       "path": "tools/publish_game.py",
       "source_path": "86craft/DOScraft/tools/publish_game.py",
-      "git_blob": "713628bdaadb351d4c75a1397537cb0387755d07",
+      "git_blob": "5d51c2f2098b5296657964254e0a9ae44440d68e",
       "git_mode": "100644",
-      "sha256": "9098538e05ee4de607312c0587d56dd02de19415614678a23c620b97bd9a651d",
-      "size": 9427
+      "sha256": "ebddddc38a8218677678ac2d6311b4829cf5f00ca0f9c16da1e48643504092f5",
+      "size": 9480
     },
     {
       "path": "tools/refresh_1992_vm.py",
@@ -2374,10 +2582,10 @@
     {
       "path": "tools/streaming_probe.py",
       "source_path": "86craft/DOScraft/tools/streaming_probe.py",
-      "git_blob": "a22046ec67acb9ee9254cd5399a97f606705b62a",
+      "git_blob": "54c3d4010fd633adda3dd509d410bc50b22bb011",
       "git_mode": "100644",
-      "sha256": "9884c7d95c0e2deff1052f1e8bbc9609cb80827706be2e6c8b4050209e9a4295",
-      "size": 3835
+      "sha256": "de880ef5faf4f4ecc05130f2b6fc3818aba2ec8169728d8c3e25106ce50cb42e",
+      "size": 3830
     },
     {
       "path": "tools/terrain_biomes.py",
@@ -2398,10 +2606,10 @@
     {
       "path": "tools/tree_canopy_preview.py",
       "source_path": "86craft/DOScraft/tools/tree_canopy_preview.py",
-      "git_blob": "6bd9c8e9d205348240b2d8db830e2c0926c72b94",
+      "git_blob": "5b67d88fbe47936dd31d61e05f26d25c55872c89",
       "git_mode": "100644",
-      "sha256": "8d2e7e0d5a8faa54b04623d4f4b0a5eef2bd80242374ef392b17318993ce8b6c",
-      "size": 4305
+      "sha256": "1f5bd22fed0afa028c07b08b3e82a33633dc10c2a96f39caed02856d3e07e7b8",
+      "size": 4315
     },
     {
       "path": "tools/upgrade_1990_vm.py",

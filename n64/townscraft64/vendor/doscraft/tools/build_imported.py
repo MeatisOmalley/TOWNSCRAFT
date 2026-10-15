@@ -85,6 +85,16 @@ def canonical_json(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':')).encode('utf-8')
 
 
+def lf_text(data, recipe):
+    """Decode a UTF-8 source as LF text, recording any CRLF conversion."""
+    text = data.decode('utf-8')
+    if '\r\n' in text:
+        recipe.append(dict(operation='replace', before='\r\n', after='\n',
+                           count=text.count('\r\n')))
+        text = text.replace('\r\n', '\n')
+    return text
+
+
 def replace_once(text, before, after, recipe):
     """Fail closed on missing/duplicated expected source, recording exact edits."""
     count = text.count(before)
@@ -97,12 +107,8 @@ def replace_once(text, before, after, recipe):
 def adapt_source(name, data):
     if name not in ('common.h', 'hdd.h', 'libc.c', 'trap.S'):
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     if name == 'common.h':
         text = replace_once(text, '#include "hw.h"',
                             '#include "dos_compat.h"', recipe)

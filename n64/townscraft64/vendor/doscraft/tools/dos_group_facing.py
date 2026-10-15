@@ -1,12 +1,10 @@
 """Move the existing sorted-prefix backface rejection before group box work."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 def adapt(name,data):
     if name!='render.c': return data,[]
-    recipe=[];text=data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    recipe=[]
+    text=lf_text(data,recipe)
     before='''\t\t\t\t\t/* The group's box: distance limit, then the planes the
 \t\t\t\t\t   chunk straddles */
 '''

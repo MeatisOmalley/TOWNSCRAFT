@@ -17,17 +17,27 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / 'vendor'
 
-# DOScraft master on 2026-10-15: "DOScraft sound: hand-picked takes, mob,
-# water and Minecraft-style hit sounds". Reference game for Townscraft64 (Q1).
-DOSCRAFT_COMMIT = '2ce6b443ddda1e1c9b5288da5e83a12f4b396a93'
+# DOScraft master on 2026-10-15, 06:02: "DOScraft: record save version 6 and
+# the block-ID release" (6-bit block IDs, large-world save version 6).
+# Reference game for Townscraft64 (Q1). Re-pinned from 2ce6b443 at N2b,
+# before any extraction depended on the older 5-bit block format.
+DOSCRAFT_COMMIT = 'c4ce3b7b2638fd6ad62f1cb975786bd4fa9bda00'
 DOSCRAFT_ROOT = '86craft/DOScraft'
 # Game source, overlay patchers and offline tools, art/audio/music sources and
 # design notes. Not imported: tests (22 MB of fixtures), research, ISO,
 # profiles, guest and emulator patches, which are PC-specific.
 DOSCRAFT_INCLUDE = ('vendor/', 'src/', 'tools/', 'assets/')
+# DOScraft native tests for code the N64 runs (and their drivers, which record
+# how each test stages the source). The rest of tests/ is PC-specific.
+DOSCRAFT_TESTS = tuple(f'tests/{name}' for name in (
+    'chickens_native.c', 'test_chickens.py',
+    'mob_codec_test.c', 'test_mob_codec.py',
+    'immediate_light_native.c', 'test_immediate_light.py',
+    'stream_light_native.c', 'test_stream_light.py',
+    'far_world_native.c', 'test_far_field.py'))
 DOSCRAFT_DOCS = ('README.md', 'PORT_PLAN.md', 'BIOMES_AND_TEXTURES.md', 'CHICKENS.md',
                  'DISTANT_TERRAIN.md', 'LARGE_WORLD_STORAGE.md', 'KNOWN_PORT_ISSUES.md',
-                 'OPTIMIZATION_BACKLOG.md', 'PERFORMANCE.md')
+                 'OPTIMIZATION_BACKLOG.md', 'PERFORMANCE.md', 'EARLY_GAME.md')
 
 # The Towns snapshot DOScraft vendors; its native tests are not in that snapshot.
 TOWNS_COMMIT = 'd706a67db6242627c6233e5593fd1a1e1ddc69af'
@@ -56,7 +66,7 @@ def tree(commit, root):
 
 
 def select_doscraft(rel):
-    return rel.startswith(DOSCRAFT_INCLUDE) or rel in DOSCRAFT_DOCS
+    return rel.startswith(DOSCRAFT_INCLUDE) or rel in DOSCRAFT_DOCS or rel in DOSCRAFT_TESTS
 
 
 def select_towns(rel):

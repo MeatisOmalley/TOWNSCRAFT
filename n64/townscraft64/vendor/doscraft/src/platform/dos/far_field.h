@@ -29,8 +29,13 @@ int dos_far_max_level(void);
 void dos_far_follow(int x,int z);
 #define DOS_LEAF_RIM 64
 #define DOS_FAR_LEAF_FLAGS_MAGIC 0x3246414cu
+/* The distant map packs a material into one byte: block ID in bits 0-4, two
+ * slope bits and a variation bit above it. World cells use 6-bit IDs, so only
+ * IDs below FAR_IDS can be distant surfaces; FAR_ID decodes map bytes. */
+#define FAR_IDS 32
+#define FAR_ID(b) ((b)&31)
 /* Only the distant summary ignores this baked metadata bit. */
-static inline int dos_far_cube(u8 b) { return b!=(B_LEAVES|DOS_LEAF_RIM) && (blk_flags(b)&BF_CUBE); }
+static inline int dos_far_cube(u8 b) { return b!=(B_LEAVES|DOS_LEAF_RIM) && BLK_ID(b)<FAR_IDS && (blk_flags(b)&BF_CUBE); }
 int dos_far_available(void);
 void dos_far_toggle(void);
 void dos_far_change(int direction);

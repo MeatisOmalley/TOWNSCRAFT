@@ -12,6 +12,7 @@ Adaptations are exact, fail-closed replacements, like DOScraft's overlays:
 - hdd.h: hw.h -> common.h (only the types are used).
 - libc.c: drop the x86-assembly memset/memcpy/memmove/memcmp/strlen;
   itoa_dec, rnd and hash3 stay.
+- fmath.h: mulshift/divshift/muldiv x86 assembly -> C (tools/n64_adapt.py).
 Platform files (video, gfx, sys, sound, save, hdd, bench, crt0, isr, trap.S,
 kernel.ld) are not staged: the N64 replaces them.
 """
@@ -21,6 +22,9 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # -I omits the script folder
+import n64_adapt  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 TOWNS = ROOT / 'vendor/doscraft/vendor/towns'
@@ -94,6 +98,9 @@ def adapt(name, text):
     elif name == 'libc.c':
         text = remove_span(text, 'void *memset(void *d,int c,unsigned int n)\n',
                            'char *itoa_dec(int v,char *buf)\n', recipe)
+    elif name == 'fmath.h':
+        text, step = n64_adapt.fmath_portable(text)
+        recipe.append(step)
     return text, recipe
 
 

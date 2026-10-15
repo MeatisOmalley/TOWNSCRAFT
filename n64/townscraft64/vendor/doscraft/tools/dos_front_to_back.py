@@ -1,5 +1,5 @@
 """Opt-in exact reverse-painter experiment; never edits the vendor snapshot."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 
 FRONTEND = r'''
@@ -126,10 +126,7 @@ def adapt(name, data):
     if name not in ('render.c', 'raster.c'):
         return data, []
     recipe=[]
-    text=data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    text=lf_text(data,recipe)
     def change(before, after):
         nonlocal text
         text=replace_once(text,before,after,recipe)
@@ -152,8 +149,9 @@ def adapt(name, data):
         functions=FRONTEND.replace('static struct DosF2BCapture f2bCapture;\nstatic int f2bCapturing,f2bFailed;\n','')
         change('void render_frame(u8 *fb,const RenderEnv *env)\n',
                functions+'void render_frame(u8 *fb,const RenderEnv *env)\n')
-        change('\tint key,ent;\n\toccQuery=0; g_statOccluded=0;\n',
-               '\tint key,ent;\n#ifdef DOS_F2B_STRESS\n\tf2b_stress_boxes();\n#endif\n'
+        # The default texture overlay may insert its resolution sync above this line.
+        change('\toccQuery=0; g_statOccluded=0;\n',
+               '#ifdef DOS_F2B_STRESS\n\tf2b_stress_boxes();\n#endif\n'
                '\toccQuery=0; g_statOccluded=0;\n')
         change('\t/* Far to near: merge the (cached) face list with the entity list.  On\n',
                '\tint frontSuccess=draw_front_to_back(env);\n'

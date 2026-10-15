@@ -36,8 +36,10 @@ The emulator checkout at `../86Box` is an independent Git repository. Game work 
 
 The current playable ISO uses a **1024×1024 prebaked seed (4242)** streamed from
 the June 1990 VM's writable SCSI HDD. The bake includes surface terrain, trees,
-plants, ores, worm caves, and cave entrances. Saving writes a version-5 world
-directory plus edited terrain slots. New seed generation in DOS is deferred.
+plants, ores, worm caves, and cave entrances. Saving writes a version-6 world
+directory plus edited terrain slots. Version 6 (2026-10-15) uses 6-bit block
+IDs with items numbered from 64; older version-5 saves are not offered or
+loaded, so players start a New Game. New seed generation in DOS is deferred.
 The previous 256-world VM and its ISO backup remain intact. The current
 `ISO/Launch-DOScraft.cmd` opens the 1024-world VM selected by
 `build/game/486dx25/latest-play-vm.txt`.

@@ -29,7 +29,8 @@ void world_commit_large_columns(void);
 #define NUM_TRACKS (77*2)
 #define SAVE_MAGIC 0x46435354
 #ifdef DOS_LARGE_WORLD
-#define SAVE_VERSION 5
+/* 6: 6-bit block IDs, items from 64. Version 5 saves hold old item IDs. */
+#define SAVE_VERSION 6
 #else
 #define SAVE_VERSION 4
 #endif
@@ -185,8 +186,12 @@ int dos_save_has_world(void)
         if(fdc_track(bank*BANK_TRACKS,0)) {
             u32 magic,version;
             memcpy(&magic,trackBuf,4); memcpy(&version,trackBuf+4,4);
+#ifdef DOS_LARGE_WORLD
+            if(magic==SAVE_MAGIC && version==SAVE_VERSION) found=1;
+#else
             if(magic==SAVE_MAGIC && version>=1 && version<=SAVE_VERSION &&
                (bank==0 || version>=4)) found=1;
+#endif
         }
     }
     fdc_stop();

@@ -40,7 +40,7 @@ def mark_rim(blocks,roots,*,crown=False):
         x,z=cell&15,cell>>4
         for y in range(48):
             i=cell*48+y
-            if result[i]&31==7:
+            if result[i]&63==7:
                 result[i]=(result[i]&~LEAF_RIM)|(0 if keep(roots,x,y,z) else LEAF_RIM)
     return result
 
@@ -54,7 +54,7 @@ def surface(blocks,leaves=True,roots=None):
                 for dx in range(2):
                     p=((z+dz)*16+x+dx)*48
                     for y in range(47,h-1,-1):
-                        block=blocks[p+y]&31
+                        block=blocks[p+y]&63
                         if block not in CUBES or blocks[p+y]==(7|LEAF_RIM):continue
                         if block==7 and (not leaves or roots is not None and not keep_leaf(roots,x+dx,y,z+dz)):continue
                         h,b=y+1,block;break

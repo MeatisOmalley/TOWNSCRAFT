@@ -1,5 +1,5 @@
 """Low/Medium adaptive leaf coarsening only for bounded low-depth-spread nodes."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 HELPER='''/* Bounded quality tradeoff: at most 2x2 opaque cells, fully near-visible.
    Test actual grid-corner depths, not an assumed monotonic table bound. */
@@ -20,10 +20,8 @@ static int split_depth_safe(int x,int y,int z,int dir,int ex,int ez)
 
 def adapt(name,data):
     if name!='render.c': return data,[]
-    recipe=[]; text=data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    recipe=[]
+    text=lf_text(data,recipe)
     anchor='/* Draw a piece of a quad near the camera (see draw_quad), ex by ez cells */\n'
     text=replace_once(text,anchor,HELPER+anchor,recipe)
     anchor='static void draw_quad_split(int x,int y,int z,int dir,int ex,int ez,int tex,int light)\n{\n'

@@ -7,7 +7,7 @@ i+-CS*WH (the flat world uses i+-strideZ), the same relation light_dirty()
 already relies on. widx() is now only called when a step crosses a column
 seam. Visit order, bounds and resulting light values are unchanged.
 """
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 HELPER = '''
 /* Same result as in_world()+widx() for the six flood-fill directions, but
@@ -33,11 +33,8 @@ static void propagate(int ch)
 def adapt(name, data):
     if name != 'world.c':
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, '\nstatic void propagate(int ch)\n', HELPER, recipe)
     lookup = ('\t\t\tif(!in_world(nx,ny,nz))\n'
               '\t\t\t{\n'

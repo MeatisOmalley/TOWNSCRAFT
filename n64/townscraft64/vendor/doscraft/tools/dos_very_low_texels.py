@@ -4,17 +4,14 @@ The skipping loops are separate scale-2 entry points selected once per frame,
 so Low and Medium keep running the unmodified scale-2 trapezoid loops.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 
 def adapt(name, data):
     if name not in ('raster.c', 'trap.S'):
         return data, []
     recipe=[]
-    text=data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    text=lf_text(data,recipe)
     if name=='raster.c':
         text=replace_once(text,'\tu32 pixels;\n} Trap;\n',
             '\tu32 pixels;\n\tint rowIndex;\n} Trap;\n',recipe)

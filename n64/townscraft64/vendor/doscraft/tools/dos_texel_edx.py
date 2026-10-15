@@ -7,7 +7,7 @@ the low halves of EBP are zero, so DL (du int) and DH (dv int) are unchanged.
 src/platform/dos/low_planar.S makes the same change under DOS_TEXEL_EDX.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 SETUP_BEFORE = '''\tshll\t$16,%ecx
 \tmovw\t%dx,%cx
@@ -62,11 +62,7 @@ def adapt(name, data, *, very_low_texels=False):
     if name != 'trap.S':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, '\tmovb\t(%ebx),%al\n\taddl\t%esi,%ecx\n\t.endif\n' + STEP,
         '\tmovb\t(%ebx),%al\n\taddl\t%esi,%ecx\n\t.endif\n' + STEP_EDX, recipe)
     if very_low_texels:

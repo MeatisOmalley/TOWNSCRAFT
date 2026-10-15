@@ -56,7 +56,13 @@ static void finish(int code)
     for (;;) {}
 }
 
-int __real_main(void);
+/* Tests that take a case name (argv[1]) get it from -DTEST_ARG="name". */
+int __real_main(int argc, char **argv);
+#ifdef TEST_ARG
+static char *test_argv[] = { "test", TEST_ARG, 0 };
+#else
+static char *test_argv[] = { "test", 0 };
+#endif
 
 int __wrap_main(void)
 {
@@ -69,7 +75,7 @@ int __wrap_main(void)
     r->state = STATE_RUNNING;
     r->magic = 0x54363454;
     hook_stdio_calls(&(stdio_t){ NULL, capture, capture });
-    finish(__real_main());
+    finish(__real_main(sizeof(test_argv) / sizeof(test_argv[0]) - 1, test_argv));
     return 0;
 }
 

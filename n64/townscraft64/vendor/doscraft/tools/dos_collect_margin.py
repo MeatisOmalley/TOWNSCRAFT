@@ -1,11 +1,10 @@
 """Conservative orientation margin with exact painter-axis invalidation."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 def adapt(name,data,*,very_low_only=False):
     if name!='render.c': return data,[]
-    text=data.decode('utf-8'); recipe=[]
-    if '\r\n' in text:
-        text=replace_once(text,'\r\n','\n',recipe)
+    recipe=[]
+    text=lf_text(data,recipe)
     def one(before,after):
         nonlocal text
         text=replace_once(text,before,after,recipe)

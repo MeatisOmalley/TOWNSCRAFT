@@ -17,6 +17,7 @@ from game_media import prepare,validate
 from prepare_large_vm import attach_large_disk
 from large_world_media import upgrade_disk
 from large_game_smoke import large_volume
+from leaf_flags_media import SAVE_VERSION
 
 
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -104,7 +105,7 @@ def publish_large(terrain_path, smoke_vm, output):
         '-DDOS_LARGE_WORLD' not in build.get('extra_adapter_flags',()) or
         build.get('benchmark') or tested.get('exe_sha256')!=build.get('exe_sha256') or
         tested.get('source_terrain_sha256',tested.get('terrain_sha256'))!=sha(terrain_path) or
-        report.get('save_version')!=5 or
+        report.get('save_version')!=SAVE_VERSION or
         any('RESULT=PASS\n' not in report.get(mode,'') for mode in ('new','load'))):
         raise ValueError('Large-world media is not the exact smoke-tested build')
     iso=ROOT/'ISO/DOSCRAFT.ISO'

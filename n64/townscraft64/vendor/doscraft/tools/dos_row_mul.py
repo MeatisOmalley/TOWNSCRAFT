@@ -7,18 +7,14 @@ unsigned products. EDX is dead there (reloaded with T_LV below). 86Box charges
 src/platform/dos/low_planar.S makes the same change under DOS_ROW_MUL.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name != 'trap.S':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     for field in ('DU', 'DV'):
         text = replace_once(text,
             '\tsarl\t$8,%eax\n\timull\t%ecx,%eax\n\tsarl\t$6,%eax\n\tmovl\t%eax,row' + field + '\n',

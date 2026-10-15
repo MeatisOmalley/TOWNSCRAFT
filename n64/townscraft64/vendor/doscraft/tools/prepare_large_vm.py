@@ -9,7 +9,7 @@ import struct
 from build_game import ROOT
 from fat_image import populate, scratch_hdd
 from save_fixture import save_image
-from large_world_media import check_terrain,log_terrain
+from large_world_media import log_terrain
 
 
 def attach_large_disk(vm, terrain_path, *, player=False):

@@ -1,5 +1,12 @@
 # N2 portable core (2026-10-15)
 
+> **Corrections (N2b, same day):** `vendor/doscraft` was re-pinned from
+> `2ce6b443` to `c4ce3b7b` (6-bit block IDs, save version 6); the Towns snapshot
+> is unchanged. And `render.c` did **not** compile in N2: `fmath.h` holds x86
+> inline assembly, and the assembler's errors were missed by a case-sensitive
+> search. Both are fixed and described in
+> [the N2b report](n2b-doscraft-source-2026-10-15.md).
+
 ## 1. Pinned DOScraft snapshot
 
 `tools/import_doscraft.py` copies files from **git objects** at pinned

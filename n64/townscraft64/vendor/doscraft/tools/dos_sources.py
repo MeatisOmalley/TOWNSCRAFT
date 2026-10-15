@@ -5,7 +5,7 @@ Experiments remain independently selectable; the direct-port builder defaults
 to no overlays. No automatic copying from a different local Towns branch.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 
 def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=False,
@@ -23,6 +23,9 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     data,steps=dos_day_length.adapt(name,data);recipe.extend(steps)
     import dos_chickens
     data,steps=dos_chickens.adapt(name,data)
+    recipe.extend(steps)
+    import dos_block_ids
+    data,steps=dos_block_ids.adapt(name,data)
     recipe.extend(steps)
     if name in ('textures.c','textures.h','render.c','render.h'):
         import dos_block_textures
@@ -71,10 +74,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         data,steps=dos_trap_stable.adapt(name,data)
         recipe.extend(steps)
     if name=='trap.S' and trap_destination:
-        text=data.decode('utf-8')
-        if '\r\n' in text:
-            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-            text=text.replace('\r\n','\n')
+        text=lf_text(data,recipe)
         text=replace_once(text,'\tmovl\t%eax,rowX\n',
             '\t/* EDI is unused by gradient/prestep setup. Keep the exact destination. */\n'
             '\tmovl\tT_ROW(%ebp),%edi\n'
@@ -89,10 +89,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
             '\t/* Destination already held in EDI; texture setup did not touch it. */\n',recipe)
         data=text.encode('utf-8')
     if name=='trap.S' and trap_zero_gradient:
-        text=data.decode('utf-8')
-        if '\r\n' in text:
-            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-            text=text.replace('\r\n','\n')
+        text=lf_text(data,recipe)
         for field,label in (('DU',31),('DV',32)):
             before='\tsarl\t$8,%eax\n\timull\t%ecx,%eax\n\tsarl\t$6,%eax\n\tmovl\t%eax,row'+field+'\n'
             after=('\tsarl\t$8,%eax\n'
@@ -107,20 +104,14 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         data, steps=dos_graphics.adapt(name,data)
         recipe.extend(steps)
     if name=='raster.c' and raster_zero_dx:
-        text=data.decode('utf-8')
-        if '\r\n' in text:
-            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-            text=text.replace('\r\n','\n')
+        text=lf_text(data,recipe)
         text=replace_once(text,
             '\te->dx=divshift(b->x-a->x,dy,16);\n',
             '\t/* Accepted polygon edges have dy>0. Exact vertical edges need no IDIV. */\n'
             '\te->dx=(b->x==a->x) ? 0 : divshift(b->x-a->x,dy,16);\n',recipe)
         data=text.encode('utf-8')
     if name=='render.c' and camera_reuse:
-        text=data.decode('utf-8')
-        if '\r\n' in text:
-            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-            text=text.replace('\r\n','\n')
+        text=lf_text(data,recipe)
         text=replace_once(text,'static int camBX,camBY,camBZ;\n',
             'static int camBX,camBY,camBZ;\n'
             'static int cameraReuseValid,cameraReuseView,cameraReuseWidth,cameraReuseScale;\n'
@@ -138,10 +129,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
             '\tcameraReuseScale=g_renderScale; cameraReuseValid=1;\n',recipe)
         data=text.encode('utf-8')
     if name=='render.c' and packed_raster:
-        text=data.decode('utf-8')
-        if '\r\n' in text:
-            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-            text=text.replace('\r\n','\n')
+        text=lf_text(data,recipe)
         text=replace_once(text,'#include "raster.h"\n',
             '#include "raster.h"\n#include "packed_raster.h"\n',recipe)
         text=replace_once(text,'\tdraw_sky(env);\n\tdraw_clouds(env);\n',
@@ -151,10 +139,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
             '#endif\n\tdraw_clouds(env);\n',recipe)
         data=text.encode('utf-8')
     if name=='render.c' and early_split_cull:
-        text=data.decode('utf-8')
-        if '\r\n' in text:
-            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-            text=text.replace('\r\n','\n')
+        text=lf_text(data,recipe)
         text=replace_once(text,'/* Is the box between grid lines xa..xb, ya..yb, za..zb wholly behind the\n',
             '/* Exact descendant gate: fixed-point weighted planes can have interior\n'
             '   minima lower than their endpoint minima. Confirm every included grid\n'
@@ -191,10 +176,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
             '\t\tif(g_textureSubdivision==SUBDIV_FULL)\n',recipe)
         data=text.encode('utf-8')
     if name=='raster.c' and edge_recip:
-        text=data.decode('utf-8')
-        if '\r\n' in text:
-            recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-            text=text.replace('\r\n','\n')
+        text=lf_text(data,recipe)
         text=replace_once(text,'#include "fmath.h"\n','#include "fmath.h"\n#include "edge_recip.h"\n',recipe)
         text=replace_once(text,'\trscale=scale;\n','\trscale=scale;\n\tdos_edge_recip_init();\n',recipe)
         before='divshift(b->x-a->x,dy,16)'
