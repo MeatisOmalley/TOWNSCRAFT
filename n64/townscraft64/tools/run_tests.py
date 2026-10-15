@@ -19,7 +19,8 @@ import time
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ares_gdb import ARES, NM, PORT, Gdb  # noqa: E402
+import ares_gdb  # noqa: E402
+from ares_gdb import NM, PORT, Gdb  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 # Towns host tests (build/tests) expect exit 0 and a PASS line. DOScraft's
@@ -52,16 +53,8 @@ def run_one(name, target, timeout, settings):
     rom = ROOT / target['dir'] / f'{name}.z64'
     elf = ROOT / target['dir'] / f'build/rom/{name}.elf'
     address = symbol_address(elf, 'g_test_result')
-    args = [str(ARES), '--system', 'Nintendo 64', '--no-file-prompt', '--settings-file', str(settings),
-            '--setting', 'Nintendo64/ExpansionPak=true',
-            '--setting', 'Input/Defocus=Allow',
-            '--setting', 'DebugServer/Enabled=true',
-            '--setting', 'DebugServer/UseIPv4=true',
-            '--setting', f'DebugServer/Port={PORT}',
-            '--setting', f'Paths/Saves={(settings.parent / "saves").as_posix()}/',
-            str(rom)]
     started = time.monotonic()
-    process = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    process = ares_gdb.launch(rom, settings, expansion_pak=True)
     record = dict(test=name, rom=str(rom.relative_to(ROOT)), status='timeout')
     try:
         gdb = Gdb(PORT, started + 30)

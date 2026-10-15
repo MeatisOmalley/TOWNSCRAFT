@@ -25,7 +25,11 @@ u32 g_profCount;                /* no N64 sampler yet */
 
 void n64_input_init(void);
 void n64_input_frame(void);
-void sound_tick(void);
+void n64_music_pump(void);
+static void (*tick_hook)(void);
+
+/* DOScraft audio registers its 100 Hz sequencer/mixer hook here (irq.h). */
+void dos_irq_set_tick_hook(void (*hook)(void)) { tick_hook = hook; }
 
 static uint16_t palette[256] __attribute__((aligned(16)));
 static int palette_dirty = 1;
@@ -34,7 +38,8 @@ static void tick(int overflow)
 {
     (void)overflow;
     ++g_ticks;
-    sound_tick();
+    if (tick_hook)
+        tick_hook();
 }
 
 static void vblank(void)
@@ -108,6 +113,7 @@ void video_wait_vsync(void)
 void dos_video_present(const u8 *fb, unsigned int pitch)
 {
     n64_input_frame();
+    n64_music_pump();
     surface_t *disp = display_get();
     data_cache_hit_writeback(fb, pitch * SCR_H);
     if (palette_dirty) {
