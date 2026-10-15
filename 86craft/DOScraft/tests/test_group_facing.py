@@ -14,7 +14,7 @@ class GroupFacingTests(unittest.TestCase):
     def test_optional_recipe_exact_and_replayable(self):
         for name in imported.SELECTED:
             data=(imported.VENDOR/'src'/name).read_bytes()
-            self.assertEqual(dos_sources.adapt(name,data),(data,[]))
+            default=dos_sources.adapt(name,data)
             result,recipe=dos_sources.adapt(name,data,group_facing=True)
             replay=data
             for step in recipe:
@@ -22,7 +22,7 @@ class GroupFacingTests(unittest.TestCase):
                 self.assertEqual(replay.count(old),step['count'])
                 replay=replay.replace(old,new)
             self.assertEqual(replay,result)
-            if name!='render.c': self.assertFalse(recipe)
+            if name!='render.c': self.assertEqual((result,recipe),default)
 
     def test_actual_collectors_identical_items_keys_and_caps(self):
         data=(imported.VENDOR/'src/render.c').read_bytes()

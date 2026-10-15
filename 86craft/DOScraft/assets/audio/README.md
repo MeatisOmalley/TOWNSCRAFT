@@ -2,8 +2,8 @@
 
 `masters/` retains unmodified original-quality OGG samples from Kenney's
 [Impact Sounds](https://kenney.nl/assets/impact-sounds). The archive's license
-is retained in `KENNEY-LICENSE.txt`; all selected source hashes and variant
-groups are in `sources.json`. These samples use CC0-1.0. Eaglercraft's supplied
+is retained in `KENNEY-LICENSE.txt`; their source hashes are in
+`sources.json`. These samples use CC0-1.0. Eaglercraft's supplied
 event mapping informed material groups/variation; no Minecraft/Eaglercraft
 recordings are copied or remixed into this library.
 
@@ -13,11 +13,34 @@ Current packaging (host Python, NumPy and SoundFile; decoder is not in DOS):
 python tools/build_sound_bank.py --output build/assets/audio/SOUND.PAK
 ```
 
-The current bank has 50 clips: the 44 Kenney variants plus 6 procedural ones
-(2 explosions, 1 creeper fuse hiss, 3 zombie groans). Those three sounds have no
-Kenney master, so `build_sound_bank.py` synthesizes them from fixed seeds; the
-recipes are recorded in the bank's JSON report. It is 11025 Hz, unsigned 8-bit
-mono and 176,661 bytes (the game accepts up to 192 KiB).
+`picks.json` names the takes each event plays, chosen by ear in the sound
+picker: Kenney masters, other recordings retained unmodified in `extra/` (their
+authors, licenses, pages and hashes are in `extra/sources.json`), or a sound
+synthesized from a fixed seed (`procedural/...`). `file#n` is the nth sound of a
+recording split at its pauses. A group with several takes plays one at random,
+never the same one twice in a row. A group without picks stays empty: the game
+then plays its synthesized Towns sound (block breaks, player and mob hurt,
+click) or nothing (mob calls, water). Credits, including the one CC-BY
+recording, are in [CREDITS.md](CREDITS.md) and on the ISO's `README.TXT`.
+
+The current bank has 30 clips, 11025 Hz unsigned 8-bit mono, 122,739 bytes (the
+game accepts up to 512 KiB and 128 clips). Unpicked so far: stone and glass
+breaks, player hurt, click, all pig and sheep sounds, chicken calls and hurt,
+creeper death. Groups, in `audio_bank.h` order:
+block breaks (crunch/dirt, stone, wood, sand, glass, gravel), footsteps (grass,
+stone, wood, sand, gravel), place, player hurt, click, explosion, creeper fuse
+hiss, zombie groan, then per-mob calls, hurt and death cries (pig, sheep,
+chicken, zombie, creeper), splash and swim.
+
+How the game uses them, as in Minecraft:
+
+- Mining hits replay the block's footstep at a quarter of the break level and
+  half pitch, every fourth tick while the button is held.
+- Pigs, sheep, chickens and zombies call about every 6 seconds each, from up to
+  16 blocks away. A death cry falls back to the hurt cry, then to the original
+  pitched hurt sound.
+- Entering water splashes (louder the faster you fall in); every 2 blocks swum
+  plays a stroke.
 It is a separate `SOUND.PAK` file alongside the executable on the boot floppy
 and in the ISO. Playback checks `C:\SOUND.PAK`, then `A:\SOUND.PAK`. Missing,
 corrupt or unsupported banks use the basic synthesized effects. A missing
@@ -41,7 +64,7 @@ For a future higher-quality build, use the same original masters:
 python tools/build_sound_bank.py --rate 44100 --bits 16 --channels 2 --output build/assets/audio/future/SOUND.PAK
 ```
 
-This generates a 2,814,076-byte stereo bank. The current SB1 runtime deliberately
+This generates a 1,961,948-byte stereo bank. The current SB1 runtime deliberately
 accepts only its 8-bit mono format; the future backend must support the richer
 format and appropriate media. Master samples are never overwritten by packaging.
 Bank headers declare version, sample rate, bit depth, channel count, descriptors

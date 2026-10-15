@@ -21,11 +21,11 @@ class SplitCullTests(unittest.TestCase):
             old,new=step['before'].encode(),step['after'].encode()
             self.assertEqual(replay.count(old),step['count']); replay=replay.replace(old,new)
         self.assertEqual(replay,candidate)
-        self.assertEqual(dos_sources.adapt('render.c',data),(data,[]))
         for name in imported.SELECTED:
             if name!='render.c':
                 original=(imported.VENDOR/'src'/name).read_bytes()
-                self.assertEqual(dos_sources.adapt(name,original,early_split_cull=True),(original,[]))
+                self.assertEqual(dos_sources.adapt(name,original,early_split_cull=True),
+                                 dos_sources.adapt(name,original))
         with self.assertRaises(ValueError):
             dos_sources.adapt('render.c',b'unexpected',early_split_cull=True)
         text=candidate.decode().replace('\r\n','\n')

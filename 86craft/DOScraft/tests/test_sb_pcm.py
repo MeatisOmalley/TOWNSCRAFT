@@ -1,6 +1,5 @@
 """Native SB1 transport faults and DOS code contracts; no audible proof."""
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
 import unittest

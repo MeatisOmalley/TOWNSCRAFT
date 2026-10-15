@@ -1,16 +1,13 @@
 """Diagnostic export of visible terrain items in painter order for A1 analysis."""
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name != 'render.c':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, 'static int nBoxes;\n',
         'static int nBoxes;\n'
         '/* Benchmark-only per-item output; index is the collected item index. */\n'

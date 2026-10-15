@@ -4,7 +4,6 @@ Pixel identity and timing are guest evidence (tools/benchmark.py image hashes);
 these tests only pin the recipes and the two self-contained helpers.
 """
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys

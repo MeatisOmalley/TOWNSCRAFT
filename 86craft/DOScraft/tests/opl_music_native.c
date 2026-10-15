@@ -58,7 +58,7 @@ int main(void)
     assert(dos_music_notes==2 && keyed_on(0) && keyed_on(3));
     assert(reg[0xA0]==(345&255) && reg[0xB0]==(0x20|(4<<2)|(345>>8)));
     assert(reg[0xA3]==(345&255) && reg[0xB3]==(0x20|(5<<2)|(345>>8)));
-    assert(reg[0x43]==4+((127-84)>>2) && reg[0x4B]==4+((127-112)>>2));
+    assert(reg[0x43]==4+((127-84)>>2)+MUSIC_QUIETER && reg[0x4B]==4+((127-112)>>2)+MUSIC_QUIETER);
     for(int i=0;i<36;++i)dos_music_tick();
     /* The next notes rotate to channels 1 and 4; the first ones ring on. */
     assert(dos_music_notes==4 && keyed_on(1) && keyed_on(4) && keyed_on(0) && keyed_on(3));
@@ -99,7 +99,7 @@ int main(int argc,char **argv)
     dos_music_tick();
     assert(dos_music_notes==1 && keyed_on(0) && !keyed_on(1));
     assert(reg[0x20]==0x01 && reg[0x60]==0xF2 && reg[0x63]==0xF2 && reg[0xC0]==0x06);  /* Piano */
-    assert(reg[0xA0]==(345&255) && reg[0xB0]==(0x20|(4<<2)|(345>>8)) && reg[0x43]==0 && reg[0x40]==0x18);  /* Loudest note: full level */
+    assert(reg[0xA0]==(345&255) && reg[0xB0]==(0x20|(4<<2)|(345>>8)) && reg[0x43]==MUSIC_QUIETER && reg[0x40]==0x18);  /* Loudest note: the master level */
     for(int i=1;i<50;++i)dos_music_tick();
     assert(keyed_on(0) && dos_music_notes==1);                  /* Exactly 0.5 s */
     dos_music_tick();
@@ -124,11 +124,11 @@ int main(int argc,char **argv)
     static const unsigned char fm[12]={0x01,0x58,0xF2,0x54,0,0x01,0x40,0xF2,0x24,0,0x06,0};
     static const unsigned char add[12]={0x22,0x0A,0xF0,0x0F,0,0x21,0x00,0xF0,0x0F,0,0x01,0};
     set_patch(7,fm);note(7,60,8|(2<<6));
-    assert(reg[0x40+operator_offset[7]]==(0x40|(0x18+8)) && reg[0x40+operator_offset[7]+3]==(0x40|8));
+    assert(reg[0x40+operator_offset[7]]==(0x40|(0x18+8)) && reg[0x40+operator_offset[7]+3]==(0x40|(8+MUSIC_QUIETER)));
     set_patch(8,add);note(8,60,8|(2<<6));
-    assert(reg[0x40+operator_offset[8]]==0x0A+8 && reg[0x40+operator_offset[8]+3]==8);  /* Additive: both quieter */
+    assert(reg[0x40+operator_offset[8]]==0x0A+8+MUSIC_QUIETER && reg[0x40+operator_offset[8]+3]==8+MUSIC_QUIETER);  /* Additive: both quieter */
     note(7,60,60|(3<<6));
-    assert((reg[0x40+operator_offset[7]+3]&63)==60 && (reg[0x40+operator_offset[7]]&63)==0x18+12);
+    assert((reg[0x40+operator_offset[7]+3]&63)==63 && (reg[0x40+operator_offset[7]]&63)==0x18+12);
     dos_music_shutdown();
     for(int ch=0;ch<9;++ch)assert(!keyed_on(ch) && reg[0x40+operator_offset[ch]+3]==63);
     puts("PASS: pack load/reject, patches, pitch, level, timing, tail, rotation and shutdown");

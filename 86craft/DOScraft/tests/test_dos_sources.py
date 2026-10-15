@@ -10,31 +10,36 @@ import dos_sources
 ZIG=ROOT.parents[1]/'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'
 
 
+def replay(data,recipe):
+    for step in recipe:
+        old,new=step['before'].encode(),step['after'].encode()
+        if data.count(old)!=step['count']:
+            raise AssertionError(f'Recipe step does not replay: {step["before"]!r}')
+        data=data.replace(old,new)
+    return data
+
+
+# Approved overlays every build applies (day length, chickens, block textures,
+# crafting grid, plant placement, immediate edit light, mob despawn). Optional
+# experiments are compared against this default build, not the raw snapshot.
+DEFAULT_CHANGED=('blocks.c','game.c','inventory.c','mobs.c','render.c','textures.c','world.c',
+                 'blocks.h','mobs.h','render.h','textures.h')
+
+
 class DosSourcesTests(unittest.TestCase):
-    def test_default_preserves_vendor_and_changes_are_replayable(self):
+    def test_default_overlays_are_confined_and_changes_are_replayable(self):
         for name in imported.SELECTED:
             data=(imported.VENDOR/'src'/name).read_bytes()
             default,default_recipe=dos_sources.adapt(name,data)
+            self.assertEqual(replay(data,default_recipe),default)
+            self.assertEqual(default!=data,name in DEFAULT_CHANGED,name)
             if name=='game.c':
                 self.assertIn(b'#include "craft_grid.h"',default)
-                self.assertTrue(default_recipe)
             elif name=='world.c':
                 self.assertIn(b'if(cacheAllocated && cache_light_pending()) cache_light_pump(0);',default)
-                self.assertTrue(default_recipe)
-            elif name=='mobs.c':
-                # The already approved streaming-world despawn overlay is
-                # part of the existing default source recipe.
-                self.assertTrue(default_recipe)
-            else:
-                self.assertEqual((default,default_recipe),(data,[]))
             result,recipe=dos_sources.adapt(name,data,raster_zero_dx=True)
-            replay=data
-            for step in recipe:
-                old,new=step['before'].encode(),step['after'].encode()
-                self.assertEqual(replay.count(old),step['count'])
-                replay=replay.replace(old,new)
-            self.assertEqual(replay,result)
-            if name not in ('raster.c','game.c','world.c','mobs.c'): self.assertFalse(recipe)
+            self.assertEqual(replay(data,recipe),result)
+            if name!='raster.c': self.assertEqual((result,recipe),(default,default_recipe))
         with self.assertRaises(ValueError):
             dos_sources.adapt('raster.c',b'unexpected source',raster_zero_dx=True)
 

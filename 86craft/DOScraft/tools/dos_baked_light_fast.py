@@ -5,17 +5,14 @@ stream_light_restore() overwrite all of it when the baked/cached light was
 valid. The clear now runs only when no baked light was restored; every
 failure path of stream_light_restore() returns before writing the buffer.
 """
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name != 'column_cache.inc':
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text,
         '\tmemset(g_light+slot*COLUMN_CELLS,0,COLUMN_CELLS);\n'
         '\tcacheSkyCell=0; cacheLightSeed=0;\n'

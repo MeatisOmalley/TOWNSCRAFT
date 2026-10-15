@@ -1,17 +1,13 @@
 """Exact scale-2 view-row proof for the DOS VGA production packer."""
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name != 'game.c':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, '#include "gfx.h"\n',
                         '#include "gfx.h"\n#include "video_backend.h"\n', recipe)
     text = replace_once(text, '\t\tswitch(state)\n\t\t{\n\t\tcase GS_INVENTORY:',

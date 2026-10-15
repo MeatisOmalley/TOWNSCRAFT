@@ -36,13 +36,13 @@ class SplitReuseTests(unittest.TestCase):
             old,new=step['before'].encode(),step['after'].encode()
             self.assertEqual(replay.count(old),step['count']); replay=replay.replace(old,new)
         self.assertEqual(candidate,replay)
-        self.assertEqual(dos_sources.adapt('render.c',data),(data,[]))
         with self.assertRaises(ValueError): dos_sources.adapt('render.c',b'unexpected',**{experiment:True})
         with self.assertRaises(ValueError): dos_sources.adapt('render.c',data,split_reuse=True,depth_adaptive=True)
         for name in imported.SELECTED:
             if name!='render.c':
                 original=(imported.VENDOR/'src'/name).read_bytes()
-                self.assertEqual(dos_sources.adapt(name,original,**{experiment:True}),(original,[]))
+                self.assertEqual(dos_sources.adapt(name,original,**{experiment:True}),
+                                 dos_sources.adapt(name,original))
         text=data.decode().replace('\r\n','\n')
         corners=text[text.index('static const u8 faceCorner'):text.index('static int max_items_for_ram')]
         projection=text[text.index('int face_light_level('):text.index('static inline int to_screen(')]

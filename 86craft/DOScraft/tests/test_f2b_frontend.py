@@ -12,7 +12,7 @@ class FrontendTests(unittest.TestCase):
     def test_recipes_replay_and_vendor_unchanged(self):
         for name in imported.SELECTED:
             data=(imported.VENDOR/'src'/name).read_bytes()
-            self.assertEqual(dos_sources.adapt(name,data),(data,[]))
+            default=dos_sources.adapt(name,data)
             result,recipe=dos_sources.adapt(name,data,front_to_back=True)
             replay=data
             for step in recipe:
@@ -20,7 +20,7 @@ class FrontendTests(unittest.TestCase):
                 self.assertEqual(replay.count(old),step['count'])
                 replay=replay.replace(old,new)
             self.assertEqual(replay,result)
-            if name not in ('render.c','raster.c'): self.assertFalse(recipe)
+            if name not in ('render.c','raster.c'): self.assertEqual((result,recipe),default)
         for name in ('render.c','raster.c'):
             with self.assertRaises(ValueError):
                 dos_sources.adapt(name,b'unexpected upstream change',front_to_back=True)

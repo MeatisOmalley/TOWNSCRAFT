@@ -8,10 +8,14 @@
 int main(int argc,char **argv)
 {
     assert(argc==2 && !dos_audio_bank_load(argv[1]));
-    assert(dos_audio_bank_count(A_STEP_GRASS)==5 && dos_audio_bank_count(A_GLASS)==3);
-    assert(dos_audio_bank_count(A_EXPLODE)==2 && dos_audio_bank_count(A_HISS)==1 && dos_audio_bank_count(A_GROAN)==3);
-    const DosAudioClip *first=dos_audio_bank_clip(A_STEP_GRASS,0),*second=dos_audio_bank_clip(A_STEP_GRASS,1);
-    assert(first && second && first->data!=second->data && !dos_audio_bank_clip(A_STEP_GRASS,5));
+    /* assets/audio/picks.json; glass and pig calls have no picks. */
+    assert(dos_audio_bank_count(A_STEP_STONE)==3 && !dos_audio_bank_count(A_GLASS));
+    assert(dos_audio_bank_count(A_EXPLODE)==1 && dos_audio_bank_count(A_HISS)==1 && dos_audio_bank_count(A_GROAN)==1);
+    assert(dos_audio_bank_count(A_BREAK_GRAVEL)==1 && dos_audio_bank_count(A_CHICKEN_DEATH)==1);
+    assert(dos_audio_bank_count(A_WATER_IN)==2 && dos_audio_bank_count(A_SWIM)==2);
+    assert(!dos_audio_bank_count(A_PIG_SAY) && !dos_audio_bank_clip(A_PIG_SAY,0));
+    const DosAudioClip *first=dos_audio_bank_clip(A_STEP_STONE,0),*second=dos_audio_bank_clip(A_STEP_STONE,1);
+    assert(first && second && first->data!=second->data && !dos_audio_bank_clip(A_STEP_STONE,3));
     unsigned char wave[]={0,128,255,64},out[64];DosAudioClip c={wave,4,11025};
     dos_audio_voices_reset(11025);memset(out,0xee,sizeof(out));
     assert(!dos_audio_voice(&c,256,255,5,0));dos_audio_voices_render(out+8,8);
@@ -39,9 +43,11 @@ int main(int argc,char **argv)
     assert(!dos_audio_bank_load(argv[1]) && !strcmp(dos_audio_bank_mode(),"FULL") && dos_audio_bank_bytes()==(unsigned)n);
     const DosAudioClip *full_first=dos_audio_bank_clip(A_GROAN,0);unsigned int groan_frames=full_first->frames;
     unsigned char *groan_copy=malloc(groan_frames);memcpy(groan_copy,full_first->data,groan_frames);
-    dos_audio_bank_memory_limit=64u*1024u;
-    assert(!dos_audio_bank_load(argv[1]) && !strcmp(dos_audio_bank_mode(),"LITE") && dos_audio_bank_bytes()<64u*1024u);
-    for(int g=0;g<A_GROUPS;++g)assert(dos_audio_bank_count(g)==1 && dos_audio_bank_clip(g,0) && !dos_audio_bank_clip(g,1));
+    unsigned int full_count[A_GROUPS];for(int g=0;g<A_GROUPS;++g)full_count[g]=dos_audio_bank_count(g);
+    dos_audio_bank_memory_limit=100u*1024u;
+    assert(!dos_audio_bank_load(argv[1]) && !strcmp(dos_audio_bank_mode(),"LITE") && dos_audio_bank_bytes()<100u*1024u);
+    for(int g=0;g<A_GROUPS;++g)
+        assert(dos_audio_bank_count(g)==(full_count[g]>0) && !dos_audio_bank_clip(g,1) && !dos_audio_bank_clip(g,0)==!full_count[g]);
     assert(dos_audio_bank_clip(A_GROAN,0)->frames==groan_frames && !memcmp(dos_audio_bank_clip(A_GROAN,0)->data,groan_copy,groan_frames));
     /* A corrupt payload byte fails the streamed whole-bank checksum. */
     char bad_path[1024];snprintf(bad_path,sizeof(bad_path),"%s.corrupt",argv[1]);
@@ -49,6 +55,6 @@ int main(int argc,char **argv)
     assert(dos_audio_bank_load(bad_path)<0 && !strcmp(dos_audio_bank_mode(),"NONE"));remove(bad_path);
     dos_audio_bank_memory_limit=1024;assert(dos_audio_bank_load(argv[1])<0);dos_audio_bank_memory_limit=0;
     free(groan_copy);
-    free(data);puts("PASS: external bank, variants, procedural groups, corruption, soft-clip mixer, priority, loops and guards");
+    free(data);puts("PASS: external bank, variants, picked and empty groups, corruption, soft-clip mixer, priority, loops and guards");
     return 0;
 }

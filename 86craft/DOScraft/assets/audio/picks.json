@@ -1,0 +1,70 @@
+{
+ "step_grass": [
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandL2.flac",
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandL3.flac"
+ ],
+ "step_stone": [
+  "kenney/footstep_wood_001.ogg",
+  "kenney/impactSoft_medium_000.ogg",
+  "kenney/impactSoft_medium_001.ogg"
+ ],
+ "step_wood": [
+  "kenney/impactSoft_medium_002.ogg"
+ ],
+ "step_sand": [
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneL3.flac",
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneR3.flac"
+ ],
+ "step_gravel": [
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandR2.flac"
+ ],
+ "crunch": [
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandL1.flac",
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandR1.flac"
+ ],
+ "wood": [
+  "[kdd]DifferentSteps_0/wood02.ogg"
+ ],
+ "sand": [
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneL1.flac",
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneR1.flac",
+  "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneR2.flac"
+ ],
+ "break_gravel": [
+  "[kdd]DifferentSteps_0/gravel.ogg"
+ ],
+ "place": [
+  "kenney/impactPlank_medium_001.ogg",
+  "kenney/impactPlank_medium_002.ogg"
+ ],
+ "chicken_death": [
+  "chicken-sound-effect/Chicken Sound Effect.mp3#2"
+ ],
+ "groan": [
+  "zombies-sound-pack/zombies/zombie-20.wav"
+ ],
+ "zombie_hurt": [
+  "25-CC0-mud-sfx/mud_02.ogg",
+  "25-CC0-mud-sfx/mud_07.ogg"
+ ],
+ "zombie_death": [
+  "25-CC0-mud-sfx/mud_04.ogg"
+ ],
+ "creeper_hurt": [
+  "25-CC0-mud-sfx/mud_08.ogg"
+ ],
+ "hiss": [
+  "40-cc0-water-splash-slime-sfx/splash_15.ogg"
+ ],
+ "explode": [
+  "procedural/explode_2"
+ ],
+ "water_in": [
+  "25-CC0-mud-sfx/mud_17.ogg",
+  "40-cc0-water-splash-slime-sfx/splash_02.ogg"
+ ],
+ "swim": [
+  "25-CC0-mud-sfx/mud_21.ogg",
+  "40-cc0-water-splash-slime-sfx/splash_10.ogg"
+ ]
+}

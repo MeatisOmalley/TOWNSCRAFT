@@ -6,17 +6,14 @@ apart, and each was a separate out-of-line memset (-fno-builtin), 200 calls
 a frame. Store the same 20 dwords per plane row inline instead; the bytes
 written are identical.
 """
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name != 'raster.c':
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text,
         'void raster_fill_rows(int y0,int y1,u8 color)\n'
         '{\n'

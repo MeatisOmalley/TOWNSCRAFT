@@ -25,12 +25,8 @@ def save_codec_source(vendor=imported.VENDOR, large_world=False):
         raise ValueError('Unexpected save codec boundary')
     start = data.index(marker)
     selected = data[start:]
-    text = selected.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = imported.lf_text(selected, recipe)
     text = imported.replace_once(text,
         '\tfdc_stop();\n\tpageState=pageMotor=0;\n',
         '\tif(!dos_save_finish()) ok=0;\n\tpageState=pageMotor=0;\n', recipe)

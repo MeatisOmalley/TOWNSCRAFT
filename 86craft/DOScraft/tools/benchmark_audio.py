@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import time
 from build_game import ROOT,build,DEFAULT_ADAPTER_FLAGS
-from game_media import prepare,validate,game_command
+from game_media import prepare,validate
 from prepare_large_vm import attach_large_disk
 from benchmark import benchmark_volume,parse,write_report
 
