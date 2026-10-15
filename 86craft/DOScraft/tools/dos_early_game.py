@@ -6,8 +6,8 @@ fields and hook calls that logic needs.
 """
 from build_imported import replace_once
 
-HEADERS = ('blocks.h', 'inventory.h', 'textures.h')
-NAMES = HEADERS + ('blocks.c', 'inventory.c', 'game.c', 'ui.c', 'textures.c', 'world.c', 'render.c')
+HEADERS = ('blocks.h', 'inventory.h', 'textures.h', 'player.h', 'ui.h')
+NAMES = HEADERS + ('blocks.c', 'inventory.c', 'game.c', 'ui.c', 'textures.c', 'world.c', 'render.c', 'player.c')
 
 # The olive ramp becomes terracotta: red clay, bricks and copper (EARLY_GAME.md, Textures).
 OLIVE = (95, 155, 85)
@@ -391,6 +391,71 @@ def spears(name, one):
         '\t\t\t\tdos_use_held=g_keyDown[KEY_E] || (pad&PAD_B) || (mouse&MOUSE_R);\n')
 
 
+def hunger(name, one):
+    if name == 'player.h':
+        one('#define MAX_HEALTH 20          /* Half hearts */',
+            '#define MAX_HEALTH 20          /* Half hearts */\n'
+            '#define MAX_HUNGER 20          /* Half drumsticks */\n'
+            '/* Hunger: one point per EX_POINT effort; each tick costs 1 (a full bar\n'
+            '   lasts about a 20-minute day), sprinting, jumping, mining, attacking\n'
+            '   and healing cost more. */\n'
+            '#define EX_POINT 1200\n#define EX_SPRINT 2\n#define EX_JUMP 40\n'
+            '#define EX_MINE 20\n#define EX_ATTACK 30\n#define EX_HEAL 300')
+        one('\tint hurtTimer,regenTimer,airTimer;',
+            '\tint hurtTimer,regenTimer,airTimer;\n\tint hunger,exhaustion;     /* 0-MAX_HUNGER; effort toward the next point */')
+    elif name == 'player.c':
+        one('\tg_player.health=MAX_HEALTH;\n',
+            '\tg_player.health=MAX_HEALTH;\n\tg_player.hunger=MAX_HUNGER;\n\tg_player.exhaustion=0;\n')
+        one('\tif(in->sprint && in->forward>0)\n\t{\n\t\tspeed=speed*13/10;\n',
+            '\t/* Too hungry to sprint below three drumsticks. */\n'
+            '\tif(in->sprint && in->forward>0 && g_player.hunger>6)\n\t{\n\t\tspeed=speed*13/10;\n'
+            '\t\tg_player.exhaustion+=EX_SPRINT;\n')
+        one('\t\t\tb->vy=JUMP_SPEED;\n', '\t\t\tb->vy=JUMP_SPEED;\n\t\t\tg_player.exhaustion+=EX_JUMP;\n')
+        one('\t/* Regeneration */\n\tif(g_player.health<MAX_HEALTH && ++g_player.regenTimer>=80)\n\t{\n'
+            '\t\tg_player.regenTimer=0;\n\t\t++g_player.health;\n\t}\n',
+            '\t/* Hunger: a nearly full bar heals, an empty one starves to one heart. */\n'
+            '\tif(++g_player.exhaustion>=EX_POINT)\n\t{\n'
+            '\t\tg_player.exhaustion-=EX_POINT;\n'
+            '\t\tif(g_player.hunger>0) --g_player.hunger;\n\t}\n'
+            '\tif(++g_player.regenTimer>=80)\n\t{\n\t\tg_player.regenTimer=0;\n'
+            '\t\tif(g_player.hunger>=18 && g_player.health<MAX_HEALTH)\n\t\t{\n'
+            '\t\t\t++g_player.health;\n\t\t\tg_player.exhaustion+=EX_HEAL;\n\t\t}\n'
+            '\t\telse if(0==g_player.hunger && g_player.health>2)\n\t\t{\n'
+            '\t\t\tg_player.hurtTimer=0;\n\t\t\tplayer_hurt(1,b->x,b->z);\n\t\t}\n\t}\n')
+    elif name == 'game.c':
+        one('\t\tif(g_player.health>=MAX_HEALTH)\n\t\t{\n\t\t\tgame_message("You are not hungry");\n'
+            '\t\t\treturn;\n\t\t}\n\t\tg_player.health=MIN(MAX_HEALTH,g_player.health+g_itemDef[item].food);\n',
+            '\t\tif(g_player.hunger>=MAX_HUNGER)\n\t\t{\n\t\t\tgame_message("You are not hungry");\n'
+            '\t\t\treturn;\n\t\t}\n\t\tg_player.hunger=MIN(MAX_HUNGER,g_player.hunger+g_itemDef[item].food);\n'
+            '\t\tif(I_GOLDEN_APPLE==item) g_player.health=MAX_HEALTH;\n')
+        one('\tdrop=dos_break_drop(id,b,drop);\n', '\tdrop=dos_break_drop(id,b,drop);\n\tg_player.exhaustion+=EX_MINE;\n')
+        one('\tg_player.swing=6;\n\tif(i>=0 && dist<=4*FU)\n',
+            '\tg_player.swing=6;\n\tg_player.exhaustion+=EX_ATTACK;\n\tif(i>=0 && dist<=4*FU)\n')
+    elif name == 'ui.c':
+        one('\tint selected,health,blink,air;\n} HudKey;', '\tint selected,health,blink,air,hunger;\n} HudKey;')
+        one('\tk.air=air;\n', '\tk.air=air;\n\tk.hunger=g_player.hunger;\n')
+        one('\tif(air>=0)\n\t{\n\t\tui_bubbles(fb,x0+100,SCR_H-32,air);\n\t}\n',
+            '\t/* Drumsticks right of the hearts, air bubbles above them. */\n'
+            '\tui_food(fb,x0+100,SCR_H-32,g_player.hunger);\n'
+            '\tif(air>=0)\n\t{\n\t\tui_bubbles(fb,x0+100,SCR_H-40,air);\n\t}\n')
+        one('void ui_bubbles(u8 *fb,int x,int y,int n)\n',
+            'static void drumstick(u8 *fb,int x,int y,int fill)\n{\n'
+            '\t/* Meat on the upper left, bone to the lower right. */\n'
+            '\tstatic const u8 shape[7]={0x18,0x3C,0x3C,0x1C,0x08,0x04,0x06};\n'
+            '\tint r,c;\n\tfor(r=0; r<7; ++r)\n\t\tfor(c=0; c<7; ++c)\n'
+            '\t\t\tif((shape[r]>>(6-c))&1)\n\t\t\t{\n'
+            '\t\t\t\tint full=2==fill || (1==fill && c>=4);\n'
+            '\t\t\t\tfb[(y+r)*FB_PITCH+x+c]=!full ? P(R_GRAY,3) : r<4 ? P(R_DIRT,r ? 12 : 14) : C_WHITE;\n'
+            '\t\t\t}\n}\n\n'
+            'void ui_food(u8 *fb,int x,int y,int hunger)\n{\n\tint i;\n'
+            '\t/* Fills from the right, as hearts fill from the left. */\n'
+            '\tfor(i=0; i<10; ++i)\n\t{\n\t\tint h=hunger-i*2;\n'
+            '\t\tdrumstick(fb,x+72-i*8,y,h>=2 ? 2 : (h==1 ? 1 : 0));\n\t}\n}\n\n'
+            'void ui_bubbles(u8 *fb,int x,int y,int n)\n')
+    elif name == 'ui.h':
+        one('void ui_hearts(', 'void ui_food(u8 *fb,int x,int y,int hunger);\nvoid ui_hearts(')
+
+
 def adapt(name, data):
     if name not in NAMES:
         return data, []
@@ -416,4 +481,5 @@ def adapt(name, data):
     materials(name, one)
     recipes(name, one, every, lambda start, end: text[text.index(start):text.index(end)])
     spears(name, one)
+    hunger(name, one)
     return text.encode(), recipe

@@ -45,6 +45,24 @@ class EarlyGameTests(unittest.TestCase):
                            'PASS: spears')
 
 
+@unittest.skipUnless(sys.platform == 'win32' and ZIG.is_file(), 'native Win32 Zig unavailable')
+class HungerTests(unittest.TestCase):
+    def test_hunger_drain_healing_starving_and_sprint(self):
+        with tempfile.TemporaryDirectory(prefix='doscraft-hunger-') as directory:
+            folder = Path(directory)
+            staged(folder, ('player.c', 'libc.c'))
+            exe = folder / 'hunger.exe'
+            compile_result = subprocess.run([
+                str(ZIG), 'cc', '-target', 'x86-windows-gnu', '-std=gnu99', '-O2', '-fno-builtin',
+                '-Wall', '-Wextra', '-I', str(folder), str(ROOT / 'tests/hunger_native.c'),
+                str(folder / 'player.c'), str(folder / 'libc.c'), '-o', str(exe),
+            ], capture_output=True, text=True, timeout=180)
+            self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
+            result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('PASS: hunger', result.stdout)
+
+
 class EarlyTextureTests(unittest.TestCase):
     def test_tiles_match_the_texture_ids_and_regenerate(self):
         import dos_early_game

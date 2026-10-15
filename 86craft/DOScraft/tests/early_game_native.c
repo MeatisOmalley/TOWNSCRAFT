@@ -153,7 +153,7 @@ int main(void)
     CHECK(g_fireLit);
     world_set(3,5,4,B_AIR); dos_block_removed(B_FIRE,3,5,4);
     count=position=0; dos_extras_save(put);
-    CHECK(count==2+INV_SLOTS);   /* Magic, wear, end: no fires left */
+    CHECK(count==4+INV_SLOTS);   /* Magic, wear, hunger, end: no fires left */
     printf("PASS: stations and campfires\n");
     /* Spear jab: reach 2 to 4.5 blocks, per-tier cooldown, wear on a hit. */
     inv_clear(); inv_add(I_FLINT_SPEAR,1); g_player.selected=0;

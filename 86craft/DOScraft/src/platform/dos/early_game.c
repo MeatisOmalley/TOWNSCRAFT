@@ -236,6 +236,7 @@ int dos_spear_jab(void)
 	if(!s) return 0;
 	player_eye(&ex,&ey,&ez);
 	player_look_dir(&dx,&dy,&dz);
+	g_player.exhaustion+=EX_ATTACK;
 	i=mobs_ray_hit(ex,ey,ez,dx,dy,dz,JAB_MAX,&dist);
 	/* Too close for the point: the shaft only pushes. */
 	if(i>=0 && dist>=JAB_MIN)
@@ -350,6 +351,8 @@ void dos_extras_save(void (*put)(u32))
 	int i;
 	put(EXTRAS_MAGIC);
 	put_wear(put,g_inv,INV_SLOTS);
+	put(g_player.hunger);
+	put(g_player.exhaustion);
 	/* Chests are written in table order and loaded compacted, in the same order. */
 	for(i=0; i<MAX_CHESTS; ++i)
 		if(g_chests[i].used) put_wear(put,g_chests[i].slot,CHEST_SLOTS);
@@ -367,6 +370,9 @@ int dos_extras_load(u32 (*get)(void))
 {
 	int i;
 	if(get()!=EXTRAS_MAGIC || !get_wear(get,g_inv,INV_SLOTS)) return 0;
+	g_player.hunger=get();
+	g_player.exhaustion=get();
+	if((u32)g_player.hunger>MAX_HUNGER || (u32)g_player.exhaustion>=EX_POINT+EX_HEAL) return 0;
 	for(i=0; i<MAX_CHESTS; ++i)
 		if(g_chests[i].used && !get_wear(get,g_chests[i].slot,CHEST_SLOTS)) return 0;
 	dos_extras_clear();
