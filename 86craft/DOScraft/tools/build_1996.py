@@ -71,19 +71,21 @@ def voodoo_adapters(names):
             'r96/r96_sst1.c', 'r96/r96_raster3dfx.c')
 
 
-def build(variant, output=None, benchmark=False):
+def build(variant, output=None, benchmark=False, extra=()):
+    """extra: further adapter flags, e.g. the benchmark's -DDOS_BENCH_QUALITY=n."""
     output = Path(output or OUTPUT / variant)
     if variant == 'ref':
-        flags = (*build_game.DEFAULT_ADAPTER_FLAGS, *RELEASE_WORLD)
+        flags = (*build_game.DEFAULT_ADAPTER_FLAGS, *RELEASE_WORLD, *extra)
         report = build_game.build(output, benchmark=benchmark, extra_adapter_flags=flags,
                                   exe_name=EXE[variant])
     elif variant == 'soft':
-        report = build_game.build(output, benchmark=benchmark, extra_adapter_flags=variant_flags(variant),
+        report = build_game.build(output, benchmark=benchmark,
+            extra_adapter_flags=(*variant_flags(variant), *extra),
             arch=PENTIUM, source_overlay=dos_r96.adapt, drop_imported=('raster', 'trap'),
             adapter_names=soft_adapters, fpu_adapters=('r96/r96_soft.c',), exe_name=EXE[variant])
     elif variant == '3dfx':
         report = build_game.build(output, benchmark=benchmark,
-            extra_adapter_flags=variant_flags(variant),
+            extra_adapter_flags=(*variant_flags(variant), *extra),
             arch=PENTIUM, source_overlay=dos_r96.adapt, drop_imported=('raster', 'trap'),
             adapter_names=voodoo_adapters,
             fpu_adapters=('r96/r96_raster3dfx.c', 'r96/r96_sst1.c', 'r96/r96_gfx3dfx.c'),
@@ -98,7 +100,7 @@ def build(variant, output=None, benchmark=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('variants', nargs='*', choices=(*VARIANTS, []), default=list(VARIANTS))
+    parser.add_argument('variants', nargs='*', choices=(*VARIANTS, []), default=[])
     parser.add_argument('--benchmark', action='store_true', help='Fixed-seed benchmark builds')
     args = parser.parse_args()
     for variant in args.variants or VARIANTS:

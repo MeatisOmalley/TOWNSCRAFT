@@ -41,12 +41,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, default=ROOT.parent / '86Box-v6.0-timing',
                         help=f'Checkout of {PATCHED_86BOX_REPO} branch {PATCHED_86BOX_BRANCH}')
+    parser.add_argument('--commit', default=PATCHED_86BOX_COMMIT,
+                        help='Pinned fork commit of a separate hardware runtime (e.g. the 1996 VM)')
+    parser.add_argument('--output', default=PATCHED_EMULATOR_DIR,
+                        help='Runtime directory relative to the repository root')
     args = parser.parse_args()
     source = args.source.resolve(strict=True)
     head = subprocess.run(['git', '-C', str(source), 'rev-parse', 'HEAD'], check=True,
                           capture_output=True, text=True).stdout.strip()
-    if head != PATCHED_86BOX_COMMIT:
-        raise SystemExit(f'Source is at {head}, expected pinned {PATCHED_86BOX_COMMIT}')
+    if head != args.commit:
+        raise SystemExit(f'Source is at {head}, expected pinned {args.commit}')
     if subprocess.run(['git', '-C', str(source), 'status', '--porcelain', '--untracked-files=no'],
                       check=True, capture_output=True, text=True).stdout.strip():
         raise SystemExit('Source has uncommitted changes; build only the pinned commit')
@@ -61,7 +65,7 @@ def main():
     foreign = [line.strip() for line in linked.splitlines() if '/ucrt64/' in line]
     if foreign:
         raise SystemExit('Expected a static build; links: ' + '; '.join(foreign))
-    output = ROOT / PATCHED_EMULATOR_DIR
+    output = ROOT / args.output
     if output.exists():
         shutil.rmtree(output)
     shutil.copytree(OFFICIAL, output, ignore=shutil.ignore_patterns('roms', '86Box.exe', 'download.zip'))

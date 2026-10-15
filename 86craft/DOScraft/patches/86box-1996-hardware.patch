@@ -1,0 +1,83 @@
+diff --git a/src/86box.c b/src/86box.c
+index 4f5da88f1..9a332212a 100644
+--- a/src/86box.c
++++ b/src/86box.c
+@@ -1995,6 +1995,58 @@ ack_pause(void)
+     }
+ }
+ 
++/* DOScraft test harness, off unless DOSCRAFT_KEY_FILE names a file. Every
++   50 emulated milliseconds the file is polled; when present it is read and
++   deleted, and its whitespace-separated tokens are queued: a hex AT set-1
++   scan code (E0xx for extended keys) is pressed for 40 ms, then released
++   40 ms later; "wN" waits N ms. This configures a fresh BIOS CMOS without
++   host keyboard focus. It feeds the same path as host key events. */
++static void
++doscraft_key_file(void)
++{
++    static const char *path;
++    static int         checked;
++    static uint32_t    queue[512];
++    static int         head, tail;
++    static uint64_t    now, next;
++    static uint16_t    held;
++
++    if (!checked) {
++        checked = 1;
++        path    = getenv("DOSCRAFT_KEY_FILE");
++    }
++    if (path == NULL)
++        return;
++    ++now;
++    if (held && now >= next - 40) {
++        keyboard_input(0, held);
++        held = 0;
++    }
++    if ((now % 50) == 0 && head == tail) {
++        FILE *fp = fopen(path, "rb");
++        if (fp != NULL) {
++            char token[32];
++            while (fscanf(fp, "%31s", token) == 1 && ((tail + 1) & 511) != head) {
++                queue[tail] = (token[0] == 'w') ? (0x80000000u | (uint32_t) strtoul(token + 1, NULL, 10))
++                                                : (uint32_t) strtoul(token, NULL, 16);
++                tail = (tail + 1) & 511;
++            }
++            fclose(fp);
++            remove(path);
++        }
++    }
++    if (now < next || head == tail || held)
++        return;
++    if (queue[head] & 0x80000000u)
++        next = now + (queue[head] & 0x7fffffffu);
++    else {
++        held = (uint16_t) queue[head];
++        keyboard_input(1, held);
++        next = now + 80;
++    }
++    head = (head + 1) & 511;
++}
++
+ void
+ pc_run(void)
+ {
+@@ -2028,6 +2080,7 @@ pc_run(void)
+ 
+     /* Done with this frame, update statistics. */
+     framecount++;
++    doscraft_key_file();
+     if (++framecountx >= (force_10ms ? 100 : 1000)) {
+         framecountx = 0;
+         frames      = 0;
+diff --git a/src/disk/hdd.c b/src/disk/hdd.c
+index e5f1d0b2e..cb8e6f070 100644
+--- a/src/disk/hdd.c
++++ b/src/disk/hdd.c
+@@ -426,6 +426,7 @@ static hdd_preset_t hdd_speed_presets[] = {
+     { .name = "[Generic] 1992 (3600 RPM)",                        .internal_name = "1992_3600rpm",                                                                         .zones =  1, .avg_spt =  45, .heads =  2, .rpm = 3600, .full_stroke_ms = 30, .track_seek_ms = 6,   .rcache_num_seg =  4, .rcache_seg_size =   16, .max_multiple =  8 },
+     { .name = "[SCSI] Quantum ProDrive 425S (1990 timing proxy)", .internal_name = "quantum_425s_1990", .model = "QUANTUM PRODRIVE 425S", .zones = 1, .avg_spt = 50, .heads = 9, .rpm = 3600, .full_stroke_ms = 28, .track_seek_ms = 3, .rcache_num_seg = 1, .rcache_seg_size = 16, .max_multiple = 8 },
+     { .name = "[SCSI] Quantum ProDrive 1050S (1992 timing proxy)", .internal_name = "quantum_1050s_1992", .model = "QUANTUM PRODRIVE 1050S", .zones = 1, .avg_spt = 70, .heads = 12, .rpm = 4500, .full_stroke_ms = 18, .track_seek_ms = 3, .rcache_num_seg = 16, .rcache_seg_size = 64, .max_multiple = 8 },
++    { .name = "[SCSI] Seagate Barracuda 2 ST12550W (1996 timing proxy)", .internal_name = "st12550w_1996", .model = "ST12550W", .zones = 1, .avg_spt = 81, .heads = 19, .rpm = 7200, .full_stroke_ms = 21, .track_seek_ms = 1, .rcache_num_seg = 16, .rcache_seg_size = 64, .max_multiple = 16 },
+     { .name = "[Generic] 1994 (4500 RPM)",                        .internal_name = "1994_4500rpm",                                                                         .zones =  8, .avg_spt =  80, .heads =  4, .rpm = 4500, .full_stroke_ms = 26, .track_seek_ms = 5,   .rcache_num_seg =  4, .rcache_seg_size =   32, .max_multiple = 16 },
+     { .name = "[Generic] 1996 (5400 RPM)",                        .internal_name = "1996_5400rpm",                                                                         .zones = 16, .avg_spt = 135, .heads =  4, .rpm = 5400, .full_stroke_ms = 24, .track_seek_ms = 3,   .rcache_num_seg =  4, .rcache_seg_size =   64, .max_multiple = 16 },
+     { .name = "[Generic] 1997 (5400 RPM)",                        .internal_name = "1997_5400rpm",                                                                         .zones = 16, .avg_spt = 185, .heads =  6, .rpm = 5400, .full_stroke_ms = 20, .track_seek_ms = 2.5, .rcache_num_seg =  8, .rcache_seg_size =   64, .max_multiple = 32 },

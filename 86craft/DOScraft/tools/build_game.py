@@ -41,7 +41,9 @@ def set_min_stack(exe):
 
 
 def portable_experiment_flags(flags):
-    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_VERY_LOW_PLANAR','-DDOS_VERY_LOW_COARSE','-DDOS_VERY_LOW_FAR_COARSE','-DDOS_VL_TEMPORAL_FAR'))
+    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_VERY_LOW_PLANAR','-DDOS_VERY_LOW_COARSE','-DDOS_VERY_LOW_FAR_COARSE','-DDOS_VL_TEMPORAL_FAR',
+        # 1996 defaults in graphics_presets.h and far_world.inc, which imported code includes.
+        '-DDOS_R96'))
 
 
 def dos_transform(extra_adapter_flags, graphics, audio):

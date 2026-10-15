@@ -11,6 +11,8 @@ import struct
 
 SECTOR_SIZE = 2048
 FLOPPY_SIZE = 1440 * 1024
+# El Torito floppy-emulation media types by image size (1.44 and 2.88 MiB).
+FLOPPY_MEDIA = {FLOPPY_SIZE: 2, 2880 * 1024: 3}
 _RECORD_DATE = bytes((126, 10, 9, 0, 0, 0, 0))
 _VOLUME_DATE = b'2026100900000000\x00'
 _UINT32_MAX = 0xffffffff
@@ -88,10 +90,12 @@ def build_iso(boot_floppy, files, volume_id='DOSCRAFT'):
     A 55 AA signature is required at floppy offsets 510-511. This verifies media
     shape, not its DOS boot code or filesystem. The x86 catalog selects 1.44-MiB
     floppy emulation, default load segment 07C0 and one initial 512-byte sector.
+    A 2.88-MiB image (the 1996 machine's three executables) selects 2.88-MiB
+    floppy emulation instead.
     """
     boot = _bytes(boot_floppy, 'Boot floppy')
-    if len(boot) != FLOPPY_SIZE:
-        raise ValueError('Boot floppy must be exactly 1.44 MiB (1474560 bytes)')
+    if len(boot) not in FLOPPY_MEDIA:
+        raise ValueError('Boot floppy must be exactly 1.44 MiB (1474560 bytes) or 2.88 MiB')
     if boot[510:512] != b'\x55\xaa':
         raise ValueError('Boot floppy is missing its 55 AA boot signature')
     if not isinstance(files, Mapping):
@@ -119,7 +123,7 @@ def build_iso(boot_floppy, files, volume_id='DOSCRAFT'):
     root_size = len(_directory(placeholders))
     catalog_lba = root_lba + root_size // SECTOR_SIZE
     boot_lba = catalog_lba + 1
-    next_lba = boot_lba + FLOPPY_SIZE // SECTOR_SIZE
+    next_lba = boot_lba + len(boot) // SECTOR_SIZE
     entries = []
     for name, content in ordered:
         entries.append((name, next_lba, content))
@@ -173,7 +177,7 @@ def build_iso(boot_floppy, files, volume_id='DOSCRAFT'):
     catalog[30:32] = b'\x55\xaa'
     checksum = (-sum(struct.unpack('<16H', catalog[:32]))) & 0xffff
     struct.pack_into('<H', catalog, 28, checksum)
-    catalog[32:34] = b'\x88\x02'  # bootable, 1.44-MiB floppy emulation
+    catalog[32:34] = bytes([0x88, FLOPPY_MEDIA[len(boot)]])  # bootable, floppy emulation
     struct.pack_into('<H', catalog, 38, 1)
     struct.pack_into('<I', catalog, 40, boot_lba)
     put(catalog_lba, catalog)

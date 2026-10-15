@@ -329,6 +329,8 @@ void raster_poly(const RVert *v,int n,const u8 *tile,int flags)
 
 /* ---------- Fills, points, lines ---------- */
 
+u32 r96_fastfill_pixels;
+
 static void fill_rect(int x0,int y0,int x1,int y1,u8 color)
 {
 	if(x1<=x0 || y1<=y0) return;
@@ -338,6 +340,7 @@ static void fill_rect(int x0,int y0,int x1,int y1,u8 color)
 	set_mode(MODE_BASE);
 	set_color(r96_palette[color]);
 	sst_w(SST_FASTFILL,0);
+	r96_fastfill_pixels+=(u32)(x1-x0)*(u32)(y1-y0);
 }
 
 void raster_fill_rows(int y0,int y1,u8 color)
