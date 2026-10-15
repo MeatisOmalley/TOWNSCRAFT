@@ -18,6 +18,7 @@ void world_set(int x,int y,int z,u8 b) { g_blocks[widx(x,y,z)]=b; }
 void gfx_text_shadow(u8 *fb,int x,int y,const char *s,u8 c,u8 shadow) { (void)fb;(void)x;(void)y;(void)s;(void)c;(void)shadow; }
 
 Player g_player;
+volatile u32 g_ticks;
 
 /* Mobs and aiming, as stubs the spear code can be driven through. */
 #include "mobs.h"
@@ -187,5 +188,20 @@ int main(void)
     for(i=0;i<14;++i) dos_spear_tick();
     CHECK(hurts==1);                       /* Raised and lowered again */
     printf("PASS: spears\n");
+    /* Double-tap forward to sprint; a slow second press only walks. */
+    g_player.body.hitWall=g_player.body.inWater=0;
+    g_ticks=1000;
+    CHECK(!dos_sprint_tap(1)); g_ticks+=10;
+    CHECK(!dos_sprint_tap(0)); g_ticks+=30;
+    CHECK(dos_sprint_tap(1)); g_ticks+=200;
+    CHECK(dos_sprint_tap(1));                   /* Held: keeps sprinting */
+    g_player.body.hitWall=1; CHECK(!dos_sprint_tap(1)); g_player.body.hitWall=0;
+    CHECK(!dos_sprint_tap(1));                  /* Stopped until tapped again */
+    CHECK(!dos_sprint_tap(0)); g_ticks+=50;
+    CHECK(!dos_sprint_tap(1));                  /* Too slow */
+    CHECK(!dos_sprint_tap(0)); g_ticks+=5;
+    CHECK(dos_sprint_tap(1));
+    g_player.body.inWater=1; CHECK(!dos_sprint_tap(1));
+    printf("PASS: sprint\n");
     return 0;
 }

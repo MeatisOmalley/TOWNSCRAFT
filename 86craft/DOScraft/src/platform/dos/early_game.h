@@ -33,6 +33,10 @@ int dos_spear_jab(void);
 void dos_spear_tick(void);
 int dos_holding_spear(void);
 
+/* Double-tapping forward sprints until it is released, the player walks
+ * into a wall or swims (sampled every frame; 100 Hz timer). */
+int dos_sprint_tap(int forwardDown);
+
 /* Forget all early-game world state (new game, or before loading). */
 void dos_extras_clear(void);
 

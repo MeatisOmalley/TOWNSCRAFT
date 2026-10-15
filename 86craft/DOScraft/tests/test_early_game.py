@@ -42,7 +42,7 @@ class EarlyGameTests(unittest.TestCase):
 
     def test_tool_wear_and_save_extension(self):
         self.build_and_run('early_game_native.c', ('blocks.c', 'inventory.c', 'libc.c'),
-                           'PASS: spears')
+                           'PASS: sprint')
 
 
 @unittest.skipUnless(sys.platform == 'win32' and ZIG.is_file(), 'native Win32 Zig unavailable')

@@ -8,6 +8,7 @@
 #include "textures.h"
 #include "fmath.h"
 #include "mobs.h"
+#include "sys.h"
 
 #define EXTRAS_MAGIC 0x31584745u /* "EGX1" */
 
@@ -278,6 +279,21 @@ void dos_spear_tick(void)
 		mob_hurt(i,MAX(1,(int)((long long)s->charge*closing*20/4096/1000)),g_player.body.x,g_player.body.z,1);
 		dos_tool_wear(1);
 	}
+}
+
+/* ---------------- Sprint ---------------- */
+
+#define DOUBLE_TAP 35             /* 0.35 s in 100 Hz timer ticks, as Minecraft's 7 game ticks */
+
+int dos_sprint_tap(int forwardDown)
+{
+	static int wasDown,sprinting;
+	static u32 released;
+	if(forwardDown && !wasDown && g_ticks-released<=DOUBLE_TAP) sprinting=1;
+	if(!forwardDown && wasDown) released=g_ticks;
+	if(!forwardDown || g_player.body.hitWall || g_player.body.inWater) sprinting=0;
+	wasDown=forwardDown;
+	return sprinting;
 }
 
 void dos_extras_clear(void)

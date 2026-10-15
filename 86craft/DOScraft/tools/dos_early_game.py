@@ -456,6 +456,14 @@ def hunger(name, one):
         one('void ui_hearts(', 'void ui_food(u8 *fb,int x,int y,int hunger);\nvoid ui_hearts(')
 
 
+def sprint(name, one):
+    if name != 'game.c':
+        return
+    one('\t\t\t\tin.sprint=g_keyDown[KEY_CTRL];\n\t\t\t\tdos_use_held=',
+        '\t\t\t\tin.sprint=g_keyDown[KEY_CTRL] || dos_sprint_tap(g_keyDown[KEY_W]);\n\t\t\t\tdos_use_held=')
+    one('\t\t"W A S D     Move      CTRL  Sprint",', '\t\t"W A S D     Move   WW/CTRL  Sprint",')
+
+
 def adapt(name, data):
     if name not in NAMES:
         return data, []
@@ -482,4 +490,5 @@ def adapt(name, data):
     recipes(name, one, every, lambda start, end: text[text.index(start):text.index(end)])
     spears(name, one)
     hunger(name, one)
+    sprint(name, one)
     return text.encode(), recipe
