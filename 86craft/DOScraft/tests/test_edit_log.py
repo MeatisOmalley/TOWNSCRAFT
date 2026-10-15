@@ -18,7 +18,7 @@ import build_adapters
 import dos_sources
 from bake_large_world import checksum
 from convert_large_v2 import V2_MAGIC, encode, check_v2, decode
-from fat_image import FatImage, scratch_hdd
+from fat_image import FatImage, populate, scratch_hdd
 import convert_large_v3 as v3
 ZIG = ROOT.parents[1] / 'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'
 AIR, STONE, GRASS, DIRT, BEDROCK, COAL = 0, 1, 2, 3, 11, 12
@@ -257,34 +257,51 @@ class EditLogTests(unittest.TestCase):
         save.write_bytes(data)
         self.assertIn('refused', self.game('fail', terrain, save).stdout)
 
-    def test_populated_384_pair_v2_save_migrates(self):
+    def test_populated_384_pair_v2_disk_migrates(self):
+        from large_world_media import upgrade_disk
+        from log_player_vm import migrate_disk
         terrain, save = self.media(v2=True)
         self.game('edit', terrain, save, 0, 384, 1, 128)
         self.game('edit', terrain, save, 0, 100, 2, 100)
         full = self.game('edit', terrain, save, 384, 1, 3, 1, ok=False)
         self.assertNotEqual(full.returncode, 0, 'the V2 pool is full at 384 columns')
-        image, updated, proof = v3.migrate_player(terrain.read_bytes(), save.read_bytes())
+        disk = scratch_hdd(cylinders=977, heads=5, sectors=17)
+        part = struct.unpack_from('<I', disk, 454)[0] * 512
+        disk[part:] = populate(disk[part:part + 512], [('TERRAIN.TMP', terrain.read_bytes()),
+                                                       ('WORLD.SAV', save.read_bytes())])
+        before = bytes(disk)
+        result, log, proof = migrate_disk(before)
+        self.assertEqual(bytes(disk), before)
+        self.assertEqual(len(result), len(before))
         self.assertEqual((proof['edited_columns'], proof['edited_records'], proof['save_banks']), (384, 484, 2))
+        volume = FatImage(result, part)
         migrated, migrated_save = terrain.with_suffix('.v3'), save.with_suffix('.v3')
-        migrated.write_bytes(image)
-        migrated_save.write_bytes(updated)
+        migrated.write_bytes(volume.read('TERRAIN.TMP'))
+        migrated_save.write_bytes(volume.read('WORLD.SAV'))
         self.game('check', migrated, migrated_save, 0, 100, 2)
         self.game('check', migrated, migrated_save, 100, 284, 1)
+        # The older bank migrated too: with the newer one damaged, it loads.
+        newest = v3.newest_first(v3.committed_banks(migrated_save.read_bytes()))[0][0]
+        older_only = save.with_suffix('.older')
+        damaged = bytearray(migrated_save.read_bytes())
+        damaged[newest + 300] ^= 0x5a
+        older_only.write_bytes(damaged)
+        self.game('check', migrated, older_only, 0, 100, 1)
+        self.game('check', migrated, older_only, 100, 284, 1)
+        # Past the old 384-column limit, then a republish keeps the log.
         self.game('edit', migrated, migrated_save, 384, 600, 3, 200)
         self.game('check', migrated, migrated_save, 384, 600, 3)
+        disk = bytearray(result)
+        disk[part:] = populate(disk[part:part + 512], [('TERRAIN.TMP', migrated.read_bytes()),
+                                                       ('WORLD.SAV', migrated_save.read_bytes())])
+        republished = FatImage(upgrade_disk(bytes(disk), self.v2), part)
+        self.assertEqual(republished.read('TERRAIN.TMP'), migrated.read_bytes())
+        self.assertEqual(republished.read('WORLD.SAV'), migrated_save.read_bytes())
         self.game('check', migrated, migrated_save, 0, 100, 2)
-        older = updated[:]
-        newest = v3.newest_first(v3.committed_banks(updated))[0][0]
-        corrupt = bytearray(updated)
-        corrupt[newest + 300] ^= 0x5a
-        migrated_save.write_bytes(corrupt)
-        self.game('check', migrated, migrated_save, 0, 100, 1)  # the older bank's records
-        self.game('check', migrated, migrated_save, 100, 284, 1)
         bad = bytearray(save.read_bytes())
         bad[300] ^= 1
         with self.assertRaisesRegex(ValueError, 'committed'):
             v3.migrate_player(terrain.read_bytes(), bytes(bad))
-        del older
 
 
 def v3_path(i):

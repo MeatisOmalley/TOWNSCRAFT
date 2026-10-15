@@ -390,3 +390,32 @@ int world_verify_large_travel(int x,int z)
 	terrainBlocking=0;
 	return near && far && back && !streamError;
 }
+
+/* Smoke-only caller: the guest cost of compaction's unit of work. Copies one
+ * live record count times (read, checksum, write and DOS commit) into free
+ * log sectors that nothing references, which stay free. Returns elapsed
+ * 100 Hz ticks and the sectors written; -1 without an edit log or live
+ * record, -2 after a transfer or checksum failure. */
+int world_measure_log_copy(int count,u32 *sectors)
+{
+	int id=0;
+	*sectors=0;
+	if(!terrainV3 || !world_backing_idle()) return -1;
+	while(id<TERRAIN_COLUMNS && !large_ref(&columnRecords[id])) ++id;
+	if(id==TERRAIN_COLUMNS) return -1;
+	const ColumnRecord *r=&columnRecords[id];
+	u32 n=large_ref(r)&31u,size=terrainLogEnd-terrainLogFirst,at=0,t0=g_ticks;
+	log_rebuild();
+	terrainBlocking=1;
+	for(int i=0; i<count; ++i)
+	{
+		if((at=log_find(at,size,n,0,0))==~0u) break;
+		if(hdd_transfer_sync(r->off/512u,n,0,columnScratch)!=1 ||
+		   column_checksum(columnScratch,r->len)!=r->sum ||
+		   hdd_transfer_sync(terrainLogFirst+at,n,1,columnScratch)!=1)
+		{ terrainBlocking=0; preparedColumn=-1; return -2; }
+		at+=n; *sectors+=n;
+	}
+	terrainBlocking=0; preparedColumn=-1;
+	return (int)(g_ticks-t0);
+}

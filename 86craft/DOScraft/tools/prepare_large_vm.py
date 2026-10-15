@@ -9,7 +9,7 @@ import struct
 from build_game import ROOT
 from fat_image import populate, scratch_hdd
 from save_fixture import save_image
-from large_world_media import check_terrain,compact_terrain
+from large_world_media import check_terrain,log_terrain
 
 
 def attach_large_disk(vm, terrain_path, *, player=False):
@@ -22,7 +22,7 @@ def attach_large_disk(vm, terrain_path, *, player=False):
     if bool(record.get('smoke')) == player or record.get('hardware_era') != '1990-06-30':
         raise ValueError('Expected the selected June-1990 VM type')
     source = Path(terrain_path).read_bytes()
-    terrain = compact_terrain(source)
+    terrain = log_terrain(source)
     disk = scratch_hdd(cylinders=800, heads=8, sectors=63)
     start = struct.unpack_from('<I', disk, 454)[0] * 512
     disk[start:] = populate(disk[start:start + 512],
@@ -43,8 +43,8 @@ def attach_large_disk(vm, terrain_path, *, player=False):
     record['large_world'] = True
     record['terrain_sha256'] = hashlib.sha256(terrain).hexdigest()
     record['source_terrain_sha256'] = hashlib.sha256(source).hexdigest()
-    record['terrain_format']='V2 RLE'
-    end=97 if terrain[:16]==b'DOSCRAFT-1024-V2' else 33
+    record['terrain_format']='V3 log'
+    end=97
     record['terrain_header_sha256'] = hashlib.sha256(terrain[:end * 512]).hexdigest()
     record['disk_note'] = 'Private 206 MiB SCSI disk with prebaked 1024-block seed and V5 save medium'
     record_path.write_text(json.dumps(record, indent=2) + '\n')

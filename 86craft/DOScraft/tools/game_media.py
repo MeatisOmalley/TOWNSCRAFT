@@ -276,10 +276,10 @@ def validate(vm):
     terrain=volume.read('TERRAIN.TMP'); save=volume.read('WORLD.SAV')
     if record.get('large_world'):
         check_terrain(terrain)
-        v2=terrain[:16]==b'DOSCRAFT-1024-V2'
-        if v2 and b'DOSCRAFT-1024-V2' not in media.read('DOSCRAFT.EXE'):
-            raise ValueError('Shared executable cannot read compact V2 terrain')
-        if (terrain[:16] not in (b'DOSCRAFT-1024-V1',b'DOSCRAFT-1024-V2') or
+        v2=terrain[:16] in (b'DOSCRAFT-1024-V2',b'DOSCRAFT-1024-V3')
+        if v2 and terrain[:16] not in media.read('DOSCRAFT.EXE'):
+            raise ValueError('Shared executable cannot read this compact terrain')
+        if (terrain[:16] not in (b'DOSCRAFT-1024-V1',b'DOSCRAFT-1024-V2',b'DOSCRAFT-1024-V3') or
                 sha(terrain[:(97 if v2 else 33)*512])!=record['terrain_header_sha256'] or
                 len(save)!=len(save_image())):
             raise ValueError('Unknown large-world HDD terrain/save medium')

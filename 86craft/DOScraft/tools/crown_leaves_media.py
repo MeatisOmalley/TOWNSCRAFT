@@ -59,6 +59,8 @@ def stage(vm,terrain,install_pointer=None):
     disk_path=paths[0];original=disk_path.read_bytes()
     source=Path(terrain).resolve(strict=True);data=source.read_bytes()
     fs=FatImage(original,struct.unpack_from('<I',original,454)[0]*512)
+    if fs.read('TERRAIN.TMP')[:16]==b'DOSCRAFT-1024-V3':
+        raise ValueError('Leaf migration of V3 edit-log media is not implemented')
     if fs.read('TERRAIN.TMP')[:16]==b'DOSCRAFT-1024-V2':
         from convert_large_v2 import convert
         pairs=struct.unpack_from('<I',fs.read('TERRAIN.TMP'),136)[0]
