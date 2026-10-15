@@ -31,6 +31,10 @@
 #define PACK_EVENT 5u
 #define PACK_LIMIT (256u*1024u)
 #define SONG_TAIL 300           /* Ticks for the last notes to ring out */
+/* Master music level: 60% of full scale, -4.4 dB = 6 steps of 0.75 dB, so
+ * normalized songs sit under the effects. (Perceived half is about -10 dB,
+ * 13 steps.) */
+#define MUSIC_QUIETER 6
 #define BUILTIN (-1)
 unsigned int dos_music_notes;
 static int ready;
@@ -115,7 +119,7 @@ static void key_off(int ch)
  * operators are outputs, so both take the output level instead. */
 static void note(int ch,int midi,int level)
 {
-    int block=midi/12-1,fnum=fnum_table[midi%12],quieter=level&63,darker=(level>>6)*4;
+    int block=midi/12-1,fnum=fnum_table[midi%12],quieter=(level&63)+MUSIC_QUIETER,darker=(level>>6)*4;
     if(block<0)block=0;
     if(block>7)block=7;
     opl_write(0xB0+ch,(block<<2)|(fnum>>8));    /* Key off before the retrigger */
