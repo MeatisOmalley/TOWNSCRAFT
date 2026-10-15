@@ -58,7 +58,7 @@ static void draw_dos_menu(void)
 	{
 		menu_value(0,"Preset: ",graphicsPresetSel<0 ? "Custom" : preset[graphicsPresetSel]);
 		menu_value(1,"View resolution: ",dos_resolution_name(g_renderScale));
-		menu_value(2,"Textured distance: ",itoa_dec(g_flatDist ? g_flatDist : g_viewDist,number));
+		menu_value(2,"Textured distance: ",itoa_dec(dos_textured_distance(g_flatDist,g_viewDist),number));
 		menu_value(3,"Flat distance: ",itoa_dec(g_viewDist,number));
 #ifdef DOS_FAR_FIELD
 		menu_value(4,"Distant terrain: ",dos_far_available() ? distantNames[dos_far_enabled] : "Unavailable");
@@ -66,7 +66,7 @@ static void draw_dos_menu(void)
 #else
 		menu_row(4,"Back",menuSel==4,1);
 #endif
-		gfx_text_center(g_fb,192,dos_cpu386 ? "Blocks: 4-8." : "Blocks: 4-16. Distant: 64/96/128.",P(R_GRAY,11),C_BLACK);
+		gfx_text_center(g_fb,192,dos_cpu386 ? "Textured: 0-8. Flat: 4-8." : "Textured: 0-16. Flat: 4-16.",P(R_GRAY,11),C_BLACK);
 	}
 	else if(menuPage==DM_DIAGNOSTICS)
 	{

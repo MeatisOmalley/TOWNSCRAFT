@@ -71,7 +71,13 @@ int __dpmi_free_dos_memory(int s)
 { check(s==0x37 && allocated && !vector_live && dma_mask,"stop DMA before buffer free"); allocated=0; ++frees; return 0; }
 void dosmemput(const void *bytes,size_t count,unsigned long address)
 {
-    check(ready && !busy && allocated && bytes && count<=2048,"foreground idle copy");
+    check(ready &&
+#ifdef DOS_SB_STREAM
+          (!busy || (stream_fill && in_irq)) &&
+#else
+          !busy &&
+#endif
+          allocated && bytes && count<=2048,"owned DMA buffer copy");
     check(address>=(unsigned)segment_value*16 && address+count<=(unsigned)segment_value*16+4096,
         "copy within allocation");
     check((address&65535)+count<=65536,"no DMA page wrap");

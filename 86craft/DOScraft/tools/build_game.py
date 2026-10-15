@@ -1,7 +1,7 @@
 """Link pinned renderer/gameplay with DOS platform adapters and source overlays.
 
 The Towns source stays immutable. Verified transport optimizations are separate
-from the pinned renderer. Audio is deliberately silent.
+from the pinned renderer. Effects use an external bank; benchmarks default silent.
 """
 import argparse
 import json
@@ -18,7 +18,7 @@ OUTPUT=ROOT/'build/game/486dx25'
 GAME_ADAPTERS=('game_entry.c','game_runtime.c','sound_silent.c','gfx.c','heap.c','video.c',
     'vga_pack.c','keyboard.c','irq.c','irq_entry.S','system.c','input.c','hdd.c','save.c',
     'craft_grid.c','viewmodel.c')
-DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR','-DDOS_TEXEL_EDX','-DDOS_ROW_MUL','-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE','-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS','-DDOS_FILL_ROWS','-DDOS_PLANT_BILLBOARDS','-DDOS_VIEWMODEL','-DDOS_VERY_LOW_PLANAR')
+DEFAULT_ADAPTER_FLAGS=('-DDOS_VGA_PACK_ALL','-DDOS_VGA_HUD_CACHE','-DDOS_VGA_BROADCAST','-fomit-frame-pointer','-DDOS_ET4000_CHUNKY','-DDOS_TRAP_FOUR','-DDOS_ET4000_STRIDED','-DDOS_ET4000_HUD_WORDS','-DDOS_VGA_PROVEN_ROWS','-DDOS_VGA_PROVEN_VERTICAL','-DDOS_VGA_ASYNC_FLIP','-DDOS_VGA_HUD_PROOF','-DDOS_RASTER_FINISH_SKIP','-DDOS_VERY_LOW','-DDOS_VERY_LOW_TEXELS','-DDOS_LOW_PLANAR','-DDOS_TEXEL_EDX','-DDOS_ROW_MUL','-DDOS_ROW_POINTER','-DDOS_FLAT_INLINE','-DDOS_STREAM_VALIDATE_ONCE','-DDOS_LIGHT_OFFSETS','-DDOS_MESH_EDGES','-DDOS_COLLECT_SWAP','-DDOS_MEMMOVE_DWORDS','-DDOS_WORLD_SCANS','-DDOS_BAKED_LIGHT_FAST','-DDOS_SORT_HISTOGRAMS','-DDOS_FILL_ROWS','-DDOS_PLANT_BILLBOARDS','-DDOS_VIEWMODEL','-DDOS_VERY_LOW_PLANAR','-DDOS_VERY_LOW_FAR_COARSE','-DDOS_VERY_LOW_LOCAL_MESH','-DDOS_VERY_LOW_COLLECT_MARGIN','-DDOS_VL_STREAM_RADIUS','-DDOS_VL_NATIVE_FLAT')
 # One executable for the 386 and 486: 386 instructions, 486 scheduling. The
 # ET4000 transport (High) is used when video_init detects that card; any other
 # VGA gets plain Mode X. A 386 CPU keeps to the Low/Very Low presets (system.c).
@@ -42,12 +42,14 @@ def set_min_stack(exe):
 
 
 def portable_experiment_flags(flags):
-    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_VERY_LOW_PLANAR'))
+    return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_VERY_LOW_PLANAR','-DDOS_VERY_LOW_COARSE','-DDOS_VERY_LOW_FAR_COARSE','-DDOS_VL_TEMPORAL_FAR'))
 
 
-def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None):
+def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None,audio=None):
     if extra_adapter_flags is None: extra_adapter_flags=DEFAULT_ADAPTER_FLAGS
     if graphics is None: graphics=not benchmark
+    if audio is None:audio=not benchmark
+    if audio:extra_adapter_flags=(*extra_adapter_flags,'-DDOS_GAME_AUDIO','-DDOS_SB_STREAM')
     # Later -march/-mtune options override the i486 defaults in imported.CFLAGS.
     arch=ARCH_CFLAGS
     output=Path(output)
@@ -61,6 +63,13 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
     try:
         extra=('-DBENCH_EDIT','-DFIXED_SEED=4242','-DDOSCRAFT_BENCH') if benchmark else ()
         report['benchmark']=benchmark
+        if audio:
+            from build_sound_bank import build as build_bank
+            bank_path=output/'SOUND.PAK';bank=build_bank(bank_path)
+            report['sound_bank']={'path':str(bank_path.resolve()),'sha256':bank['sha256'],
+                                  'bytes':bank['bytes'],'samples':len(bank['samples'])}
+            report['audio']='Sampled Sound Blaster effects; basic effects fallback; music pending'
+            report['stage']='Full game link; sampled effects; gameplay acceptance pending'
         report['extra_adapter_flags']=list(extra_adapter_flags)
         report['graphics_presets']=graphics
         raster_zero_dx='-DDOS_RASTER_ZERO_DX' in extra_adapter_flags
@@ -113,7 +122,8 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             proven_rows=proven_rows,raster_finish_skip=raster_finish_skip,
             very_low_texels=very_low_texels,low_planar=low_planar,a1_census=a1_census,
             profile_cw=profile_cw,large_world=large_world,
-            collect_margin='-DDOS_COLLECT_MARGIN' in extra_adapter_flags,
+            collect_margin=any(flag in extra_adapter_flags for flag in ('-DDOS_COLLECT_MARGIN','-DDOS_VERY_LOW_COLLECT_MARGIN')),
+            very_low_collect_margin='-DDOS_VERY_LOW_COLLECT_MARGIN' in extra_adapter_flags,
             stream_light='-DDOS_STREAM_LIGHT_CACHE' in extra_adapter_flags,
             far_field='-DDOS_FAR_FIELD' in extra_adapter_flags,
             stream_validate_once='-DDOS_STREAM_VALIDATE_ONCE' in extra_adapter_flags,
@@ -132,7 +142,12 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             planar_expand_words='-DDOS_PLANAR_EXPAND_WORDS' in extra_adapter_flags,
             plant_billboards='-DDOS_PLANT_BILLBOARDS' in extra_adapter_flags,
             fill_rows='-DDOS_FILL_ROWS' in extra_adapter_flags,
-            viewmodel='-DDOS_VIEWMODEL' in extra_adapter_flags,very_low_planar=very_low_planar)
+            viewmodel='-DDOS_VIEWMODEL' in extra_adapter_flags,very_low_planar=very_low_planar,
+            flat_distance=True,
+            very_low_coarse='-DDOS_VERY_LOW_COARSE' in extra_adapter_flags,
+            very_low_local_mesh='-DDOS_VERY_LOW_LOCAL_MESH' in extra_adapter_flags,
+            vl_stream_radius='-DDOS_VL_STREAM_RADIUS' in extra_adapter_flags,
+            vl_native_flat='-DDOS_VL_NATIVE_FLAT' in extra_adapter_flags,game_audio=audio)
         portable=imported.build(output=output/'imported',
             extra_cflags=(*arch,*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
@@ -142,6 +157,13 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         objects=[output/'imported'/row['path'] for row in portable['objects']]
         objdir=output/'obj'; objdir.mkdir(exist_ok=True)
         names=tuple('bench_runtime.c' if name=='game_runtime.c' else name for name in GAME_ADAPTERS) if benchmark else GAME_ADAPTERS
+        if audio:
+            names=tuple(name for name in names if name!='sound_silent.c')+(
+                'game_audio.c','audio_bank.c','audio_voices.c','sound_assets.c','sb_pcm.c','sb_entry.S')
+        if '-DDOS_AUDIO_PROBE' in extra_adapter_flags:
+            if not audio:raise ValueError('Audio probe requires the audio backend')
+            names=tuple('audio_probe.c' if name=='game_entry.c' else name for name in names)
+            report['audio_probe']=True
         if graphics or any(flag.startswith('-DDOS_BENCH_QUALITY=') for flag in extra_adapter_flags):
             names=(*names,'graphics_presets.c')
         if '-DDOS_VGA_PACK_ALL' in extra_adapter_flags:

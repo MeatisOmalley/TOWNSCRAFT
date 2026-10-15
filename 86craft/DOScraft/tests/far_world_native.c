@@ -9,6 +9,7 @@
 #include "../src/platform/dos/heap.h"
 #include "hdd_backend.h"
 u32 g_ramMB=8;
+int dos_cpu386;
 volatile u32 g_ticks;
 static const char *terrain_path;
 static u32 directory[3+4096*4],pos;

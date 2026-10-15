@@ -76,7 +76,10 @@ def adapt(name, data, *, far_field=False):
         one('        c->stride=PLANAR_ROW; c->mode=width==1 ? 9 : width==2 ? 10 : 12;\n',
             '        c->stride=PLANAR_ROW; c->mode=width==1 ? 9 : width==2 ? 10 : 12;\n'
             '        /* Potato: A bytes of kept rows only (far_fill.h modes 13/11). */\n'
-            '        if(planarVL && dos_potato_mode && width>1 && !(x&1)) c->mode=width==2 ? 13 : 11;\n')
+            '        if(planarVL && dos_potato_mode && width>1 && !(x&1)) c->mode=width==2 ? 13 : 11;\n'
+            '#ifdef DOS_VERY_LOW_FAR_COARSE\n'
+            '        if(planarVL && dos_potato_mode && width==8 && !(x&1)) c->mode=14;\n'
+            '#endif\n')
     one('\trplanar=planarPolicy && 2==scale && SCR_W/2==w && VIEW_H/2==h;\n',
         '\trplanar=planarPolicy && 2==scale && SCR_W/2==w && VIEW_H/2==h;\n'
         '\tif(rplanar && planarVL) rplanar=2;\n')

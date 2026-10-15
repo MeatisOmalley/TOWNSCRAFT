@@ -1,0 +1,73 @@
+{
+  "audit_before": {
+    "1990": "LAF2 reduced-leaf medium intact",
+    "386": "V2 from original full-leaf seed, marker zero",
+    "1992": "V1 original full-leaf medium, marker zero"
+  },
+  "leaf_cells": {
+    "original": 37273,
+    "previous": 20949,
+    "crown": 16593
+  },
+  "ram2": {
+    "vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\diag-386-2mb-1ry2at7o",
+    "result": "FAIL",
+    "output": "Load error: no DPMI memory\r\n",
+    "started": "START \r\n",
+    "benchmark_report": false
+  },
+  "players": [
+    {
+      "pointer": "build/game/386sx25/latest-play-vm.txt",
+      "vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-crown-e2g5m5q7",
+      "exe_sha256": "80d59a21a4854ffea98924e649393706d73c611da5ae9ee1f2270f4d8bad32c3",
+      "terrain_bytes": 33835008,
+      "format": "DOSCRAFT-1024-V2",
+      "proof": {
+        "source_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-386-ytvf_2s9",
+        "source_disk_sha256": "ea3c62b298be28d56668c9e07d19e3b03d7383ecda6389dd551980416f10e18c",
+        "disk_sha256": "cedf9cd0a640b88a480d6a0ae0795fdc53da2f3c8ed710baf0f0c2ce17215c39",
+        "save_before_sha256": "92ecf3e62e8ea67a2e618b58cf57e6a8db0f7a4ca5891507d53854285fe108f2",
+        "save_after_sha256": "92ecf3e62e8ea67a2e618b58cf57e6a8db0f7a4ca5891507d53854285fe108f2",
+        "logical_blocks_and_player_state": "validated unchanged; leaf eligibility metadata only",
+        "rule": "existing leaves sharing a face with the highest log in a stack"
+      },
+      "boot_config_cmos": "byte-identical to source"
+    },
+    {
+      "pointer": "build/game/486dx25/latest-play-vm.txt",
+      "vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-crown-7vto8bi5",
+      "exe_sha256": "506ea0430287402510107e41534e5c4b9cde691675bf0831c2e511fdeef3c134",
+      "terrain_bytes": 178815488,
+      "format": "DOSCRAFT-1024-V1",
+      "proof": {
+        "source_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-wh21dcor",
+        "source_disk_sha256": "672d0c6acdd4d5362b3a5bbb3306d4c31c3ce805bfcc48d9872371facf0aba28",
+        "disk_sha256": "9316fcb6dac3a02daf348fccddf954a5f601fd3de7f3a38ed285e27395be4d0a",
+        "save_before_sha256": "92ecf3e62e8ea67a2e618b58cf57e6a8db0f7a4ca5891507d53854285fe108f2",
+        "save_after_sha256": "92ecf3e62e8ea67a2e618b58cf57e6a8db0f7a4ca5891507d53854285fe108f2",
+        "logical_blocks_and_player_state": "validated unchanged; leaf eligibility metadata only",
+        "rule": "existing leaves sharing a face with the highest log in a stack"
+      },
+      "boot_config_cmos": "byte-identical to source"
+    },
+    {
+      "pointer": "build/game/486dx25/latest-1992-vm.txt",
+      "vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-crown-0p8cf8tz",
+      "exe_sha256": "506ea0430287402510107e41534e5c4b9cde691675bf0831c2e511fdeef3c134",
+      "terrain_bytes": 178815488,
+      "format": "DOSCRAFT-1024-V1",
+      "proof": {
+        "source_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-1992-n0nuqagi",
+        "source_disk_sha256": "3a273f98ddf7e4ea15072b5ef4eb47cd15e8791b53504f031481645792dbf035",
+        "disk_sha256": "bf93dab589c87cd797e24c231624296f23d2b67d862a16aaa00652c7d809c151",
+        "save_before_sha256": "b8ce6faf3fa7005c4ca739f378e4fae80d17083f0b73c7897687f5012dce70c6",
+        "save_after_sha256": "b8ce6faf3fa7005c4ca739f378e4fae80d17083f0b73c7897687f5012dce70c6",
+        "logical_blocks_and_player_state": "validated unchanged; leaf eligibility metadata only",
+        "rule": "existing leaves sharing a face with the highest log in a stack"
+      },
+      "boot_config_cmos": "byte-identical to source"
+    }
+  ],
+  "tests": "12 focused checks; native streamed-world edit/save/reload and all three launch validations"
+}

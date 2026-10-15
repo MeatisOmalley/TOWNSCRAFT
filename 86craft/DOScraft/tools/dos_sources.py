@@ -14,8 +14,11 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
           stream_validate_once=False,light_offsets=False,mesh_edges=False,collect_swap=False,memmove_dwords=False,
           world_scans=False,baked_light_fast=False,sort_histograms=False,
           texel_edx=False,row_pointer=False,flat_inline=False,row_mul=False,mulshift=False,
-          planar_expand_words=False,plant_billboards=False,fill_rows=False,viewmodel=False,very_low_planar=False):
+          planar_expand_words=False,plant_billboards=False,fill_rows=False,viewmodel=False,very_low_planar=False,very_low_coarse=False,very_low_local_mesh=False,very_low_collect_margin=False,flat_distance=False,vl_stream_radius=False,vl_native_flat=False,game_audio=False):
     recipe=[]
+    if game_audio:
+        import dos_game_audio
+        data,steps=dos_game_audio.adapt(name,data);recipe.extend(steps)
     import dos_chickens
     data,steps=dos_chickens.adapt(name,data)
     recipe.extend(steps)
@@ -203,6 +206,14 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         import dos_depth_adaptive
         data,steps=dos_depth_adaptive.adapt(name,data)
         recipe.extend(steps)
+    if very_low_coarse:
+        import dos_very_low_coarse
+        data,steps=dos_very_low_coarse.adapt(name,data)
+        recipe.extend(steps)
+    if graphics or flat_distance:
+        import dos_flat_distance
+        data,steps=dos_flat_distance.adapt(name,data)
+        recipe.extend(steps)
     if split_reuse:
         import dos_split_reuse
         data,steps=dos_split_reuse.adapt(name,data)
@@ -251,7 +262,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         recipe.extend(steps)
     if collect_margin:
         import dos_collect_margin
-        data,steps=dos_collect_margin.adapt(name,data)
+        data,steps=dos_collect_margin.adapt(name,data,very_low_only=very_low_collect_margin)
         recipe.extend(steps)
     if graphics:
         import dos_menus
@@ -277,7 +288,7 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     if collect_swap and collect_margin:
         # Only the collect-margin overlay has wide planes to swap.
         import dos_collect_swap
-        data,steps=dos_collect_swap.adapt(name,data)
+        data,steps=dos_collect_swap.adapt(name,data,very_low_only=very_low_collect_margin)
         recipe.extend(steps)
     if memmove_dwords:
         import dos_memmove_dwords
@@ -345,5 +356,13 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         # Very Low/Potato frames render into plane 0 (after all raster.c overlays).
         import dos_very_low_planar
         data,steps=dos_very_low_planar.adapt(name,data,far_field=far_field)
+        recipe.extend(steps)
+    if very_low_local_mesh:
+        import dos_very_low_local_mesh
+        data,steps=dos_very_low_local_mesh.adapt(name,data)
+        recipe.extend(steps)
+    if vl_stream_radius or vl_native_flat:
+        import dos_next4
+        data,steps=dos_next4.adapt(name,data,stream_radius=vl_stream_radius,native_flat=vl_native_flat)
         recipe.extend(steps)
     return data,recipe

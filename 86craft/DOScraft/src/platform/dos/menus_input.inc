@@ -63,7 +63,7 @@ static void menu_back(void)
 
 static void menu_graphics_change(int direction)
 {
-	int textured=g_flatDist ? g_flatDist : g_viewDist;
+	int textured=dos_textured_distance(g_flatDist,g_viewDist);
 #ifdef DOS_FAR_FIELD
 	if(menuSel==4) { dos_far_change(direction); return; }
 #endif
@@ -80,14 +80,14 @@ static void menu_graphics_change(int direction)
 	}
 	else if(menuSel==2)
 	{
-		textured=CLAMP(textured+direction,4,DOS_GRAPHICS_MAX_DISTANCE);
+		textured=CLAMP(textured+direction*2,0,DOS_GRAPHICS_MAX_DISTANCE);
 		if(g_viewDist<textured) g_viewDist=textured;
-		g_flatDist=textured<g_viewDist ? textured : 0;
+		g_flatDist=dos_flat_cutoff(textured,g_viewDist);
 	}
 	else if(menuSel==3)
 	{
-		g_viewDist=CLAMP(g_viewDist+direction,textured,DOS_GRAPHICS_MAX_DISTANCE);
-		g_flatDist=textured<g_viewDist ? textured : 0;
+		g_viewDist=CLAMP(g_viewDist+direction*2,MAX(4,textured),DOS_GRAPHICS_MAX_DISTANCE);
+		g_flatDist=dos_flat_cutoff(textured,g_viewDist);
 	}
 	else return;
 	graphicsPresetSel=-1;

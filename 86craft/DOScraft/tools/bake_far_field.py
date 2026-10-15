@@ -1,7 +1,7 @@
-"""Bake the original shared B8 surface, optionally clipping leaves to 3x3 trunks.
+"""Bake the shared B8 surface, with optional static leaf eligibility metadata.
 
-Only the distant appendix changes. Terrain, lighting and V5 save identity remain
-unchanged. The renderer consumes the same height/material entries as before.
+Static eligibility preserves logical voxels and lighting; checked save migration
+updates seed checksums. The renderer consumes the same height/material entries.
 """
 import argparse
 from pathlib import Path
@@ -25,14 +25,23 @@ def keep_leaf(roots,x,y,z):
     return any(h and h-2<=y<h+3 for dz in range(3) for dx in range(3)
                for h in (roots[(z+dz)*18+x+dx],))
 
-def mark_rim(blocks,roots):
+def keep_crown_leaf(roots,x,y,z):
+    """Real leaves sharing a face with a stack's highest log (height minus one)."""
+    at=(z+1)*18+x+1
+    h=roots[at]
+    return bool((h and y in (h,h-2)) or
+                any(roots[at+d]==y+1 for d in (-18,-1,1,18)))
+
+
+def mark_rim(blocks,roots,*,crown=False):
+    keep=keep_crown_leaf if crown else keep_leaf
     result=bytearray(blocks)
     for cell in range(256):
         x,z=cell&15,cell>>4
         for y in range(48):
             i=cell*48+y
             if result[i]&31==7:
-                result[i]=(result[i]&~LEAF_RIM)|(0 if keep_leaf(roots,x,y,z) else LEAF_RIM)
+                result[i]=(result[i]&~LEAF_RIM)|(0 if keep(roots,x,y,z) else LEAF_RIM)
     return result
 
 
@@ -54,11 +63,12 @@ def surface(blocks,leaves=True,roots=None):
     return result
 
 
-def append_map(terrain,*,compact=False,fixed=False):
+def append_map(terrain,*,compact=False,fixed=False,crown=False):
     check_terrain(terrain)
     if len(terrain)<LIT_BYTES: raise ValueError('Expected a lighting appendix')
     result=bytearray(terrain[:LIT_BYTES]);result[92:116]=bytes(24)
     roots=None
+    if crown:fixed=True
     if fixed:compact=True
     if compact:
         struct.pack_into('<I',result,92,LEAF_FLAGS_MAGIC if fixed else COMPACT_MAGIC)
@@ -83,7 +93,7 @@ def append_map(terrain,*,compact=False,fixed=False):
             offset=(33+(cz*64+cx)*24*3)*512
             blocks=bytearray(terrain[offset:offset+12288])
             if fixed:
-                blocks=mark_rim(blocks,halo)
+                blocks=mark_rim(blocks,halo,crown=crown)
                 result[offset:offset+12288]=blocks
                 struct.pack_into('<I',sums,(cz*64+cx)*4,checksum(blocks))
             cells=surface(blocks,roots=None if fixed else halo)
@@ -102,7 +112,8 @@ def main():
     p.add_argument('--terrain',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--compact-leaves',action='store_true',help='Keep actual leaves within one block of each trunk')
     p.add_argument('--fixed-leaves',action='store_true',help='Bake rim exclusion in existing voxel metadata; no runtime trunk checks')
-    a=p.parse_args();data=append_map(a.terrain.read_bytes(),compact=a.compact_leaves,fixed=a.fixed_leaves)
+    p.add_argument('--crown-leaves',action='store_true',help='Keep only real leaves sharing a face with the highest log; bake exclusion metadata')
+    a=p.parse_args();data=append_map(a.terrain.read_bytes(),compact=a.compact_leaves,fixed=a.fixed_leaves,crown=a.crown_leaves)
     with a.output.open('xb') as f:f.write(data)
     print(f'{a.output}: {len(data)} bytes; distant map {FAR_MAP_BYTES} bytes')
 

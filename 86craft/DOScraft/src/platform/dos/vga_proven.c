@@ -6,6 +6,10 @@
 
 #define VIEW_ROWS 200u
 #define ROW_BYTES 80u
+#ifdef DOS_VL_PACK_WORDS
+#include "vga_pack_words.h"
+extern int dos_potato_mode;
+#endif
 #ifdef DOS_VERY_LOW
 extern int dos_very_low_mode;
 #endif
@@ -159,6 +163,10 @@ static int pack_plan(const unsigned char *source, unsigned int pitch,
             }
         } else {
             int ab,cd;
+#ifdef DOS_VL_PACK_WORDS
+            if(dos_potato_mode) dos_vga_pack_row_words(src,a,b,c,d);
+            else
+#endif
             for (x=0; x<ROW_BYTES; x+=4) {
 #define PACK_FULL(i) do { a[x+i]=src[4*(x+i)]; b[x+i]=src[4*(x+i)+1]; \
                            c[x+i]=src[4*(x+i)+2]; d[x+i]=src[4*(x+i)+3]; } while (0)

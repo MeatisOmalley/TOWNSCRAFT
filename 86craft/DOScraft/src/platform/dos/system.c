@@ -6,6 +6,9 @@
 #include "irq.h"
 #include "input.h"
 #include "video_backend.h"
+#ifdef DOS_GAME_AUDIO
+#include "game_audio.h"
+#endif
 #include <dpmi.h>
 #include <sys/nearptr.h>
 #include <stdio.h>
@@ -62,6 +65,9 @@ static void mem_report(void)
 
 void dos_system_shutdown(void)
 {
+#ifdef DOS_GAME_AUDIO
+    dos_audio_shutdown();
+#endif
     dos_input_shutdown();
     dos_video_set_tick_clock(0, 0);
     dos_irq_shutdown(); /* No ISR may touch arenas after they are released. */
@@ -146,6 +152,11 @@ void sys_init(void)
 #else
     else if (g_ramMB >= 4) { low_bytes=640u*1024u; high_bytes=2560u*1024u; }
     else { low_bytes=448u*1024u; high_bytes=896u*1024u; }
+#endif
+#if defined(DOSCRAFT_BENCH) && defined(DOS_COLLECT_VERIFY) && !defined(DOS_MEM_REPORT)
+    /* Independent reference redraw needs its saved list/keys/order and pixels.
+     * Ordinary 4 MiB arenas deliberately omit that diagnostic-only scratch. */
+    high_bytes+=192u*1024u;
 #endif
 #ifdef DOS_MEM_REPORT
     /* Measure true demand with the largest arenas DPMI can supply, whatever

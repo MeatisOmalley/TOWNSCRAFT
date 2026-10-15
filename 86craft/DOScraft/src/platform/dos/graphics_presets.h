@@ -14,7 +14,7 @@ enum {
 typedef struct {
     int render_scale;
     int view_distance;
-    int flat_distance; /* 0: all distances textured; otherwise start here. */
+    int flat_distance; /* -1: textureless; 0: all textured; positive: cutoff. */
     int distance_mode;
     int texture_subdivision; /* Imported render.h SUBDIV_* value. */
 } DosGraphicsSettings;
@@ -32,6 +32,16 @@ void dos_graphics_apply_resolution(int index);
  * and Very Low presets and 8 blocks. */
 extern int dos_cpu386;
 #define DOS_GRAPHICS_MAX_DISTANCE (dos_cpu386 ? 8 : 16)
+
+/* Preserve the renderer's historical zero (all textured) representation. */
+static inline int dos_textured_distance(int flat, int view)
+{
+    return flat<0 ? 0 : flat ? flat : view;
+}
+static inline int dos_flat_cutoff(int textured, int view)
+{
+    return textured==0 ? -1 : textured<view ? textured : 0;
+}
 
 /* Invalid indices resolve to Low. Invalid next indices also return Low. */
 int dos_graphics_index(int index);

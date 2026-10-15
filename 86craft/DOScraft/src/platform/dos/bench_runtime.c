@@ -19,6 +19,11 @@
 #include "hdd_backend.h"
 #include "save_backend.h"
 #include "video_backend.h"
+#ifdef DOS_GAME_AUDIO
+#include "sound.h"
+#include "game_audio.h"
+#include "sb_pcm.h"
+#endif
 #ifdef DOS_VIEWMODEL
 #include "viewmodel.h"
 #endif
@@ -206,6 +211,14 @@ static void bench_dump_frame(const char *path,const u8 *fb)
 void __real_gfx_present(void);
 void __wrap_gfx_present(void)
 {
+#ifdef DOS_BENCH_AUDIO_STRESS
+    /* Independent busy-effects fixture; no gameplay/random/world changes. */
+    if(phase>=0) {
+        sound_loop(SFX_RAIN,100);
+        if(!(frame&7))sound_play(SFX_STEP,256,180,0);
+        if(!(frame&15))sound_play(SFX_STONE,256,190,0);
+    }
+#endif
     const u8 *fb=g_fb;
     __real_gfx_present();
 #ifdef DOS_VIEWMODEL
@@ -294,6 +307,15 @@ static void select_quality(int index)
 #else
     (void)index;
 #endif
+#ifdef DOS_BENCH_TEXTURED_DISTANCE
+    /* Exercise the same shared distance representation as the graphics menu. */
+#ifdef DOS_BENCH_FLAT_DISTANCE
+    g_viewDist=CLAMP(DOS_BENCH_FLAT_DISTANCE,4,DOS_GRAPHICS_MAX_DISTANCE);
+#endif
+    int textured=CLAMP(DOS_BENCH_TEXTURED_DISTANCE,0,DOS_GRAPHICS_MAX_DISTANCE);
+    if(g_viewDist<textured) g_viewDist=textured;
+    g_flatDist=dos_flat_cutoff(textured,g_viewDist);
+#endif
 }
 static void clear_samples(void)
 {
@@ -348,6 +370,11 @@ static void finish(void)
         return;
     }
     unsigned int ticks=g_ticks;
+#ifdef DOS_GAME_AUDIO
+    const char *audio_backend=dos_audio_backend();
+    unsigned int audio_events=dos_audio_events,audio_blocks=dos_sb_completions,audio_faults=dos_sb_stream_faults;
+    ok=ok && !strcmp(audio_backend,"SB_SAMPLED") && !audio_faults;
+#endif
     if(!suite || run==3 || !ok) {
         dos_save_shutdown(); dos_hdd_shutdown(); dos_system_shutdown(); dos_video_restore();
         outportb(0x61,old61);
@@ -356,6 +383,11 @@ static void finish(void)
     fprintf(file,"VERSION=2\nEDIT_TIMING=CALL_PLUS_FOLLOWING_FRAME\nSEED=4242\nSIMULATION=FROZEN_GRAPHICS_REPLAY\nSCALE=%d\nVIEW=%d\nFLAT=%d\nSUBDIV=%d\nOCCLUSION=%d\nGEN_MS=%u\nTICKS=%u\nRESULT=%s\n",
         g_renderScale,g_viewDist,g_flatDist,g_textureSubdivision,g_occlusion,g_benchOut[BO_GEN_MS],ticks,ok?"PASS":"FAIL");
     fprintf(file,"REPLAY_CONTEXT=%s\n",suite?"POST_FIXTURE":"FRESH_WORLD");
+#ifdef DOS_GAME_AUDIO
+    fprintf(file,"AUDIO=%s\nAUDIO_EVENTS=%u\nAUDIO_BLOCKS=%u\nAUDIO_FAULTS=%u\n",audio_backend,audio_events,audio_blocks,audio_faults);
+#else
+    fprintf(file,"AUDIO=OFF\n");
+#endif
     fprintf(file,"SAMPLES_PER_SCENE=%d\n",FRAMES);
 #ifdef DOS_BENCH_VIEWMODEL_CASES
     fprintf(file,"HELD_CASE=%s\n",run==1 ? "empty_hand" : run==2 ? "cobblestone" : "iron_pickaxe");
@@ -551,9 +583,13 @@ void bench_frame(void)
     if(phase==1) pose=frame;
 #endif
     if(phase>=1 && phase<=3) {
-        g_player.body.x+=(pose*FU/8); g_player.yaw=pose*8;
+        int travelStep=FU/8;
+#ifdef DOS_BENCH_TRAVEL_STEP
+        if(phase==1) travelStep=DOS_BENCH_TRAVEL_STEP;
+#endif
+        g_player.body.x+=pose*travelStep; g_player.yaw=pose*8;
 #ifdef DOS_BENCH_DIAGONAL_ROUTE
-        g_player.body.z+=(pose*FU/8); g_player.yaw=128;
+        g_player.body.z+=pose*travelStep; g_player.yaw=128;
 #endif
         g_player.body.y=(world_surface_y(g_player.body.x/FU,g_player.body.z/FU)+1)*FU;
         g_player.pitch=phase==2?-250:phase==3?250:-40;

@@ -13,6 +13,11 @@
 #include "save_backend.h"
 #include "hdd_backend.h"
 #include "video_backend.h"
+#ifdef DOS_GAME_AUDIO
+#include "game_audio.h"
+#include "sb_pcm.h"
+#include "audio_voices.h"
+#endif
 #ifdef DOS_FAR_FIELD
 #include "far_field.h"
 extern u32 dos_far_samples,dos_far_strips,dos_far_pan_builds,dos_far_frames;
@@ -177,6 +182,12 @@ static void finish(void)
     int stream_ok=world_stream_error()==0;
     int width=g_W,columns=g_residentColumns;
     unsigned int mesh=g_meshQuads,ticks=g_ticks-start;
+#ifdef DOS_GAME_AUDIO
+    const char *audio_backend=dos_audio_backend();
+    unsigned int audio_events=dos_audio_events,audio_blocks=dos_sb_completions,audio_faults=dos_sb_stream_faults;
+    unsigned int audio_frames=dos_audio_mixed_frames;
+    int audio_ok=!strcmp(audio_backend,"SB_SAMPLED") && audio_events && audio_blocks && !audio_faults;
+#endif
     /* A completed diagnostic exits cleanly, never kill a live save session. */
     dos_save_shutdown(); dos_hdd_shutdown();
     dos_system_shutdown(); dos_video_restore();
@@ -201,17 +212,26 @@ static void finish(void)
 #ifdef DOS_FAR_FIELD
     ok=ok && far_option_ok && dos_far_frames>0 && dos_far_pan_builds>=256;
 #endif
+#ifdef DOS_GAME_AUDIO
+    ok=ok && audio_ok;
+#endif
     if(!file) exit(1);
     int written=fprintf(file,"DOScraft real game-loop smoke\nMODE=%s\nWORLD_WIDTH=%d\n"
         "RESIDENT_COLUMNS=%d\nMESH_QUADS=%u\nPRESENTED_FRAMES=%d\nAT_INPUT=%s\n"
         "WALK_MOVED=%s\nFULL_DOWN_UP_LOOK=%s\nSTREAM_ERROR=%d\nELAPSED_100HZ_TICKS=%u\n"
         "PLACE_TORCH=%s\nBREAK_TORCH=%s\nVGA_READBACK=%s\nFULL_RES_OPTION=%s\nMOB_DESPAWN=%s\nSAVE_RESULT=%d\nLOAD_RESULT=%d\n"
         "INVENTORY_PRESENTS=%d\nINVENTORY_100HZ_TICKS=%u\n"
-        "AUDIO=SILENT_DEFERRED\nRESULT=%s\n",load_smoke?"LOAD":"NEW",width,columns,mesh,frames,
+        "RESULT=%s\n",load_smoke?"LOAD":"NEW",width,columns,mesh,frames,
         input_ok?"PASS":"FAIL",walk_ok?"PASS":"FAIL",look_ok?"PASS":"FAIL",
         !stream_ok,ticks,placed?"PASS":"FAIL",broken?"PASS":"FAIL",vga_ok?"PASS":"FAIL",
         fullres_ok?"PASS":"FAIL",despawn_ok?"PASS":"FAIL",save_result,load_result,inventory_frames,inventory_ticks,
         ok?"PASS":"FAIL")>=0;
+#ifdef DOS_GAME_AUDIO
+    if(fprintf(file,"AUDIO=%s\nAUDIO_EVENTS=%u\nAUDIO_BLOCKS=%u\nAUDIO_FAULTS=%u\nAUDIO_MIXED_FRAMES=%u\n",
+               audio_backend,audio_events,audio_blocks,audio_faults,audio_frames)<0)written=0;
+#else
+    if(fprintf(file,"AUDIO=SILENT_DEFERRED\n")<0)written=0;
+#endif
 #ifdef DOS_GRAPHICS_PRESETS
     if(fprintf(file,"GRAPHICS_PRESETS=%s\n",presets_ok?"PASS":"FAIL")<0) written=0;
     if(fprintf(file,"MENUS=%s\n",menus_ok?"PASS":"FAIL")<0) written=0;
@@ -420,7 +440,7 @@ void __wrap_gfx_present(void)
         arrow(0x50); arrow(0x4d); arrow(0x50); arrow(0x4d);
         until=g_ticks+30; stage=21;
     } else if(stage==21 && (int)(g_ticks-until)>=0) {
-        menus_ok=menus_ok && g_viewDist==10 && g_flatDist==9;
+        menus_ok=menus_ok && g_viewDist==12 && g_flatDist==10;
         snapshot("C:\\CUSTOM.RAW",frame);
         arrow(0x48); arrow(0x48); arrow(0x48); tap(0x1c);
         tap(0x01); tap(0x01); tap(0x01); until=g_ticks+30; stage=24;

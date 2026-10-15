@@ -14,4 +14,11 @@ int dos_sb_busy(void);
 unsigned int dos_sb_version(void);
 unsigned int dos_sb_dma_address(void);
 extern volatile unsigned int dos_sb_completions,dos_sb_spurious;
+#ifdef DOS_SB_STREAM
+#define DOS_SB_STREAM_BYTES 512u
+/* Locked integer callback, no DOS/BIOS/allocation. IRQ rearms the prepared
+ * other DMA block before refilling the completed block. Foreground start. */
+int dos_sb_stream_start(void (*fill)(unsigned char *,unsigned int));
+extern volatile unsigned int dos_sb_stream_faults;
+#endif
 #endif

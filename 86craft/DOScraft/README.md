@@ -9,8 +9,10 @@ snapshot remains immutable. The full gameplay/fixed-point renderer now links
 into `DOSCRAFT.EXE` through the original `kmain`, with DOS platform adapters.
 The original 256-world procedural generation, AT movement/full-pitch input,
 torch placement/removal and save/fresh-process reload pass in 86Box. Full feature acceptance is still
-pending. Audio is deliberately
-silent under the user's latest priority, not completed Sound Blaster parity.
+pending. The base build now has sampled Sound Blaster effects, with basic
+synthesized effects and PC-speaker fallback. Music remains deferred. Original
+sound masters and the external target-specific bank are documented in
+[the sound asset guide](assets/audio/README.md).
 Five verified VGA-transport optimizations and the measured i486 frame-register
 compiler optimization are now enabled. High also uses the verified ET4000
 banked chunky CPU-upload path, now with direct pitched rows and word-wise HUD
@@ -45,6 +47,15 @@ the 1992 disk and CMOS untouched. The two VMs can therefore use the same game
 executable without sharing world saves or hardware settings.
 Both current hardware profiles have their own HDD containing the prebaked
 1024-world seed; the previous 1992 256-world disk is preserved separately.
+All active 1024-world HDDs, including the 1990 and 1992 players, now use V2 RLE
+compression. The crown-leaf world occupies 33,835,008 bytes instead of
+178,815,488 bytes; disk geometry stays unchanged. The migration preserves
+logical terrain edits and both committed save banks, keeping the original VM
+as a recovery copy. New large-world media is compact by default.
+
+The separate [local 386SX-25 VM](HARDWARE_386.md) uses
+`ISO/Launch-DOScraft-386.cmd`, 4 MiB RAM, Trident VGA, a 40 MB IDE disk and
+the merged shared 386/486 executable with compact V2 world storage.
 
 The shared ISO now includes the first restrained block-texture pass. A separate
 prebaked biome world adds plains, forests, deserts and rocky highlands; its
@@ -103,13 +114,24 @@ Open **Settings → Graphics** from the main menu or **Escape → Settings →
 Graphics** during play. The submenu offers the existing presets, view resolution,
 textured render distance, and flat render distance. Flat distance is the total
 visibility limit: terrain is textured first, then flat shaded out to that limit.
-Both distances are in blocks, bounded to 4–16; the flat limit cannot be shorter
-than the textured distance. Equal distances keep all visible terrain textured.
+Both distances change in 2-block steps. Textured distance can be reduced to 0 for flat
+opaque block faces, while flat distance has a minimum of 4. The flat limit
+cannot be shorter than the textured distance. Equal distances keep all visible
+terrain textured. Cutout masks remain available in textureless mode. Flat faces
+skip the texture subdivision work on every CPU.
+At 80x50, background mesh refresh, column preparation, flat polygon rasterization
+and collection reuse use the same shared optimizations on every CPU; Very Low
+distant terrain also uses wider strips.
+The [386 textureless benchmark](research/386sx25-shared-textureless-optimized-flat4-2026-10-14.md)
+records the explicit 0-textured/4-flat configuration and its performance.
+The [next four experiments](research/386sx25-next-four-2026-10-14.md) improve that
+configuration from 7.89 to 9.91 FPS in the fixed graphics replay.
 Changing an individual option marks the preset Custom; choosing a preset
 restores all of its graphics values. **F2** still cycles Low → Medium → High →
 Very Low → Low, and startup remains Low. Mode X retains the 320x240 display and
-40-row HUD. Controls and Diagnostics are separate settings submenus; audio
-remains the silent temporary backend.
+40-row HUD. Controls and Diagnostics are separate settings submenus. Effects
+use the external sound bank described above; the deferred 386 player has not
+been refreshed for this audio checkpoint.
 
 | Preset | 3D view resolution | View distance | Textured distance | Subdivision |
 | --- | --- | --- | --- | --- |

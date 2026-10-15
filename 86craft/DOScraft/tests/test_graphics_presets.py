@@ -187,7 +187,19 @@ int main(void) {
     settings_key(KEY_PF9); assert(!saves);
     state=GS_PLAY; settings_key(KEY_PF9); assert(saves==1);
     check(2,8,0);
-    puts("PASS: transformed Low startup, F2 cycles, disabled keys, retained controls");
+    dos_cpu386=1;
+    old_count=message_count;
+    init_graphics_quality(); check(2,4,0);
+    assert(graphicsPresetSel==DOS_GRAPHICS_VERY_LOW && dos_very_low_mode && dos_potato_mode);
+    assert(message_count==old_count);
+    settings_key(KEY_PF2); check(2,8,4);
+    assert(graphicsPresetSel==DOS_GRAPHICS_LOW && dos_very_low_mode && !dos_potato_mode);
+    settings_key(KEY_PF2); check(2,4,0);
+    assert(graphicsPresetSel==DOS_GRAPHICS_VERY_LOW && dos_very_low_mode && dos_potato_mode);
+    dos_cpu386=0;
+    init_graphics_quality(); check(2,8,0);
+    assert(graphicsPresetSel==DOS_GRAPHICS_LOW && !dos_very_low_mode && !dos_potato_mode);
+    puts("PASS: transformed Low startup, F2 cycles, disabled keys, retained controls; 386 Very Low startup");
     return 0;
 }
 '''

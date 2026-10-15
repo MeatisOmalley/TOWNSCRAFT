@@ -47,5 +47,7 @@ void dos_video_planar_frame(const unsigned char *rows);
 int dos_video_verify(const unsigned char *source, unsigned int pitch);
 /* Diagnostic source completion is valid only for a proven raster upload. */
 int dos_video_last_present_proven(void);
+/* PC-speaker fallback owns PIT2; use conservative IRQ-clock page guards. */
+void dos_video_set_speaker_clock(int enabled);
 
 #endif

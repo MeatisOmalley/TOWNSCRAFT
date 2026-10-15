@@ -1,5 +1,8 @@
 /* B8: cached cylindrical horizon, then a live heightmap band, then the
  * unchanged polygon world. No disk access or new near-face collection. */
+#if defined(DOS_VERY_LOW_FAR_COARSE) || defined(DOS_VL_TEMPORAL_FAR)
+extern int dos_potato_mode;
+#endif
 #define FAR_PAN_COLS 256
 #define FAR_PAN_ROWS 128
 #define FAR_PAN_RUNS 32
@@ -33,7 +36,7 @@ static FarBandRun farBandRuns[SCR_W/2][32];
 static u8 farBandCount[SCR_W/2];
 static u8 farBandStart[SCR_W/2];
 static Camera farBandCamera;
-static int farBandValid,farBandView,farBandScale,farBandLevel;
+static int farBandValid,farBandView,farBandScale,farBandLevel,farBandWidth;
 static u32 farBandVersion,farBandBoundary,farBandResident;
 /* Art changes invalidate colors, not the cached terrain samples. */
 static void far_texture_changed(void)
@@ -388,13 +391,30 @@ static void draw_far_field(const RenderEnv *env)
     /* Draw the live band first and retain each column's skyline. Panorama
      * pixels below that skyline were previously drawn and then overwritten. */
     int width=(level<=DOS_FAR_LOW ? 8 : level==DOS_FAR_MEDIUM ? 4 : 2)/g_renderScale;
+#ifdef DOS_VERY_LOW_FAR_COARSE
+    /* Four shown texels per strip instead of two at 80x50. The shared Very
+     * Low distant tier trades horizontal detail for fewer ray marches. */
+    if(dos_potato_mode && level==DOS_FAR_VERY_LOW) width*=2;
+#endif
     farReady=dos_far_ready_flags();
     u32 resident=far_resident_signature();
     int samePose=farBandCamera.x==g_cam.x && farBandCamera.y==g_cam.y &&
         farBandCamera.z==g_cam.z && farBandCamera.yaw==g_cam.yaw && farBandCamera.pitch==g_cam.pitch &&
-        farBandView==g_viewDist && farBandScale==g_renderScale && farBandLevel==level &&
+        farBandView==g_viewDist && farBandScale==g_renderScale && farBandLevel==level && farBandWidth==width &&
         farBandVersion==dos_far_version && farBandBoundary==dos_far_boundary_version && farBandResident==resident;
     int reuse=farBandValid && samePose,capture=!reuse && samePose;
+#ifdef DOS_VL_TEMPORAL_FAR
+    if(dos_potato_mode && level==DOS_FAR_VERY_LOW) {
+        int yaw=(g_cam.yaw-farBandCamera.yaw)&ANG_MASK; if(yaw>512) yaw=1024-yaw;
+        int close=ABS(g_cam.x-farBandCamera.x)<64 && ABS(g_cam.z-farBandCamera.z)<64 &&
+            g_cam.y==farBandCamera.y && yaw<=8 && ABS(g_cam.pitch-farBandCamera.pitch)<=4;
+        int compatible=farBandView==g_viewDist && farBandScale==g_renderScale &&
+            farBandLevel==level && farBandWidth==width && farBandVersion==dos_far_version &&
+            farBandBoundary==dos_far_boundary_version && farBandResident==resident;
+        reuse=farBandValid && compatible && close;
+        capture=!reuse;
+    }
+#endif
     int cacheGood=1;
     u8 skyline[SCR_W];
     /* One radial reciprocal per depth, shared by all screen columns. */
@@ -414,8 +434,14 @@ static void draw_far_field(const RenderEnv *env)
         cacheGood=(capture ? far_march_capture_full : far_march_plain_full)(width,level,horizon,gain,inv,skyline);
     else
         cacheGood=(capture ? far_march_capture_win : far_march_plain_win)(width,level,horizon,gain,inv,skyline);
-    farBandValid=cacheGood && (reuse || capture); farBandCamera=g_cam;
+    farBandValid=cacheGood && (reuse || capture);
+#ifdef DOS_VL_TEMPORAL_FAR
+    if(!reuse) farBandCamera=g_cam; /* Reuse must not move the capture anchor. */
+#else
+    farBandCamera=g_cam;
+#endif
     farBandView=g_viewDist; farBandScale=g_renderScale; farBandLevel=level;
+    farBandWidth=width;
     farBandVersion=dos_far_version; farBandBoundary=dos_far_boundary_version; farBandResident=resident;
 #ifdef DOS_BENCH_PROFILE_FAR
     farMark=bench_us(); dos_far_us[2]+=farMark-farStart; farStart=farMark;

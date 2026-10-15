@@ -52,15 +52,32 @@ int main(void) {
     menu_key(KEY_LEFT); assert(g_renderScale==1 && !dos_potato_mode);
     menu_key(KEY_LEFT); assert(g_renderScale==2 && dos_potato_mode);
     apply_graphics_preset(DOS_GRAPHICS_MEDIUM);
-    menuSel=2; menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==9 && graphicsPresetSel==-1);
-    menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==10);
-    menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==11);
+    menuSel=2; menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==10 && graphicsPresetSel==-1);
+    menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==12);
+    menu_key(KEY_RIGHT); assert(!g_flatDist && g_viewDist==14);
     menuSel=3; for(int i=0;i<40;++i) menu_key(KEY_RIGHT);
-    assert(g_viewDist==16 && g_flatDist==11);
+    assert(g_viewDist==16 && g_flatDist==14);
     for(int i=0;i<40;++i) menu_key(KEY_LEFT);
-    assert(g_viewDist==11 && !g_flatDist);
+    assert(g_viewDist==14 && !g_flatDist);
     menuSel=2; for(int i=0;i<40;++i) menu_key(KEY_LEFT);
-    assert(g_flatDist==4 && g_viewDist==11);
+    assert(g_flatDist==-1 && dos_textured_distance(g_flatDist,g_viewDist)==0 && g_viewDist==14);
+    menuSel=3; for(int i=0;i<40;++i) menu_key(KEY_LEFT);
+    assert(g_viewDist==4 && g_flatDist==-1);
+    menuSel=2; menu_key(KEY_RIGHT); assert(g_flatDist==2 && g_viewDist==4);
+    menu_key(KEY_LEFT); assert(g_flatDist==-1 && g_viewDist==4);
+    for(int cpu=0;cpu<2;++cpu) {
+        dos_cpu386=cpu;
+        for(int i=0;i<40;++i) menu_key(KEY_RIGHT);
+        assert(g_viewDist==DOS_GRAPHICS_MAX_DISTANCE && !g_flatDist);
+        for(int i=0;i<40;++i) menu_key(KEY_LEFT);
+        assert(g_flatDist==-1 && dos_textured_distance(g_flatDist,g_viewDist)==0);
+        menuSel=3; for(int i=0;i<40;++i) menu_key(KEY_LEFT);
+        assert(g_viewDist==4 && g_flatDist==-1);
+        menuSel=2; for(int i=0;i<2;++i) menu_key(KEY_RIGHT);
+        assert(!g_flatDist && g_viewDist==4 && dos_textured_distance(g_flatDist,g_viewDist)==4);
+        menu_key(KEY_LEFT); assert(g_flatDist==2 && g_viewDist==4);
+    }
+    dos_cpu386=0;
     menuSel=0; menu_key(KEY_RETURN); assert(graphicsPresetSel==DOS_GRAPHICS_LOW && g_viewDist==8 && !g_flatDist);
 #ifdef DOS_FAR_FIELD
     menuSel=4; menu_key(KEY_RETURN); assert(dos_far_enabled && g_viewDist==8 && graphicsPresetSel==DOS_GRAPHICS_LOW);

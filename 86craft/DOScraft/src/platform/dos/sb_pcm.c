@@ -20,6 +20,13 @@ static int selector=-1,vector,installed,locked,ready,owns_dsp,exit_registered;
 static unsigned char saved_irq_bit;
 static unsigned int physical,dsp_version;
 static volatile int busy;
+#ifdef DOS_SB_STREAM
+static void (*stream_fill)(unsigned char *,unsigned int);
+static unsigned char stream_scratch[DOS_SB_STREAM_BYTES];
+static int stream_slot;
+volatile unsigned int dos_sb_stream_faults;
+static int dma_start(unsigned int address,unsigned int bytes);
+#endif
 volatile unsigned int dos_sb_completions,dos_sb_spurious;
 unsigned short dos_sb_data_selector;
 extern void dos_sb_irq_entry(void);
@@ -27,7 +34,13 @@ extern char image_end __asm__("end");
 
 static int command(unsigned char value)
 {
-    for(unsigned int i=0;i<POLL_LIMIT;++i)
+    for(unsigned int i=0;i<
+#ifdef DOS_SB_STREAM
+        (stream_fill ? 256u : POLL_LIMIT)
+#else
+        POLL_LIMIT
+#endif
+        ;++i)
         if(!(inportb(BASE+12)&0x80)) { outportb(BASE+12,value); return 0; }
     return -1;
 }
@@ -57,12 +70,28 @@ void dos_sb_irq_body(void)
     outportb(0x20,0x0a); /* Restore IRR read mode for other clients. */
     if(!real) { ++dos_sb_spurious; return; } /* No EOI for spurious IRQ7. */
     inportb(BASE+14); /* Acknowledge DSP BEFORE PIC EOI. */
-    if(busy) { busy=0; ++dos_sb_completions; }
+    if(busy) {
+        busy=0; ++dos_sb_completions;
+#ifdef DOS_SB_STREAM
+        if(stream_fill) {
+            int done=stream_slot;stream_slot^=1;
+            if(dma_start(physical+stream_slot*DOS_SB_STREAM_BYTES,DOS_SB_STREAM_BYTES)) {
+                stream_fill=0;busy=0;++dos_sb_stream_faults;outportb(0x0a,5);
+            } else {
+                stream_fill(stream_scratch,DOS_SB_STREAM_BYTES);
+                dosmemput(stream_scratch,DOS_SB_STREAM_BYTES,physical+done*DOS_SB_STREAM_BYTES);
+            }
+        }
+#endif
+    }
     outportb(0x20,0x20);
 }
 void dos_sb_shutdown(void)
 {
     unsigned long state=dos_keyboard_irq_save();
+#ifdef DOS_SB_STREAM
+    stream_fill=0;
+#endif
     if(installed || owns_dsp) {
         outportb(0x21,inportb(0x21)|IRQ_BIT);
         outportb(0x0a,5); /* Mask DMA1 before any buffer release. */
@@ -114,7 +143,11 @@ int dos_sb_init(void)
     dos_keyboard_irq_restore(state);
     if(command(0xe1)) goto fail;
     major=read_data(); minor=read_data();
-    if(major!=1 || minor<0) goto fail; /* No silent DSP2/Pro/16 substitution. */
+#ifdef DOS_SB_STREAM
+    if(major<1 || major>4 || minor<0)goto fail; /* Common 8-bit mono commands. */
+#else
+    if(major!=1 || minor<0) goto fail; /* Exact legacy diagnostic. */
+#endif
     dsp_version=(major<<8)|minor;
     if(command(0x40) || command(165) || command(0xd1)) goto fail;
     if(!exit_registered) {
@@ -134,25 +167,46 @@ fail:
     dos_sb_shutdown();
     return -1;
 }
-int dos_sb_submit(const unsigned char *samples,unsigned int bytes)
+static int dma_start(unsigned int address,unsigned int bytes)
 {
-    if(!ready || !samples || !bytes || bytes>DOS_SB_BLOCK_BYTES) return -1;
-    if(busy) return 1;
-    dosmemput(samples,bytes,physical); /* Foreground only, owned idle buffer. */
-    unsigned long state=dos_keyboard_irq_save();
     unsigned int count=bytes-1;
     outportb(0x0a,5); /* DMA1 masked, flip-flop cleared before each word. */
     outportb(0x0c,0); outportb(0x0b,0x49); /* Single, memory->device, increment. */
-    outportb(0x02,physical&255); outportb(0x02,(physical>>8)&255);
-    outportb(0x83,physical>>16);
+    outportb(0x02,address&255); outportb(0x02,(address>>8)&255);
+    outportb(0x83,address>>16);
     outportb(0x0c,0); outportb(0x03,count&255); outportb(0x03,count>>8);
     busy=1;
     outportb(0x0a,1);
     int failed=command(0x14) || command(count&255) || command(count>>8);
+    return failed;
+}
+int dos_sb_submit(const unsigned char *samples,unsigned int bytes)
+{
+    if(!ready || !samples || !bytes || bytes>DOS_SB_BLOCK_BYTES) return -1;
+    if(busy) return 1;
+    dosmemput(samples,bytes,physical);
+    unsigned long state=dos_keyboard_irq_save();
+    int failed=dma_start(physical,bytes);
     dos_keyboard_irq_restore(state);
     if(failed) { dos_sb_shutdown(); return -1; }
     return 0;
 }
+#ifdef DOS_SB_STREAM
+int dos_sb_stream_start(void (*fill)(unsigned char *,unsigned int))
+{
+    if(!ready || busy || !fill || stream_fill)return -1;
+    fill(stream_scratch,DOS_SB_STREAM_BYTES);
+    dosmemput(stream_scratch,DOS_SB_STREAM_BYTES,physical);
+    fill(stream_scratch,DOS_SB_STREAM_BYTES);
+    dosmemput(stream_scratch,DOS_SB_STREAM_BYTES,physical+DOS_SB_STREAM_BYTES);
+    unsigned long state=dos_keyboard_irq_save();
+    stream_fill=fill;stream_slot=0;dos_sb_stream_faults=0;
+    int failed=dma_start(physical,DOS_SB_STREAM_BYTES);
+    dos_keyboard_irq_restore(state);
+    if(failed) { dos_sb_shutdown();return -1; }
+    return 0;
+}
+#endif
 int dos_sb_busy(void) { return busy; }
 unsigned int dos_sb_version(void) { return dsp_version; }
 unsigned int dos_sb_dma_address(void) { return physical; }

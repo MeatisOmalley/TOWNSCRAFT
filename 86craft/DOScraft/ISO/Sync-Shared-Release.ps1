@@ -36,6 +36,12 @@ function Sync-SharedRelease {
         $VmRecord.boot_sha256 = $expected
         $VmRecord.iso_sha256 = $PublishedRecord.iso_sha256
         $VmRecord.exe_sha256 = $PublishedRecord.exe_sha256
+        if ($PublishedRecord.audio) {
+            $VmRecord | Add-Member -MemberType NoteProperty -Name audio -Value $PublishedRecord.audio -Force
+        }
+        if ($PublishedRecord.sound_bank) {
+            $VmRecord | Add-Member -MemberType NoteProperty -Name sound_bank -Value $PublishedRecord.sound_bank -Force
+        }
         $VmRecord.shared_iso_path = $SharedIso
         $json = $VmRecord | ConvertTo-Json -Depth 10
         [IO.File]::WriteAllText($manifestTemp, $json + [Environment]::NewLine,

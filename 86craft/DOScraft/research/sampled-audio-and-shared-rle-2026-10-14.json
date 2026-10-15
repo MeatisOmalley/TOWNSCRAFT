@@ -1,0 +1,962 @@
+{
+  "date": "2026-10-14",
+  "production_build": "c3c57866cb482da42cd6b0ab52cf0baf0b1e78ab519b9293782c69cbfdd6cd5f",
+  "smoke_vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-smoke-kyb9pc1w",
+  "smoke": {
+    "new": "DOScraft real game-loop smoke\nMODE=NEW\nWORLD_WIDTH=1024\nRESIDENT_COLUMNS=25\nMESH_QUADS=4136\nPRESENTED_FRAMES=483\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=2499\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nMOB_DESPAWN=PASS\nSAVE_RESULT=0\nLOAD_RESULT=0\nINVENTORY_PRESENTS=1\nINVENTORY_100HZ_TICKS=30\nRESULT=PASS\nAUDIO=SB_SAMPLED\nAUDIO_EVENTS=11\nAUDIO_BLOCKS=538\nAUDIO_FAULTS=0\nAUDIO_MIXED_FRAMES=276480\nGRAPHICS_PRESETS=PASS\nMENUS=PASS\nTERRAIN_PERSIST=PASS\nEDGE_STREAM=PASS\nCHICKENS=PASS\nDISTANT_TERRAIN=PASS\nFAR_DRAWS=73\nPANORAMA_COLUMNS=400\nLIGHT_CACHE=PASS\nLIGHT_CACHE_STATS=0,0,25,1\n",
+    "load": "DOScraft real game-loop smoke\nMODE=LOAD\nWORLD_WIDTH=1024\nRESIDENT_COLUMNS=25\nMESH_QUADS=3149\nPRESENTED_FRAMES=570\nAT_INPUT=PASS\nWALK_MOVED=PASS\nFULL_DOWN_UP_LOOK=PASS\nSTREAM_ERROR=0\nELAPSED_100HZ_TICKS=2324\nPLACE_TORCH=PASS\nBREAK_TORCH=PASS\nVGA_READBACK=PASS\nFULL_RES_OPTION=PASS\nMOB_DESPAWN=PASS\nSAVE_RESULT=-1\nLOAD_RESULT=0\nINVENTORY_PRESENTS=1\nINVENTORY_100HZ_TICKS=30\nRESULT=PASS\nAUDIO=SB_SAMPLED\nAUDIO_EVENTS=11\nAUDIO_BLOCKS=501\nAUDIO_FAULTS=0\nAUDIO_MIXED_FRAMES=257536\nGRAPHICS_PRESETS=PASS\nMENUS=PASS\nTERRAIN_PERSIST=PASS\nEDGE_STREAM=PASS\nCHICKENS=PASS\nDISTANT_TERRAIN=PASS\nFAR_DRAWS=14\nPANORAMA_COLUMNS=256\nLIGHT_CACHE=PASS\nLIGHT_CACHE_STATS=20,72,70,9\n",
+    "save_version": 5
+  },
+  "probes": [
+    {
+      "mode": "sampled",
+      "vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-4a6fqv1r",
+      "exe_sha256": "156f42f22a1831d55ce2a1d31f75b911e6283bd540596b6985cde8d963d967cf",
+      "report": "RESULT=PASS\nBACKEND=SB_SAMPLED\nBLOCKS=300\nFAULTS=0\nTICKS=1402\nVGA=1\nIRQ_RESTORED=1\n"
+    },
+    {
+      "mode": "basic",
+      "vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-3mpi0hr4",
+      "exe_sha256": "156f42f22a1831d55ce2a1d31f75b911e6283bd540596b6985cde8d963d967cf",
+      "report": "RESULT=PASS\nBACKEND=SB_BASIC\nBLOCKS=299\nFAULTS=0\nTICKS=1397\nVGA=1\nIRQ_RESTORED=1\n"
+    },
+    {
+      "mode": "speaker",
+      "vm": "C:\\Users\\meat\\Documents\\craft\\86craft\\DOScraft\\runtime\\game-play-5wx2irxj",
+      "exe_sha256": "156f42f22a1831d55ce2a1d31f75b911e6283bd540596b6985cde8d963d967cf",
+      "report": "RESULT=PASS\nBACKEND=PC_SPEAKER\nBLOCKS=0\nFAULTS=0\nTICKS=1402\nVGA=1\nIRQ_RESTORED=1\n"
+    }
+  ],
+  "performance": {
+    "baseline_fps": {
+      "sample_count": 576,
+      "average_fps": 28.648322886891496,
+      "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+      "1_percent_low_fps": 18.962738219398883,
+      "1_percent_tail_frames": 6,
+      "1_percent_minimum_sample_count_met": true,
+      "1_percent_tail_has_at_least_10_frames": false,
+      "0_1_percent_low_fps": 18.468584937022126,
+      "0_1_percent_tail_frames": 1,
+      "0_1_percent_minimum_sample_count_met": false,
+      "0_1_percent_tail_has_at_least_10_frames": false
+    },
+    "candidate_fps": {
+      "sample_count": 576,
+      "average_fps": 26.948897731599928,
+      "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+      "1_percent_low_fps": 17.93941858344371,
+      "1_percent_tail_frames": 6,
+      "1_percent_minimum_sample_count_met": true,
+      "1_percent_tail_has_at_least_10_frames": false,
+      "0_1_percent_low_fps": 16.732481092296364,
+      "0_1_percent_tail_frames": 1,
+      "0_1_percent_minimum_sample_count_met": false,
+      "0_1_percent_tail_has_at_least_10_frames": false
+    },
+    "scenes": [
+      {
+        "scene": "open_static",
+        "baseline_ms": 28.101145833333334,
+        "candidate_ms": 30.143885416666667,
+        "frame_time_reduction_percent": -7.2692394660656605,
+        "baseline_repeat_means_ms": [
+          28.1024375,
+          28.09978125,
+          28.10121875
+        ],
+        "candidate_repeat_means_ms": [
+          30.12090625,
+          30.15953125,
+          30.15121875
+        ],
+        "baseline_p95_ms": [
+          41.296,
+          41.376,
+          41.298
+        ],
+        "candidate_p95_ms": [
+          44.267,
+          44.306,
+          44.264
+        ],
+        "baseline_fps": {
+          "sample_count": 96,
+          "average_fps": 35.585737532944606,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 22.795659706391902,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 22.795659706391902,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "candidate_fps": {
+          "sample_count": 96,
+          "average_fps": 33.17422376635947,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 21.352465142100655,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 21.352465142100655,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "baseline_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 35.58410191286788,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 22.795659706391902,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 22.795659706391902,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 35.58746564975483,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 22.795659706391902,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 22.795659706391902,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 35.58564519554868,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 22.81958833462644,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 22.81958833462644,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "candidate_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 33.199532301588704,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 21.70657057891424,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 21.70657057891424,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 33.157014003657636,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 21.352465142100655,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 21.352465142100655,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 33.16615518236721,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 21.362956633198035,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 21.362956633198035,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "hash": "323fc4fd",
+        "candidate_hash": "323fc4fd",
+        "image_match": true,
+        "image_review": null
+      },
+      {
+        "scene": "walk",
+        "baseline_ms": 39.6639375,
+        "candidate_ms": 42.03394791666666,
+        "frame_time_reduction_percent": -5.975227287171524,
+        "baseline_repeat_means_ms": [
+          39.66353125,
+          39.6640625,
+          39.66421875
+        ],
+        "candidate_repeat_means_ms": [
+          41.9841875,
+          42.0291875,
+          42.08846875
+        ],
+        "baseline_p95_ms": [
+          48.419,
+          48.418,
+          48.456
+        ],
+        "candidate_p95_ms": [
+          50.607,
+          51.263,
+          50.615
+        ],
+        "baseline_fps": {
+          "sample_count": 96,
+          "average_fps": 25.21181867029717,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 20.333055448242206,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 20.333055448242206,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "candidate_fps": {
+          "sample_count": 96,
+          "average_fps": 23.79029450154253,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 19.18649270913277,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 19.18649270913277,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "baseline_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 25.212076899986055,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 20.334709315330336,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 20.334709315330336,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 25.211739216072484,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 20.333055448242206,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 20.333055448242206,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 25.211639898995866,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 20.333055448242206,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 20.333055448242206,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "candidate_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 23.818491187902588,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 19.46396247348035,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 19.46396247348035,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 23.792989098349807,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 19.37233630375823,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 19.37233630375823,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 23.75947687571789,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 19.18649270913277,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 19.18649270913277,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "hash": "edfd20da",
+        "candidate_hash": "edfd20da",
+        "image_match": true,
+        "image_review": null
+      },
+      {
+        "scene": "walk_down",
+        "baseline_ms": 41.47029166666667,
+        "candidate_ms": 43.87538541666667,
+        "frame_time_reduction_percent": -5.799558318354402,
+        "baseline_repeat_means_ms": [
+          41.470125,
+          41.47021875,
+          41.47053125
+        ],
+        "candidate_repeat_means_ms": [
+          43.8849375,
+          43.86021875,
+          43.881
+        ],
+        "baseline_p95_ms": [
+          46.152,
+          46.181,
+          46.191
+        ],
+        "candidate_p95_ms": [
+          51.752,
+          49.131,
+          50.077
+        ],
+        "baseline_fps": {
+          "sample_count": 96,
+          "average_fps": 24.1136476212389,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 19.477989871445267,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 19.477989871445267,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "candidate_fps": {
+          "sample_count": 96,
+          "average_fps": 22.791822578956452,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 18.66019779809666,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 18.66019779809666,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "baseline_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 24.11374453296198,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 19.477989871445267,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 19.477989871445267,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 24.1136900200219,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 19.479887016655304,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 19.479887016655304,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 24.11350831200167,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 19.479887016655304,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 19.479887016655304,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "candidate_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 22.786861665235367,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 18.66019779809666,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 18.66019779809666,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 22.799703888845745,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 18.687746444656238,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 18.687746444656238,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 22.788906360383766,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 18.688095683049898,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 18.688095683049898,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "hash": "a1921a8c",
+        "candidate_hash": "a1921a8c",
+        "image_match": true,
+        "image_review": null
+      },
+      {
+        "scene": "walk_up",
+        "baseline_ms": 23.12228125,
+        "candidate_ms": 25.06384375,
+        "frame_time_reduction_percent": -8.396933152951766,
+        "baseline_repeat_means_ms": [
+          23.12290625,
+          23.12225,
+          23.1216875
+        ],
+        "candidate_repeat_means_ms": [
+          25.10175,
+          24.9961875,
+          25.09359375
+        ],
+        "baseline_p95_ms": [
+          28.009,
+          27.973,
+          28.012
+        ],
+        "candidate_p95_ms": [
+          31.151,
+          30.847,
+          31.05
+        ],
+        "baseline_fps": {
+          "sample_count": 96,
+          "average_fps": 43.24832784394922,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 32.48862897985705,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 32.48862897985705,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "candidate_fps": {
+          "sample_count": 96,
+          "average_fps": 39.898110201074005,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 28.335836332209347,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 28.335836332209347,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "baseline_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 43.247158864383664,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 32.53090435914118,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 32.53090435914118,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 43.24838629458638,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 32.48862897985705,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 32.48862897985705,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 43.24943843307285,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 32.53407944822201,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 32.53407944822201,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "candidate_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 39.837859910165626,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 28.335836332209347,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 28.335836332209347,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 40.00610093039189,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 28.983827024520316,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 28.983827024520316,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 39.850808535545056,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 28.335836332209347,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 28.335836332209347,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "hash": "c56df47e",
+        "candidate_hash": "c56df47e",
+        "image_match": true,
+        "image_review": null
+      },
+      {
+        "scene": "house",
+        "baseline_ms": 39.21988541666666,
+        "candidate_ms": 41.58326041666667,
+        "frame_time_reduction_percent": -6.02596100139466,
+        "baseline_repeat_means_ms": [
+          39.219625,
+          39.2196875,
+          39.22034375
+        ],
+        "candidate_repeat_means_ms": [
+          41.577,
+          41.59275,
+          41.58003125
+        ],
+        "baseline_p95_ms": [
+          48.695,
+          48.66,
+          48.697
+        ],
+        "candidate_p95_ms": [
+          51.568,
+          51.642,
+          51.674
+        ],
+        "baseline_fps": {
+          "sample_count": 96,
+          "average_fps": 25.49726980015718,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 18.468584937022126,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 18.468584937022126,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "candidate_fps": {
+          "sample_count": 96,
+          "average_fps": 24.04813836096406,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 16.732481092296364,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 16.732481092296364,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "baseline_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 25.497439100960296,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 18.48053076084345,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 18.48053076084345,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 25.497398468562505,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 18.469608259608815,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 18.469608259608815,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 25.496971836204267,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 18.468584937022126,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 18.468584937022126,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "candidate_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 24.0517593861991,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 17.520192021304553,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 17.520192021304553,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 24.042651664052027,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 16.732481092296364,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 16.732481092296364,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 24.05000597492336,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 17.541705404599433,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 17.541705404599433,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "hash": "a6df28ae",
+        "candidate_hash": "a6df28ae",
+        "image_match": true,
+        "image_review": null
+      },
+      {
+        "scene": "block_edits",
+        "baseline_ms": 37.85880208333333,
+        "candidate_ms": 39.94329166666667,
+        "frame_time_reduction_percent": -5.505957580868615,
+        "baseline_repeat_means_ms": [
+          37.859,
+          37.857625,
+          37.85978125
+        ],
+        "candidate_repeat_means_ms": [
+          39.94109375,
+          39.94153125,
+          39.94725
+        ],
+        "baseline_p95_ms": [
+          41.113,
+          41.076,
+          41.075
+        ],
+        "candidate_p95_ms": [
+          43.902,
+          43.458,
+          43.984
+        ],
+        "baseline_fps": {
+          "sample_count": 96,
+          "average_fps": 26.41393665332671,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 24.2142476633251,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 24.2142476633251,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "candidate_fps": {
+          "sample_count": 96,
+          "average_fps": 25.03549302709362,
+          "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+          "1_percent_low_fps": 22.70302177219788,
+          "1_percent_tail_frames": 1,
+          "1_percent_minimum_sample_count_met": false,
+          "1_percent_tail_has_at_least_10_frames": false,
+          "0_1_percent_low_fps": 22.70302177219788,
+          "0_1_percent_tail_frames": 1,
+          "0_1_percent_minimum_sample_count_met": false,
+          "0_1_percent_tail_has_at_least_10_frames": false
+        },
+        "baseline_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 26.41379856837212,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 24.2142476633251,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 24.2142476633251,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 26.41475792525284,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 24.2142476633251,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 24.2142476633251,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 26.41325351028012,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 24.216006780481898,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 24.216006780481898,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "candidate_repeat_fps": [
+          {
+            "sample_count": 32,
+            "average_fps": 25.03687070412287,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 22.727272727272727,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 22.727272727272727,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 25.0365964624854,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 22.718495126882797,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 22.718495126882797,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          },
+          {
+            "sample_count": 32,
+            "average_fps": 25.03301228495078,
+            "low_definition": "Reciprocal of mean frame time of slowest ceil(N * fraction) frames",
+            "1_percent_low_fps": 22.70302177219788,
+            "1_percent_tail_frames": 1,
+            "1_percent_minimum_sample_count_met": false,
+            "1_percent_tail_has_at_least_10_frames": false,
+            "0_1_percent_low_fps": 22.70302177219788,
+            "0_1_percent_tail_frames": 1,
+            "0_1_percent_minimum_sample_count_met": false,
+            "0_1_percent_tail_has_at_least_10_frames": false
+          }
+        ],
+        "hash": "a6df28ae",
+        "candidate_hash": "a6df28ae",
+        "image_match": true,
+        "image_review": null
+      }
+    ],
+    "audio": [
+      {
+        "version": "2",
+        "edit_timing": "CALL_PLUS_FOLLOWING_FRAME",
+        "seed": "4242",
+        "simulation": "FROZEN_GRAPHICS_REPLAY",
+        "scale": "2",
+        "view": "8",
+        "flat": "0",
+        "subdiv": "0",
+        "occlusion": "0",
+        "gen_ms": "2279",
+        "ticks": "3044",
+        "result": "PASS",
+        "replay_context": "POST_FIXTURE",
+        "audio": "SB_SAMPLED",
+        "audio_events": "96",
+        "audio_blocks": "475",
+        "audio_faults": "0",
+        "samples_per_scene": "32",
+        "motion_policy": "REPEAT_32_MEASURED_POSES",
+        "distant_level": "2"
+      },
+      {
+        "version": "2",
+        "edit_timing": "CALL_PLUS_FOLLOWING_FRAME",
+        "seed": "4242",
+        "simulation": "FROZEN_GRAPHICS_REPLAY",
+        "scale": "2",
+        "view": "8",
+        "flat": "0",
+        "subdiv": "0",
+        "occlusion": "0",
+        "gen_ms": "2279",
+        "ticks": "4082",
+        "result": "PASS",
+        "replay_context": "POST_FIXTURE",
+        "audio": "SB_SAMPLED",
+        "audio_events": "144",
+        "audio_blocks": "698",
+        "audio_faults": "0",
+        "samples_per_scene": "32",
+        "motion_policy": "REPEAT_32_MEASURED_POSES",
+        "distant_level": "2"
+      },
+      {
+        "version": "2",
+        "edit_timing": "CALL_PLUS_FOLLOWING_FRAME",
+        "seed": "4242",
+        "simulation": "FROZEN_GRAPHICS_REPLAY",
+        "scale": "2",
+        "view": "8",
+        "flat": "0",
+        "subdiv": "0",
+        "occlusion": "0",
+        "gen_ms": "2279",
+        "ticks": "5123",
+        "result": "PASS",
+        "replay_context": "POST_FIXTURE",
+        "audio": "SB_SAMPLED",
+        "audio_events": "192",
+        "audio_blocks": "922",
+        "audio_faults": "0",
+        "samples_per_scene": "32",
+        "motion_policy": "REPEAT_32_MEASURED_POSES",
+        "distant_level": "2"
+      }
+    ]
+  },
+  "focused_checks": 44,
+  "listener_check": "User confirmed three isolated sounds with quiet between them and good sound; rapid repetition belonged to benchmark stress triggers.",
+  "rle_capacity": "pending user choice",
+  "rle_immutable_bytes": 24397824,
+  "rle_small_pool_bytes": 33835008,
+  "rle_full_pool_bytes": 125061120
+}

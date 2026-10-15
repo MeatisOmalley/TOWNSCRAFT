@@ -22,7 +22,7 @@ static void apply_view_preset(int i)
 	g_flatDist=(viewPreset[i][0]<viewPreset[i][1]) ? viewPreset[i][0] : 0;
 	g_distanceMode=viewPreset[i][2];
 }
-''', '''/* DOS graphics policy: explicit Low default, changed only by F2. */
+''', '''/* DOS graphics policy: 386 starts at Very Low; later CPUs at Low. */
 static int graphicsPresetSel=DOS_GRAPHICS_DEFAULT;
 
 static void apply_graphics_preset(int i)
@@ -57,8 +57,8 @@ static void apply_graphics_preset(int i)
 		g_renderScale=1;
 		apply_view_preset(2);
 	}
-''', '''	/* CPU loop remains diagnostic; quality always starts at Low. */
-	apply_graphics_preset(DOS_GRAPHICS_DEFAULT);
+''', '''	/* CPU loop remains diagnostic; the detected CPU selects startup quality. */
+	apply_graphics_preset(dos_cpu386 ? DOS_GRAPHICS_VERY_LOW : DOS_GRAPHICS_DEFAULT);
 '''),
     ('\tauto_detect_quality();\n', '\tinit_graphics_quality();\n'),
     ('''	case KEY_PF2:

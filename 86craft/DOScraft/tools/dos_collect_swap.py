@@ -34,7 +34,7 @@ static void collect_planes_tight(void)
 /* A steep downward view'''
 
 
-def adapt(name, data):
+def adapt(name, data, *, very_low_only=False):
     if name != 'render.c':
         return data, []
     text = data.decode('utf-8')

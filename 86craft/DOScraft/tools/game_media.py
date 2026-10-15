@@ -73,7 +73,7 @@ def hardware_matches(actual, expected):
                for section in wanted.sections() for key,value in wanted[section].items())
 
 
-def startup(smoke=False, benchmark=False):
+def startup(smoke=False, benchmark=False, audio=False):
     lines=['@ECHO OFF','SET PATH=A:\\','CTMOUSE /S14 /R11 /W /Y',
            'CWSDPMI -p -s-']
     if benchmark:
@@ -87,7 +87,7 @@ def startup(smoke=False, benchmark=False):
         lines += ['DOSCRAFT /SMOKE','IF ERRORLEVEL 1 GOTO DONE',
                   'DOSCRAFT /SMOKELOAD',':DONE','ECHO Game test finished.']
     else:
-        lines += ['DOSCRAFT','ECHO DOScraft exited. Audio is deferred.']
+        lines += ['DOSCRAFT','ECHO DOScraft exited.' if audio else 'ECHO DOScraft exited. Audio is deferred.']
     return ('\r\n'.join(lines)+'\r\n').encode('ascii')
 
 
@@ -162,16 +162,23 @@ def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False, update_point
            ('CWSDPMI.EXE',(deps/'cwsdpmi/bin/CWSDPMI.EXE').read_bytes()),
            ('CTMOUSE.EXE',driver),('DOSCRAFT.EXE',exe),
            ('FDCONFIG.SYS',(ROOT/'guest/FDCONFIG.SYS').read_text().replace('\n','\r\n').encode('ascii')),
-           ('AUTOEXEC.BAT',startup(smoke,benchmark))]
+           ('AUTOEXEC.BAT',startup(smoke,benchmark,audio=bool(build.get('sound_bank'))))]
+    bank=None
+    if build.get('sound_bank'):
+        bank=Path(build['sound_bank']['path']).read_bytes()
+        if sha(bank)!=build['sound_bank']['sha256']:raise ValueError('Sound bank checksum mismatch')
+        files.append(('SOUND.PAK',bank))
     boot=populate(source.data[:512],files)
     note=('DOScraft direct port: 486DX/40 overclock, RAM-scaled world, ET4000, 320x240 Mode X.\r\n'
-          'Silent audio checkpoint; no renderer optimization.\r\n'
+          'Sampled effects use external SOUND.PAK when supplied.\r\n'
           'ISA486 launcher boots the floppy embedded in this ISO.\r\n'
           'Use a prepared writable HDD for TERRAIN.TMP and WORLD.SAV.\r\n'
           'WASD walk, arrows look, J break, E place/use, Tab inventory, C craft.\r\n'
           'Space new world; L load; F9 save. Wait for save completion before closing.\r\n'
           'See repository README for source, dependencies and limitations.\r\n').encode('ascii')
-    iso=build_iso(boot,{'DOSCRAFT.EXE':exe,'README.TXT':note})
+    iso_files={'DOSCRAFT.EXE':exe,'README.TXT':note}
+    if bank is not None:iso_files['SOUND.PAK']=bank
+    iso=build_iso(boot,iso_files)
     if embedded_boot(iso)!=boot:
         raise ValueError('ISO embedded boot roundtrip failed')
     runtime=ROOT/'runtime'; runtime.mkdir(exist_ok=True)
@@ -207,6 +214,9 @@ def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False, update_point
                      'New 20 MiB FAT16 development HDD; 1989_3500rpm timing proxy, not final Wren V'),
         'boot_note':'Floppy extracted from ISO; no native CD boot claim',
         'audio':'SILENT_DEFERRED'}
+    if bank is not None:
+        record['sound_bank']=build['sound_bank'];record['audio']=build['audio']
+        record['stage']='Real game; sampled effects; interactive acceptance pending'
     if hardware_record: record['hardware_era']='1990-06-30'
     (vm/'build.json').write_text(json.dumps(record,indent=2)+'\n')
     if update_pointer:
@@ -253,10 +263,12 @@ def validate(vm):
     if sha(iso)!=record['iso_sha256'] or sha(boot)!=record['boot_sha256'] or embedded_boot(iso)!=boot:
         raise ValueError('ISO/boot media differs from prepared build')
     media=FatImage(boot)
-    if sha(media.read('DOSCRAFT.EXE'))!=record['exe_sha256'] or media.read('AUTOEXEC.BAT')!=startup(record['smoke'],record.get('benchmark',False)):
+    if sha(media.read('DOSCRAFT.EXE'))!=record['exe_sha256'] or media.read('AUTOEXEC.BAT')!=startup(record['smoke'],record.get('benchmark',False),audio=bool(record.get('sound_bank'))):
         raise ValueError('Game payload or startup mismatch')
     if sha(media.read('CTMOUSE.EXE'))!=CTMOUSE_EXE_SHA256:
         raise ValueError('Mouse driver mismatch')
+    if record.get('sound_bank') and sha(media.read('SOUND.PAK'))!=record['sound_bank']['sha256']:
+        raise ValueError('External sound bank differs from release')
     if media.read('FDCONFIG.SYS')!=(ROOT/'guest/FDCONFIG.SYS').read_text().replace('\n','\r\n').encode('ascii'):
         raise ValueError('DOS startup configuration mismatch')
     volume=(large_volume((vm/'scratch-large.img').read_bytes()) if record.get('large_world')
@@ -264,8 +276,11 @@ def validate(vm):
     terrain=volume.read('TERRAIN.TMP'); save=volume.read('WORLD.SAV')
     if record.get('large_world'):
         check_terrain(terrain)
-        if (terrain[:16]!=b'DOSCRAFT-1024-V1' or
-                sha(terrain[:33*512])!=record['terrain_header_sha256'] or
+        v2=terrain[:16]==b'DOSCRAFT-1024-V2'
+        if v2 and b'DOSCRAFT-1024-V2' not in media.read('DOSCRAFT.EXE'):
+            raise ValueError('Shared executable cannot read compact V2 terrain')
+        if (terrain[:16] not in (b'DOSCRAFT-1024-V1',b'DOSCRAFT-1024-V2') or
+                sha(terrain[:(97 if v2 else 33)*512])!=record['terrain_header_sha256'] or
                 len(save)!=len(save_image())):
             raise ValueError('Unknown large-world HDD terrain/save medium')
     else:

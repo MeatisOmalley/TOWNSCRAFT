@@ -71,6 +71,12 @@ def main():
         raise TimeoutError('Large-world smoke timed out')
     finally:
         if process.poll() is None:
+            query=(f'Get-CimInstance Win32_Process -Filter "ProcessId = {process.pid}" | '
+                   'Select-Object ExecutablePath,CommandLine | ConvertTo-Json -Compress')
+            row=json.loads(subprocess.check_output(['powershell.exe','-NoProfile','-Command',query],text=True))
+            if (str(row.get('ExecutablePath','')).casefold()!=str(game_command(vm,record)[0]).casefold() or
+                    str(vm).casefold() not in str(row.get('CommandLine','')).casefold()):
+                raise RuntimeError('Diagnostic process identity changed; no process stopped')
             process.terminate()
             process.wait(timeout=30)
 

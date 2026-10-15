@@ -31,9 +31,19 @@ def check_terrain(terrain):
 
 def identity(terrain):
     check_terrain(terrain)
-    return hashlib.sha256(terrain[:52]+terrain[512:33*512]).hexdigest()
+    index_end=97*512 if terrain[:16]==b'DOSCRAFT-1024-V2' else 33*512
+    return hashlib.sha256(terrain[:52]+terrain[512:index_end]).hexdigest()
 
-def upgrade_disk(old_disk,new_terrain):
+
+def compact_terrain(terrain):
+    """Fresh player/diagnostic media uses the shared V2 RLE layout."""
+    if terrain[:16]==b'DOSCRAFT-1024-V2':
+        check_terrain(terrain);return bytes(terrain)
+    from convert_large_v2 import convert,check_v2
+    result=convert(terrain);check_v2(result,terrain)
+    return result
+
+def upgrade_disk(old_disk,new_terrain,*,compact=False):
     """Copy old edit slots and the save file into a newly laid out FAT volume."""
     check_terrain(new_terrain)
     start=struct.unpack_from('<I',old_disk,454)[0]*512
@@ -41,6 +51,22 @@ def upgrade_disk(old_disk,new_terrain):
     if any(attr&16 for name,attr,cluster,size in old.directory()):
         raise ValueError('Cannot migrate an unexpected player disk directory')
     previous=old.read('TERRAIN.TMP')
+    if previous[:16]==b'DOSCRAFT-1024-V2' or new_terrain[:16]==b'DOSCRAFT-1024-V2':
+        from compact_world_media import convert_player
+        from leaf_flags_media import upgrade
+        save=old.read('WORLD.SAV')
+        if previous[:16]!=b'DOSCRAFT-1024-V2':
+            previous,save,proof=convert_player(previous,save)
+        next_terrain=compact_terrain(new_terrain)
+        if identity(previous)==identity(next_terrain):
+            before,pairs=struct.unpack_from('<2I',previous,132)
+            after,new_pairs=struct.unpack_from('<2I',next_terrain,132)
+            if new_pairs<pairs:raise ValueError('New medium would shrink the edit pool')
+            merged=bytearray(next_terrain)
+            merged[after*512:(after+pairs*48)*512]=previous[before*512:]
+        else:
+            merged,save=upgrade(previous,next_terrain,save)
+        return replace_world_files(old_disk,merged,save)
     migrated_save=None
     if identity(previous)!=identity(new_terrain):
         from leaf_flags_media import upgrade,MAGIC
@@ -50,10 +76,26 @@ def upgrade_disk(old_disk,new_terrain):
     else:
         merged=bytearray(new_terrain)
         merged[33*512:BASE_BYTES]=previous[33*512:BASE_BYTES]
-    files=[(name,bytes(merged) if name=='TERRAIN.TMP' else migrated_save
-            if name=='WORLD.SAV' and migrated_save is not None else old.read(name))
-           for name,attr,cluster,size in old.directory() if not attr&16]
-    disk=scratch_hdd(cylinders=800,heads=8,sectors=63)
-    partition=struct.unpack_from('<I',disk,454)[0]*512
-    disk[partition:]=populate(disk[partition:partition+512],files)
+    save=migrated_save if migrated_save is not None else old.read('WORLD.SAV')
+    if compact:
+        from compact_world_media import convert_player
+        merged,save,proof=convert_player(bytes(merged),save)
+    return replace_world_files(old_disk,merged,save)
+
+
+def replace_world_files(old_disk,terrain,save):
+    """Keep geometry and other root files while replacing checked world data."""
+    part=struct.unpack_from('<I',old_disk,454)[0]*512
+    old=FatImage(old_disk,part)
+    if any(attr&16 for name,attr,cluster,size in old.directory()):
+        raise ValueError('Unexpected player disk directory')
+    files=[(name,bytes(terrain) if name=='TERRAIN.TMP' else bytes(save)
+            if name=='WORLD.SAV' else old.read(name))
+           for name,attr,cluster,size in old.directory()]
+    disk=bytearray(old_disk)
+    disk[part:]=populate(old_disk[part:part+512],files)
+    if len(disk)!=len(old_disk):raise ValueError('Disk geometry changed')
+    checked=FatImage(disk,part)
+    for name,data in files:
+        if checked.read(name)!=data:raise ValueError('Player file roundtrip failed')
     return disk

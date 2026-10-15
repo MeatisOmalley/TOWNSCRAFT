@@ -102,7 +102,7 @@ def publish_large(terrain_path, smoke_vm, output):
         not tested.get('smoke') or not tested.get('large_world') or
         '-DDOS_LARGE_WORLD' not in build.get('extra_adapter_flags',()) or
         build.get('benchmark') or tested.get('exe_sha256')!=build.get('exe_sha256') or
-        tested.get('terrain_sha256')!=sha(terrain_path) or
+        tested.get('source_terrain_sha256',tested.get('terrain_sha256'))!=sha(terrain_path) or
         report.get('save_version')!=5 or
         any('RESULT=PASS\n' not in report.get(mode,'') for mode in ('new','load'))):
         raise ValueError('Large-world media is not the exact smoke-tested build')
@@ -117,7 +117,7 @@ def publish_large(terrain_path, smoke_vm, output):
     old_disk_hash=sha(old_disk)
     # A transport/code update on the same baked seed must retain world edits
     # and saves. The old private VM remains the recovery copy.
-    if previous.get('large_world') and previous.get('terrain_sha256')==sha(terrain_path):
+    if previous.get('large_world') and previous.get('terrain_format')=='V2 RLE' and previous.get('terrain_sha256')==sha(terrain_path):
         shutil.copyfile(old_disk,vm/'scratch-large.img')
         if sha(vm/'scratch-large.img')!=old_disk_hash:
             raise ValueError('Player large-world disk changed during copy')
@@ -126,7 +126,7 @@ def publish_large(terrain_path, smoke_vm, output):
         # A lighting appendix changes the fixture hash but retains the seed,
         # base column index and every edit/save offset. Fail closed on a seed
         # mismatch instead of silently replacing the player's world.
-        (vm/'scratch-large.img').write_bytes(upgrade_disk(old_disk.read_bytes(),terrain_path.read_bytes()))
+        (vm/'scratch-large.img').write_bytes(upgrade_disk(old_disk.read_bytes(),terrain_path.read_bytes(),compact=True))
         record['preserved_world_edits']=True
     validate(vm)
     if (running(old) or sha(old_disk)!=old_disk_hash or

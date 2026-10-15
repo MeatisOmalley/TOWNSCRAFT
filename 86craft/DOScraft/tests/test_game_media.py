@@ -15,6 +15,9 @@ DESCRIPTOR = 17 * BLOCK
 
 
 class StartupTests(unittest.TestCase):
+    def test_sampled_audio_release_has_current_exit_message(self):
+        self.assertIn(b'ECHO DOScraft exited.\r\n',startup(audio=True))
+        self.assertNotIn(b'deferred',startup(audio=True))
     def test_emulator_rewrites_preserve_required_hardware(self):
         expected='[General]\nvid_renderer = qt_software\n[Machine]\nmem_size = 8192\ncpu_override_interpreter = 0\n[Ports (COM & LPT)]\nserial1_enabled = 1\n'
         actual='\ufeff[General]\nuuid = runtime-id\nvid_renderer = qt_software\n[Machine]\nmem_size = 8192\n'

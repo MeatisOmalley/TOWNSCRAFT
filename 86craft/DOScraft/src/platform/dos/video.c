@@ -274,6 +274,22 @@ static void pit2_snapshot(unsigned int *ticks,unsigned int *count)
     do { *ticks=*irq_clock; *count=pit2_count(); } while(*ticks!=*irq_clock);
 }
 #endif
+void dos_video_set_speaker_clock(int enabled)
+{
+#ifdef DOS_VGA_ASYNC_FLIP
+    if(enabled) {
+#ifndef DOSCRAFT_BENCH
+        if(pit2_on)outportb(0x61,saved_61);
+#endif
+        pit2_on=0;fine_guard=0;flip_fine_valid=0;
+    } else {
+        fine_guard=irq_clock && flip_settled_ticks*10000u<irq_rate*549u;
+        pit2_on=0;flip_fine_valid=0;
+    }
+#else
+    (void)enabled;
+#endif
+}
 void dos_video_set_tick_clock(volatile unsigned int *ticks, unsigned int rate)
 {
     irq_clock = rate >= 10 ? ticks : 0;

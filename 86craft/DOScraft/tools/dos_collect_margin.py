@@ -1,7 +1,7 @@
 """Conservative orientation margin with exact painter-axis invalidation."""
 from build_imported import replace_once
 
-def adapt(name,data):
+def adapt(name,data,*,very_low_only=False):
     if name!='render.c': return data,[]
     text=data.decode('utf-8'); recipe=[]
     if '\r\n' in text:
@@ -132,4 +132,23 @@ void render_frame(u8 *fb,const RenderEnv *env)
     one('void render_frame(u8 *fb,const RenderEnv *env)\n',
         '#ifdef DOS_COLLECT_VERIFY\n#define render_frame collect_render_frame\n#endif\nvoid render_frame(u8 *fb,const RenderEnv *env)\n')
     text=replace_once(text,text,text+'\n#undef render_frame\n'+tail,recipe)
+    if very_low_only:
+        one('#include "render.h"\n', '#include "render.h"\n#include "graphics_presets.h"\n')
+        one('static int skyDarkenCur;', 'static int skyDarkenCur;\nstatic int collectVeryLow,cVeryLow;')
+        one('collectWide=!collectReference && g_meshVersion==cMesh &&',
+            'collectVeryLow=dos_potato_mode;\n'
+            '\tcollectWide=collectVeryLow && !collectReference && g_meshVersion==cMesh &&')
+        one('(cEdge && (g_cam.x!=cX || g_cam.y!=cY || g_cam.z!=cZ))',
+            '(collectVeryLow && cEdge && (g_cam.x!=cX || g_cam.y!=cY || g_cam.z!=cZ))')
+        one('(ABS(rot[2][0])>ABS(rot[2][2]))!=nestX',
+            '(collectVeryLow && ((ABS(rot[2][0])>ABS(rot[2][2]))!=nestX))')
+        if 'unsigned cwReason=' in text:
+            one('(camBX!=cBX || (collectVeryLow && cEdge',
+                '(collectVeryLow!=cVeryLow || camBX!=cBX || (collectVeryLow && cEdge')
+        else:
+            one('if((collectVeryLow && cEdge',
+                'if(collectVeryLow!=cVeryLow || (collectVeryLow && cEdge')
+        one('cEdge=!(cX&255) || !(cY&255) || !(cZ&255);',
+            'cEdge=collectVeryLow && (!(cX&255) || !(cY&255) || !(cZ&255));\n'
+            '\t\t\tcVeryLow=collectVeryLow;')
     return text.encode(),recipe
