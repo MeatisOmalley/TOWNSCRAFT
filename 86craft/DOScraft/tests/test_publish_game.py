@@ -1,5 +1,4 @@
 from pathlib import Path
-import hashlib
 import json
 import sys
 import tempfile
@@ -48,7 +47,7 @@ class PublishTests(unittest.TestCase):
             for path in (old,new,smoke,out,iso.parent): path.mkdir(parents=True)
             iso.write_bytes(b'old iso'); terrain=root/'seed.bin'; terrain.write_bytes(b'baked seed')
             (old/'scratch-large.img').write_bytes(b'player edits plus committed V5 save')
-            previous={'large_world':True,'terrain_sha256':publisher.sha(terrain),
+            previous={'large_world':True,'terrain_format':'V2 RLE','terrain_sha256':publisher.sha(terrain),
                       'exe_sha256':'a'*64,'iso_sha256':publisher.sha(iso)}
             (old/'build.json').write_text(json.dumps(previous))
             pointer=out/'latest-play-vm.txt'; pointer.write_text(str(old))

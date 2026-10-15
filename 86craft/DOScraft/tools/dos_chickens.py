@@ -1,14 +1,12 @@
 """DOS chicken mob, appended save IDs, model, food and texture generation."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 
 def adapt(name,data):
     if name not in ('mobs.h','mobs.c','blocks.h','blocks.c','inventory.c','textures.c'):
         return data,[]
-    text=data.decode();recipe=[]
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    recipe=[]
+    text=lf_text(data,recipe)
     def one(before,after):
         nonlocal text
         text=replace_once(text,before,after,recipe)

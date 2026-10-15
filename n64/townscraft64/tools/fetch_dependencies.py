@@ -3,7 +3,12 @@
 Nothing is installed system-wide. Archives are checked against the SHA-256
 values below before extraction, and libdragon is checked out at an exact
 commit. Results are recorded in build/deps/acquired.json.
+
+--randnet-ares also checks the ares fork with the Randnet keyboard (built
+locally by tools/build_randnet_ares.py; it has no download) against its pin
+and records it. Stock ares v148 stays the default emulator.
 """
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -27,6 +32,13 @@ ARES = ('https://github.com/ares-emulator/ares/releases/download/v148/ares-windo
 # libdragon "preview" branch head, 2026-09-14.
 LIBDRAGON_REPO = 'https://github.com/DragonMinded/libdragon.git'
 LIBDRAGON_COMMIT = '39d0d6096130836a65710da6730290701d060272'
+# ares fork: v148 plus patches/ares-v148-randnet-keyboard.patch, on a local
+# branch of a clone of the upstream repository (not published).
+RANDNET_ARES_UPSTREAM = 'https://github.com/ares-emulator/ares.git'
+RANDNET_ARES_BRANCH = 'townscraft64-randnet-keyboard'
+RANDNET_ARES_COMMIT = 'a69c076b5b7c74cf03bad23018f0cb29ec534cb1'
+RANDNET_ARES_DIR = 'build/deps/ares-randnet'
+RANDNET_ARES_EXE_SHA256 = 'a6f256df910dc368dbdf47581362e1c4e60b8a75c1b6b2aaa908b9dfb7008615'
 
 
 def fetch_zip(name, url, expected):
@@ -68,8 +80,26 @@ def fetch_libdragon():
     return dict(name='libdragon', url=LIBDRAGON_REPO, commit=head)
 
 
+def check_randnet_ares():
+    exe = ROOT / RANDNET_ARES_DIR / 'ares.exe'
+    if not exe.is_file():
+        raise RuntimeError(f'{exe} missing: build it with tools/build_randnet_ares.py')
+    digest = hashlib.sha256(exe.read_bytes()).hexdigest()
+    if digest != RANDNET_ARES_EXE_SHA256:
+        raise RuntimeError(f'ares-randnet: ares.exe {digest} does not match pin')
+    print(f'ares-randnet: {digest}', flush=True)
+    return dict(name='ares-randnet', upstream=RANDNET_ARES_UPSTREAM, branch=RANDNET_ARES_BRANCH,
+                commit=RANDNET_ARES_COMMIT, exe_sha256=digest)
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--randnet-ares', action='store_true',
+                        help='also check and record the locally built ares fork')
+    args = parser.parse_args()
     results = [fetch_zip('toolchain', *TOOLCHAIN), fetch_zip('ares', *ARES), fetch_libdragon()]
+    if args.randnet_ares:
+        results.append(check_randnet_ares())
     (DEPS / 'acquired.json').write_text(json.dumps(results, indent=2) + '\n')
 
 

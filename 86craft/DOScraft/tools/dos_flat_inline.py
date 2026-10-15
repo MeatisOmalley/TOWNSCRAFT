@@ -6,7 +6,7 @@ REP STOSL). Short spans now use byte stores; longer ones use the aligned
 flat_span word fill. Every destination byte receives the same color.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 FILL = '''\twhile(tail--) *dst++=(u8)color;
 }
@@ -24,11 +24,7 @@ def adapt(name, data, *, low_planar=False):
     if name != 'raster.c':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, '\twhile(tail--) *dst++=(u8)color;\n}\n', FILL, recipe)
     if low_planar:
         text = replace_once(text,

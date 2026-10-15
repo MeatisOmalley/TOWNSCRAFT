@@ -6,7 +6,6 @@ directories and their launchers are not modified.
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import shutil
 import subprocess
 

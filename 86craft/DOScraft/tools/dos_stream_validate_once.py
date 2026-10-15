@@ -7,17 +7,14 @@ in column_prepare_unchecked(); cache_load() keeps the single, mandatory
 validation, so a bad record still never replaces resident terrain. The
 distant-terrain and save paths keep the checked column_prepare().
 """
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name not in ('column_store.inc', 'column_cache.inc'):
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     if name == 'column_store.inc':
         text = replace_once(text,
             '\tif(!column_valid(cx,cz)) { streamError=1; return 0; }\n'

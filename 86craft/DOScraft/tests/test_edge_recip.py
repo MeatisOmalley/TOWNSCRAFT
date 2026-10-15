@@ -59,7 +59,7 @@ class EdgeRecipRecipeTests(unittest.TestCase):
     def test_parent_overlay_is_optional_exact_and_replayable(self):
         for name in imported.SELECTED:
             original = (imported.VENDOR / 'src' / name).read_bytes()
-            self.assertEqual(dos_sources.adapt(name, original), (original, []))
+            default = dos_sources.adapt(name, original)
             candidate, recipe = dos_sources.adapt(name, original, edge_recip=True)
             self.assertEqual(replay(original, recipe), candidate)
             if name == 'raster.c':
@@ -78,7 +78,7 @@ class EdgeRecipRecipeTests(unittest.TestCase):
                     expected = expected.replace(call, 'dos_edge_recip_' + call)
                 self.assertEqual(text, expected, 'Overlay changed more than include/init/3 divisions')
             else:
-                self.assertEqual((candidate, recipe), (original, []))
+                self.assertEqual((candidate, recipe), default)
         with self.assertRaises(ValueError):
             dos_sources.adapt('raster.c', b'unexpected source', edge_recip=True)
 

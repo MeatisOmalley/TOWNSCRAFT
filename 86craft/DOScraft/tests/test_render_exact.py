@@ -69,7 +69,7 @@ class RenderExactTests(unittest.TestCase):
         self.assertEqual(candidate.count(b'\tmull\t%ecx'),2)
         self.assertEqual(candidate.count(b'\timull\t%ebx,%eax'),2)  # Prestep keeps EDX live
         planar=(ROOT/'src/platform/dos/low_planar.S').read_text()
-        self.assertEqual(planar.count('#ifdef DOS_TEXEL_EDX'),2)
+        self.assertEqual(planar.count('#ifdef DOS_TEXEL_EDX'),3)  # PTEXEL, PSKIP, Very Low setup
         self.assertEqual(planar.count('#ifdef DOS_ROW_MUL'),2)
 
     def test_row_pointer_refuses_unproven_trap_wrappers(self):

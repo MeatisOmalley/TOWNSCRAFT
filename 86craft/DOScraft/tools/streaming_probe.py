@@ -8,7 +8,7 @@ import tempfile
 import time
 from build_game import ROOT
 from fat_image import FatImage, populate
-from game_media import game_command, large_volume, sha
+from game_media import game_command, large_volume
 from publish_game import running
 from refresh_1992_vm import running as running_1992
 

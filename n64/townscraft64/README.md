@@ -34,6 +34,16 @@ python tools/import_doscraft.py --verify          # vendor/ matches its manifest
   `vendor/towns-tests` — the Towns host tests at `d706a67d`. Regenerate
   only with `tools/import_doscraft.py`.
 
+The Randnet keyboard needs a pinned ares fork (stock v148 has none),
+built locally with MSYS2 CLANG64; `kbtest.z64` is a raw-Joybus keyboard
+test ROM. See [the keyboard report](research/randnet-keyboard-2026-10-15.md).
+
+```
+python tools/build_randnet_ares.py [--source <fork checkout>]
+python tools/build.py kbtest.z64
+powershell -File tools/run_ares.ps1 -Rom kbtest.z64 -Randnet -Keyboard 2 -Mouse 1
+```
+
 - [PORT_PLAN.md](PORT_PLAN.md) — target hardware, what carries over from
   the existing ports, what has to be rebuilt for the N64, phases and
   milestones.

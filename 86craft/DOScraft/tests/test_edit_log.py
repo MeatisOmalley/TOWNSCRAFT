@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import build_adapters
 import dos_sources
 from bake_large_world import checksum
-from convert_large_v2 import V2_MAGIC, encode, check_v2, decode
+from convert_large_v2 import V2_MAGIC, encode, check_v2
 from fat_image import FatImage, populate, scratch_hdd
 import convert_large_v3 as v3
 ZIG = ROOT.parents[1] / 'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'

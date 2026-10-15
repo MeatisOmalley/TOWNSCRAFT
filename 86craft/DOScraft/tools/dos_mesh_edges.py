@@ -9,7 +9,7 @@ at most once per row and side. World edges and unloaded neighbors stay hidden
 exactly as before, and the bottom/top layers keep the generic loop. Emitted
 keys, masks and therefore meshes are unchanged.
 """
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 EDGE = '''				if(y>0 && y<WH-1)
 				{
@@ -60,11 +60,8 @@ EDGE = '''				if(y>0 && y<WH-1)
 def adapt(name, data):
     if name != 'world.c':
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     inner = ('\t\t\tint inner=(y>0 && y<WH-1 && z>0 && z<g_W-1 && '
              '(!g_columnMap || (lz>0 && lz<CS-1)));\n')
     text = replace_once(text, inner,

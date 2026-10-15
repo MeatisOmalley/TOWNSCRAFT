@@ -9,10 +9,27 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 from build_sound_bank import checksum,MAGIC,BANK_GROUPS
 ZIG=ROOT.parents[1]/'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'
-BANK=ROOT/'build/assets/audio/SOUND.PAK'
+# Build the bank from the current masters and recipes; a copy left in build/
+# can predate them.
+AUDIO_DEPS=ROOT/'build/deps/audio-python'
+BANK=None
+_bank_folder=None
+
+
+def setUpModule():
+    global BANK,_bank_folder
+    if not AUDIO_DEPS.is_dir():return
+    from build_sound_bank import build
+    _bank_folder=tempfile.TemporaryDirectory(prefix='dos-audio-bank-')
+    BANK=Path(_bank_folder.name)/'SOUND.PAK';build(BANK)
+
+
+def tearDownModule():
+    if _bank_folder:_bank_folder.cleanup()
+
 
 class AudioLibraryTests(unittest.TestCase):
-    @unittest.skipUnless(ZIG.is_file() and BANK.is_file(),'native Zig and packaged bank required')
+    @unittest.skipUnless(ZIG.is_file() and AUDIO_DEPS.is_dir(),'native Zig and audio build dependencies required')
     def test_real_bank_and_integer_mixer(self):
         with tempfile.TemporaryDirectory(prefix='dos-audio-library-') as folder:
             exe=Path(folder)/'test.exe';dos=ROOT/'src/platform/dos'
@@ -22,11 +39,14 @@ class AudioLibraryTests(unittest.TestCase):
             r=subprocess.run([str(exe),str(BANK)],capture_output=True,text=True)
             self.assertEqual(r.returncode,0,r.stdout+r.stderr);self.assertIn('PASS:',r.stdout)
 
-    def test_masters_retained_and_external_bank_declares_format(self):
+    def test_masters_retained(self):
         from hashlib import sha256
         p=ROOT/'assets/audio';m=json.loads((p/'sources.json').read_text())
         self.assertEqual(m['license'],'CC0-1.0');self.assertEqual(len(m['files']),44)
         for f in m['files']:self.assertEqual(sha256((p/'masters'/f['file']).read_bytes()).hexdigest(),f['sha256'])
+
+    @unittest.skipUnless(AUDIO_DEPS.is_dir(),'audio build dependencies required')
+    def test_external_bank_declares_format(self):
         b=BANK.read_bytes();magic,version,rate,fmt,count,n,total=struct.unpack_from('<8s6I',b)
         self.assertEqual((magic,version,rate,fmt,count),(MAGIC,1,11025,8|(1<<16),30))
         self.assertEqual(n,len(b)-32-16*count);self.assertEqual(total,checksum(b[32+16*count:]))
@@ -62,7 +82,7 @@ class AudioLibraryTests(unittest.TestCase):
         self.assertIn(b'dos_sound_mob_tick(',result);self.assertIn(b'dos_sound_mob(m->type,m->health<=0,',result)
         self.assertEqual(len(steps),3)
 
-    @unittest.skipUnless(BANK.is_file(),'packaged bank required')
+    @unittest.skipUnless(AUDIO_DEPS.is_dir(),'audio build dependencies required')
     def test_percussive_attacks_survive_and_levels_are_even(self):
         import math
         b=BANK.read_bytes();count=struct.unpack_from('<I',b,20)[0];payload=b[32+16*count:]

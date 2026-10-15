@@ -8,7 +8,7 @@ keeping the full cell height and the plant texture. Plants look the same
 from every side and lose their crossed depth when circled. Other presets
 keep the crossed quads.
 """
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 # Half width in world units (256 per block): 14/16 of a block across, the
 # crossed quads' apparent width when seen along an axis.
@@ -50,11 +50,8 @@ static void draw_cross(int bx,int by,int bz,int texId,int L)
 def adapt(name, data):
     if name != 'render.c':
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, 'static void draw_cross(int bx,int by,int bz,int texId,int L)\n{\n',
                         BILLBOARD, recipe)
     return text.encode('utf-8'), recipe

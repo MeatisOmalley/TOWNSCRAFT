@@ -7,6 +7,7 @@
 void raster_set_odd_copy_policy(int,int,int,int,int);
 void raster_complete_odd_rows(void);
 extern u8 dos_very_low_rows[100];
+int dos_cpu386;
 static u8 planes[76800];
 unsigned char *dos_video_planar_target(void) { return planes; }
 void dos_video_planar_frame(const unsigned char *rows) { (void)rows; }
