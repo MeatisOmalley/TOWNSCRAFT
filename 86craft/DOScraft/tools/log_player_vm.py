@@ -14,7 +14,6 @@ import json
 from pathlib import Path
 import shutil
 import struct
-import subprocess
 import tempfile
 from build_game import ROOT
 from crown_leaves_media import running, digest
@@ -23,9 +22,10 @@ from fat_image import FatImage
 from large_world_media import disk_log_sectors, replace_world_files
 from publish_game import atomic_write
 
-# Per-block edits (save version 6) keep most edits out of the log; a 4 MiB
-# log needs an executable built from this commit or a descendant.
-PER_BLOCK_EDITS_COMMIT = 'b4cc3d1d2fd77ccd7c5c01ee9935d7c824354622'
+# Per-block edits (save version 6, b4cc3d1d) keep most edits out of the log,
+# so a 4 MiB log needs an executable that has them. Every such executable
+# carries this smoke-report line; the release and smoke binaries are the same.
+PER_BLOCK_EDITS_MARKER = b'DELTA=%u,%u,%u\n'
 
 
 def free_bytes(disk):
@@ -65,14 +65,9 @@ def migrate_disk(disk, log_sectors=DEFAULT_LOG_BYTES // 512):
     return result, log, proof
 
 
-def has_per_block_edits(record):
-    """Whether a VM record's executable was built with per-block edits."""
-    commit = record.get('source_commit')
-    if not commit:
-        return False
-    result = subprocess.run(['git', '-C', str(ROOT), 'merge-base', '--is-ancestor',
-                             PER_BLOCK_EDITS_COMMIT, commit], capture_output=True)
-    return result.returncode == 0
+def has_per_block_edits(exe):
+    """Whether a DOSCRAFT.EXE keeps per-block edits (and so suits a 4 MiB log)."""
+    return PER_BLOCK_EDITS_MARKER in exe
 
 
 def install(pointer, boot_from=None, check=False, update_pointer=False):
@@ -92,8 +87,9 @@ def install(pointer, boot_from=None, check=False, update_pointer=False):
     proof.update(source_vm=str(vm), source_disk_sha256=digest(original), disk_sha256=digest(disk))
     shrink = proof['migration'] == 'V3 log shrink'
     if check:
+        exe = FatImage((vm / 'boot.img').read_bytes()).read('DOSCRAFT.EXE')
         return {'vm': str(vm), 'status': 'checked in memory; nothing written',
-                'executable_has_per_block_edits': has_per_block_edits(record), **proof}
+                'executable_has_per_block_edits': has_per_block_edits(exe), **proof}
     boot_source = Path(boot_from).resolve(strict=True) if boot_from else vm
     boot_record = json.loads((boot_source / 'build.json').read_text())
     boot = (boot_source / 'boot.img').read_bytes()
@@ -101,9 +97,9 @@ def install(pointer, boot_from=None, check=False, update_pointer=False):
     if digest(boot) != boot_record['boot_sha256'] or digest(exe) != boot_record['exe_sha256'] or \
             V3_MAGIC not in exe:
         raise ValueError('Supply --boot-from a tested release VM whose executable reads V3 media')
-    if shrink and not has_per_block_edits(boot_record):
+    if shrink and not has_per_block_edits(exe):
         raise ValueError('A 4 MiB log needs per-block edits: supply --boot-from a tested release VM '
-                         f'built from {PER_BLOCK_EDITS_COMMIT[:8]} or later')
+                         'whose executable has them')
     if boot_from and boot_record.get('smoke'):
         raise ValueError('A smoke VM boots the diagnostic; use a player release VM')
     if running(vm) or source.read_bytes() != original:
@@ -124,7 +120,7 @@ def install(pointer, boot_from=None, check=False, update_pointer=False):
                'edit_log_sectors': log_extent(log)[1],
                'edit_log_migration': proof, 'source_terrain_sha256': proof['terrain_before_sha256']}
     if boot_from:
-        for key in ('exe_sha256', 'boot_sha256', 'iso_sha256', 'audio', 'sound_bank', 'source_commit'):
+        for key in ('exe_sha256', 'boot_sha256', 'iso_sha256', 'audio', 'sound_bank'):
             if key in boot_record:
                 updated[key] = boot_record[key]
     if 'terrain_header_sha256' in updated:

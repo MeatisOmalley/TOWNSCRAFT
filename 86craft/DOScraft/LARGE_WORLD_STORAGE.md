@@ -186,8 +186,22 @@ size on every RAM tier, so any save loads on any machine.
 
 New media therefore get a 4 MiB log (8,192 sectors) instead of 24 MiB:
 `TERRAIN.TMP` drops from 49.6 MB to 28.6 MB on 486 media, and the 386's new
-media take 4 MiB rather than the 15 MiB that fitted its disk. Existing logs
-keep their size; V2 player migrations still use 24 MiB, since a full
-384-pair pool can need 9,216 sectors. The game reads version 5 and 6 saves
-and writes 6. Guest results are in
+media take 4 MiB rather than the 15 MiB that fitted its disk. Republishing
+keeps an existing log's size; V2 player migrations still use 24 MiB, since a
+full 384-pair pool can need 9,216 sectors. The game reads version 5 and 6
+saves and writes 6. Guest results are in
 [the research note](research/per-block-edits-2026-10-15.md).
+
+`tools/log_player_vm.py` also moves a stopped V3 player onto a 4 MiB log
+(`convert_large_v3.shrink_log`), staging a clone as for V2. Every record
+either committed bank's directory references is copied byte for byte and
+packed from the start of the new log; both banks' offsets and
+previous-record refs are rewritten and each bank is resealed. The newest
+bank's refs must name exactly the older bank's records, as the game writes
+them; the older bank's refs name the bank it replaced, so a ref that matches
+no live record becomes 0. It refuses a damaged bank, a corrupt or
+overlapping record, and live records that with 1,248 sectors free (the
+save-time compaction threshold) do not fit. An independent check requires
+the immutable bytes and every save byte outside the directory unchanged
+and every column of both banks, record plus per-block edits, to decode the
+same. The clone must boot an executable with per-block edits.

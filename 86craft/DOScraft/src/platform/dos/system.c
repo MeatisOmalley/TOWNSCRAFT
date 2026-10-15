@@ -158,9 +158,11 @@ void sys_init(void)
      * Ordinary 4 MiB arenas deliberately omit that diagnostic-only scratch. */
     high_bytes+=192u*1024u;
 #endif
-#ifdef DOS_MEM_REPORT
+#if defined(DOS_MEM_REPORT) && !defined(DOS_MEM_REPORT_TIER)
     /* Measure true demand with the largest arenas DPMI can supply, whatever
-     * tier is selected. */
+     * tier is selected. DOS_MEM_REPORT_TIER keeps the tier's own arenas
+     * instead: the only way to measure on a 4 MiB machine, whose DPMI
+     * memory cannot hold LOW_BYTES beside a usable high arena. */
     low_bytes=LOW_BYTES;
     high_bytes=((memory.largest_available_free_block_in_bytes-384u*1024u-LOW_BYTES)&~4095u);
 #endif
