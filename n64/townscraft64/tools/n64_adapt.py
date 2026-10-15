@@ -144,7 +144,20 @@ def medium_le32(src, platform):
     return recipe
 
 
-RASTER_STOSL = '\t__asm__ volatile("rep stosl" : "+D"(dst),"+c"(words) : "a"(color) : "memory");\n'
+def platform_sources(dos_dir, out_dir):
+    """DOScraft platform files the N64 compiles with small path changes.
+
+    game_audio.c: the sound bank is on the ROM's DragonFS, not C:\\ or A:\\.
+    """
+    recipe = []
+    out_dir.mkdir(parents=True, exist_ok=True)
+    text = (dos_dir / 'game_audio.c').read_text(encoding='utf-8')
+    text = _replace(text, '"C:\\\\SOUND.PAK"', '"rom:/SOUND.PAK"', recipe, 'game_audio.c')
+    (out_dir / 'game_audio.c').write_text(text, encoding='utf-8')
+    return recipe
+
+
+RASTER_STOSL ='\t__asm__ volatile("rep stosl" : "+D"(dst),"+c"(words) : "a"(color) : "memory");\n'
 RASTER_STOSL_C = ('\t{ u32 *w=(u32 *)(void *)dst; while(words--) *w++=color; dst=(u8 *)w; }'
                   ' /* N64: C for x86 rep stosl; dst is word-aligned here */\n')
 

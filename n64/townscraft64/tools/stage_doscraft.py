@@ -146,6 +146,7 @@ def stage(imported, adapters, build_game, OUTPUT, flags, prefix):
     if prefix == 'N64GAME':
         # The game links raster.c (software renderer); trap.S is src/n64/trap.c.
         report['n64'] += n64_adapt.raster_portable(OUTPUT / 'imported/src')
+        report['n64'] += n64_adapt.platform_sources(DOSCRAFT / 'src/platform/dos', OUTPUT / 'n64src')
     shutil.rmtree(OUTPUT / 'build-game-scratch', ignore_errors=True)
     # Lookup tables, generated as DOScraft's build does at compile time.
     tables = OUTPUT / 'imported/src/tables.c'
@@ -155,7 +156,7 @@ def stage(imported, adapters, build_game, OUTPUT, flags, prefix):
     # The game-defining -D flags DOScraft passes to these files, for the Makefile.
     defines = [f for f in captured['cflags'] if f.startswith('-D')]
     # Platform files get the full adapter flag set, as build_game compiles them.
-    platform = [*flags, '-DDOS_GAME_AUDIO', '-DDOS_GRAPHICS_PRESETS']
+    platform = [*flags, '-DDOS_GAME_AUDIO', '-DDOS_SB_STREAM', '-DDOS_GRAPHICS_PRESETS']
     (OUTPUT / 'defines.mk').write_text(f'{prefix}_DEFINES = ' + ' '.join(defines) + '\n' +
                                        f'{prefix}_PLATFORM_DEFINES = ' + ' '.join(platform) + '\n',
                                        encoding='ascii')

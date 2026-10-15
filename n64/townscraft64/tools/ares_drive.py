@@ -155,6 +155,10 @@ def smoke():
         s.screenshot('4-turned')
         print(f'fps looking at terrain: {s.fps(120):.1f}')
         print('frames', s.frame(), 'ticks', s.read_symbol('g_ticks', 'I')[0])
+        print('audio events', s.read_symbol('dos_audio_events', 'I')[0],
+              'mixed frames', s.read_symbol('dos_audio_mixed_frames', 'I')[0],
+              'voice drops', s.read_symbol('dos_audio_voice_drops', 'I')[0],
+              'backend', s.read_symbol('backend', 'i')[0])
     finally:
         s.close()
 

@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'build/fixtures/terrain1024-crown-leaves-v2.bin'
 FIXTURE_SHA256 = '45d5e9a149c55b994f7f1505c96b094b227010417d9dd280544feeb97fb6093d'
 OUTPUT = ROOT / 'build/romfs'
+SOUND_SHA256 = '45bc513c8449e17a43ec1a0edeff50e735565926886801b6fac5d5fb23e144c3'
 
 
 def main():
@@ -28,6 +29,13 @@ def main():
     if not target.exists() or target.stat().st_size != FIXTURE.stat().st_size:
         shutil.copy(FIXTURE, target)
     print(f'romfs: terrain.bin ({target.stat().st_size} bytes)')
+    # DOScraft's sampled effects: tools/build_sound_bank.py at the pinned
+    # commit (assets/audio) reproduces its shipped SOUND.PAK byte for byte.
+    bank = ROOT / 'build/romfs-src/SOUND.PAK'
+    if hashlib.sha256(bank.read_bytes()).hexdigest() != SOUND_SHA256:
+        sys.exit(f'{bank} is not the pinned sound bank')
+    shutil.copy(bank, OUTPUT / 'SOUND.PAK')
+    print(f'romfs: SOUND.PAK ({bank.stat().st_size} bytes)')
 
 
 if __name__ == '__main__':

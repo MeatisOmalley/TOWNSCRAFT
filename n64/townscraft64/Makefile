@@ -17,20 +17,26 @@ GAME_DIR = build/n64game/imported/src
 GAME_PLATFORM_DIR = build/n64game/platform/src
 DOS_DIR = vendor/doscraft/src/platform/dos
 GAME_CORE = blocks fmath font game inventory libc mobs physics player raster render tables 	textures ui world
-GAME_DOS = heap gfx keyboard craft_grid viewmodel graphics_presets sound_silent
+GAME_DOS = heap gfx keyboard craft_grid viewmodel graphics_presets audio_bank audio_voices sound_assets sound_mixer
+# DOScraft platform files with recorded N64 changes (n64_adapt.platform_sources).
+GAME_DOS_N64 = game_audio
 GAME_N64 = $(wildcard src/n64/*.c)
-GAME_OBJ = $(GAME_CORE:%=$(BUILD_DIR)/game/core/%.o) $(GAME_DOS:%=$(BUILD_DIR)/game/dos/%.o) 	$(GAME_N64:src/n64/%.c=$(BUILD_DIR)/game/n64/%.o)
+GAME_OBJ = $(GAME_CORE:%=$(BUILD_DIR)/game/core/%.o) $(GAME_DOS:%=$(BUILD_DIR)/game/dos/%.o) $(GAME_DOS_N64:%=$(BUILD_DIR)/game/dosn64/%.o) $(GAME_N64:src/n64/%.c=$(BUILD_DIR)/game/n64/%.o)
 GAME_WARN = -std=gnu99 -O2 -Wall -Wextra -Wno-unused-function -Wno-error 	-Wcast-align=strict -Werror=implicit-function-declaration
 # As build_game: core files see the platform headers first; platform files see
 # the staged Towns headers (with DOScraft's chicken changes) first.
 GAME_CORE_FLAGS = $(N64_CFLAGS) $(GAME_WARN) $(N64GAME_DEFINES) -I$(DOS_DIR) -I$(GAME_DIR) -Isrc/n64
-GAME_PLATFORM_FLAGS = $(N64_CFLAGS) $(GAME_WARN) $(N64GAME_PLATFORM_DEFINES) -I$(GAME_PLATFORM_DIR) 	-I$(DOS_DIR) -Isrc/n64
+GAME_PLATFORM_FLAGS = $(N64_CFLAGS) $(GAME_WARN) $(N64GAME_PLATFORM_DEFINES) -I$(GAME_PLATFORM_DIR) -I$(DOS_DIR) -Isrc/n64 -Isrc/n64/dos
 
 $(BUILD_DIR)/game/core/%.o: $(GAME_DIR)/%.c
 	@mkdir -p $(dir $@)
 	@echo "    [GAME] $<"
 	$(N64_CC) -c $(GAME_CORE_FLAGS) -MMD -o $@ $<
 $(BUILD_DIR)/game/dos/%.o: $(DOS_DIR)/%.c
+	@mkdir -p $(dir $@)
+	@echo "    [GAME] $<"
+	$(N64_CC) -c $(GAME_PLATFORM_FLAGS) -MMD -o $@ $<
+$(BUILD_DIR)/game/dosn64/%.o: build/n64game/n64src/%.c
 	@mkdir -p $(dir $@)
 	@echo "    [GAME] $<"
 	$(N64_CC) -c $(GAME_PLATFORM_FLAGS) -MMD -o $@ $<
