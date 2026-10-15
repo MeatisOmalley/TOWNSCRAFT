@@ -31,7 +31,9 @@ per-effect levels (step 120, click 140, crunch 200, wood/place 230, explosion
 
 Music is the original Towns score played on the Sound Blaster/AdLib OPL2 FM
 chip (`src/platform/dos/opl_music.c`), with a two-operator electric piano
-standing in for the Towns' four-operator one. It needs no bank data.
+standing in for the Towns' four-operator one. It needs no bank data. Songs you
+add as MIDI files join the rotation through `MUSIC.PAK`; see
+[the music guide](../music/README.md).
 
 For a future higher-quality build, use the same original masters:
 

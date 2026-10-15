@@ -34,6 +34,7 @@ const DosSoundEvent *dos_sound_events(unsigned int *count,unsigned int *song)
     return have_score ? score : 0;
 }
 static int keyed_on(int ch) { return reg[0xB0+ch]&0x20; }
+#ifndef OPL_PACK_TEST
 int main(void)
 {
     /* No OPL: nothing is written after detection and ticks stay inert. */
@@ -84,3 +85,43 @@ int main(void)
     puts("PASS: OPL2 detection, patch, note pitch/volume, hand rotation, toggle, ending gap, stop and shutdown");
     return 0;
 }
+#else
+/* A pack converted from the test's own MIDI: piano C4 for 0.5 s, then a pad
+ * E4+G4 for 0.25 s (tools/build_music_pack.py, no Towns piece). */
+int main(int argc,char **argv)
+{
+    assert(argc==3);present=1;
+    pack_paths[0]=argv[2];pack_paths[1]="missing.pak";
+    assert(!dos_music_init() && !dos_music_songs());          /* Corrupt pack: Towns piece only */
+    pack_paths[0]=argv[1];
+    assert(!dos_music_init() && dos_music_songs()==1);
+    music_schedule(0);dos_music_tick();assert(playing && dos_music_current()==0 && !dos_music_notes);
+    dos_music_tick();
+    assert(dos_music_notes==1 && keyed_on(0) && !keyed_on(1));
+    assert(reg[0x20]==0x01 && reg[0x60]==0xF2 && reg[0x63]==0xF2 && reg[0xC0]==0x06);  /* Piano */
+    assert(reg[0xA0]==(345&255) && reg[0xB0]==(0x20|(4<<2)|(345>>8)) && reg[0x43]==3);
+    for(int i=1;i<50;++i)dos_music_tick();
+    assert(keyed_on(0) && dos_music_notes==1);                  /* Exactly 0.5 s */
+    dos_music_tick();
+    assert(!keyed_on(0) && keyed_on(1) && keyed_on(2) && dos_music_notes==3);
+    assert(reg[0x21]==0x21 && reg[0x62]==0x62 && reg[0xC1]==0x08 && reg[0xC2]==0x08);  /* Pad */
+    assert(reg[0xA1]==(435&255) && reg[0xA2]==(517&255));
+    for(int i=0;i<25;++i)dos_music_tick();
+    assert(!keyed_on(1) && !keyed_on(2) && playing);
+    for(int i=0;i<299;++i)dos_music_tick();
+    assert(playing);                                            /* Release tail */
+    dos_music_tick();
+    assert(!playing && wait_ticks>=6000 && wait_ticks<=12000);
+    /* With the Towns piece in the rotation, the same piece never plays twice running. */
+    pack_builtin=1;
+    int last=dos_music_current();
+    for(int i=0;i<6;++i) {
+        music_stop();music_schedule(0);g_ticks+=977u*(unsigned)i;dos_music_tick();
+        assert(playing && dos_music_current()!=last);last=dos_music_current();
+    }
+    dos_music_shutdown();
+    for(int ch=0;ch<9;++ch)assert(!keyed_on(ch) && reg[0x40+operator_offset[ch]+3]==63);
+    puts("PASS: pack load/reject, patches, pitch, level, timing, tail, rotation and shutdown");
+    return 0;
+}
+#endif

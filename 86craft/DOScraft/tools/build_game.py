@@ -45,7 +45,8 @@ def portable_experiment_flags(flags):
     return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_VERY_LOW_PLANAR','-DDOS_VERY_LOW_COARSE','-DDOS_VERY_LOW_FAR_COARSE','-DDOS_VL_TEMPORAL_FAR'))
 
 
-def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None,audio=None):
+def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None,audio=None,
+          music_dir=None,music_builtin=True):
     if extra_adapter_flags is None: extra_adapter_flags=DEFAULT_ADAPTER_FLAGS
     if graphics is None: graphics=not benchmark
     if audio is None:audio=not benchmark
@@ -69,6 +70,15 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             report['sound_bank']={'path':str(bank_path.resolve()),'sha256':bank['sha256'],
                                   'bytes':bank['bytes'],'samples':len(bank['samples'])}
             report['audio']='Sampled Sound Blaster effects; basic effects fallback; OPL2 music'
+            # Songs the user supplies as MIDI files in assets/music/midi.
+            from build_music_pack import build as build_music
+            music_path=output/'MUSIC.PAK'
+            music=build_music(music_path,**({'midi_dir':music_dir} if music_dir else {}),include_builtin=music_builtin)
+            if music is not None:
+                report['music_pack']={'path':str(music_path.resolve()),'sha256':music['sha256'],
+                                      'bytes':music['bytes'],'songs':[s['name'] for s in music['songs']]}
+            elif music_path.exists():
+                music_path.unlink()
             report['stage']='Full game link; sampled effects; gameplay acceptance pending'
         report['extra_adapter_flags']=list(extra_adapter_flags)
         report['graphics_presets']=graphics

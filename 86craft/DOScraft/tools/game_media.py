@@ -168,6 +168,11 @@ def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False, update_point
         bank=Path(build['sound_bank']['path']).read_bytes()
         if sha(bank)!=build['sound_bank']['sha256']:raise ValueError('Sound bank checksum mismatch')
         files.append(('SOUND.PAK',bank))
+    music=None
+    if build.get('music_pack'):
+        music=Path(build['music_pack']['path']).read_bytes()
+        if sha(music)!=build['music_pack']['sha256']:raise ValueError('Music pack checksum mismatch')
+        files.append(('MUSIC.PAK',music))
     boot=populate(source.data[:512],files)
     note=('DOScraft direct port: 486DX/40 overclock, RAM-scaled world, ET4000, 320x240 Mode X.\r\n'
           'Sampled effects use external SOUND.PAK when supplied.\r\n'
@@ -178,6 +183,7 @@ def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False, update_point
           'See repository README for source, dependencies and limitations.\r\n').encode('ascii')
     iso_files={'DOSCRAFT.EXE':exe,'README.TXT':note}
     if bank is not None:iso_files['SOUND.PAK']=bank
+    if music is not None:iso_files['MUSIC.PAK']=music
     iso=build_iso(boot,iso_files)
     if embedded_boot(iso)!=boot:
         raise ValueError('ISO embedded boot roundtrip failed')
@@ -217,6 +223,8 @@ def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False, update_point
     if bank is not None:
         record['sound_bank']=build['sound_bank'];record['audio']=build['audio']
         record['stage']='Real game; sampled effects; interactive acceptance pending'
+    if music is not None:
+        record['music_pack']=build['music_pack']
     if hardware_record: record['hardware_era']='1990-06-30'
     (vm/'build.json').write_text(json.dumps(record,indent=2)+'\n')
     if update_pointer:
@@ -269,6 +277,8 @@ def validate(vm):
         raise ValueError('Mouse driver mismatch')
     if record.get('sound_bank') and sha(media.read('SOUND.PAK'))!=record['sound_bank']['sha256']:
         raise ValueError('External sound bank differs from release')
+    if record.get('music_pack') and sha(media.read('MUSIC.PAK'))!=record['music_pack']['sha256']:
+        raise ValueError('External music pack differs from release')
     if media.read('FDCONFIG.SYS')!=(ROOT/'guest/FDCONFIG.SYS').read_text().replace('\n','\r\n').encode('ascii'):
         raise ValueError('DOS startup configuration mismatch')
     volume=(large_volume((vm/'scratch-large.img').read_bytes()) if record.get('large_world')
