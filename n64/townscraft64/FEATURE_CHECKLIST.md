@@ -114,6 +114,7 @@ Tags:
 | --- | --- | --- | --- |
 | Towns host tests for code the N64 runs unchanged: player, mobs, mob regions | `vendor/towns-tests` (Towns `d706a67d`) | core | Pass big-endian in ares (N2). Other Towns tests cover generation, the 256-world path, or replaced hardware; see the N2 report. |
 | DOScraft tests: chickens, mob codec (7 cases), immediate edit light | `vendor/doscraft/tests` | extract | Pass big-endian in ares (N2b). |
-| DOScraft tests needing the baked world: stream light, far world | `vendor/doscraft/tests` | extract | Need an N64 sector backend, a current bake and a byte-order decision; see the N2b report. |
+| DOScraft stream-light test (baked 1024 world from cartridge ROM) | `vendor/doscraft/tests` | extract | Passes big-endian in ares (N2b), with little-endian medium reads and `src/n64/rom_hdd.c`. |
+| DOScraft far-world test | `vendor/doscraft/tests` | extract | Not yet ported; see the N2b report. |
 | DOScraft native tests | `86craft/DOScraft/tests` (not imported) | extract | Bring individual tests over with the feature they cover. |
 | Benchmark routes, frame-time reports | `bench.c`, `tools/benchmark*.py` | reimplement | N64 profiler and ares-based runs. |

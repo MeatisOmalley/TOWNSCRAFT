@@ -8,8 +8,8 @@ Current stage: **N2b (DOScraft source on MIPS) done.** N1: pinned libdragon,
 MIPS GCC and ares; a hello-triangle ROM boots on 4 MB and 8 MB. N2: a pinned
 DOScraft snapshot, its feature checklist, the Towns core on MIPS. N2b:
 DOScraft's shipped game source (byte-identical to its real build) compiles for
-MIPS, and 13 Towns and DOScraft tests pass big-endian in ares. Next: the
-baked-world tests, which need a ROM sector backend and a byte-order decision.
+MIPS, and 14 Towns and DOScraft tests pass big-endian in ares, including
+DOScraft's stream-light test streaming the real 1024 world from cartridge ROM.
 Nothing here changes the Towns or DOScraft sources. Reports:
 [N1](research/n1-toolchain-2026-10-15.md), [N2](research/n2-portable-core-2026-10-15.md),
 [N2b](research/n2b-doscraft-source-2026-10-15.md).
@@ -23,6 +23,8 @@ python tools/stage_core.py                        # Towns core + tests -> build/
 python tools/stage_doscraft.py                    # DOScraft shipped source -> build/doscraft
 python tools/build.py core doscraft               # both for MIPS
 python tools/run_tests.py --build                 # Towns + DOScraft tests as ROMs in ares
+# dt_stream_light also needs build/fixtures/terrain1024-crown-leaves-v2.bin:
+# DOScraft's tools/convert_large_v2.py on its terrain1024-crown-leaves.bin bake.
 python tools/import_doscraft.py --verify          # vendor/ matches its manifests
 ```
 

@@ -93,17 +93,25 @@ define DTEST_template
 $(BUILD_DIR)/dtests/$(1)/harness.o: tests/harness.c
 	@mkdir -p $$(dir $$@)
 	$(N64_CC) -c $(N64_CFLAGS) $(if $(DTEST_ARG_$(1)),-DTEST_ARG='"$(DTEST_ARG_$(1))"') -o $$@ $$<
-$(BUILD_DIR)/dtests/$(1)/%.o: build/dtests/%.c
+$(BUILD_DIR)/dtests/$(1)/%.o: %.c
 	@mkdir -p $$(dir $$@)
 	@echo "    [DTEST] $$<"
 	$(N64_CC) -c $(DTEST_CFLAGS) $(DTEST_INC_$(1)) -MMD -o $$@ $$<
 build/dtests/$(BUILD_DIR)/$(1).elf: $(BUILD_DIR)/dtests/$(1)/harness.o \
-	$(patsubst build/dtests/%.c,$(BUILD_DIR)/dtests/$(1)/%.o,$(DTEST_SRC_$(1)))
+	$(patsubst %.c,$(BUILD_DIR)/dtests/$(1)/%.o,$(DTEST_SRC_$(1)))
 build/dtests/$(1).z64: N64_ROM_TITLE = "T64 $(1)"
 build/dtests/$(1).z64: LDFLAGS += --wrap=main --wrap=exit
 build/dtests/$(1).z64: | $(BUILD_DIR)/build/dtests
 endef
 $(foreach t,$(DTEST_NAMES),$(eval $(call DTEST_template,$(t))))
+
+# ROMs that carry files (the 1024-world medium) get a DragonFS image.
+define DTEST_DFS_template
+build/dtests/$(1).z64: $(BUILD_DIR)/dtests/$(1).dfs
+$(BUILD_DIR)/dtests/$(1).dfs: N64_MKDFS_ROOT = $(DTEST_DFS_$(1))
+$(BUILD_DIR)/dtests/$(1).dfs: $(wildcard $(DTEST_DFS_$(1))/*)
+endef
+$(foreach t,$(DTEST_DFS_NAMES),$(eval $(call DTEST_DFS_template,$(t))))
 
 $(BUILD_DIR)/build/dtests:
 	mkdir -p $@

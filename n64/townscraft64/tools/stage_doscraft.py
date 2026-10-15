@@ -15,7 +15,8 @@ DOScraft would invoke its DOS compiler:
 
 Then the N64 adaptations, recorded the same way: libc.c's x86-assembly
 memset/memcpy/memmove/memcmp/strlen are removed (newlib provides them), and
-fmath.h's x86-assembly mulshift/divshift/muldiv become C (n64_adapt.py).
+fmath.h's x86-assembly mulshift/divshift/muldiv become C, and the 1024-world
+medium's word tables are read little-endian (n64_adapt.py).
 DOScraft's own adaptation already replaced hw.h with a portable types header.
 
 Usage: python tools/stage_doscraft.py
@@ -131,7 +132,8 @@ def main():
     fmath = OUTPUT / 'imported/src/fmath.h'
     text, step = n64_adapt.fmath_portable(fmath.read_text(encoding='utf-8'))
     fmath.write_text(text, encoding='utf-8')
-    report['n64'] = [n64_libc(OUTPUT / 'imported/src/libc.c'), step]
+    report['n64'] = [n64_libc(OUTPUT / 'imported/src/libc.c'), step,
+                     *n64_adapt.medium_le32(OUTPUT / 'imported/src', DOSCRAFT / 'src/platform/dos')]
     shutil.rmtree(OUTPUT / 'build-game-scratch', ignore_errors=True)
     # Lookup tables, generated as DOScraft's build does at compile time.
     tables = OUTPUT / 'imported/src/tables.c'

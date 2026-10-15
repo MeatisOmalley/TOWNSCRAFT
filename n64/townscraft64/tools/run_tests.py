@@ -172,7 +172,7 @@ def main(argv):
     (settings.parent / 'saves').mkdir(parents=True, exist_ok=True)
     results = []
     for name in args.tests or list(known):
-        record = run_one(name, known[name], args.timeout, settings)
+        record = run_one(name, known[name], known[name].get('timeout', args.timeout), settings)
         (out / f'{name}.log').write_text(record.get('log', ''), encoding='utf-8')
         results.append({k: v for k, v in record.items() if k != 'log'})
         print(f'{name:34} {record["status"]:8} guest {record.get("guest_seconds", "-")} s, '

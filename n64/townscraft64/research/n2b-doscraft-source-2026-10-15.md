@@ -86,7 +86,7 @@ makes `world.c` use `BLOCK_IDS` from the overlaid `blocks.h`; DOScraft's own
 test would fail too (it skips when its Zig toolchain is absent). The port
 applies the default overlays to every staged file for the "fixed" variant.
 
-## 6. Not yet run: tests that need the baked 1024 world
+## 6. Tests that need the baked 1024 world (resolved for stream light in §7)
 
 `stream_light_native.c` (baked light versus canonical flood fill, cold
 eviction, seam and edit invalidation) and `far_world_native.c` read the
@@ -117,5 +117,55 @@ DOS file I/O). Running them on the N64 needs three things:
      sites; the cost is negligible because these tables are read at load time.
 
 Also: the test allocates DOScraft's 9 MiB arena (1 MiB low + 8 MiB high,
-`g_ramMB=8`). An N64-sized fixture uses DOScraft's 4 MiB configuration (the
-386 build runs the 1024 world in 4 MiB) with smaller arenas.
+`g_ramMB=8`), which the N64 cannot hold.
+
+## 7. Baked world on the N64: stream light passes
+
+**Byte-order decision (2026-10-15, user delegated): read little-endian in
+the game.** The cartridge carries DOScraft's bake byte for byte, so it can be
+checked against DOScraft's own files and survives format changes; the cost
+is nil because these tables are read at load time.
+`n64_adapt.medium_le32()` (applied by `stage_doscraft.py` and the test
+staging) adds `n64_le.h` and changes six reads: the 128-word header (converted
+once after it is copied), the column and lighting index entries (byte-wise
+`n64_le32`), the V1 base and lighting checksum tables (converted after their
+byte-wise checksum), and the legacy Towns header check. Not done: a negative
+build without the conversion, to show the failure it prevents.
+
+**Fixture:** no rebake was needed. The block-ID commit leaves baked terrain
+bytes unchanged ("Existing IDs and baked terrain bytes are unchanged"), and
+DOScraft's `tools/convert_large_v2.py` at `c4ce3b7b`, applied to its shipped
+bake `terrain1024-crown-leaves.bin`, reproduces the compact world exactly:
+33,835,008 bytes, SHA-256 `45d5e9a1…7fb6093d`. The file is not committed;
+`stage_doscraft_tests.py` takes it from `build/fixtures/` and checks the hash.
+
+**Sector backend:** `src/n64/rom_hdd.c` implements `hdd.h` over the medium
+in the ROM's DragonFS image: reads DMA straight from ROM (runs of sectors in
+one DMA), writes go to a per-sector RAM overlay that later reads return. It
+is the seed of N5's ROM world; N5 replaces the overlay with the block-level
+edit store and FlashRAM saves.
+
+**Test changes (recorded in `build/dtests/stage.json`):** DOS `hdd.c` →
+`rom_hdd.c`; `dpmi.h`/`io.h` stubs and `tests/n64_dos_glue.c`
+(`dos_hdd_shutdown`, `_commit`); arenas from the test's 9 MiB to DOScraft's
+own 8 MiB tier (672 KiB low + 3 MiB high, `system.c`). `g_ramMB` stays 8,
+because the test checks the RAM light cache that only that tier allocates.
+The ROM is 34,013,184 bytes and runs with the Expansion Pak.
+
+| ROM | Result | Guest time |
+| --- | --- | ---: |
+| `dt_stream_light` | **passed**: "canonical baked light; cold eviction, seam and edit invalidation (55,62,36,4)" | 5.11 s |
+
+The bake's light equals the runtime flood fill byte for byte on the N64,
+polled streaming completes, and baked restore, RAM restore and invalidation
+all ran. Not ported: the driver's two corruption checks (flip one byte of
+the lighting index or spawn terrain and expect a specific fatal error); they
+need a writable copy of the medium per case.
+
+Full suite after a clean `run_tests.py --build`: **14 of 14 as expected.**
+
+Still open:
+- `far_world_native.c` (distant-terrain map from the medium): same backend;
+  it also reads the medium header with `fread`, which needs its own route.
+- The 4 MiB tier (`g_ramMB=4`, 896 KiB + 768 KiB arenas, no RAM light cache)
+  is what the base console will run; it needs its own test configuration.

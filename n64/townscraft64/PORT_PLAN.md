@@ -185,6 +185,10 @@ residency at that size does not fit next to the framebuffers. The existing
 Model (Q6, decided 2026-10-15: cartridge is the complete game; an
 optional 64DD Expansion Disk is added later, see below):
 
+Byte order (2026-10-15): the ROM holds DOScraft's little-endian bake byte
+for byte; the game reads its word tables little-endian (`n64_adapt.medium_le32`).
+`src/n64/rom_hdd.c` already streams it from ROM (N2b).
+
 1. **Base world in ROM.** Prebaked seed(s) stored compressed on the
    cartridge, read by DMA on demand. Replaces Towns' HDD scratch backing and
    DOScraft's prebaked HDD seed. Seed generation on the console is optional;
@@ -244,7 +248,7 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
 | N0: plan | This document, open questions answered | User signs off on Q1–Q6. |
 | N1: toolchain — **done 2026-10-15** | Pinned libdragon/toolchain build, pinned ares, hello-triangle ROM, launch script; check ares Mouse, Randnet keyboard and 64DD support, and libdragon 64DD support | Boots in ares on 4 MB and 8 MB. Keyboard: needs an ares fork. 64DD: ares emulates it; libdragon has no disk driver. Mouse works in ares (user-verified). |
 | N2: portable core — **done 2026-10-15** | Pinned DOScraft snapshot with manifest, DOScraft feature checklist (core / extract / reimplement / drop), Towns core compiled for MIPS, big-endian tests in ares | Core compiles (no endian issues outside the replaced HDD code); player and mob tests pass big-endian. World generation and the Towns 256-world tests are out of scope (DOScraft ships a prebaked world). See research/n2-portable-core-2026-10-15.md. |
-| N2b: DOScraft source — **done 2026-10-15** | DOScraft's game source (Towns core plus shipped overlays, incl. large-world streaming and baked light) staged and compiled for MIPS; DOScraft's tests for it ported with N64-sized fixtures | Staging byte-identical to DOScraft's shipped build; 14/14 compile; 13/13 tests as expected big-endian. Baked-world tests deferred: they need a ROM sector backend, a fresh bake and a byte-order decision (research/n2b-doscraft-source-2026-10-15.md). |
+| N2b: DOScraft source — **done 2026-10-15** | DOScraft's game source (Towns core plus shipped overlays, incl. large-world streaming and baked light) staged and compiled for MIPS; DOScraft's tests for it ported with N64-sized fixtures | Staging byte-identical to DOScraft's shipped build; 14/14 compile; 13/13 tests as expected big-endian. Baked world streams from ROM (little-endian reads, `src/n64/rom_hdd.c`) and the stream-light test passes; far-world test and a 4 MiB-tier test still to do (research/n2b-doscraft-source-2026-10-15.md). |
 | N3: render slice | Static chunk meshes on the RDP with Z, textures, vertex light; controller look/move | Frame time, triangle and fill counters reported in ares. |
 | N4: gameplay | Breaking/placing, inventory, crafting, mobs, day/night, weather, HUD | Feature checklist from the pinned source. |
 | N5: world/save | ROM world, RAM delta, cartridge save/load | Save/reload round trip; edit cap measured. |
