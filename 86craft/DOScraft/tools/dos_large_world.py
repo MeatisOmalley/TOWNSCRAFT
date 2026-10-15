@@ -29,7 +29,7 @@ def adapt(name, data):
             'g_zOff=heap_alloc_low(sizeof(int)*g_W);')
         one('static int terrainActive,terrainBlocking;',
             'static int terrainActive,terrainBlocking;\n'
-            'static int terrainLarge,terrainV2;\n'
+            'static int terrainLarge,terrainV2,terrainV3;\n'
             'static u32 terrainSeed,terrainBaseSum[4096];\n'
             'static int terrainSpawnX,terrainSpawnZ;\n'
             '/* V2 medium (tools/convert_large_v2.py): packed base columns and a\n'
@@ -37,6 +37,11 @@ def adapt(name, data):
             'static u32 terrainBaseOff[4096],terrainPoolSector,terrainPoolPairs;\n'
             'static u16 terrainBaseLen[4096],terrainPair[4096];\n'
             'static u8 terrainPairUsed[512];\n'
+            '/* V3 medium (tools/convert_large_v3.py): the same packed base and an\n'
+            '   edit log [terrainLogFirst,terrainLogEnd) in sectors; terrainV2 is set too. */\n'
+            'static u32 terrainLogFirst,terrainLogEnd;\n'
+            'static void large_log_reset(void);\n'
+            'static int large_log_alloc(int id,u32 len,u32 *off);\n'
             'static u32 large_column_offset(int id,int slot);\n'
             'static int large_column_slot(int id,u32 off);\n'
             'static int large_pool_assign(int id);')
@@ -89,16 +94,19 @@ def adapt(name, data):
 	static const char legacyMagic[]="TSC-TERRAIN-TEMP";
 	static const char largeMagic[]="DOSCRAFT-1024-V1";
 	static const char compactMagic[]="DOSCRAFT-1024-V2";
-	terrainActive=terrainLarge=terrainV2=0;
+	static const char logMagic[]="DOSCRAFT-1024-V3";
+	terrainActive=terrainLarge=terrainV2=terrainV3=0;
 	if(!hdd_init() || hdd_transfer_sync(0,1,0,columnScratch)!=1) return 0;
-	if(!memcmp(columnScratch,largeMagic,16) || !memcmp(columnScratch,compactMagic,16))
+	if(!memcmp(columnScratch,largeMagic,16) || !memcmp(columnScratch,compactMagic,16) ||
+	   !memcmp(columnScratch,logMagic,16))
 	{
 		/* Index and appendix readers reuse columnScratch; keep the header. */
 		static u32 headerCopy[128];
 		u32 *header=headerCopy;
 		memcpy(headerCopy,columnScratch,512);
-		terrainV2=!memcmp(columnScratch,compactMagic,16);
-		if(header[4]!=(terrainV2 ? 2u : 1u) || header[5]!=1024 || header[6]!=TERRAIN_COLUMNS ||
+		terrainV3=!memcmp(columnScratch,logMagic,16);
+		terrainV2=terrainV3 || !memcmp(columnScratch,compactMagic,16);
+		if(header[4]!=(terrainV3 ? 3u : terrainV2 ? 2u : 1u) || header[5]!=1024 || header[6]!=TERRAIN_COLUMNS ||
 		   header[7]!=TERRAIN_SECTORS || header[8]!=33 ||
 		   hdd_sector_count()<(terrainV2 ? header[35] : 33u+TERRAIN_COLUMNS*TERRAIN_SECTORS*3u))
 			fatal("Invalid 1024-world HDD medium");
@@ -112,10 +120,12 @@ def adapt(name, data):
 		{
 			/* Index: per column u32 byte offset, length and sum (12 bytes). */
 			u32 baseSector=header[30],indexSector=header[31],sum=2166136261u;
-			terrainPoolSector=header[33]; terrainPoolPairs=header[34];
+			terrainPoolSector=header[33]; terrainPoolPairs=terrainV3 ? 0 : header[34];
+			terrainLogFirst=terrainV3 ? header[33] : 0; terrainLogEnd=terrainV3 ? header[35] : 0;
 			if(indexSector!=1 || baseSector<indexSector+192 || terrainPoolSector<baseSector ||
-			   terrainPoolPairs>4096 ||
-			   header[35]!=terrainPoolSector+terrainPoolPairs*2u*TERRAIN_SECTORS)
+			   (terrainV3 ? header[34]<2048 || header[34]>65536 || header[35]!=header[33]+header[34] :
+			                terrainPoolPairs>4096 ||
+			                header[35]!=terrainPoolSector+terrainPoolPairs*2u*TERRAIN_SECTORS))
 				fatal("Invalid 1024-world HDD medium");
 			for(int sector=0; sector<96; sector+=24)
 			{
@@ -166,11 +176,14 @@ def adapt(name, data):
         one('\tterrainClock=0;\n}',
             '\tterrainClock=0;\n\tmemset(terrainPinSlot,0,sizeof(terrainPinSlot));\n'
             '\tmemset(terrainPair,0xFF,sizeof(terrainPair));\n'
-            '\tmemset(terrainPairUsed,0,sizeof(terrainPairUsed));\n}')
+            '\tmemset(terrainPairUsed,0,sizeof(terrainPairUsed));\n'
+            '\tlarge_log_reset();\n}')
         one('u32 first=(1+id*TERRAIN_SECTORS*2)*512u;\n'
             '\tterrainPending.off=r->disk==TERRAIN_DISK && r->off==first ? first+COLUMN_CELLS : first;',
             'u32 first=(terrainLarge ? 33u+id*TERRAIN_SECTORS*3u : 1u+id*TERRAIN_SECTORS*2u)*512u;\n'
-            '\tif(terrainV2)\n\t{\n'
+            '\tif(terrainV3)\n\t{\n'
+            '\t\tif(!large_log_alloc(id,terrainPending.len,&terrainPending.off)) { streamError=2; return 0; }\n'
+            '\t}\n\telse if(terrainV2)\n\t{\n'
             '\t\tint active=large_column_slot(id,r->off);\n'
             '\t\tint next=active==1 ? 2 : 1;\n'
             '\t\tif(next==terrainPinSlot[id]) next=active;\n'
