@@ -38,6 +38,8 @@ def save_sum(data):
     return value
 
 def upgrade(previous,terrain,save):
+    if b'DOSCRAFT-1024-V3' in (previous[:16],terrain[:16]):
+        raise ValueError('Leaf migration of V3 edit-log media is not implemented')
     if previous[:16]==b'DOSCRAFT-1024-V2':
         return upgrade_v2(previous,terrain,save)
     if previous[:48]!=terrain[:48] or struct.unpack_from('<I',terrain,92)[0]!=MAGIC:

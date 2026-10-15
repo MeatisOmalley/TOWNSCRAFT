@@ -1,7 +1,7 @@
 """Prepare a new private 386SX-25 VM; never replace a player disk.
 
-Uses the shared 386/486 game executable and a fresh V2 compact world on the
-profile's 40 MB IDE drive. The DTK BIOS CMOS must be configured on first boot.
+Uses the shared 386/486 game executable and a fresh V3 compact world on the
+profile's 40 MB IDE drive; its edit log takes the space the disk has left. The DTK BIOS CMOS must be configured on first boot.
 """
 import argparse
 import hashlib
@@ -14,6 +14,7 @@ from urllib.request import urlopen
 
 from build_game import ROOT, DEFAULT_ADAPTER_FLAGS, build
 from convert_large_v2 import convert, check_v2
+from convert_large_v3 import from_v2, log_size_for_volume
 from fat_image import FatImage, populate, scratch_hdd
 from fetch_dependencies import CTMOUSE_EXE_SHA256
 from fetch_roms import REV
@@ -83,8 +84,13 @@ def prepare(terrain_path, build_output=OUTPUT, smoke=False, bios=None, benchmark
     if '-march=i386' not in manifest['link_command']:
         raise ValueError('Expected the shared 386-compatible executable')
     v1 = Path(terrain_path).read_bytes()
-    terrain = convert(v1)
-    check_v2(terrain, v1)
+    compact = convert(v1, pool_pairs=0)
+    check_v2(compact, v1)
+    disk = scratch_hdd(cylinders=977, heads=5, sectors=17)
+    start = struct.unpack_from('<I', disk, 454)[0] * 512
+    log_sectors = log_size_for_volume(FatImage(disk, start), struct.unpack_from('<I', compact, 132)[0],
+                                      [len(save_image())])
+    terrain = from_v2(compact, log_sectors, checked=True)
     deps = ROOT / 'build/deps'
     source = FatImage((deps / 'freedos/144m/x86BOOT.img').read_bytes())
     driver = (deps / 'ctmouse191/ctmouse.exe').read_bytes()
@@ -104,8 +110,6 @@ def prepare(terrain_path, build_output=OUTPUT, smoke=False, bios=None, benchmark
     iso = build_iso(boot, {'DOSCRAFT.EXE': exe, 'README.TXT': note})
     if embedded_boot(iso) != boot:
         raise ValueError('ISO boot floppy roundtrip failed')
-    disk = scratch_hdd(cylinders=977, heads=5, sectors=17)
-    start = struct.unpack_from('<I', disk, 454)[0] * 512
     disk[start:] = populate(disk[start:start + 512], [('TERRAIN.TMP', terrain), ('WORLD.SAV', save_image())])
     volume = FatImage(disk, start)
     if volume.read('TERRAIN.TMP') != terrain or volume.read('WORLD.SAV') != save_image():
@@ -130,7 +134,8 @@ def prepare(terrain_path, build_output=OUTPUT, smoke=False, bios=None, benchmark
         'emulator_sha256': digest(EMULATOR.read_bytes()), 'emulator_commit': EMULATOR_COMMIT,
         'rom_revision': REV, 'rom_sha256': ROM_HASHES,
         'disk_bytes': len(disk), 'initial_hdd_sha256': digest(disk),
-        'terrain_bytes': len(terrain), 'terrain_sha256': digest(terrain),
+        'terrain_bytes': len(terrain), 'terrain_sha256': digest(terrain), 'terrain_format': 'V3 log',
+        'edit_log_sectors': log_sectors,
         'source_terrain': str(Path(terrain_path).resolve()), 'source_terrain_sha256': digest(v1),
         'build_output': str(build_output.resolve()),
         'bios_seed_sha256': digest(bios_data) if bios_data else None,

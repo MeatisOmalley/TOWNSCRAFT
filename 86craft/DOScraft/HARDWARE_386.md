@@ -17,9 +17,13 @@ The imported `profiles/1990-386sx25-family.cfg` selects the DTK PM-1630C,
 386SX at 25 MHz, 4 MiB RAM, no 387, Trident TVGA8900B with 512 KiB, Sound
 Blaster 1.5, Microsoft serial mouse, and Conner CP3044 IDE timing. The HDD
 geometry is 977 cylinders, 5 heads, 17 sectors (42,519,040 bytes). Audio remains
-deferred by the game. The fresh seed-4242 world is converted to the V2 compact
-format, including streamed lighting and the distant map, with 384 edit-slot
-pairs. Its terrain file is 33,730,560 bytes. Existing player saves are separate.
+deferred by the game. The fresh seed-4242 world is converted to the compact
+format, including streamed lighting and the distant map. Newly prepared VMs
+use the V3 edit log, which takes the space the 40 MB volume has left (30,668
+sectors, 15 MiB, with 1 MiB of headroom): every column can be edited, where
+V2's 384 edit-slot pairs (a 33,730,560-byte terrain file) covered 9%. Existing
+player saves are separate; `tools/log_player_vm.py` migrates a stopped V2
+player VM into a new clone.
 
 The emulator is built from `MeatisOmalley/86Box` commit
 `cc2ff8fe3058c4f8eec70cfac82b1909894d458f`, which registers the Trident

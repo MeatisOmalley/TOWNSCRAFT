@@ -137,3 +137,37 @@ The B8 detail revision reuses spare high material bits for slope and stable
 variation in RAM after validating the raw surface-map checksum. Disk map
 bytes, base/edit records, save offsets and the fixture stay unchanged. No
 extra map allocation or rendering-time HDD reads are required.
+
+## V3 edit log (2026-10-14)
+
+V2's fixed pool gave only 384 columns (9%) a pair of 12 KiB edit slots. V3
+(`tools/convert_large_v3.py`, magic `DOSCRAFT-1024-V3`) keeps V2's immutable
+bytes and replaces the pool with a preallocated edit log, so space follows the
+edits actually made. Each edited column is one sector-aligned record in the
+column codec (RLE, raw 12 KiB when that is not smaller) anywhere in the log.
+The game still writes sectors in place; the file never grows. The DOS write
+guard allows one record of up to 24 sectors inside the log extent only.
+
+On a V3 medium each V5 directory entry holds the record's byte offset (0 for
+the base record), its length and checksum, and the record the column had in
+the previous committed save. Loading the newest bank therefore knows both
+banks' records. The runtime keeps a sector bitmap that is never smaller than
+the truth: the live directory, both committed banks and any write in flight.
+Next-fit allocation marks it; an exact rebuild after a commit or load (or
+before giving up) releases records nothing references. A record either bank
+references is never overwritten, so a crash between a record write and the
+bank commit, or a damaged newer bank, still loads the older state intact.
+
+Play-time records must leave room for a save to flush every resident column
+(26 free 24-sector runs); otherwise the column stays resident and the game
+shows "Terrain backing store full" until the player saves. Saves may use
+that reserve. When fewer than 52 such runs remain, a save compacts: it copies
+the live records out of the 1/16 window holding the least live data into
+holes elsewhere. The originals stay pinned until the next save commits.
+
+486 media use a 24 MiB log (49,152 sectors); the 386's 40 MB disk takes what
+the volume holds beside `WORLD.SAV` and 1 MiB of headroom (30,668 sectors for
+this seed). Every base column edited once needs 28,343 sectors. Player disks
+migrate with `tools/log_player_vm.py`, which stages a clone and changes no
+launcher unless asked. Sizes, pause measurements and limits are in
+[the research note](research/edit-log-v3-2026-10-14.md).

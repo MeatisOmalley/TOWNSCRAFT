@@ -34,6 +34,27 @@ int main(void)
     assert(dos_terrain_edit_range(294921,24));
     assert(!dos_terrain_edit_range(294944,2) && !dos_terrain_edit_range(294945,1));
     assert(!dos_terrain_edit_range(294977,13) && !dos_terrain_edit_range(~0u,24));
+    /* V3: any record of up to 24 sectors inside the edit log, nothing else. */
+    unsigned char log[512]={0},v2[512]={0};
+    const unsigned at=47652,end=47652+32768;
+    memcpy(log,"DOSCRAFT-1024-V3",16); dword(log+16,3);
+    dword(log+132,at); dword(log+136,32768); dword(log+140,end);
+    assert(!dos_terrain_known_medium(end*512u+512,log) && dos_terrain_known_medium(end*512u,log));
+    assert(dos_terrain_edit_range(at,24) && dos_terrain_edit_range(at+1,7) &&
+           dos_terrain_edit_range(end-1,1) && dos_terrain_edit_range(end-24,24));
+    assert(!dos_terrain_edit_range(at-1,1) && !dos_terrain_edit_range(at-1,2) &&
+           !dos_terrain_edit_range(end,1) && !dos_terrain_edit_range(end-1,2) &&
+           !dos_terrain_edit_range(at,25) && !dos_terrain_edit_range(at,0) &&
+           !dos_terrain_edit_range(0,1) && !dos_terrain_edit_range(~0u,1));
+    dword(log+16,2); assert(!dos_terrain_known_medium(end*512u,log)); dword(log+16,3);
+    dword(log+136,2047); dword(log+140,at+2047); assert(!dos_terrain_known_medium((at+2047)*512u,log));
+    dword(log+136,65537); dword(log+140,at+65537); assert(!dos_terrain_known_medium((at+65537)*512u,log));
+    dword(log+136,32768); dword(log+140,end+1); assert(!dos_terrain_known_medium((end+1)*512u,log));
+    /* A V2 header with the same words keeps its slot-aligned guard. */
+    memcpy(v2,"DOSCRAFT-1024-V2",16); dword(v2+16,2);
+    dword(v2+132,at); dword(v2+136,384); dword(v2+140,at+384*48);
+    assert(dos_terrain_known_medium((at+384*48)*512u,v2));
+    assert(dos_terrain_edit_range(at,24) && !dos_terrain_edit_range(at+1,24) && !dos_terrain_edit_range(at+23,2));
     unsigned char *boot=disk[0],*entry=disk[35],*fat=disk[1];
     word(boot+11,512); boot[13]=1; word(boot+14,1); boot[16]=2;
     word(boot+17,16); word(boot+19,4132); word(boot+22,17);
