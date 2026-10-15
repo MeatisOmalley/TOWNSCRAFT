@@ -178,9 +178,10 @@ re-pin `RANDNET_ARES_EXE_SHA256` deliberately. `python
 tools/fetch_dependencies.py --randnet-ares` checks the pin and records it
 in `build/deps/acquired.json`.
 
-Not done, needs the user: publishing the branch (e.g. to a
-`MeatisOmalley/ares` fork, as DOScraft's 86Box branch lives in
-`MeatisOmalley/86Box`) so the fork can be downloaded instead of built.
+Publishing: decided 2026-10-15 to keep the fork local for now (no GitHub
+repository). If that changes, a `MeatisOmalley/ares` fork would mirror
+DOScraft's `MeatisOmalley/86Box`, so the fork could be downloaded instead
+of built.
 
 ## Test ROM
 
