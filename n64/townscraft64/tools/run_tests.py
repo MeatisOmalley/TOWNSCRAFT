@@ -12,15 +12,16 @@ Results: build/test-results/results.json plus one log per test.
 import argparse
 import json
 from pathlib import Path
-import socket
 import struct
 import subprocess
 import sys
 import time
 
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ares_gdb import ARES, NM, PORT, Gdb  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
-ARES = ROOT / 'build/deps/ares/ares-v148/ares.exe'
-NM = ROOT / 'build/deps/toolchain/bin/mips64-elf-nm.exe'
 # Towns host tests (build/tests) expect exit 0 and a PASS line. DOScraft's
 # tests (build/dtests) carry their expected outcome in build/dtests/expect.json.
 TOWNS_TESTS = ('player_test', 'mobs_test', 'mob_regions_test')
@@ -36,54 +37,6 @@ def targets():
 TICKS_PER_SECOND = 46_875_000  # libdragon get_ticks(): half the 93.75 MHz CPU clock
 MAGIC = 0x54363454
 HEADER = struct.Struct('>IiiIIIII')  # matches test_result_t in tests/harness.c
-PORT = 9123
-
-
-class Gdb:
-    """Just enough of the GDB remote protocol to read memory."""
-
-    def __init__(self, port, deadline):
-        while True:
-            try:
-                self.sock = socket.create_connection(('127.0.0.1', port), timeout=5)
-                break
-            except OSError:
-                if time.monotonic() > deadline:
-                    raise TimeoutError('ares GDB server did not accept a connection')
-                time.sleep(0.5)
-        # ares drops any client whose first byte is not '+' (an ack), to keep
-        # browsers' HTTP requests to localhost out (nall/tcptext-server.cpp).
-        self.sock.sendall(b'+')
-        self.buffer = b''
-
-    def packet(self, payload):
-        checksum = sum(payload.encode()) & 0xFF
-        self.sock.sendall(f'${payload}#{checksum:02x}'.encode())
-        while True:
-            start = self.buffer.find(b'$')
-            end = self.buffer.find(b'#', start + 1) if start >= 0 else -1
-            if start >= 0 and end >= 0 and len(self.buffer) >= end + 3:
-                body = self.buffer[start + 1:end].decode()
-                self.buffer = self.buffer[end + 3:]
-                self.sock.sendall(b'+')
-                return body
-            chunk = self.sock.recv(65536)
-            if not chunk:
-                raise ConnectionError('ares closed the GDB connection')
-            self.buffer += chunk
-
-    def read(self, address, length):
-        data = b''
-        while len(data) < length:
-            step = min(2048, length - len(data))
-            reply = self.packet(f'm{address + len(data):x},{step:x}')
-            if not reply or reply.startswith('E'):
-                raise IOError(f'memory read at {address + len(data):#x} failed: {reply!r}')
-            data += bytes.fromhex(reply)
-        return data
-
-    def close(self):
-        self.sock.close()
 
 
 def symbol_address(elf, name):

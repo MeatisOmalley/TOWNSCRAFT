@@ -3,13 +3,50 @@
 BUILD_DIR = build/rom
 include $(N64_INST)/include/n64.mk
 
-SRC = src/main.c
-
 all: townscraft64.z64
 
-$(BUILD_DIR)/townscraft64.elf: $(SRC:%.c=$(BUILD_DIR)/%.o)
+# N1 bring-up ROM: spinning triangle, RAM size, controller-port report.
+hello: build/hello.z64
+build/$(BUILD_DIR)/hello.elf: $(BUILD_DIR)/src/hello/main.o
+build/hello.z64: N64_ROM_TITLE = "T64 hello"
 
+# The game: DOScraft's N64 staging (tools/stage_doscraft.py n64), DOScraft's
+# portable platform files, and the N64 platform layer in src/n64.
+-include build/n64game/defines.mk
+GAME_DIR = build/n64game/imported/src
+GAME_PLATFORM_DIR = build/n64game/platform/src
+DOS_DIR = vendor/doscraft/src/platform/dos
+GAME_CORE = blocks fmath font game inventory libc mobs physics player raster render tables 	textures ui world
+GAME_DOS = heap gfx keyboard craft_grid viewmodel graphics_presets sound_silent
+GAME_N64 = $(wildcard src/n64/*.c)
+GAME_OBJ = $(GAME_CORE:%=$(BUILD_DIR)/game/core/%.o) $(GAME_DOS:%=$(BUILD_DIR)/game/dos/%.o) 	$(GAME_N64:src/n64/%.c=$(BUILD_DIR)/game/n64/%.o)
+GAME_WARN = -std=gnu99 -O2 -Wall -Wextra -Wno-unused-function -Wno-error 	-Wcast-align=strict -Werror=implicit-function-declaration
+# As build_game: core files see the platform headers first; platform files see
+# the staged Towns headers (with DOScraft's chicken changes) first.
+GAME_CORE_FLAGS = $(N64_CFLAGS) $(GAME_WARN) $(N64GAME_DEFINES) -I$(DOS_DIR) -I$(GAME_DIR) -Isrc/n64
+GAME_PLATFORM_FLAGS = $(N64_CFLAGS) $(GAME_WARN) $(N64GAME_PLATFORM_DEFINES) -I$(GAME_PLATFORM_DIR) 	-I$(DOS_DIR) -Isrc/n64
+
+$(BUILD_DIR)/game/core/%.o: $(GAME_DIR)/%.c
+	@mkdir -p $(dir $@)
+	@echo "    [GAME] $<"
+	$(N64_CC) -c $(GAME_CORE_FLAGS) -MMD -o $@ $<
+$(BUILD_DIR)/game/dos/%.o: $(DOS_DIR)/%.c
+	@mkdir -p $(dir $@)
+	@echo "    [GAME] $<"
+	$(N64_CC) -c $(GAME_PLATFORM_FLAGS) -MMD -o $@ $<
+$(BUILD_DIR)/game/n64/%.o: src/n64/%.c
+	@mkdir -p $(dir $@)
+	@echo "    [N64] $<"
+	$(N64_CC) -c $(GAME_PLATFORM_FLAGS) -MMD -o $@ $<
+
+$(BUILD_DIR)/townscraft64.elf: $(GAME_OBJ)
 townscraft64.z64: N64_ROM_TITLE = "Townscraft64"
+townscraft64.z64: N64_ROM_SAVETYPE = flashram
+# The ROM's files: the 1024-world medium (build/romfs/terrain.bin, staged by
+# tools/stage_romfs.py from the pinned compact world).
+townscraft64.z64: $(BUILD_DIR)/townscraft64.dfs
+$(BUILD_DIR)/townscraft64.dfs: N64_MKDFS_ROOT = build/romfs
+$(BUILD_DIR)/townscraft64.dfs: $(wildcard build/romfs/*)
 
 # Towns core, staged by tools/stage_core.py. Built with the Towns warning set
 # (warnings are not errors there) plus -Wcast-align=strict, which reports
@@ -124,8 +161,8 @@ $(BUILD_DIR)/kbtest.elf: $(BUILD_DIR)/src/kbtest.o
 kbtest.z64: N64_ROM_TITLE = "TC64 KB test"
 
 clean:
-	rm -rf $(BUILD_DIR) townscraft64.z64 build/tests build/dtests/*.z64 kbtest.z64
+	rm -rf $(BUILD_DIR) townscraft64.z64 kbtest.z64 build/tests build/dtests/*.z64
 
--include $(wildcard $(BUILD_DIR)/src/*.d $(BUILD_DIR)/core/*.d $(BUILD_DIR)/doscraft/*.d $(BUILD_DIR)/tests/*.d)
+-include $(wildcard $(BUILD_DIR)/src/*.d $(BUILD_DIR)/core/*.d $(BUILD_DIR)/doscraft/*.d $(BUILD_DIR)/tests/*.d $(BUILD_DIR)/game/*/*.d)
 
-.PHONY: all clean core doscraft tests dtests
+.PHONY: all hello clean core doscraft tests dtests

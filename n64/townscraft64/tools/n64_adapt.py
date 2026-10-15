@@ -142,3 +142,19 @@ def medium_le32(src, platform):
                     '    n64_le32_words(streamLightSum,sizeof(streamLightSum)/4);\n', recipe, target.name)
     target.write_text(text, encoding='utf-8')
     return recipe
+
+
+RASTER_STOSL = '\t__asm__ volatile("rep stosl" : "+D"(dst),"+c"(words) : "a"(color) : "memory");\n'
+RASTER_STOSL_C = ('\t{ u32 *w=(u32 *)(void *)dst; while(words--) *w++=color; dst=(u8 *)w; }'
+                  ' /* N64: C for x86 rep stosl; dst is word-aligned here */\n')
+
+
+def raster_portable(src):
+    """raster.c's flat-span fill: C word stores in place of x86 rep stosl."""
+    path = src / 'raster.c'
+    recipe = []
+    text = _replace(path.read_text(encoding='utf-8'), RASTER_STOSL, RASTER_STOSL_C, recipe, 'raster.c')
+    if '__asm__' in text:
+        raise ValueError('raster.c has other inline assembly')
+    path.write_text(text, encoding='utf-8')
+    return recipe
