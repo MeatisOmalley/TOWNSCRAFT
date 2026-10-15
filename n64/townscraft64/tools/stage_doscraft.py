@@ -28,6 +28,7 @@ import subprocess
 import sys
 import types
 
+sys.dont_write_bytecode = True  # never write __pycache__ into vendor/doscraft/tools
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # -I omits the script folder
 import n64_adapt  # noqa: E402
 

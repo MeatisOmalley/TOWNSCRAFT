@@ -8,3 +8,5 @@
 *.sram
 *.flash
 *.rtc
+# Python bytecode (importing tools/ or vendor/doscraft/tools writes it)
+__pycache__/
