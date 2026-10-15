@@ -60,7 +60,7 @@ int main(int argc,char **argv) {
         check(dos_far_sample(tx,tz,0,&leaf)==th && leaf==B_LEAVES,"cutting trunk does not hide surviving leaves");
         world_set(tx,th-1,tz,B_AIR);
         pos=0;check(world_save_large_columns(put),"save destroyed leaves and trunk");world_commit_large_columns();
-        world_load_position(tx,tz);pos=0;check(world_load_large_columns(get),"reload fixed eligibility");
+        world_load_position(tx,tz);pos=0;check(world_load_large_columns(get,6),"reload fixed eligibility");
         check(wget(tx,th-1,tz)==B_AIR && wget(rx,rh-1,rz)==B_AIR,"leaf destructions survive reload");
         int cell=((tz>>1)*512+(tx>>1))*2;u8 h=0,b=0;
         for(int dz=0;dz<2;++dz) for(int dx=0;dx<2;++dx) {
@@ -79,7 +79,7 @@ int main(int argc,char **argv) {
     check(dos_far_sample(x,z,1,&b)==WH && b==B_LEAVES,"resident core leaf remains");
     check(dos_far_version>version,"leaf edit invalidates shared distant surface");
     pos=0;check(world_save_large_columns(put),"save log and leaves");world_commit_large_columns();
-    world_load_position(x,z);pos=0;check(world_load_large_columns(get),"reload log and leaves");
+    world_load_position(x,z);pos=0;check(world_load_large_columns(get,6),"reload log and leaves");
     check(dos_far_sample(x,z,0,&b)==WH && b==B_LEAVES,"leaf surface survives reload");
     check(wget(x,y,z)==B_LEAVES && BLK_ID(wget(x,y-1,z))==B_LOG,"near-world leaves and logs preserved");
     world_set(x,y,z,B_STONE);
@@ -89,7 +89,7 @@ int main(int argc,char **argv) {
     world_set(x,y,z,B_AIR);
     check(dos_far_sample(x,z,0,&b)<WH,"removal lowers summary");
     world_load_position(x,z);
-    pos=0; check(world_load_large_columns(get),"reload committed columns");
+    pos=0; check(world_load_large_columns(get,6),"reload committed columns");
     check(dos_far_sample(x,z,0,&b)==WH && b==B_STONE,"saved edit reconstructs distant summary");
     world_set(x,y,z,B_TORCH);
     check(dos_far_sample(x,z,0,&b)<WH,"models do not become distant towers");

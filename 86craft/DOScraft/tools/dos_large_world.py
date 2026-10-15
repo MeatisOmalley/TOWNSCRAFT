@@ -40,7 +40,15 @@ def adapt(name, data):
             'static int large_log_alloc(int id,u32 len,u32 *off);\n'
             'static u32 large_column_offset(int id,int slot);\n'
             'static int large_column_slot(int id,u32 off);\n'
-            'static int large_pool_assign(int id);')
+            'static int large_pool_assign(int id);\n'
+            '/* V3 per-block edits (large_world.inc). */\n'
+            'static void large_delta_note(int id,u32 cell,u8 b);\n'
+            'static void large_delta_apply(int id,u8 *dst);\n'
+            'static int large_delta_keep(int id);\n'
+            'static int large_column_edited(int id);')
+        one('\tif(terrainActive && g_columnMap) ++terrainVersions[(z/CS)*g_NC+x/CS];\n',
+            '\tif(terrainActive && g_columnMap) ++terrainVersions[(z/CS)*g_NC+x/CS];\n'
+            '\tif(terrainV3 && g_columnMap) large_delta_note((z/CS)*g_NC+x/CS,i%COLUMN_CELLS,b);\n')
         one('\tcolumnCapacity=(g_ramMB<=2 ? 128 : (g_ramMB<=4 ? 384 : 1024))*1024u;\n'
             '\tcolumnArena=heap_alloc_high(columnCapacity);\n'
             '\tcolumnScratch=heap_alloc_low(COLUMN_CELLS);\n'
@@ -66,7 +74,7 @@ def adapt(name, data):
         one('int world_save_columns(void (*put)(u32),u32 (*position)(void));',
             'int world_save_columns(void (*put)(u32),u32 (*position)(void));\n'
             'int world_save_large_columns(void (*put)(u32));\n'
-            'int world_load_large_columns(u32 (*get)(void));\n'
+            'int world_load_large_columns(u32 (*get)(void),u32 version);\n'
             'void world_commit_large_columns(void);\n'
             'int world_verify_large_travel(int x,int z);')
     elif name == 'column_store.inc':
@@ -74,6 +82,14 @@ def adapt(name, data):
             'static ColumnRecord columnRecords[4096];')
         one('int done[256]={0},n;',
             'static u8 done[4096];\n\tint n;\n\tmemset(done,0,sizeof(done));')
+        one('static void column_restore_valid(int cx,int cz,u8 *dst)\n{\n',
+            'static void column_restore_record(int cx,int cz,u8 *dst);\n'
+            '/* The stored record, then the column\'s per-block edits (V3). */\n'
+            'static void column_restore_valid(int cx,int cz,u8 *dst)\n{\n'
+            '\tcolumn_restore_record(cx,cz,dst);\n'
+            '\tlarge_delta_apply(cz*g_NC+cx,dst);\n'
+            '}\n'
+            'static void column_restore_record(int cx,int cz,u8 *dst)\n{\n')
     elif name == 'column_hdd.inc':
         one('#define TERRAIN_COLUMNS 256', '#define TERRAIN_COLUMNS 4096')
         one('hdd_sector_count()<1+TERRAIN_COLUMNS*TERRAIN_SECTORS*2',
@@ -83,6 +99,10 @@ def adapt(name, data):
         one('static ColumnRecord terrainPending;',
             'static ColumnRecord terrainPending;\n'
             'static u8 terrainPinSlot[TERRAIN_COLUMNS];')
+        one('\tif(r->disk==TERRAIN_DISK && terrainSavedVersions[id]==terrainVersions[id]) return 1;\n',
+            '\tif(r->disk==TERRAIN_DISK && terrainSavedVersions[id]==terrainVersions[id]) return 1;\n'
+            '\t/* Per-block edits stay in RAM until a save stores them. */\n'
+            '\tif(large_delta_keep(id)) { terrainSavedVersions[id]=terrainVersions[id]; return 1; }\n')
         begin = text.index('static int terrain_init(void)\n{')
         end = text.index('\nstatic void terrain_cache_allocate(void)', begin)
         one(text[begin:end], '''static int terrain_init(void)
@@ -225,30 +245,30 @@ def adapt_save_codec(text, recipe):
         text = replace_once(text, before, after, recipe)
 
     one('if(!streamOk || get32()!=SAVE_MAGIC || get32()!=4) continue;',
-        'if(!streamOk || get32()!=SAVE_MAGIC || get32()!=5) continue;')
+        'if(!streamOk || get32()!=SAVE_MAGIC || get32()-5u>1u) continue; /* 5, or 6 with edits */')
     one('static void put_chests(void)', 'static void put_chests(int version)')
     one('put8(c->x); put8(c->y); put8(c->z);',
         'if(version>=5) { put32(c->x); put8(c->y); put32(c->z); }\n'
         '\t\t\telse { put8(c->x); put8(c->y); put8(c->z); }')
     one('int ok,version=world_cache_active() && g_W<256 ? SAVE_VERSION : 3;',
-        'int ok,version=g_W==1024 ? 5 : (world_cache_active() && g_W<256 ? 4 : 3);')
+        'int ok,version=g_W==1024 ? 6 : (world_cache_active() && g_W<256 ? 4 : 3);')
     one('if(!world_backing_idle()) return SAVE_DISK_ERROR;\n\tworld_set_backing_reader(save_column_read);',
         'if(!world_backing_idle()) return SAVE_DISK_ERROR;\n'
-        '\tif(version==5 && !world_store_flush()) return SAVE_DISK_ERROR;\n'
+        '\tif(version>=5 && !world_store_flush()) return SAVE_DISK_ERROR;\n'
         '\tworld_set_backing_reader(save_column_read);')
     one('if(version>=4)\n\t{\n\t\tif(!writeBackup)',
-        'if(version==5)\n\t{\n'
+        'if(version>=5)\n\t{\n'
         '\t\tif(!world_save_large_columns(put32)) streamOk=0;\n'
         '\t}\n\telse if(version>=4)\n\t{\n\t\tif(!writeBackup)')
     one('\tput_chests();', '\tput_chests(version);')
     one('if(ok && version>=4) world_commit_columns();',
-        'if(ok && version==5) world_commit_large_columns();\n'
+        'if(ok && version>=5) world_commit_large_columns();\n'
         '\telse if(ok && version>=4) world_commit_columns();')
     one('if(version>=4)\n\t{\n\t\tworld_load_position(g_player.body.x/FU,g_player.body.z/FU);\n'
         '\t\tif(!world_load_columns(get32,stream_position)) streamOk=0;\n\t}',
         'if(version>=4)\n\t{\n'
         '\t\tworld_load_position(g_player.body.x/FU,g_player.body.z/FU);\n'
-        '\t\tif(version==5)\n\t\t{ if(!world_load_large_columns(get32)) streamOk=0; }\n'
+        '\t\tif(version>=5)\n\t\t{ if(!world_load_large_columns(get32,version)) streamOk=0; }\n'
         '\t\telse if(!world_load_columns(get32,stream_position)) streamOk=0;\n\t}')
     one('ch->x=get8(); ch->y=get8(); ch->z=get8();',
         'if(version>=5) { ch->x=get32(); ch->y=get8(); ch->z=get32(); }\n'

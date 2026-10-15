@@ -58,12 +58,14 @@ def main():
                     if 'WORLD_WIDTH=1024\n' not in first or 'WORLD_WIDTH=1024\n' not in second:
                         raise RuntimeError('Guest reported incorrect world width')
                     save = volume.read('WORLD.SAV')
-                    if not any(save[at:at + 8] == b'TSCF\x05\x00\x00\x00'
-                               for at in (0, len(save) // 2)):
-                        raise RuntimeError('No committed V5 save bank')
+                    # The current game writes version 6 (version 5 plus per-block edits).
+                    versions = [struct.unpack_from('<I', save, at + 4)[0] for at in (0, len(save) // 2)
+                                if save[at:at + 4] == b'TSCF']
+                    if not any(v in (5, 6) for v in versions):
+                        raise RuntimeError('No committed V5/V6 save bank')
                     (vm / 'large-world-smoke.json').write_text(json.dumps({
-                        'new': first, 'load': second, 'save_version': 5}, indent=2) + '\n')
-                    print('LOAD=PASS\nSAVE_V5=PASS', flush=True)
+                        'new': first, 'load': second, 'save_version': max(versions)}, indent=2) + '\n')
+                    print(f'LOAD=PASS\nSAVE_V{max(versions)}=PASS', flush=True)
                     return
             if process.poll() is not None:
                 raise RuntimeError('Large-world guest exited before both reports')

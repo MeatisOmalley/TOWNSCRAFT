@@ -102,6 +102,10 @@ static void start(int argc,char **argv,int fresh)
     check(arenas && !dos_heap_init(arenas,1048576,arenas+1048576,8*1048576),"bounded DOS arenas");
     world_alloc();
     check(g_W==1024 && terrainLarge && terrainV2,"compact 1024 medium");
+    /* DELTA_MAX: per-block edits per column before a full log record. The
+       log scenarios default to 0, so every edited column is a log record. */
+    const char *delta=getenv("DELTA_MAX");
+    deltaColumnMax=delta ? (u32)atoi(delta) : 0;
     mobs_clear(); inv_clear(); chests_clear();
     if(fresh) {
         check(dos_save_clear_world()==SAVE_OK,"clear both banks");
@@ -134,7 +138,12 @@ static void log_report(void)
     printf("STATS rebuilds=%u wraps=%u compactions=%u moved=%u moved_sectors=%u refused=%u writes=%u failed=%u\n",
         g_terrainLogStats[0],g_terrainLogStats[1],g_terrainLogStats[2],g_terrainLogStats[3],
         g_terrainLogStats[4],g_terrainLogStats[6],g_terrainDiskStats[1],g_terrainDiskStats[3]);
+    printf("DELTA entries=%u columns=%u switched=%u\n",
+        g_terrainDeltaStats[0],g_terrainDeltaStats[1],g_terrainDeltaStats[2]);
 }
+/* Column id's k-th edit cell: 256 per layer, from the top layer down. */
+static void cell_at(int id,int k,int *x,int *y,int *z)
+{ *x=id%g_NC*CS+k%16; *z=id/g_NC*CS+k/16%16; *y=WH-1-k/256; }
 static void finish(void)
 {
     log_report();
@@ -220,6 +229,34 @@ int main(int argc,char **argv)
         streamError=0;
         place_player(path_id(c0+done-1));
         save_now(); /* The flush may use the reserve. */
+        finish(); return 0;
+    }
+    if(!strcmp(mode,"cells") || !strcmp(mode,"cellcheck")) {
+        /* cells: in n columns from c0, set k cells to value v, travel on,
+           then save. cellcheck: load and verify every such cell. */
+        int k=argc>7 ? atoi(argv[7]) : 1;
+        start(argc,argv,0);
+        for(int i=c0; i<c0+n; ++i) {
+            int id=path_id(i),x,y,z;
+            visit(id);
+            for(int j=0; j<k; ++j) {
+                cell_at(id,j,&x,&y,&z);
+                if(!strcmp(mode,"cells")) world_set(x,y,z,marks[v]);
+                check(wget(x,y,z)==marks[v],"edited cell holds its block");
+            }
+        }
+        if(!strcmp(mode,"cells")) {
+            /* Columns evicted since their edits reload with them. */
+            for(int i=c0; i<c0+n; ++i) {
+                int id=path_id(i),x,y,z;
+                visit(id);
+                for(int j=0; j<k; ++j) {
+                    cell_at(id,j,&x,&y,&z);
+                    check(wget(x,y,z)==marks[v],"edit survives eviction");
+                }
+            }
+            place_player(path_id(c0+n-1)); save_now();
+        }
         finish(); return 0;
     }
     if(!strcmp(mode,"check") || !strcmp(mode,"probe")) {

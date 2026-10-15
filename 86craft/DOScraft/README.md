@@ -61,6 +61,12 @@ clones (the shared release was republished; each previous VM is kept as its
 backup). `tools/log_player_vm.py` stages such a clone and switches a launcher
 only with `--update-pointer`; publishing a compact release now migrates a V2
 player disk too. See [the V3 contract](LARGE_WORLD_STORAGE.md#v3-edit-log-2026-10-14).
+Since 2026-10-15 most edits stay out of the log entirely: lightly edited
+columns keep their changed blocks in RAM and in the save (version 6), and only
+columns with over 512 changed blocks use log records. New media therefore get
+a 4 MiB log, and `TERRAIN.TMP` shrinks from 49.6 MB to 28.6 MB. Existing player
+disks keep their log size. See
+[per-block edits](LARGE_WORLD_STORAGE.md#per-block-edits-2026-10-15).
 
 The separate [local 386SX-25 VM](HARDWARE_386.md) uses
 `ISO/Launch-DOScraft-386.cmd`, 4 MiB RAM, Trident VGA, a 40 MB IDE disk and

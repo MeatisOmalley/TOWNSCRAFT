@@ -14,7 +14,7 @@ from urllib.request import urlopen
 
 from build_game import ROOT, DEFAULT_ADAPTER_FLAGS, build
 from convert_large_v2 import convert, check_v2
-from convert_large_v3 import from_v2, log_size_for_volume
+from convert_large_v3 import DEFAULT_LOG_BYTES, from_v2, log_size_for_volume
 from fat_image import FatImage, populate, scratch_hdd
 from fetch_dependencies import CTMOUSE_EXE_SHA256
 from fetch_roms import REV
@@ -88,8 +88,10 @@ def prepare(terrain_path, build_output=OUTPUT, smoke=False, bios=None, benchmark
     check_v2(compact, v1)
     disk = scratch_hdd(cylinders=977, heads=5, sectors=17)
     start = struct.unpack_from('<I', disk, 454)[0] * 512
-    log_sectors = log_size_for_volume(FatImage(disk, start), struct.unpack_from('<I', compact, 132)[0],
-                                      [len(save_image())])
+    # The standard log, or what the 40 MB disk holds if that is less.
+    log_sectors = min(DEFAULT_LOG_BYTES // 512,
+                      log_size_for_volume(FatImage(disk, start), struct.unpack_from('<I', compact, 132)[0],
+                                          [len(save_image())]))
     terrain = from_v2(compact, log_sectors, checked=True)
     deps = ROOT / 'build/deps'
     source = FatImage((deps / 'freedos/144m/x86BOOT.img').read_bytes())

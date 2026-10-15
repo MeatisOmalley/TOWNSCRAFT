@@ -6,6 +6,7 @@ synthetic but has the real layout and realistic record sizes: 64 shared base
 columns of 7 sectors each (the baked seed averages 3,287 bytes).
 """
 from pathlib import Path
+import os
 import re
 import struct
 import subprocess
@@ -126,9 +127,9 @@ class EditLogTests(unittest.TestCase):
         cls.tmp.cleanup()
 
     @staticmethod
-    def run_cmd(args, ok=True):
+    def run_cmd(args, ok=True, env=None):
         result = subprocess.run(list(map(str, args)), capture_output=True, text=True, errors='replace',
-                                timeout=900)
+                                timeout=900, env=env)
         if ok and result.returncode:
             raise AssertionError(f'{args[:2]} failed:\n{result.stdout[-3000:]}\n{result.stderr[-3000:]}')
         return result
@@ -142,8 +143,11 @@ class EditLogTests(unittest.TestCase):
         self.game('new', terrain, save)
         return terrain, save
 
-    def game(self, mode, terrain, save, *args, ok=True):
-        result = self.run_cmd([self.exe, mode, terrain, save, *args], ok=False)
+    def game(self, mode, terrain, save, *args, ok=True, delta_max=None):
+        """delta_max: per-block edits per column before a full log record
+        (the native default, 0, makes every edited column a log record)."""
+        env = None if delta_max is None else {**os.environ, 'DELTA_MAX': str(delta_max)}
+        result = self.run_cmd([self.exe, mode, terrain, save, *args], ok=False, env=env)
         if ok:
             self.assertEqual(result.returncode, 0, result.stdout[-3000:] + result.stderr[-3000:])
             self.assertIn('PASS', result.stdout)
@@ -172,7 +176,9 @@ class EditLogTests(unittest.TestCase):
         self.assertEqual(len(older[1]), 3584)
 
     def test_every_column_edits_saves_and_reloads_486(self):
-        self.every_column(v3.DEFAULT_LOG_BYTES // 512)
+        # Full records for every column: the log size V3 media used before
+        # per-block edits, and still the size of migrated V2 players.
+        self.every_column(v3.LEGACY_LOG_BYTES // 512)
 
     def test_every_column_edits_saves_and_reloads_386(self):
         disk = scratch_hdd(cylinders=977, heads=5, sectors=17)
@@ -260,6 +266,93 @@ class EditLogTests(unittest.TestCase):
         reseal(data, start)
         save.write_bytes(data)
         self.assertIn('refused', self.game('fail', terrain, save).stdout)
+
+    # Per-block edits (save version 6), with the game's own limit of 512.
+
+    def test_per_block_edits_need_no_log_records(self):
+        terrain, save = self.media(log_sectors=v3.DEFAULT_LOG_BYTES // 512)
+        before = terrain.read_bytes()
+        out = self.game('cells', terrain, save, 0, 100, 1, 3, delta_max=512).stdout
+        self.assertEqual((self.stat(out, 'live_records'), self.stat(out, 'writes')), (0, 0))
+        self.assertEqual((self.stat(out, 'entries'), self.stat(out, 'columns'), self.stat(out, 'switched')),
+                         (300, 100, 0))
+        self.assertEqual(terrain.read_bytes(), before, 'evictions and the save left the log untouched')
+        self.game('cellcheck', terrain, save, 0, 100, 1, 3)
+        start, records = self.banks(terrain, save)[0]  # newest
+        self.assertEqual(records, {})
+        deltas = v3.save_deltas(save.read_bytes(), start)
+        self.assertEqual(len(deltas), 100)
+        self.assertTrue(all(len(cells) == 3 for cells in deltas.values()))
+
+    def test_every_column_edited_once_fits_the_pool(self):
+        terrain, save = self.media(log_sectors=v3.DEFAULT_LOG_BYTES // 512)
+        out = self.game('cells', terrain, save, 0, 4096, 2, 1, delta_max=512).stdout
+        self.assertEqual((self.stat(out, 'live_records'), self.stat(out, 'entries')), (0, 4096))
+        print('\nall columns, per-block:', re.findall(r'SAVE ms=\d+', out)[-1], re.findall(r'DELTA .*', out)[-1])
+        self.game('cellcheck', terrain, save, 0, 4096, 2, 1)
+
+    def test_heavily_edited_columns_switch_to_log_records(self):
+        terrain, save = self.media(log_sectors=v3.DEFAULT_LOG_BYTES // 512)
+        out = self.game('cells', terrain, save, 0, 3, 3, 40, delta_max=16).stdout
+        self.assertEqual((self.stat(out, 'live_records'), self.stat(out, 'switched'),
+                          self.stat(out, 'entries')), (3, 3, 0))
+        out = self.game('cells', terrain, save, 3, 2, 4, 10, delta_max=16).stdout
+        self.assertEqual((self.stat(out, 'live_records'), self.stat(out, 'entries')), (3, 20))
+        # A log column stays one: later edits go into its record.
+        out = self.game('cells', terrain, save, 0, 1, 5, 2, delta_max=16).stdout
+        self.assertEqual((self.stat(out, 'live_records'), self.stat(out, 'entries')), (3, 20))
+        self.game('cellcheck', terrain, save, 1, 2, 3, 40)
+        self.game('cellcheck', terrain, save, 0, 1, 5, 2)
+        self.game('cellcheck', terrain, save, 3, 2, 4, 10)
+        newest = self.banks(terrain, save)[0]
+        self.assertEqual(len(newest[1]), 3)
+        self.assertEqual(sorted(v3.save_deltas(save.read_bytes(), newest[0])), [v3_path(3), v3_path(4)])
+
+    def test_empty_pool_switches_columns_to_log_records(self):
+        terrain, save = self.media(log_sectors=v3.DEFAULT_LOG_BYTES // 512)
+        out = self.game('cells', terrain, save, 0, 9, 1, 500, delta_max=512).stdout
+        self.assertGreater(self.stat(out, 'switched'), 0)
+        self.assertLessEqual(self.stat(out, 'entries'), v3.DELTA_ENTRIES)
+        self.assertEqual(self.stat(out, 'live_records'), self.stat(out, 'switched'))
+        self.game('cellcheck', terrain, save, 0, 9, 1, 500)
+
+    def test_version_5_saves_still_load(self):
+        terrain, save = self.media(log_sectors=v3.DEFAULT_LOG_BYTES // 512)
+        self.game('edit', terrain, save, 0, 6, 1, 6)  # log records; no per-block edits
+        data = bytearray(save.read_bytes())
+        start, records = self.banks(terrain, save)[0]  # newest
+        self.assertEqual(len(records), 6)
+        at = start + v3.DIRECTORY_END
+        self.assertEqual(struct.unpack_from('<2I', data, start + 4)[0], 6)
+        self.assertEqual(struct.unpack_from('<I', data, at)[0], 0)
+        length = struct.unpack_from('<I', data, start + 12)[0]
+        old = data[start + 20:start + 20 + length]
+        cut = at - start - 20
+        payload = old[:cut] + old[cut + 4:]
+        data[start + 20:start + 20 + length] = payload + bytes(4)
+        struct.pack_into('<I', data, start + 4, 5)
+        struct.pack_into('<I', data, start + 12, length - 4)
+        reseal(data, start)
+        save.write_bytes(data)
+        self.game('check', terrain, save, 0, 6, 1)
+
+    def test_corrupt_per_block_edits_are_refused(self):
+        terrain, save = self.media(log_sectors=v3.DEFAULT_LOG_BYTES // 512)
+        self.game('cells', terrain, save, 0, 4, 1, 2, delta_max=512)
+        start = self.banks(terrain, save)[0][0]  # newest
+        good = save.read_bytes()
+        at = start + v3.DIRECTORY_END + 4 + 4  # first column's first cell
+        for bad in (struct.pack('<I', 12288 << 8 | 4),             # cell past the column
+                    good[at + 4:at + 8]):                          # the same cell twice
+            data = bytearray(good)
+            data[at:at + 4] = bad
+            reseal(data, start)
+            save.write_bytes(data)
+            self.assertIn('refused', self.game('fail', terrain, save).stdout)
+            with self.assertRaisesRegex(ValueError, 'per-block'):
+                self.banks(terrain, save)
+        save.write_bytes(good)
+        self.game('cellcheck', terrain, save, 0, 4, 1, 2)
 
     def test_populated_384_pair_v2_disk_migrates(self):
         from large_world_media import upgrade_disk

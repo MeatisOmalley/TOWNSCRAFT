@@ -98,8 +98,10 @@ static int log_rebuild(void)
 	logExact=1; ++g_terrainLogStats[0];
 	return ok;
 }
+static void large_delta_reset(void);
 static void large_log_reset(void)
 {
+	large_delta_reset();
 	memset(logPin,0,sizeof(logPin));
 	memset(logBits,0,sizeof(logBits));
 	logHead=0; logFree=terrainLogEnd-terrainLogFirst; logExact=1;
@@ -174,6 +176,134 @@ static int large_log_alloc(int id,u32 len,u32 *off)
 	*off=(terrainLogFirst+at)*512u;
 	return 1;
 }
+/* V3 per-block edits (save version 6). While a column's record is its base,
+   its edits stay in RAM as (cell, block) pairs: evicting it writes nothing,
+   and a reload decodes the base and applies them. Saves store them in
+   WORLD.SAV, so the commit protocol covers them. A column past
+   deltaColumnMax edits, or one edited when the pool is empty, switches to a
+   full record in the edit log as before (deltaFull) and stays a log column.
+   The pool has one size on every RAM tier so any save loads on any machine. */
+#define DELTA_NONE 0xFFFFu
+#define DELTA_ENTRIES 4096u
+#define DELTA_COLUMN_MAX 512u
+static u16 deltaHead[TERRAIN_COLUMNS],deltaFree;
+static u16 *deltaCell,*deltaNext;
+static u8 *deltaValue,deltaFull[TERRAIN_COLUMNS/8];
+static u32 deltaColumnMax=DELTA_COLUMN_MAX;
+/* entries in use, columns with edits, switches to a full record */
+u32 g_terrainDeltaStats[3];
+
+static int delta_full(int id) { return (deltaFull[id>>3]>>(id&7))&1; }
+static void large_delta_reset(void)
+{
+	if(terrainV3 && !deltaCell)
+	{
+		deltaCell=heap_alloc_low(DELTA_ENTRIES*2u);
+		deltaNext=heap_alloc_low(DELTA_ENTRIES*2u);
+		deltaValue=heap_alloc_low(DELTA_ENTRIES);
+	}
+	memset(deltaHead,0xFF,sizeof(deltaHead));
+	memset(deltaFull,0,sizeof(deltaFull));
+	memset(g_terrainDeltaStats,0,sizeof(g_terrainDeltaStats));
+	deltaFree=DELTA_NONE;
+	if(!deltaCell) return;
+	for(u32 e=DELTA_ENTRIES; e-- > 0; ) { deltaNext[e]=deltaFree; deltaFree=(u16)e; }
+}
+static void large_delta_drop(int id)
+{
+	u16 e=deltaHead[id];
+	if(e==DELTA_NONE) return;
+	--g_terrainDeltaStats[1];
+	while(e!=DELTA_NONE)
+	{
+		u16 next=deltaNext[e];
+		deltaNext[e]=deltaFree; deltaFree=e; --g_terrainDeltaStats[0];
+		e=next;
+	}
+	deltaHead[id]=DELTA_NONE;
+}
+/* Does column id keep its edits as deltas (its record is the base)? */
+static int large_delta_mode(int id)
+{
+	return deltaCell && !delta_full(id) && !large_ref(&columnRecords[id]);
+}
+/* world_set: cell is the column-local index, as in the column codec. */
+static void large_delta_note(int id,u32 cell,u8 b)
+{
+	u32 n=0;
+	if(!large_delta_mode(id)) return;
+	for(u16 e=deltaHead[id]; e!=DELTA_NONE; e=deltaNext[e],++n)
+		if(deltaCell[e]==cell) { deltaValue[e]=b; return; }
+	if(n>=deltaColumnMax || deltaFree==DELTA_NONE)
+	{
+		/* The column is resident and now dirty: its eviction or the next
+		   save writes the whole column to the log. */
+		large_delta_drop(id);
+		deltaFull[id>>3]|=1<<(id&7); ++g_terrainDeltaStats[2];
+		return;
+	}
+	u16 e=deltaFree; deltaFree=deltaNext[e];
+	deltaCell[e]=(u16)cell; deltaValue[e]=b;
+	if(deltaHead[id]==DELTA_NONE) ++g_terrainDeltaStats[1];
+	deltaNext[e]=deltaHead[id]; deltaHead[id]=e; ++g_terrainDeltaStats[0];
+}
+static void large_delta_apply(int id,u8 *dst)
+{
+	for(u16 e=deltaHead[id]; e!=DELTA_NONE; e=deltaNext[e]) dst[deltaCell[e]]=deltaValue[e];
+}
+/* terrain_capture: a delta column's edits are already held; nothing to write. */
+static int large_delta_keep(int id) { return large_delta_mode(id); }
+/* Does column id differ from the baked world (a log record or deltas)? */
+static int large_column_edited(int id)
+{
+	return columnRecords[id].off!=large_column_offset(id,0) || deltaHead[id]!=DELTA_NONE;
+}
+static void large_delta_save(void (*put)(u32))
+{
+	u32 columns=0;
+	for(int id=0; id<TERRAIN_COLUMNS; ++id) columns+=deltaHead[id]!=DELTA_NONE;
+	put(columns);
+	for(int id=0; id<TERRAIN_COLUMNS; ++id)
+	{
+		u32 n=0;
+		if(deltaHead[id]==DELTA_NONE) continue;
+		for(u16 e=deltaHead[id]; e!=DELTA_NONE; e=deltaNext[e]) ++n;
+		put((u32)id|n<<16);
+		for(u16 e=deltaHead[id]; e!=DELTA_NONE; e=deltaNext[e]) put((u32)deltaCell[e]<<8|deltaValue[e]);
+	}
+}
+/* Columns in increasing order, each a base-record column with 1..max
+   distinct cells. Anything else, or more than the pool holds, is corrupt. */
+static int large_delta_load(u32 (*get)(void))
+{
+	u32 columns=get();
+	int last=-1;
+	if(columns && !deltaCell) return 0;
+	if(columns>TERRAIN_COLUMNS) return 0;
+	while(columns--)
+	{
+		u32 head=get(),id=head&0xFFFFu,n=head>>16;
+		if((int)id<=last || id>=TERRAIN_COLUMNS || !n || n>DELTA_COLUMN_MAX ||
+		   large_ref(&columnRecords[id]))
+			return 0;
+		last=(int)id;
+		for(u32 i=0; i<n; ++i)
+		{
+			u32 entry=get(),cell=entry>>8;
+			if(cell>=COLUMN_CELLS || BLK_ID(entry&255u)>=NUM_BLOCKS || deltaFree==DELTA_NONE) return 0;
+			for(u16 e=deltaHead[id]; e!=DELTA_NONE; e=deltaNext[e]) if(deltaCell[e]==cell) return 0;
+			u16 e=deltaFree; deltaFree=deltaNext[e];
+			deltaCell[e]=(u16)cell; deltaValue[e]=(u8)entry;
+			deltaNext[e]=deltaHead[id]; deltaHead[id]=e; ++g_terrainDeltaStats[0];
+		}
+		++g_terrainDeltaStats[1];
+#ifdef DOS_STREAM_LIGHT_CACHE
+		stream_light_invalidate((id%g_NC)*CS,(id/g_NC)*CS);
+#endif
+	}
+	return 1;
+}
+
 /* Save-time defragmentation, bounded by one window: 1/16 of the log, so at
    most 1 MiB read and 1 MiB written for a 16 MiB log. When too few 24-sector
    runs remain, the live records in the window holding the least live data
@@ -293,10 +423,11 @@ int world_save_large_columns(void (*put)(u32))
 		slot=(r->off-first)/COLUMN_CELLS;
 		put(slot); put(r->len); put(r->sum); put(r->raw);
 	}
+	large_delta_save(put);
 	return 1;
 }
 
-int world_load_large_columns(u32 (*get)(void))
+int world_load_large_columns(u32 (*get)(void),u32 version)
 {
 	if(!terrainLarge || !terrainActive) return 0;
 	u32 seed=get(),indexSum=get(),count=get();
@@ -344,6 +475,8 @@ int world_load_large_columns(u32 (*get)(void))
         if(slot) stream_light_invalidate((id%g_NC)*CS,(id/g_NC)*CS);
 #endif
 	}
+	/* Version 6 adds the per-block edits of base-record columns. */
+	if(version>=6 && !large_delta_load(get)) return 0;
 	/* Distinct live records never share sectors; that would be corrupt. */
 	if(terrainV3 && !log_rebuild()) return 0;
 #ifdef DOS_FAR_FIELD

@@ -19,7 +19,7 @@
 
 #ifdef DOS_LARGE_WORLD
 int world_save_large_columns(void (*put)(u32));
-int world_load_large_columns(u32 (*get)(void));
+int world_load_large_columns(u32 (*get)(void),u32 version);
 void world_commit_large_columns(void);
 #endif
 
@@ -29,7 +29,7 @@ void world_commit_large_columns(void);
 #define NUM_TRACKS (77*2)
 #define SAVE_MAGIC 0x46435354
 #ifdef DOS_LARGE_WORLD
-#define SAVE_VERSION 5
+#define SAVE_VERSION 6   /* 6: version 5 plus per-block edits */
 #else
 #define SAVE_VERSION 4
 #endif

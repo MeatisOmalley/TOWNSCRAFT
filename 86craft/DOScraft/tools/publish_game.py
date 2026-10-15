@@ -104,7 +104,7 @@ def publish_large(terrain_path, smoke_vm, output):
         '-DDOS_LARGE_WORLD' not in build.get('extra_adapter_flags',()) or
         build.get('benchmark') or tested.get('exe_sha256')!=build.get('exe_sha256') or
         tested.get('source_terrain_sha256',tested.get('terrain_sha256'))!=sha(terrain_path) or
-        report.get('save_version')!=5 or
+        report.get('save_version') not in (5,6) or
         any('RESULT=PASS\n' not in report.get(mode,'') for mode in ('new','load'))):
         raise ValueError('Large-world media is not the exact smoke-tested build')
     iso=ROOT/'ISO/DOSCRAFT.ISO'

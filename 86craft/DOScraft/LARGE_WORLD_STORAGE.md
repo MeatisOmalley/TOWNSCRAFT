@@ -171,3 +171,23 @@ this seed). Every base column edited once needs 28,343 sectors. Player disks
 migrate with `tools/log_player_vm.py`, which stages a clone and changes no
 launcher unless asked. Sizes, pause measurements and limits are in
 [the research note](research/edit-log-v3-2026-10-14.md).
+
+## Per-block edits (2026-10-15)
+
+Most edits no longer reach the edit log. While a column's record is still
+its base, its changed cells stay in RAM as (cell, block) pairs: evicting the
+column writes nothing, and reloading it decodes the base and applies them.
+Saves store them in `WORLD.SAV` after the column directory (save version 6;
+the format is in `tools/convert_large_v3.py`), so the two-bank commit covers
+them and a crash loses only unsaved work, as before. A column with more than
+512 changed cells, or one edited while the 4,096-entry pool is full, switches
+to a full record in the log and stays a log column. The pool has the same
+size on every RAM tier, so any save loads on any machine.
+
+New media therefore get a 4 MiB log (8,192 sectors) instead of 24 MiB:
+`TERRAIN.TMP` drops from 49.6 MB to 28.6 MB on 486 media, and the 386's new
+media take 4 MiB rather than the 15 MiB that fitted its disk. Existing logs
+keep their size; V2 player migrations still use 24 MiB, since a full
+384-pair pool can need 9,216 sectors. The game reads version 5 and 6 saves
+and writes 6. Guest results are in
+[the research note](research/per-block-edits-2026-10-15.md).

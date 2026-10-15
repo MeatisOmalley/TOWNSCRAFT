@@ -2,10 +2,11 @@
 
   sectors 0..log_sector-1  identical to V2 (indexes, base and light records,
                            distant tiles); magic DOSCRAFT-1024-V3, version 3
-  edit log                 log_sectors preallocated sectors. Each edited column
-                           is one sector-aligned record in the game's column
-                           codec (RLE, raw 12 KiB when that is not smaller),
-                           placed wherever the game's allocator finds room.
+  edit log                 log_sectors preallocated sectors. A column edited
+                           past the per-block limit is one sector-aligned
+                           record in the game's column codec (RLE, raw 12 KiB
+                           when that is not smaller), placed wherever the
+                           game's allocator finds room.
 
 Header words from byte 120: base_sector, base_index (1), light_index (97),
 log_sector, log_sectors, total_sectors (= log_sector + log_sectors). Words
@@ -19,6 +20,14 @@ On a V3 medium each V5 save directory entry (16 bytes per column) is
   u32 previous  the column's record in the previous committed save, so a load
                 knows both banks' records: 0 for none/base, else sector<<5|count
 The game never writes into a record that either committed bank references.
+
+Version 6 saves (the current game) follow the directory with the per-block
+edits of columns whose record is still the base:
+  u32 columns   then per column, in increasing id order:
+  u32 id | count << 16   count 1..DELTA_COLUMN_MAX distinct cells
+  u32 cell << 8 | block  per cell; cell is the column codec's cell index
+A column past that many edits is a log record instead, so most edits never
+use the log. Version 5 saves have no such section.
 """
 import argparse
 from pathlib import Path
@@ -30,13 +39,21 @@ from convert_large_v2 import V2_MAGIC, COLUMNS, CELLS, check_v2, decode, sectors
 V3_MAGIC = b'DOSCRAFT-1024-V3'
 SECTOR = 512
 RECORD_SECTORS = CELLS // SECTOR          # 24, the largest record
-DEFAULT_LOG_BYTES = 24 * 1024 * 1024    # 486 media; the 386 disk takes what fits
+# Per-block edits keep most edited columns out of the log; it holds only
+# columns edited past DELTA_COLUMN_MAX cells (or past the game's RAM pool).
+DEFAULT_LOG_BYTES = 4 * 1024 * 1024     # new media; existing logs keep their size
+# V2 player migrations move every pool record into the log; a full 384-pair
+# pool needs up to 9,216 sectors, so they keep the original size.
+LEGACY_LOG_BYTES = 24 * 1024 * 1024
 LOG_MIN_SECTORS = 2048                    # 1 MiB; the game refuses less
 LOG_MAX_SECTORS = 65536                   # 32 MiB; the game's bitmap size
 SAVE_MAGIC = 0x46435354
 BANK = 77 * 8192
 DIRECTORY = 20 + 64 + 72
 DIRECTORY_END = DIRECTORY + 12 + COLUMNS * 16
+SAVE_VERSIONS = (5, 6)                    # 6 adds per-block edits
+DELTA_COLUMN_MAX = 512                    # src/platform/dos/large_world.inc
+DELTA_ENTRIES = 4096
 
 
 def log_extent(v3):
@@ -127,11 +144,38 @@ def committed_banks(save):
         magic, version, total, length, generation = struct.unpack_from('<5I', save, start)
         if magic != SAVE_MAGIC:
             continue
-        if version != 5 or not DIRECTORY_END - 20 <= length <= BANK - 20 or \
+        if version not in SAVE_VERSIONS or not DIRECTORY_END - 20 <= length <= BANK - 20 or \
                 save_sum(save[start + 20:start + 20 + length]) != total:
             raise ValueError('Invalid committed save bank')
         banks.append((start, length, generation))
     return banks
+
+
+def save_deltas(save, start):
+    """{column: {cell: block}} of a committed version 6 bank; {} for version 5."""
+    if struct.unpack_from('<I', save, start + 4)[0] < 6:
+        return {}
+    at = start + DIRECTORY_END
+    columns = struct.unpack_from('<I', save, at)[0]
+    if columns > COLUMNS:
+        raise ValueError('Invalid per-block edit count')
+    at += 4
+    deltas, last, total = {}, -1, 0
+    for _ in range(columns):
+        head = struct.unpack_from('<I', save, at)[0]
+        column, count = head & 0xffff, head >> 16
+        if column <= last or column >= COLUMNS or not 1 <= count <= DELTA_COLUMN_MAX:
+            raise ValueError('Invalid per-block edit column')
+        cells = {}
+        for entry in struct.unpack_from(f'<{count}I', save, at + 4):
+            if entry >> 8 >= CELLS or entry >> 8 in cells:
+                raise ValueError(f'Invalid per-block edit in column {column}')
+            cells[entry >> 8] = entry & 0xff
+        deltas[column] = cells
+        last, total, at = column, total + count, at + 4 + 4 * count
+    if total > DELTA_ENTRIES:
+        raise ValueError('More per-block edits than the game can hold')
+    return deltas
 
 
 def newest_first(banks):
@@ -179,6 +223,8 @@ def v3_records(v3, save, checked=False):
             if sums[off, n] != total:
                 raise ValueError(f'Saved log record for column {c} is corrupt')
             records[c] = (off, n, total, previous)
+        if any(c in records for c in save_deltas(save, start)):
+            raise ValueError('A log-record column also has per-block edits')
         result.append((start, records))
     return result
 

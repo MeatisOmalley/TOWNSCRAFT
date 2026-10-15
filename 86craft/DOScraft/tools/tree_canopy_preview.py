@@ -21,7 +21,7 @@ def prepare_preview(terrain,output,smoke,preview=PREVIEW):
     tested=json.loads((smoke/'build.json').read_text());build=json.loads((output/'build.json').read_text())
     terrain=Path(terrain).resolve(strict=True)
     if not tested.get('smoke') or not tested.get('large_world') or tested['exe_sha256']!=build['exe_sha256'] or \
-       tested['terrain_sha256']!=sha(terrain.read_bytes()) or report.get('save_version')!=5 or \
+       tested['terrain_sha256']!=sha(terrain.read_bytes()) or report.get('save_version') not in (5,6) or \
        any('RESULT=PASS\n' not in report.get(mode,'') for mode in ('new','load')):
         raise ValueError('Need successful new/reload smoke on this exact tree build and seed')
     if running(player):raise ValueError('Close the player before copying its writable disk')
