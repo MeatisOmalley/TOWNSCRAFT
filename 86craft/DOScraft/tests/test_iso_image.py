@@ -235,7 +235,7 @@ class IsoTests(unittest.TestCase):
         self.inspect(first)
 
     def test_invalid_floppy_sizes_and_signatures(self):
-        for size in (0, 512, FLOPPY_BYTES - 1, FLOPPY_BYTES + 1, 1228800, 2949120):
+        for size in (0, 512, FLOPPY_BYTES - 1, FLOPPY_BYTES + 1, 1228800, 2949119, 2949121):
             with self.subTest(size=size), self.assertRaises(ValueError):
                 build_iso(bytes(size), {})
         for signature in (b'\x00\x00', b'\xaa\x55', b'\x55\x00', b'\x00\xaa'):
@@ -243,6 +243,15 @@ class IsoTests(unittest.TestCase):
             bad[510:512] = signature
             with self.subTest(signature=signature), self.assertRaises(ValueError):
                 build_iso(bad, {})
+
+    def test_ed_floppy_selects_288_emulation(self):
+        floppy = bytearray(2949120)
+        floppy[510:512] = b'\x55\xaa'
+        image = build_iso(floppy, {'a.exe': b'A'})
+        catalog = struct.unpack_from('<I', image, 17 * 2048 + 71)[0] * 2048
+        self.assertEqual(image[catalog + 32:catalog + 34], b'\x88\x03')
+        start = struct.unpack_from('<I', image, catalog + 40)[0] * 2048
+        self.assertEqual(image[start:start + len(floppy)], floppy)
 
     def test_invalid_names_and_duplicates(self):
         names = ('', '.', '..', 'A.', '.TXT', 'TOOLONG99.EXE', 'A.LONG',

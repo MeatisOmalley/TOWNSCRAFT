@@ -42,6 +42,12 @@ extern void raster_complete_odd_rows(void);
 #endif
 #ifdef DOS_BENCH_QUALITY
 #include "graphics_presets.h"
+#ifdef DOS_R96_3DFX
+#include "r96_sst1.h"
+/* Board pixels per scene: rasterized (fbiPixelsIn) and fast-filled. */
+static unsigned long long voodooIn[6],voodooFill[6];
+static u32 voodooLastIn,voodooLastFill;
+#endif
 #endif
 #include <pc.h>
 #include <stdio.h>
@@ -441,6 +447,9 @@ static void finish(void)
         fprintf(file,"\nEDIT_CALLS=");
         for(f=0;f<phase_frames(p);++f) fprintf(file,"%s%u",f?",":"",edit_calls[p][f]);
         fprintf(file,"\n");
+#ifdef DOS_R96_3DFX
+        fprintf(file,"VOODOO_PIXELS_IN=%llu\nVOODOO_FASTFILL=%llu\n",voodooIn[p],voodooFill[p]);
+#endif
 #ifdef DOS_VIEWMODEL
         fprintf(file,"VIEWMODEL_US=%llu\n",(unsigned long long)viewmodelTimes[p]);
 #endif
@@ -502,6 +511,11 @@ void bench_frame(void)
     extern int render_a1_dump(int scene,int sample);
 #endif
     unsigned int now=bench_us();
+#ifdef DOS_R96_3DFX
+    u32 voodooDeltaIn=(r96_sst1_pixels_in()-voodooLastIn)&0xFFFFFFu;
+    u32 voodooDeltaFill=r96_fastfill_pixels-voodooLastFill;
+    voodooLastIn+=voodooDeltaIn; voodooLastFill=r96_fastfill_pixels;
+#endif
 #ifdef DOS_WALL_VISIBILITY
     if(phase>=0 && frame>=WARM && frame<WARM+phase_frames(phase)) {
         wall_stats[phase][frame-WARM][0]=dos_wall_sources;
@@ -516,6 +530,9 @@ void bench_frame(void)
         packs[phase]+=dos_bench_pack; uploads[phase]+=dos_bench_upload;
         waits[phase]+=dos_bench_wait; timeouts[phase]+=dos_bench_timeouts;
         pixels[phase]+=g_statPixels; faces[phase]+=g_statFaces; items[phase]+=g_statItems;
+#ifdef DOS_R96_3DFX
+        voodooIn[phase]+=voodooDeltaIn; voodooFill[phase]+=voodooDeltaFill;
+#endif
 #ifdef DOS_FRONT_TO_BACK
         record_f2b(phase);
 #endif

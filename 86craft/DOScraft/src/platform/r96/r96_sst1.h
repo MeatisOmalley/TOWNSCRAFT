@@ -23,7 +23,7 @@ enum
 	SST_FASTFILL=0x124,SST_SWAP=0x128,SST_CHROMAKEY=0x134,SST_COLOR0=0x144,SST_COLOR1=0x148,
 	SST_FBIINIT4=0x200,SST_BACKPORCH=0x208,SST_VIDEODIM=0x20c,SST_FBIINIT0=0x210,
 	SST_FBIINIT1=0x214,SST_FBIINIT2=0x218,SST_FBIINIT3=0x21c,SST_HSYNC=0x220,SST_VSYNC=0x224,
-	SST_DACDATA=0x22c,
+	SST_CLUTDATA=0x228,SST_DACDATA=0x22c,
 	SST_TEXTUREMODE=0x300,SST_TLOD=0x304,SST_TDETAIL=0x308,SST_TEXBASE=0x30c,
 	SST_NCC0_I0=0x334
 };
@@ -95,5 +95,10 @@ void r96_sst1_texture16(u32 address,const u8 *texels,int stride);
 u32 r96_sst1_texbase16(u32 address);
 /* Shows the back buffer; vsync waits for the retrace. */
 void r96_sst1_swap(int vsync);
+/* Pixels the board has rasterized (fbiPixelsIn, 24 bits, free running)
+   and fast-filled (counted by the driver), for the benchmark's fill-rate
+   bound: 86Box renders without the board's timing. */
+static inline u32 r96_sst1_pixels_in(void) { return sst_r(0x14c)&0xFFFFFFu; }
+extern u32 r96_fastfill_pixels;
 
 #endif

@@ -91,6 +91,16 @@ int r96_sst1_init(void)
 	sst_w(SST_FBIINIT1,(10u<<4));               /* 20 blocks of 32: 640 pixels; video running */
 	sst_w(SST_FBIINIT0,1u);                     /* Voodoo drives the monitor */
 	r96_sst1_idle();
+	/* Gamma CLUT, 33 entries interpolated by the DAC path: identity. The
+	   board powers up with it cleared (black output); Glide loads it in
+	   sst1InitGamma. */
+	{
+		u32 i;
+		for(i=0;i<=32;++i) {
+			u32 v=i<32 ? i*8u : 255u;
+			sst_w(SST_CLUTDATA,(i<<24)|(v<<16)|(v<<8)|v);
+		}
+	}
 
 	sst_w(SST_ALPHAMODE,0);
 	sst_w(SST_FOGMODE,0);

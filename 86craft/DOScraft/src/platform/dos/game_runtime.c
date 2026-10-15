@@ -85,6 +85,25 @@ static int preset_matches(int scale,int view,int flat)
     return g_renderScale==scale && g_viewDist==view && g_flatDist==flat &&
         !g_distanceMode && g_textureSubdivision==SUBDIV_ADAPTIVE && !g_occlusion;
 }
+#ifdef DOS_R96
+/* The 1996 build has its own preset table and starts at High, with distant
+   terrain at High. The scripted keys are the same; the expected states
+   follow that table (preset_after(n): the preset after n F2 presses). */
+static int preset_is(int index)
+{
+    const DosGraphicsSettings *q=dos_graphics_settings(index);
+    return g_renderScale==q->render_scale && g_viewDist==q->view_distance &&
+        g_flatDist==q->flat_distance && g_distanceMode==q->distance_mode &&
+        g_textureSubdivision==q->texture_subdivision && !g_occlusion &&
+        dos_very_low_mode==(index==DOS_GRAPHICS_VERY_LOW);
+}
+static int preset_after(int presses)
+{
+    int index=DOS_GRAPHICS_DEFAULT;
+    while(presses-->0) index=dos_graphics_next(index);
+    return index;
+}
+#endif
 #endif
 void dos_game_exit(void)
 {
@@ -318,22 +337,43 @@ void __wrap_gfx_present(void)
         menus_ok=menus_ok && rendered_frames==0;
         snapshot("C:\\TGFX.RAW",frame);
 #ifdef DOS_FAR_FIELD
+#ifdef DOS_R96
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_HIGH && dos_far_available();
+#else
         far_option_ok=far_option_ok && !dos_far_enabled && dos_far_available();
+#endif
         arrow(0x50); arrow(0x50); arrow(0x50); arrow(0x50); tap(0x1c);
         until=g_ticks+30; stage=50; return;
     } else if(stage==50 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        /* Enter steps High round to Off; the arrows then climb from there. */
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_OFF && preset_is(DOS_GRAPHICS_DEFAULT);
+#else
         far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_VERY_LOW && preset_matches(2,8,0);
+#endif
         snapshot("C:\\FAROPT.RAW",frame);
         arrow(0x4d); until=g_ticks+30; stage=51; return;
     } else if(stage==51 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_VERY_LOW;
+#else
         far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_LOW;
+#endif
         snapshot("C:\\FARLOW.RAW",frame);
         arrow(0x4d); until=g_ticks+30; stage=52; return;
     } else if(stage==52 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_LOW;
+#else
         far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_MEDIUM;
+#endif
         arrow(0x4d); until=g_ticks+30; stage=53; return;
     } else if(stage==53 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_MEDIUM;
+#else
         far_option_ok=far_option_ok && dos_far_enabled==DOS_FAR_HIGH;
+#endif
         snapshot("C:\\FARHIGH.RAW",frame);
 #endif
         tap(0x01); tap(0x01);
@@ -433,22 +473,38 @@ void __wrap_gfx_present(void)
         until=g_ticks+30; stage=14;
     } else if(stage==14 && (int)(g_ticks-until)>=0) {
 #ifdef DOS_GRAPHICS_PRESETS
+#ifdef DOS_R96
+        presets_ok=preset_is(preset_after(1));
+#else
         presets_ok=preset_matches(2,8,0);
+#endif
         snapshot("C:\\MEDIUM.RAW",frame);
         tap(0x3c); until=g_ticks+30; stage=15;
     } else if(stage==15 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        presets_ok=presets_ok && preset_is(preset_after(2));
+#else
         presets_ok=presets_ok && preset_matches(1,8,0);
+#endif
 #endif
         fullres_ok=g_renderScale==1;
         snapshot("C:\\FULL.RAW",frame);
         tap(0x3c); until=g_ticks+30; stage=8;
     } else if(stage==8 && (int)(g_ticks-until)>=0) {
 #ifdef DOS_GRAPHICS_PRESETS
+#ifdef DOS_R96
+        presets_ok=presets_ok && preset_is(preset_after(3));
+#else
         presets_ok=presets_ok && preset_matches(2,8,0) && dos_very_low_mode;
+#endif
         snapshot("C:\\VERYLOW.RAW",frame);
         tap(0x3c); until=g_ticks+30; stage=16;
     } else if(stage==16 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        presets_ok=presets_ok && preset_is(preset_after(4));
+#else
         presets_ok=presets_ok && preset_matches(2,8,0) && !dos_very_low_mode;
+#endif
         snapshot("C:\\LOW.RAW",frame);
         tap(0x01); until=g_ticks+30; stage=17;
     } else if(stage==17 && (int)(g_ticks-until)>=0) {
@@ -465,14 +521,23 @@ void __wrap_gfx_present(void)
         snapshot("C:\\GRAPHICS.RAW",frame);
         arrow(0x50); arrow(0x4d); until=g_ticks+30; stage=55;
     } else if(stage==55 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        /* The 1996 default is 320x200, one step earlier in the resolution cycle. */
+        menus_ok=menus_ok && g_renderScale==2 && !dos_very_low_mode && !dos_potato_mode;
+#else
         menus_ok=menus_ok && g_renderScale==2 && dos_very_low_mode && !dos_potato_mode;
+#endif
         tap(0x01); tap(0x01); tap(0x01); until=g_ticks+30; stage=56;
     } else if(stage==56 && (int)(g_ticks-until)>=0) {
         snapshot("C:\\MENU80.RAW",frame);
         tap(0x01); arrow(0x50); tap(0x1c); tap(0x1c);
         arrow(0x50); arrow(0x4d); until=g_ticks+30; stage=57;
     } else if(stage==57 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        menus_ok=menus_ok && g_renderScale==2 && dos_very_low_mode && !dos_potato_mode;
+#else
         menus_ok=menus_ok && g_renderScale==2 && dos_very_low_mode && dos_potato_mode;
+#endif
         snapshot("C:\\POTMENU.RAW",frame);
         tap(0x01); tap(0x01); tap(0x01); until=g_ticks+30; stage=58;
     } else if(stage==58 && (int)(g_ticks-until)>=0) {
@@ -480,16 +545,31 @@ void __wrap_gfx_present(void)
         tap(0x01); arrow(0x50); tap(0x1c); tap(0x1c);
         arrow(0x50); arrow(0x4d); arrow(0x4d); until=g_ticks+30; stage=59;
     } else if(stage==59 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        /* Very Low, Potato, then 320x200. The 16-block High view has room only
+           below, so textured steps down to 14 while the view stays at 16. */
+        menus_ok=menus_ok && g_renderScale==1 && !dos_very_low_mode && !dos_potato_mode;
+        arrow(0x50); arrow(0x4b); arrow(0x50); arrow(0x4d);
+#else
         menus_ok=menus_ok && g_renderScale==2 && !dos_very_low_mode && !dos_potato_mode;
         arrow(0x50); arrow(0x4d); arrow(0x50); arrow(0x4d);
+#endif
         until=g_ticks+30; stage=21;
     } else if(stage==21 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        menus_ok=menus_ok && g_viewDist==16 && g_flatDist==14;
+#else
         menus_ok=menus_ok && g_viewDist==12 && g_flatDist==10;
+#endif
         snapshot("C:\\CUSTOM.RAW",frame);
         arrow(0x48); arrow(0x48); arrow(0x48); tap(0x1c);
         tap(0x01); tap(0x01); tap(0x01); until=g_ticks+30; stage=24;
     } else if(stage==24 && (int)(g_ticks-until)>=0) {
+#ifdef DOS_R96
+        menus_ok=menus_ok && preset_is(DOS_GRAPHICS_DEFAULT);
+#else
         menus_ok=menus_ok && preset_matches(2,8,0);
+#endif
 #endif
         stage=9; /* Set before PF9: progress screens reenter this wrapper. */
 #ifdef DOS_LARGE_WORLD
