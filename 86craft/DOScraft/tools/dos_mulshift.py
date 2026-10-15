@@ -8,7 +8,7 @@ Rejected 2026-10-13: exact, but register spills made Low 0.04-0.28 ms slower
 even in 86Box. Kept selectable only.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 BEFORE = '''\tint lo,hi;
 \tif(__builtin_constant_p(s))
@@ -36,10 +36,6 @@ def adapt(name, data):
     if name != 'fmath.h':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, BEFORE, AFTER, recipe)
     return text.encode('utf-8'), recipe

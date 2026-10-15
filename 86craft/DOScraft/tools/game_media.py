@@ -20,7 +20,7 @@ from fetch_dependencies import CTMOUSE_EXE_SHA256
 from run_vm import launch_command, diagnostic_volume
 from save_fixture import save_image
 from terrain_fixture import terrain_image
-from large_world_media import BASE_BYTES,LIT_BYTES,FAR_BYTES,check_terrain
+from large_world_media import check_terrain
 
 
 def sha(data):

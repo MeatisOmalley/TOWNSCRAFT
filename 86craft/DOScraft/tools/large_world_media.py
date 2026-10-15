@@ -1,7 +1,7 @@
 """Compatible optional lighting appendix; base/edit offsets and V5 saves stay fixed."""
 import hashlib
 import struct
-from fat_image import FatImage,populate,scratch_hdd
+from fat_image import FatImage,populate
 BASE_BYTES=151011840
 LIT_BYTES=178291200
 FAR_MAP_BYTES=512*512*2

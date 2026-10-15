@@ -1,5 +1,5 @@
 """Optional parent-local shared-edge projection reuse; immutable vendor source."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 CACHE='''/* Only the immediately previous, fully near-visible child of this parent.
    Store positions before draw_spoly can mutate them during guard clipping.
@@ -11,10 +11,8 @@ static int splitReuseCamera[4][3],splitReuseScreen[4][2];
 
 def adapt(name,data):
     if name!='render.c': return data,[]
-    recipe=[]; text=data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    recipe=[]
+    text=lf_text(data,recipe)
     text=replace_once(text,'} CVert;\n','} CVert;\n\n'+CACHE,recipe)
     text=replace_once(text,'void render_init(void)\n{\n\tint t,i;\n',
         'void render_init(void)\n{\n\tint t,i;\n\tsplitReuseActive=splitReuseValid=0;\n',recipe)

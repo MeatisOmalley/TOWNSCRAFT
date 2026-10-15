@@ -4,19 +4,15 @@ The main build keeps the established 256-block storage format until the
 large-world medium, save format, and guest acceptance are complete.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name not in ('world.c', 'world.h', 'column_store.inc', 'column_hdd.inc',
                     'mobs.c', 'inventory.h', 'render.c'):
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
 
     def one(before, after):
         nonlocal text

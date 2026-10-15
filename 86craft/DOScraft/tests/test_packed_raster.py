@@ -22,8 +22,7 @@ class PackedRasterTests(unittest.TestCase):
                 self.assertEqual(replay.count(before),step['count'])
                 replay=replay.replace(before,after)
             self.assertEqual(replay,result)
-            self.assertEqual(bool(recipe),name=='render.c')
-            self.assertEqual(dos_sources.adapt(name,data),(data,[]))
+            self.assertEqual((result,recipe)!=dos_sources.adapt(name,data),name=='render.c')
         with self.assertRaises(ValueError):
             dos_sources.adapt('render.c',b'unexpected renderer',packed_raster=True)
 

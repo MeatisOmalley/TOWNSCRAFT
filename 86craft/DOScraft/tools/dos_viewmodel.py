@@ -1,12 +1,10 @@
 """Presentation-only first-person viewmodel. Pinned sources stay immutable."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 def adapt(name,data):
     if name not in ('game.c','render.c'):return data,[]
-    recipe=[];text=data.decode()
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    recipe=[]
+    text=lf_text(data,recipe)
     text=replace_once(text,'#include "bench.h"\n','#include "bench.h"\n#include "viewmodel.h"\n',recipe)
     if name=='game.c':
         text=replace_once(text,'\trender_frame(g_fb,&env);\n',

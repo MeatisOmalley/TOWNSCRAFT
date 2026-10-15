@@ -11,18 +11,14 @@ expanded to chunky at finish, as in planar Low. Applied after every other
 raster.c overlay.
 """
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data, *, far_field=False):
     if name != 'raster.c':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
 
     def one(before, after):
         nonlocal text

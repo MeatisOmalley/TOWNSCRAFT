@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from PIL import Image,ImageDraw
 from bake_large_world import height,noise
-from terrain_biomes import sample,surface,NAMES,COLORS
+from terrain_biomes import sample,NAMES,COLORS
 
 def preview(seed,output):
     output=Path(output);output.mkdir(parents=True,exist_ok=True)

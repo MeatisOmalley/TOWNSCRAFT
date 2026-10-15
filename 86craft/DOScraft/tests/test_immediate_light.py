@@ -17,6 +17,7 @@ NO_HDD = ROOT.parents[1] / 'fmtowns/townscraft/tests/no_hdd.c'
 
 
 class ImmediateLightTests(unittest.TestCase):
+    @unittest.skipUnless(ZIG.is_file() and TABLES.is_file(), 'native Zig and generated Towns tables required')
     def test_torch_edit_finishes_stream_light_first(self):
         with tempfile.TemporaryDirectory(prefix='doscraft-light-') as folder:
             folder = Path(folder)

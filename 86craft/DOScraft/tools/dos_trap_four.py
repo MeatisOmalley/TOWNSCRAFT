@@ -1,5 +1,5 @@
 """Independent four-texel opaque loop; original transparent loops retained."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 FOUR='''\t/* Four opaque texels per iteration. The first partial group enters
 \t   at its first required store; no extra texture reads/writes. */
@@ -38,10 +38,8 @@ FOUR='''\t/* Four opaque texels per iteration. The first partial group enters
 
 def adapt(name,data):
     if name!='trap.S': return data,[]
-    recipe=[]; text=data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    recipe=[]
+    text=lf_text(data,recipe)
     start=text.index('\t/* Pixel pairs; an odd count enters at the second pixel of a pair */\n')
     end=text.index('\n80:',start)
     before=text[start:end]
