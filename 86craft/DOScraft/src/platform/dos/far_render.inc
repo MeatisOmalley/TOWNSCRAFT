@@ -360,7 +360,7 @@ static void draw_far_field(const RenderEnv *env)
     int gain=(16384*16384)/(cp*cp>>14);
     if(farShadeDarken!=env->skyDarken || farShadeDetail!=(dos_far_enabled>=DOS_FAR_VERY_LOW)) {
         for(int fog=0;fog<9;++fog) for(int style=0;style<8;++style)
-        for(int b=0;b<FAR_IDS;++b) {
+        for(int b=0;b<MIN(NUM_BLOCKS,FAR_IDS);++b) {
             farShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,0);
             farSideShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,1);
         }
