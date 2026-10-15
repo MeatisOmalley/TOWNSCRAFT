@@ -13,6 +13,7 @@ void raster_complete_odd_rows(void);
 int textures_set_resolution(int);
 static u8 palette[768],frame[512*240+32],planes[76800];
 int g_renderScale=1;
+int dos_cpu386;
 u32 g_statFaces;
 void video_set_palette(int i,int r,int g,int b) { palette[i*3]=r;palette[i*3+1]=g;palette[i*3+2]=b; }
 void *heap_alloc_low(u32 n) { void *p=calloc(1,n);assert(p);return p; }

@@ -29,7 +29,7 @@ class TrapZeroGradientTests(unittest.TestCase):
                 self.assertNotEqual(candidate,original)
                 self.assertEqual(candidate.count(b'testl\t%eax,%eax'),original.count(b'testl\t%eax,%eax')+2)
                 self.assertEqual(candidate.count(b'\timull\t%ecx,%eax'),2)
-            else: self.assertEqual((candidate,recipe),(original,[]))
+            else: self.assertEqual((candidate,recipe),dos_sources.adapt(name,original))
         with self.assertRaises(ValueError):
             dos_sources.adapt('trap.S',b'unexpected',trap_zero_gradient=True)
 
@@ -56,7 +56,7 @@ class TrapZeroGradientTests(unittest.TestCase):
                 old,new=step['before'].encode(),step['after'].encode()
                 self.assertEqual(replay.count(old),step['count']); replay=replay.replace(old,new)
             self.assertEqual(candidate,replay)
-            if name!='trap.S': self.assertEqual((candidate,recipe),(original,[]))
+            if name!='trap.S': self.assertEqual((candidate,recipe),dos_sources.adapt(name,original))
         with self.assertRaises(ValueError): dos_sources.adapt('trap.S',b'unexpected',trap_four=True)
         with self.assertRaises(ValueError): dos_sources.adapt('trap.S',original,trap_four=True,trap_stable=True)
 
@@ -69,7 +69,7 @@ class TrapZeroGradientTests(unittest.TestCase):
                 old,new=step['before'].encode(),step['after'].encode()
                 self.assertEqual(replay.count(old),step['count']); replay=replay.replace(old,new)
             self.assertEqual(candidate,replay)
-            if name!='trap.S': self.assertEqual((candidate,recipe),(original,[]))
+            if name!='trap.S': self.assertEqual((candidate,recipe),dos_sources.adapt(name,original))
         with self.assertRaises(ValueError): dos_sources.adapt('trap.S',b'unexpected',trap_stable=True)
         for option in ('trap_destination','trap_zero_gradient'):
             with self.assertRaises(ValueError): dos_sources.adapt('trap.S',original,trap_stable=True,**{option:True})
@@ -125,7 +125,7 @@ class TrapZeroGradientTests(unittest.TestCase):
                 self.assertEqual(candidate.count(b'rowX'),1,'Only unused BSS slot retained')
                 self.assertEqual(candidate.count(b'\timull\t%ecx,%eax'),2)
                 self.assertEqual(candidate.count(b'\timull\t%ebx,%eax'),2)
-            else: self.assertEqual((candidate,recipe),(original,[]))
+            else: self.assertEqual((candidate,recipe),dos_sources.adapt(name,original))
         with self.assertRaises(ValueError):
             dos_sources.adapt('trap.S',b'unexpected',trap_destination=True)
 
