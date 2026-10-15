@@ -6,6 +6,8 @@
 #include "world.h"
 #include "gfx.h"
 #include "textures.h"
+#include "fmath.h"
+#include "mobs.h"
 
 #define EXTRAS_MAGIC 0x31584745u /* "EGX1" */
 
@@ -189,6 +191,92 @@ const char *dos_station_title(int station)
 	case ST_ANVIL: return "STONE ANVIL";
 	}
 	return "CRAFTING";
+}
+
+/* ---------------- Spears ---------------- */
+
+typedef struct
+{
+	u8 item,cooldown,delay;   /* Ticks: jab cooldown, charge activation delay */
+	u16 charge;               /* Damage per block/s of closing speed, x1000 */
+} Spear;
+
+/* Minecraft 26.x spear values; bronze lies between copper and iron. */
+static const Spear spears[]=
+{
+	{I_STICK_SPEAR,13,15,700},{I_FLINT_SPEAR,15,14,820},{I_COPPER_SPEAR,17,13,820},
+	{I_BRONZE_SPEAR,18,12,900},{I_IRON_SPEAR,19,12,950},
+};
+
+#define JAB_MIN (2*FU)
+#define JAB_MAX (9*FU/2)
+#define CHARGE_MIN_SPEED 942      /* 4.6 blocks/s in fine units per tick */
+#define CHARGE_TICKS 60           /* Engaged for 3 s, then the spear must be raised again */
+
+int dos_use_held;
+static int chargeTicks;
+
+static const Spear *held_spear(void)
+{
+	int i,item=g_inv[g_player.selected].item;
+	for(i=0; i<(int)ARRAY_LEN(spears); ++i)
+		if(spears[i].item==item) return &spears[i];
+	return 0;
+}
+
+int dos_holding_spear(void)
+{
+	return held_spear()!=0;
+}
+
+int dos_spear_jab(void)
+{
+	const Spear *s=held_spear();
+	int ex,ey,ez,dx,dy,dz,dist,i;
+	if(!s) return 0;
+	player_eye(&ex,&ey,&ez);
+	player_look_dir(&dx,&dy,&dz);
+	i=mobs_ray_hit(ex,ey,ez,dx,dy,dz,JAB_MAX,&dist);
+	/* Too close for the point: the shaft only pushes. */
+	if(i>=0 && dist>=JAB_MIN)
+	{
+		mob_hurt(i,g_itemDef[s->item].damage,g_player.body.x,g_player.body.z,1);
+		dos_tool_wear(1);
+	}
+	return s->cooldown;
+}
+
+void dos_spear_tick(void)
+{
+	const Spear *s=held_spear();
+	int i,dx,dy,dz,look;
+	if(!s || !dos_use_held || g_player.dead)
+	{
+		chargeTicks=0;
+		return;
+	}
+	if(++chargeTicks==s->delay) game_message("Spear lowered");
+	if(chargeTicks<s->delay || chargeTicks>s->delay+CHARGE_TICKS) return;
+	player_look_dir(&dx,&dy,&dz);
+	look=isqrt(dx*dx+dz*dz);
+	if(look<1024) return;      /* Pointing straight up or down */
+	for(i=0; i<MAX_MOBS; ++i)
+	{
+		const Mob *m=&g_mobs[i];
+		int tx=m->body.x-g_player.body.x,tz=m->body.z-g_player.body.z,ty=m->body.y-g_player.body.y;
+		int d,closing;
+		if(MOB_NONE==m->type || MOB_TNT==m->type || ABS(ty)>2*FU) continue;
+		if(ABS(tx)>JAB_MAX || ABS(tz)>JAB_MAX) continue;
+		d=isqrt(tx*tx+tz*tz);
+		if(d<FU/2 || d>JAB_MAX) continue;
+		/* Within about 25 degrees of where the spear points. */
+		if((long long)(dx*tx+dz*tz)*1000<(long long)900*look*d) continue;
+		closing=(int)(((long long)(g_player.body.vx-m->body.vx)*tx+(long long)(g_player.body.vz-m->body.vz)*tz)/d);
+		if(closing<CHARGE_MIN_SPEED) continue;
+		/* Damage = multiplier x closing speed in blocks per second. */
+		mob_hurt(i,MAX(1,(int)((long long)s->charge*closing*20/4096/1000)),g_player.body.x,g_player.body.z,1);
+		dos_tool_wear(1);
+	}
 }
 
 void dos_extras_clear(void)

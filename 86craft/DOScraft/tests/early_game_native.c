@@ -18,6 +18,17 @@ void world_set(int x,int y,int z,u8 b) { g_blocks[widx(x,y,z)]=b; }
 void gfx_text_shadow(u8 *fb,int x,int y,const char *s,u8 c,u8 shadow) { (void)fb;(void)x;(void)y;(void)s;(void)c;(void)shadow; }
 
 Player g_player;
+
+/* Mobs and aiming, as stubs the spear code can be driven through. */
+#include "mobs.h"
+Mob g_mobs[MAX_MOBS];
+static int rayMob=-1,rayDist,hurtMob=-1,hurtDamage,hurts;
+int mobs_ray_hit(int ex,int ey,int ez,int dx,int dy,int dz,int maxDist,int *dist)
+{ (void)ex;(void)ey;(void)ez;(void)dx;(void)dy;(void)dz; *dist=rayDist; return rayDist<=maxDist ? rayMob : -1; }
+void mob_hurt(int i,int dmg,int fromX,int fromZ,int byPlayer) { (void)fromX;(void)fromZ;(void)byPlayer; hurtMob=i; hurtDamage=dmg; ++hurts; }
+void player_eye(int *x,int *y,int *z) { *x=g_player.body.x; *y=g_player.body.y; *z=g_player.body.z; }
+void player_look_dir(int *dx,int *dy,int *dz) { *dx=0; *dy=0; *dz=16384; }   /* Looking along +Z */
+u32 isqrt(u32 v) { u32 r=0; while((r+1)*(r+1)<=v) ++r; return r; }
 static char lastMessage[64];
 static int sounds;
 void game_message(const char *msg) { int i=0; while(msg[i] && i<63) { lastMessage[i]=msg[i]; ++i; } lastMessage[i]=0; }
@@ -144,5 +155,37 @@ int main(void)
     count=position=0; dos_extras_save(put);
     CHECK(count==2+INV_SLOTS);   /* Magic, wear, end: no fires left */
     printf("PASS: stations and campfires\n");
+    /* Spear jab: reach 2 to 4.5 blocks, per-tier cooldown, wear on a hit. */
+    inv_clear(); inv_add(I_FLINT_SPEAR,1); g_player.selected=0;
+    CHECK(dos_holding_spear());
+    rayMob=3; rayDist=FU*3/2; hurts=0;
+    CHECK(dos_spear_jab()==15 && hurts==0);
+    rayDist=3*FU;
+    CHECK(dos_spear_jab()==15 && hurts==1 && hurtMob==3 && hurtDamage==2 && g_inv[0].wear==1);
+    rayDist=5*FU;
+    CHECK(dos_spear_jab()==15 && hurts==1);
+    /* Charge: lowered after the delay, hits a mob ahead closing at 4.6 blocks/s or more. */
+    memset(g_mobs,0,sizeof(g_mobs));
+    g_mobs[2].type=MOB_ZOMBIE; g_mobs[2].body.z=3*FU;
+    g_player.body.x=g_player.body.y=g_player.body.z=0;
+    g_player.body.vz=1100; hurts=0; dos_use_held=1;
+    for(i=0;i<13;++i) dos_spear_tick();
+    CHECK(hurts==0);
+    dos_spear_tick();
+    CHECK(hurts==1 && hurtMob==2 && hurtDamage==4 && contains(lastMessage,"lowered"));
+    g_player.body.vz=800; dos_spear_tick();
+    CHECK(hurts==1);                       /* Too slow */
+    g_player.body.vz=1100; g_mobs[2].body.x=3*FU; g_mobs[2].body.z=FU; dos_spear_tick();
+    CHECK(hurts==1);                       /* Off to the side */
+    g_mobs[2].body.x=0; g_mobs[2].body.z=3*FU;
+    g_mobs[2].body.vz=-400; g_player.body.vz=600; dos_spear_tick();
+    CHECK(hurts==2);                       /* Closing together counts */
+    for(i=0;i<70;++i) dos_spear_tick();
+    hurts=0; dos_spear_tick();
+    CHECK(hurts==0);                       /* The charge has faded */
+    dos_use_held=0; dos_spear_tick(); dos_use_held=1;
+    for(i=0;i<14;++i) dos_spear_tick();
+    CHECK(hurts==1);                       /* Raised and lowered again */
+    printf("PASS: spears\n");
     return 0;
 }

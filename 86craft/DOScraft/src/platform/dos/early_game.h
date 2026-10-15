@@ -25,6 +25,14 @@ void dos_fire_add_fuel(void);              /* F on the campfire screen */
 void dos_fire_draw_status(u8 *fb);
 const char *dos_station_title(int station);
 
+/* Spears (EARLY_GAME.md, Spear). The jab reaches 2 to 4.5 blocks and
+ * returns its cooldown in game ticks; holding use lowers the spear for a
+ * charge that hits what the player closes on fast enough. */
+extern int dos_use_held;                   /* Use key or button held this frame */
+int dos_spear_jab(void);
+void dos_spear_tick(void);
+int dos_holding_spear(void);
+
 /* Forget all early-game world state (new game, or before loading). */
 void dos_extras_clear(void);
 

@@ -374,6 +374,23 @@ def recipes(name, one, every, between):
         one('\terr=load_world();\n', '\tdos_extras_clear();\n\terr=load_world();\n')
 
 
+def spears(name, one):
+    if name != 'game.c':
+        return
+    one('static void do_attack(void)\n{\n\tint ex,ey,ez,dx,dy,dz,dist,i;\n',
+        'static void do_attack(void)\n{\n\tint ex,ey,ez,dx,dy,dz,dist,i;\n'
+        '\tif(dos_holding_spear())\n\t{\n'
+        '\t\tattackCooldown=dos_spear_jab();\n\t\tg_player.swing=6;\n\t\treturn;\n\t}\n')
+    # A spear is held for its charge; it never places, eats or uses.
+    one('static void do_use(void)\n{\n', 'static void do_use(void)\n{\n\tif(dos_holding_spear()) return;\n')
+    one('\tmobs_tick(g_skyDarken);\n\tdos_fires_tick();\n',
+        '\tmobs_tick(g_skyDarken);\n\tdos_fires_tick();\n\tdos_spear_tick();\n')
+    one('\t\t\tmemset(&in,0,sizeof(in));\n', '\t\t\tmemset(&in,0,sizeof(in));\n\t\t\tdos_use_held=0;\n')
+    one('\t\t\t\tin.sprint=g_keyDown[KEY_CTRL];\n',
+        '\t\t\t\tin.sprint=g_keyDown[KEY_CTRL];\n'
+        '\t\t\t\tdos_use_held=g_keyDown[KEY_E] || (pad&PAD_B) || (mouse&MOUSE_R);\n')
+
+
 def adapt(name, data):
     if name not in NAMES:
         return data, []
@@ -398,4 +415,5 @@ def adapt(name, data):
     textures(name, one, every)
     materials(name, one)
     recipes(name, one, every, lambda start, end: text[text.index(start):text.index(end)])
+    spears(name, one)
     return text.encode(), recipe
