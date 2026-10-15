@@ -1,9 +1,9 @@
 """Baked-light restore, conservative edit invalidation, and bounded RAM reuse."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 def adapt(name,data):
     if name not in ('world.c','column_hdd.inc','column_cache.inc','column_store.inc','world.h'): return data,[]
-    text=data.decode(); recipe=[]
-    if '\r\n' in text: text=replace_once(text,'\r\n','\n',recipe)
+    recipe=[]
+    text=lf_text(data,recipe)
     def one(before,after):
         nonlocal text
         text=replace_once(text,before,after,recipe)

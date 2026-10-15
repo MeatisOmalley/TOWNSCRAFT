@@ -1,5 +1,5 @@
 """Optional directional wall-cone rejection before quad projection/subdivision."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 FRONTEND=r'''
 #define WALL_PATCHES 16
@@ -104,10 +104,8 @@ static int wall_hidden_item(const Item *it,u32 key)
 
 def adapt(name,data,verify=False):
     if name!='render.c': return data,[]
-    recipe=[]; text=data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    recipe=[]
+    text=lf_text(data,recipe)
     text=replace_once(text,'#include "gfx.h"\n','#include "gfx.h"\n#include "wall_visibility.h"\n',recipe)
     text=replace_once(text,'static u32 entKey[MAX_BOXES];\n',FRONTEND+'\nstatic u32 entKey[MAX_BOXES];\n',recipe)
     text=replace_once(text,'\t\t\tnStatic=nItems;\n','\t\t\tnStatic=nItems;\n\t\t\twall_select();\n',recipe)

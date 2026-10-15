@@ -1,16 +1,13 @@
 """DOS-only bounded mob lifetime: distant animals are not kept dormant."""
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name != 'mobs.c':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text,
         '\t/* Create the dormant owner before releasing a simulation slot. */\n'
         '\tfor(i=0; i<MAX_MOBS; ++i)\n'

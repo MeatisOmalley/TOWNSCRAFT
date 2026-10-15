@@ -1,11 +1,11 @@
 """Only sound event selection and the zombie groan; no game rules or UI changes."""
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 
 def adapt(name,data):
     if name not in ('game.c','mobs.c'):return data,[]
-    text=data.decode();recipe=[]
-    if '\r\n' in text:text=replace_once(text,'\r\n','\n',recipe)
+    recipe=[]
+    text=lf_text(data,recipe)
     if name=='mobs.c':
         # Zombie ambient groan; its own random source, so mob behavior is unchanged.
         text=replace_once(text,'#include "sound.h"\n','#include "sound.h"\n#include "game_audio.h"\n',recipe)

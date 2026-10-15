@@ -1,6 +1,6 @@
 """DOS-only combined inventory/crafting menu over the immutable Towns import."""
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 MENU = r'''enum { MENU_OUTPUT=45 };
@@ -273,11 +273,7 @@ def adapt(name, data):
     if name != 'game.c':
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n',
-                           count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     text = replace_once(text, '#include "inventory.h"\n',
                         '#include "inventory.h"\n#include "craft_grid.h"\n#include "video_backend.h"\n'
                         'extern void dos_game_inventory_idle(void);\n', recipe)

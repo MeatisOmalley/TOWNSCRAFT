@@ -8,7 +8,6 @@ import json
 import struct
 from pathlib import Path
 import subprocess
-import sys
 import build_imported as imported
 import build_adapters as adapters
 import dos_sources

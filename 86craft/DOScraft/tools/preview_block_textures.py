@@ -2,7 +2,6 @@
 from pathlib import Path
 import argparse
 import subprocess
-import sys
 import tempfile
 from PIL import Image, ImageDraw
 import build_imported, dos_block_textures

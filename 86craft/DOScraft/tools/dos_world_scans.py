@@ -10,17 +10,14 @@ The bottom-chunk seal/water test called widx() for each of 256 top cells and
 each side cell layer. One column row starts at widx(x0,0,z), so cells are
 addressed by offsets from that base, as in scan_chunk_mask().
 """
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name != 'world.c':
         return data, []
-    text = data.decode('utf-8')
     recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     skip = '\t\t\tif(!world_column_ready(x/CS,z/CS)) continue;\n'
     count = text.count(skip)
     if count != 3:

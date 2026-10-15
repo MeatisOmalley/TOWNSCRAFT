@@ -4,7 +4,6 @@ No overlay, game changes, emulator or host performance claims. Preserve the
 isolated probe executable and its stdout/stderr/result for diagnosis.
 """
 import json
-from pathlib import Path
 import subprocess
 from build_game import ROOT
 import build_imported as imported

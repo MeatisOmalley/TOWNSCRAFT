@@ -5,16 +5,13 @@ Very Low row mask marks discarded logical rows; no second row-mask allocation.
 Normal resolutions retain their existing texel loops and finish behavior.
 Applied after the exact hot-path overlays, only with Very Low texels enabled.
 """
-from build_imported import replace_once
+from build_imported import replace_once,lf_text
 
 
 def adapt(name,data):
     if name not in ('raster.c','trap.S'): return data,[]
     recipe=[]
-    text=data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace',before='\r\n',after='\n',count=text.count('\r\n')))
-        text=text.replace('\r\n','\n')
+    text=lf_text(data,recipe)
     if name=='trap.S':
         text=replace_once(text,'10:\t/* ---- per row ---- */\n\tmovl\ttrapPtr,%ebp\n',
             '10:\t/* ---- per row ---- */\n\tmovl\ttrapPtr,%ebp\n'

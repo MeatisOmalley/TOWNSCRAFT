@@ -1,14 +1,12 @@
 """Resolution-selected DOS art, with one atlas and an unchanged palette."""
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name not in ('textures.c', 'textures.h', 'render.c', 'render.h'):
         return data, []
-    text = data.decode('utf-8'); recipe = []
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    recipe = []
+    text = lf_text(data, recipe)
     if name == 'textures.h':
         text = replace_once(text, 'void textures_init(void);',
             'void textures_init(void);\n/* Return nonzero only when the resident art changes. */\n'

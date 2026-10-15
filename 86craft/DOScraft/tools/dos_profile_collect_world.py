@@ -1,16 +1,13 @@
 """Benchmark-only timing overlay; production Towns source remains untouched."""
 
-from build_imported import replace_once
+from build_imported import replace_once, lf_text
 
 
 def adapt(name, data):
     if name not in ('render.c', 'game.c', 'world.c', 'column_cache.inc'):
         return data, []
     recipe = []
-    text = data.decode('utf-8')
-    if '\r\n' in text:
-        recipe.append(dict(operation='replace', before='\r\n', after='\n', count=text.count('\r\n')))
-        text = text.replace('\r\n', '\n')
+    text = lf_text(data, recipe)
     if name != 'column_cache.inc':
         text = replace_once(text, '#include "bench.h"\n',
             '#include "bench.h"\n#include "bench_profile_cw.h"\n', recipe)
