@@ -296,8 +296,26 @@ int dos_sprint_tap(int forwardDown)
 	return sprinting;
 }
 
+int dos_try_pluck(int maxDist)
+{
+	int ex,ey,ez,dx,dy,dz,dist,i;
+	player_eye(&ex,&ey,&ez);
+	player_look_dir(&dx,&dy,&dz);
+	i=mobs_ray_hit(ex,ey,ez,dx,dy,dz,MIN(maxDist,3*FU),&dist);
+	if(i<0 || MOB_SHEEP!=g_mobs[i].type) return 0;
+	if(!mob_pluck(i))
+	{
+		game_message("Its wool is growing back");
+		return 1;
+	}
+	sound_play(SFX_CRUNCH,380,180,0);
+	game_message("+ Wool");
+	return 1;
+}
+
 void dos_extras_clear(void)
 {
+	mobs_sheared_clear();
 	memset(fires,0,sizeof(fires));
 	openFire=-1;
 	g_fireLit=0;
@@ -380,6 +398,7 @@ void dos_extras_save(void (*put)(u32))
 			put((u32)(u16)fires[i].z | (u32)fires[i].fuel<<16);
 		}
 	put(0);
+	mobs_sheared_save(put);
 }
 
 int dos_extras_load(u32 (*get)(void))
@@ -403,5 +422,5 @@ int dos_extras_load(u32 (*get)(void))
 		if((a>>24) || fires[i].fuel>FIRE_MAX_FUEL) return 0;
 		fires[i].used=1;
 	}
-	return 1;
+	return mobs_sheared_load(get);
 }

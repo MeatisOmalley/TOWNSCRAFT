@@ -30,6 +30,11 @@ void mob_hurt(int i,int dmg,int fromX,int fromZ,int byPlayer) { (void)fromX;(voi
 void player_eye(int *x,int *y,int *z) { *x=g_player.body.x; *y=g_player.body.y; *z=g_player.body.z; }
 void player_look_dir(int *dx,int *dy,int *dz) { *dx=0; *dy=0; *dz=16384; }   /* Looking along +Z */
 u32 isqrt(u32 v) { u32 r=0; while((r+1)*(r+1)<=v) ++r; return r; }
+/* Sheep shearing lives in mobs.c (tested with the real mob code). */
+int mob_pluck(int i) { (void)i; return 0; }
+void mobs_sheared_clear(void) {}
+void mobs_sheared_save(void (*put)(u32)) { put(0); }
+int mobs_sheared_load(u32 (*get)(void)) { return 0==get(); }
 static char lastMessage[64];
 static int sounds;
 void game_message(const char *msg) { int i=0; while(msg[i] && i<63) { lastMessage[i]=msg[i]; ++i; } lastMessage[i]=0; }
@@ -154,7 +159,7 @@ int main(void)
     CHECK(g_fireLit);
     world_set(3,5,4,B_AIR); dos_block_removed(B_FIRE,3,5,4);
     count=position=0; dos_extras_save(put);
-    CHECK(count==4+INV_SLOTS);   /* Magic, wear, hunger, end: no fires left */
+    CHECK(count==5+INV_SLOTS);   /* Magic, wear, hunger, end of fires, no sheared sheep */
     printf("PASS: stations and campfires\n");
     /* Spear jab: reach 2 to 4.5 blocks, per-tier cooldown, wear on a hit. */
     inv_clear(); inv_add(I_FLINT_SPEAR,1); g_player.selected=0;
