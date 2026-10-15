@@ -488,6 +488,56 @@ class EditLogTests(unittest.TestCase):
         self.game('check', moved, moved_save, 0, 1000, 3)
         self.game('check', moved, self.older_only(moved_save), 0, 1000, 2)
 
+    def test_log_player_vm_stages_a_4_mib_clone(self):
+        import hashlib
+        import json
+        from unittest import mock
+        import log_player_vm
+        terrain, save = self.media(log_sectors=v3.LEGACY_LOG_BYTES // 512)
+        self.game('edit', terrain, save, 0, 30, 1, 30, 2)
+        disk, part = self.player_disk(terrain, save)
+        root = Path(self.tmp.name) / f'vms{self.case}'
+        sha = lambda data: hashlib.sha256(data).hexdigest()
+
+        def vm(name, exe):
+            floppy = bytearray(512)
+            struct.pack_into('<HBHBHHBH', floppy, 11, 512, 1, 1, 2, 224, 2880, 0xf0, 9)
+            struct.pack_into('<HH', floppy, 24, 18, 2)
+            floppy[510:512] = b'\x55\xaa'
+            boot = bytes(populate(floppy, [('DOSCRAFT.EXE', exe)]))
+            folder = root / 'runtime' / name
+            folder.mkdir(parents=True)
+            (folder / 'boot.img').write_bytes(boot)
+            (folder / 'DOSCRAFT.ISO').write_bytes(b'iso ' + name.encode())
+            (folder / 'build.json').write_text(json.dumps({
+                'smoke': False, 'benchmark': False, 'vm_directory': str(folder), 'exe_sha256': sha(exe),
+                'boot_sha256': sha(boot), 'iso_sha256': sha(b'iso ' + name.encode())}))
+            return folder
+        player = vm('game-play-old', b'MZ ' + v3.V3_MAGIC)
+        (player / 'hdd.img').write_bytes(disk)
+        release = vm('game-play-new', b'MZ ' + v3.V3_MAGIC + b' ' + log_player_vm.PER_BLOCK_EDITS_MARKER)
+        pointer = root / 'latest-play-vm.txt'
+        pointer.write_text(str(player))
+        with mock.patch.object(log_player_vm, 'ROOT', root), \
+                mock.patch.object(log_player_vm, 'running', lambda vm: False):
+            checked = log_player_vm.install(pointer, check=True)
+            self.assertFalse(checked['executable_has_per_block_edits'])
+            with self.assertRaisesRegex(ValueError, 'per-block'):
+                log_player_vm.install(pointer)
+            self.assertEqual(sorted(p.name for p in (root / 'runtime').iterdir()), ['game-play-new', 'game-play-old'])
+            staged = log_player_vm.install(pointer, boot_from=release)
+        clone = Path(staged['vm'])
+        self.assertIn('launcher unchanged', staged['status'])
+        self.assertEqual(pointer.read_text(), str(player))
+        self.assertEqual((player / 'hdd.img').read_bytes(), disk, 'the original VM is never written')
+        record = json.loads((clone / 'build.json').read_text())
+        self.assertEqual((record['edit_log_sectors'], record['exe_sha256']),
+                         (v3.DEFAULT_LOG_BYTES // 512, json.loads((release / 'build.json').read_text())['exe_sha256']))
+        self.assertEqual((clone / 'boot.img').read_bytes(), (release / 'boot.img').read_bytes())
+        moved, moved_save = self.unpack((clone / 'hdd.img').read_bytes(), part, terrain, save, '.clone')
+        self.assertEqual(sha(moved.read_bytes()), record['terrain_sha256'])
+        self.game('check', moved, moved_save, 0, 30, 2)
+
     def test_log_shrink_refuses_damaged_or_inconsistent_saves(self):
         terrain, save = self.media(log_sectors=v3.LEGACY_LOG_BYTES // 512)
         self.game('edit', terrain, save, 0, 30, 1, 30, 2)

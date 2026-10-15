@@ -19,11 +19,13 @@ Blaster 1.5, Microsoft serial mouse, and Conner CP3044 IDE timing. The HDD
 geometry is 977 cylinders, 5 heads, 17 sectors (42,519,040 bytes). Audio remains
 deferred by the game. The fresh seed-4242 world is converted to the compact
 format, including streamed lighting and the distant map. Newly prepared VMs
-use the V3 edit log, which takes the space the 40 MB volume has left (30,668
-sectors, 15 MiB, with 1 MiB of headroom): every column can be edited, where
-V2's 384 edit-slot pairs (a 33,730,560-byte terrain file) covered 9%. Existing
-player saves are separate; `tools/log_player_vm.py` migrates a stopped V2
-player VM into a new clone.
+use the V3 edit log at the 4 MiB new media get (8,192 sectors; a
+28,592,128-byte terrain file): per-block edits keep most edited columns out
+of the log, so every column can be edited, where V2's 384 edit-slot pairs
+covered 9%. VMs prepared before that took what the 40 MB volume had left
+(30,668 sectors, leaving 1 MiB free). Existing player saves are separate;
+`tools/log_player_vm.py` migrates a stopped V2 player VM, or moves a V3 one
+onto the 4 MiB log (about 11 MiB more free space), into a new clone.
 
 The emulator is built from `MeatisOmalley/86Box` commit
 `cc2ff8fe3058c4f8eec70cfac82b1909894d458f`, which registers the Trident
