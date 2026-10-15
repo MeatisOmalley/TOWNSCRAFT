@@ -48,8 +48,15 @@ static int chicken_loaded(void)
 }
 #ifdef DOS_LARGE_WORLD
 extern int world_verify_large_travel(int x,int z);
+extern int world_measure_log_copy(int count,u32 *sectors);
+extern u32 g_terrainLogStats[7];
+extern int g_terrainLogForceCompact;
+extern u32 g_terrainLogScanTicks[3];
 static int terrain_persist_ok=1;
 static int edge_stream_ok=1;
+/* V3 edit log: guest cost of compaction's record copy (-1: not a V3 medium). */
+static int log_copy_ticks=-1;
+static u32 log_copy_sectors;
 #ifdef DOS_STREAM_LIGHT_CACHE
 extern int world_verify_stream_light(void);
 extern u32 g_streamLightStats[4];
@@ -201,7 +208,7 @@ static void finish(void)
     int ok=input_ok && walk_ok && look_ok && stream_ok && width==expected_width && mesh>0 &&
         storage_ok && placed && broken && vga_ok && fullres_ok && despawn_ok && chicken_ok;
 #ifdef DOS_LARGE_WORLD
-    ok=ok && terrain_persist_ok && edge_stream_ok;
+    ok=ok && terrain_persist_ok && edge_stream_ok && log_copy_ticks!=-2;
 #ifdef DOS_STREAM_LIGHT_CACHE
     ok=ok && stream_light_ok;
 #endif
@@ -239,6 +246,12 @@ static void finish(void)
 #ifdef DOS_LARGE_WORLD
     if(fprintf(file,"TERRAIN_PERSIST=%s\nEDGE_STREAM=%s\n",
                terrain_persist_ok?"PASS":"FAIL",edge_stream_ok?"PASS":"FAIL")<0) written=0;
+    /* Copy probe, then rebuilds, wraps, compactions, moved records/sectors,
+       last compaction ticks and refused play-time records. */
+    if(fprintf(file,"LOG_COPY=%d,%u\nLOG_SCAN=%u,%u,%u\nLOG_STATS=%u,%u,%u,%u,%u,%u,%u\n",
+               log_copy_ticks,log_copy_sectors,g_terrainLogScanTicks[0],g_terrainLogScanTicks[1],
+               g_terrainLogScanTicks[2],g_terrainLogStats[0],g_terrainLogStats[1],g_terrainLogStats[2],
+               g_terrainLogStats[3],g_terrainLogStats[4],g_terrainLogStats[5],g_terrainLogStats[6])<0) written=0;
 #endif
     if(vga_failed_snapshot && fprintf(file,"VGA_FAILED_SNAPSHOT=%s\n",vga_failed_snapshot)<0) written=0;
     if(fprintf(file,"CHICKENS=%s\n",chicken_ok?"PASS":"FAIL")<0) written=0;
@@ -459,6 +472,12 @@ void __wrap_gfx_present(void)
             }
             }
             edge_stream_ok=world_verify_large_travel(x,z);
+            if(!load_smoke) {
+                /* 64 record copies time the compaction unit; the save that
+                   follows also runs one forced compaction. */
+                log_copy_ticks=world_measure_log_copy(64,&log_copy_sectors);
+                g_terrainLogForceCompact=1;
+            }
 #ifdef DOS_STREAM_LIGHT_CACHE
             stream_light_ok=world_verify_stream_light();
 #endif

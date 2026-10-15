@@ -141,11 +141,14 @@ def check_v2(v2, v1=None):
         struct.unpack_from('<6I', v2, 120)
     if total * 512 != len(v2) or checksum(v2[512:512 + COLUMNS * 12]) != struct.unpack_from('<I', v2, 48)[0]:
         raise ValueError('V2 size or index checksum mismatch')
+    sums = {}  # columns may share one immutable record; hash each extent once
     for column in range(COLUMNS):
         for index, size in ((base_index, CELLS), (light_index, LIGHT_RECORD)):
             off, length, sum_ = struct.unpack_from('<3I', v2, index * 512 + column * 12)
             stored = v2[off:off + length]
-            if off % 512 or checksum(stored) != sum_ or off + length > pool_sector * 512:
+            if (off, length) not in sums:
+                sums[off, length] = checksum(stored)
+            if off % 512 or sums[off, length] != sum_ or off + length > pool_sector * 512:
                 raise ValueError(f'Bad V2 record for column {column}')
             if v1 is not None:
                 data = decode(stored, size)
