@@ -204,6 +204,10 @@ void music_stop(void)
 /* A random piece, never the previous one when there is a choice. */
 static int choose_piece(void)
 {
+#ifdef DOS_MUSIC_JUKEBOX
+    /* Listening build: pack songs in file order, then around again. */
+    if(pack_song_count)return last_piece<0 ? 0 : (last_piece+1)%(int)pack_song_count;
+#endif
     int builtin=event_count && (pack_builtin || !pack_song_count);
     unsigned int choices=pack_song_count+(builtin ? 1u : 0u);
     unsigned int pick=((unsigned)g_ticks*2654435761u>>16)%choices;
@@ -231,7 +235,11 @@ static void start_piece(void)
 static void finish_piece(void)
 {
     all_off();playing=0;
+#ifdef DOS_MUSIC_JUKEBOX
+    wait_ticks=100;                             /* One second between songs */
+#else
     wait_ticks=gap+(int)(((unsigned)g_ticks*2654435761u>>16)%(unsigned)(gap+1));
+#endif
 }
 
 static void pack_tick(void)
@@ -252,6 +260,17 @@ static void pack_tick(void)
 void dos_music_tick(void)
 {
     if(!ready)return;
+#ifdef DOS_MUSIC_JUKEBOX
+    /* F6 skips to the next song at once, on any screen; music stays on. */
+    static int f6_held;
+    int f6=g_keyDown[KEY_PF6]!=0;
+    g_musicOn=1;
+    if(f6 && !f6_held) {
+        if(playing)all_off();
+        wait_ticks=-1;start_piece();
+    }
+    f6_held=f6;
+#endif
     if(!playing) {
         if(wait_ticks>0)--wait_ticks;
         else if(!wait_ticks && g_musicOn) { wait_ticks=-1;start_piece(); }
