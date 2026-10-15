@@ -63,7 +63,9 @@ def upgrade_disk(old_disk,new_terrain,*,compact=False):
     if any(attr&16 for name,attr,cluster,size in old.directory()):
         raise ValueError('Cannot migrate an unexpected player disk directory')
     previous=old.read('TERRAIN.TMP')
-    if previous[:16]==V3_MAGIC or new_terrain[:16]==V3_MAGIC:
+    # Compact publishing moves V2 players onto the edit log as well.
+    if previous[:16]==V3_MAGIC or new_terrain[:16]==V3_MAGIC or \
+            (compact and previous[:16]==b'DOSCRAFT-1024-V2'):
         return upgrade_log_disk(old_disk,previous,old.read('WORLD.SAV'),new_terrain)
     if previous[:16]==b'DOSCRAFT-1024-V2' or new_terrain[:16]==b'DOSCRAFT-1024-V2':
         from compact_world_media import convert_player

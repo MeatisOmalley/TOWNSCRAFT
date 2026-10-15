@@ -16,6 +16,7 @@ from build_game import ROOT,OUTPUT
 from game_media import prepare,validate
 from prepare_large_vm import attach_large_disk
 from large_world_media import upgrade_disk
+from large_game_smoke import large_volume
 
 
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -128,6 +129,12 @@ def publish_large(terrain_path, smoke_vm, output):
         # mismatch instead of silently replacing the player's world.
         (vm/'scratch-large.img').write_bytes(upgrade_disk(old_disk.read_bytes(),terrain_path.read_bytes(),compact=True))
         record['preserved_world_edits']=True
+        # Describe the terrain actually carried over (V2 players move to V3).
+        carried=large_volume((vm/'scratch-large.img').read_bytes()).read('TERRAIN.TMP')
+        record.update(terrain_sha256=hashlib.sha256(carried).hexdigest(),terrain_bytes=len(carried),
+                      terrain_format='V3 log' if carried[:16]==b'DOSCRAFT-1024-V3' else 'V2 RLE',
+                      terrain_header_sha256=hashlib.sha256(carried[:97*512]).hexdigest())
+        (vm/'build.json').write_text(json.dumps(record,indent=2)+'\n')
     validate(vm)
     if (running(old) or sha(old_disk)!=old_disk_hash or
         Path(pointer.read_text().strip()).resolve()!=old or
