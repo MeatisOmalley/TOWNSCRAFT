@@ -72,6 +72,7 @@ static void put_overlays(const u8 *fb)
 		{
 			int k;
 			if(row[x]==R96_KEY*0x01010101u) continue;
+			r96_3dfx_page_dirty_row((u8 *)fb,y);
 			for(k=0; k<4; ++k)
 			{
 				u8 c=((const u8 *)row)[x*4+k];
@@ -101,6 +102,7 @@ void gfx_present(void)
 	else
 	{
 		put_rows(0,SCR_H,g_fb);
+		r96_3dfx_page_unkeyed(g_fb);
 	}
 	r96_sst1_swap(0);
 	voodooBack^=1;
@@ -128,6 +130,7 @@ void gfx_sync_pages(void)
 		if(page==presented_page) continue;
 		for(y=0; y<SCR_H; ++y)
 			memcpy(pages[page]+y*FB_PITCH,pages[presented_page]+y*FB_PITCH,SCR_W);
+		r96_3dfx_page_unkeyed(pages[page]);
 	}
 	back_page=(presented_page+1)%3;
 	g_fb=pages[back_page];

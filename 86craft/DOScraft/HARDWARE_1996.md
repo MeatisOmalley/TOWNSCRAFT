@@ -55,31 +55,58 @@ painter's order is exact for this voxel world, so neither renderer needs a
 depth buffer. One new overlay, `tools/dos_r96.py`, makes each projected
 vertex carry `w` (the projection's own `focal<<16/z`). It also clips that
 perspective-correctly in the guard band, flags 3D polygons `RP_PERSP`,
-enlarges the draw list for 16-block views and reports atlas rebuilds.
-`raster.c` and `trap.S` are replaced per executable.
+enlarges the draw list, reports atlas rebuilds, and on 32 MiB or more keeps
+a 7x7 ring of terrain columns resident (see Presets). `raster.c` and
+`trap.S` are replaced per executable.
 
-### Software (`src/platform/r96/r96_soft.c`, `r96_span.S`)
+### Software (`src/platform/r96/r96_soft.c`, `r96_span.S`, `r96_vga.S`)
 
-Pixel coverage is identical to the 486 rasterizer. Texturing is now exactly
+Pixel coverage is identical to the 486 rasterizer. Texturing is now
 perspective-correct where the 486 build used screen-affine spans with near
 subdivision:
 
-- Per polygon, the plane of q=1/z, s=u*q and t=v*q is fitted once on the FPU.
-- Each span is cut into 16-pixel segments, exact at the ends and linear in
-  between.
-- **Carmack's FDIV overlap:** the Pentium's FDIV runs for 39 cycles (19 at the
-  single precision used here) while the integer pipes keep issuing. The divide
-  for the next segment's end is started before the integer texel loop of the
-  current segment. During a span's last segment, the divide for the next
-  row's start is issued instead. A row therefore normally stalls on only one
-  divide. 86Box's Pentium timing models this overlap (`FPU_CYCLES(39,38,2)`
-  for FDIV).
+- Per polygon, the plane of q=1/z, s=u*q and t=v*q is fitted once on the
+  FPU. Edge slopes come from a reciprocal table and one IMUL (about 14
+  cycles) instead of IDIV (46).
+- **Short spans (up to 16 pixels, about half of all spans at long views)**
+  use the exact value and slope at the span's middle. This takes one
+  reciprocal, with the same error bound as an exact-ends chord and no inner
+  seam.
+- **Longer spans** are cut into 16-pixel segments, exact at the ends and
+  linear in between (Quake's scheme, seamless across segments). Full
+  segments step by an integer subtract and shift, so only their end values
+  pass through FIST (6 cycles, unpaired). 16-pixel endpoints come from
+  precomputed 16-pixel plane steps (adds only).
+- **Carmack's FDIV overlap:** the Pentium's FDIV runs for 39 cycles (19 at
+  the single precision used here) while the integer pipes keep issuing.
+  - The divide for the next segment's end starts before the current
+    segment's integer texel loop.
+  - During a row's last segment, the next row's divide starts instead (at
+  the middle of that row's span when it is short), so short rows never wait
+    for the FPU.
+  - A long span's first segment end, the one divide it still waits for, runs
+    under that segment's integer setup.
+
+  86Box's Pentium timing models the overlap (`FPU_CYCLES(39,38,2)` for
+  FDIV). Precision is set once per frame (FLDCW costs 8 cycles).
 - The texel loop jumps into a 16-pixel unrolled block (no loop counter). It
-  steps u and v with the 486 build's byte carries, but without its 16-bit
-  prefixed add, which the P5 cannot pair: the v fraction rides in the upper
-  half of EAX.
-- The scale-2 presets and the tests use a C reference of the same algorithm.
-  The held item (no `w`) keeps the old affine mapping.
+  steps u and v with byte carries, without the 486 loop's 16-bit prefixed
+  add, which the P5 cannot pair: the v fraction rides in the upper half of
+  EAX. It is AGI-bound at about 4 cycles per pixel.
+- **No write-allocate on the P54C:** byte stores to frame-buffer lines that
+  are not in L1 drain one by one through two write buffers. Each segment,
+  and each flat or sky fill of 32 bytes or more, first reads its
+  destination lines so the stores hit L1. This gains on real hardware only;
+  86Box does not model caches, and costs it about two loads per segment.
+- **Presentation:** Mode X at full resolution now packs each plane's four
+  pixels into one dword and stores it straight into VGA memory, in 16-row
+  bands that stay in L1 across the four planes. That replaces a byte-wise
+  deinterleave into a buffer followed by a copy. 86Box charges the
+  Millennium one PCI clock per 32-bit write and two per byte write. The HUD
+  keeps its per-page change cache.
+- The scale-2 presets and the tests use a C reference of the same
+  arithmetic; the assembly matches it bit for bit. The held item (no `w`)
+  keeps the old affine mapping.
 
 ### Voodoo Graphics (`src/platform/r96/r96_raster3dfx.c`, `r96_sst1.c`, `r96_gfx3dfx.c`)
 
@@ -94,18 +121,29 @@ swaps. The host-side triangle setup is specialized for this game:
   through the chroma key.
 - One plane setup per polygon. Fans from the topmost vertex share vertex A,
   its start values and all gradients, so later triangles send only two
-  vertices and the command. Registers go out in ascending order for PCI
-  bursts, and unchanged state is never resent. The model test measures 23
-  register writes per textured quad, including texture switches.
+  vertices and the command.
+- Registers go out in ascending order (A, B, C, starts, gradients, command)
+  for PCI bursts, and unchanged state is never resent: about 22 writes per
+  textured face on real frames.
+- The plane's one FDIV overlaps the first triangle's six vertex writes,
+  which are integer moves of the float bits (an FPU store would wait for
+  the divide); the disassembly confirms the order.
 - 3D renders at 640x400; one logical pixel of the 320x200 front end is a
   2x2 block, and the textures are perspective-correct per pixel.
 - The game's 2D layer (HUD, text, crosshair, rain, menus) still draws into
-  its 8-bit pages. 3D frames leave index `0xF0` (olive level 0, which the UI
-  never draws) in the view rows, and only other pixels are written over the
-  Voodoo frame. HUD and 2D-frame rows are diffed per Voodoo buffer. Darkening
-  a 3D frame for a menu first reads the view back through the LFB.
+  its 8-bit pages.
+  - 3D frames leave index `0xF0` (olive level 0, which the UI never draws)
+    in the view rows, and only other pixels are written over the Voodoo
+    frame.
+  - A page is re-keyed only in the rows its overlays touched.
+  - HUD and 2D-frame rows are diffed per Voodoo buffer.
+  - Darkening a 3D frame for a menu first reads the view back through the
+    LFB.
 - Distant terrain draws into an 8-bit layer, sent as chroma-keyed 64x64
-  texture tiles.
+  texture tiles. Each tile is drawn only over the rectangle its content
+  spans (chroma-keyed pixels still cost fill) and downloaded only when its
+  texels changed: a still view goes from about 14,000 texture writes per
+  frame to almost none.
 - Dynamic textures (held-item icon, far tiles) alternate between two TMU
   slots, so queued triangles never see a rewrite.
 
@@ -116,34 +154,62 @@ an alternative, is future work.
 ### Presets in the 1996 build
 
 All presets run at 320x200 (Very Low at 160x100) with no near subdivision.
-Low/Medium/High view 8/12/16 blocks, and High is the startup default. Distant
-terrain starts at High. The renderer's 16-block limit stays: going further
-means larger world streaming, to be decided from measurements. The 128 MiB
-machine gets a 2 MiB low and 24 MiB high heap tier.
+Low/Medium/High view 8/16/24 blocks, and High is the startup default; the
+settings menu reaches 32. Distant terrain starts at High.
+
+On 32 MiB or more (the 128 MiB machine), the world keeps a 7x7 ring of
+terrain columns resident: at least 48 blocks on every side, for a 32-block
+view plus the streaming margin. It also gets a 64,000-quad mesh pool and a
+2 MiB low / 24 MiB high heap tier. The 386/486 builds keep 5x5 and 24,000
+quads.
+
+### Measured workload
+
+`tests/r96_frame_probe.c` renders the real prebaked world through the
+actual transformed front end, natively: 20 views from five places, four
+directions each, at eye height and from above. Per frame, on average:
+
+| View | Faces | Rows | Spans | Textured pixels | Segments |
+| --- | --- | --- | --- | --- | --- |
+| 8 | 34 | 1,108 | 1,022 | 36k | 2,781 |
+| 16 | 162 | 2,987 | 2,802 | 59k | 5,186 |
+| 24 | 409 | 5,335 | 4,950 | 77k | 7,543 |
+| 32 | 795 | 7,849 | 7,202 | 91k | 9,949 |
+
+Per-row overhead outweighs per-pixel work at these settings, which is what
+the short-span path and the FDIV scheduling target. Host timings say
+nothing absolute about a Pentium; real frame rates need the VM.
 
 ## Verification so far
 
 `python -m unittest tests.test_r96` (native x86 via the pinned Zig, plus
 DJGPP compiles):
 
-- **Overlay:** applies exactly to the release `render.c`/`raster.h`.
+- **Overlay:** applies exactly to the release sources.
 - **Software (3000 random projected quads):**
   - coverage equals the flat rasterizer's, with no writes outside the polygon
     or the target;
-  - the assembly matches the C reference on 99.999% of pixels;
-  - every pixel is within one texel of exact-at-segment-ends with linear
-    steps between;
+  - the assembly matches the C reference bit for bit;
+  - every pixel is within one texel of the span model (exact ends or middle
+    with linear steps);
   - transparency is respected, and the FPU control word and x87 stack are
-    restored.
-  - On these deliberately harsh scenes (near, grazing), 6.1% of unminified
+    restored after each frame;
+  - the Mode X plane writer equals a byte-wise pack.
+  - On these deliberately harsh scenes (near, grazing), 5.9% of unminified
     texels land on a neighbor of the exact per-pixel texel: the usual cost of
-    16-pixel segments.
+    piecewise-linear spans.
 - **Voodoo (1500 scenes against a model of the SST-1 that follows 86Box's
   span walk, start-value and S/W sampling rules):**
   - 99.95% of texels exact;
   - edges within 1.7% of the 320x200 coverage (the board draws true 640x400
     edges);
   - fast fills, the far-terrain layer and affine polygons checked.
+- **Real frames:** the prebaked world (with its distant-terrain map) through
+  both builds' front ends.
+  - The software assembly equals the C reference on all 20 views at 16 and
+    32 blocks.
+  - The Voodoo backend renders all 20 views at 24 blocks into the model.
+  - Images were inspected.
 
 The release build is byte-identical after the shared build changes.
 
@@ -155,6 +221,6 @@ The release build is byte-identical after the shared build changes.
 2. In-emulator smoke tests of all three executables, including the Voodoo
    mode set, compositing and menu read-back.
 3. Frame-rate benchmarks of `D96REF` vs `D96SOFT` vs `D963DFX` on the fixed
-   replays, then P5 tuning of the hot loops from the profile.
-4. Decide on view distance beyond 16 blocks, and on Glide or a real-board
-   `sst1Init`.
+   replays at 16, 24 and 32 blocks. Then tune the presets and profile the
+   hot loops under 86Box's Pentium timing.
+4. Glide or a real-board `sst1Init`.

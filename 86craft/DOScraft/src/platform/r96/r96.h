@@ -8,6 +8,18 @@
    instead of r96_span.S (tests and diagnostics). */
 extern int r96_reference_spans;
 
+/* Workload counters of the software backend (R96_STATS builds only). */
+typedef struct
+{
+	u32 persp,affine,flat,pixel;    /* raster calls by kind */
+	u32 rows,spans,pixels,flatPixels;
+	u32 segments;                   /* 16-pixel perspective segments */
+	u32 spanLen[6];                 /* 1,2-3,4-7,8-15,16-31,32+ */
+	u32 depthRatio[6];              /* (qmax-qmin)/qmin: <1%,<2%,<5%,<10%,<25%,more */
+	u32 affinePolys,affineRows,affinePixels; /* depth ratio x texel range <= 1/2 */
+} R96Stats;
+extern R96Stats r96_stats;
+
 /* The atlas or texture metadata changed (render.c, R96 overlay). */
 void r96_textures_changed(void);
 
@@ -34,5 +46,9 @@ extern int r96_scale_x,r96_scale_y;
 /* Back buffer to an 8-bit page's view rows where they hold R96_KEY (for
    effects that read the 3D view, such as darkening menus). */
 void r96_3dfx_read_view(u8 *page,int pitch);
+/* Page bookkeeping for re-keying only what 2D drawing touched: a view row
+   of the page held an overlay, or the page was used for a 2D frame. */
+void r96_3dfx_page_dirty_row(u8 *page,int y);
+void r96_3dfx_page_unkeyed(u8 *page);
 
 #endif

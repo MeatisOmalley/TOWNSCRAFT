@@ -94,6 +94,20 @@ static double exact_at(const Exact *e,double x,double y,int which)
    no-wrap ends are clamped into the tile as the loops clamp them. */
 static double model_at(const Exact *e,int x,int y,int which,int xl,int xr,int wrap)
 {
+	if(xr-xl<=16)
+	{
+		/* Short spans: exact value and slope at the middle, both ends
+		   clamped into the tile when not wrapping. */
+		double xm=xl+(xr-xl-1)*0.5,h=(xr-xl-1)*0.5;
+		double um=exact_at(e,xm,y,which),d=(exact_at(e,xm+0.001,y,which)-exact_at(e,xm-0.001,y,which))/0.002;
+		double a=um-d*h,b=um+d*h;
+		if(!wrap)
+		{
+			double lo=0x80/65536.0,hi=0xFFF80/65536.0;
+			a=a<lo?lo:a>hi?hi:a; b=b<lo?lo:b>hi?hi:b;
+		}
+		return h==0 ? a : a+(b-a)*(x-xl)/(2*h);
+	}
 	int x0=xl+(x-xl)/16*16,x1=x0+16<xr-1 ? x0+16 : xr-1;
 	double a=exact_at(e,x0,y,which),b=exact_at(e,x1,y,which);
 	if(!wrap)
@@ -131,9 +145,32 @@ static int fail(const char *what,int scene)
 	return 1;
 }
 
+void r96_vga_plane_rows(const unsigned char *src,unsigned int pitch,unsigned int rows,unsigned int *vga);
+
+/* The Mode X plane writer against a plain byte deinterleave: every plane,
+   band heights 1..16, the 512-byte frame pitch. */
+static int check_vga_planes(void)
+{
+	static u8 src[16*512];
+	static u32 vga[16*20+8];
+	for(int i=0;i<(int)sizeof(src);++i) src[i]=(u8)rng();
+	for(int rows=1;rows<=16;++rows) for(int plane=0;plane<4;++plane)
+	{
+		memset(vga,0xA5,sizeof(vga));
+		r96_vga_plane_rows(src+plane,512,rows,vga);
+		const u8 *got=(const u8 *)vga;
+		for(int y=0;y<rows;++y) for(int x=0;x<80;++x)
+			if(got[y*80+x]!=src[y*512+x*4+plane]) { printf("FAIL: plane %d row %d byte %d\n",plane,y,x); return 1; }
+		if(got[rows*80]!=0xA5) { printf("FAIL: plane writer past its rows\n"); return 1; }
+	}
+	printf("PASS: Mode X plane writer\n");
+	return 0;
+}
+
 int main(int argc,char **argv)
 {
 	int scenes=argc>1 ? atoi(argv[1]) : 3000;
+	if(check_vga_planes()) return 1;
 	long covered=0,refDiff=0,exactDiff=0,maxErr=0,transpChecked=0,sharp=0,sharpDiff=0;
 	u16 cw0,cw1;
 	page=(u8 *)(((uintptr_t)atlasStore+4095)&~(uintptr_t)4095);
@@ -180,8 +217,9 @@ int main(int argc,char **argv)
 		clear(frameA2,0xFE);
 		raster_set_target(row(frameA2,0),W,H,PITCH,1);
 		raster_poly(v,4,tile,flags);
+		raster_finish();
 		__asm__ volatile("fnstcw %0":"=m"(cw1));
-		if(cw1!=cw0) return fail("FPU control word not restored",sc);
+		if(cw1!=cw0) return fail("FPU control word not restored by raster_finish",sc);
 		{
 			/* Every divide started for a segment or row must be consumed:
 			   an empty x87 stack has all tags 11b. */
@@ -195,6 +233,7 @@ int main(int argc,char **argv)
 		raster_set_target(row(frameB,0),W,H,PITCH,1);
 		r96_reference_spans=1;
 		raster_poly(v,4,tile,flags);
+		raster_finish();
 		r96_reference_spans=0;
 		Exact ex; exact_plane(v,4,&ex);
 		for(int y=0;y<H;++y) for(int x=0,xl=-1,xr=-1;x<W;++x)
@@ -234,7 +273,13 @@ int main(int argc,char **argv)
 			if(!written)
 			{
 				/* Transparent texel drawn as hole: only legal at texel 0 */
-				if(!transparent) return fail("opaque assembly left a covered pixel unwritten",sc);
+				if(!transparent)
+				{
+					printf("row %d span %d..%d, pixel %d unwritten; row:",y,xl,xr,x);
+					for(int i=xl;i<xr;++i) printf(" %d",!(row(frameA,y)[i]==0xFF && row(frameA2,y)[i]==0xFE));
+					printf("\n");
+					return fail("opaque assembly left a covered pixel unwritten",sc);
+				}
 				double mu=model_at(&ex,x,y,0,xl,xr,wrap),mv=model_at(&ex,x,y,1,xl,xr,wrap);
 				if(circ((int)(mu+64)-64)>1 || circ((int)(mv+64)-64)>1)
 					return fail("hole not within one pixel of the transparent texel",sc);
@@ -255,6 +300,13 @@ int main(int argc,char **argv)
 			double mu=model_at(&ex,x,y,0,xl,xr,wrap),mv=model_at(&ex,x,y,1,xl,xr,wrap);
 			int ou=circ(au-((int)(mu+1024)-1024)),ov=circ(av-((int)(mv+1024)-1024));
 			if(!wrap) { ou=abs(au-(int)mu); ov=abs(av-(int)mv); }
+			if(1==a && !transparent)
+			{
+				/* Opaque tiles store texel (0,0) as 1 too: either may be meant. */
+				int ou0=circ(-((int)(mu+1024)-1024)),ov0=circ(-((int)(mv+1024)-1024));
+				if(!wrap) { ou0=abs((int)mu); ov0=abs((int)mv); }
+				if(MAX(ou0,ov0)<MAX(ou,ov)) { ou=ou0; ov=ov0; }
+			}
 			if(ou>1 || ov>1) {
 				printf("pixel %d,%d got %d (u=%d v=%d) expected %d exact u=%.3f v=%.3f err=%d wrap=%d transp=%d\n",
 					x,y,a,au,av,expected,u,vv,err,wrap,transparent);

@@ -70,7 +70,8 @@ A [1996 port](HARDWARE_1996.md) targets a Pentium 200 with an optional 3dfx
 Voodoo Graphics. `tools/build_1996.py` builds the shipping renderer as a
 baseline (`D96REF.EXE`), a Pentium software renderer with Quake-style
 perspective spans (`D96SOFT.EXE`) and a Voodoo renderer with its own SST-1
-driver (`D963DFX.EXE`). They are tested natively but have not yet run in the
+driver (`D963DFX.EXE`), with views of up to 32 blocks on its 128 MiB machine.
+They are tested natively on real world frames but have not yet run in the
 pending 1996 VM.
 
 The shared ISO now includes the first restrained block-texture pass. A separate

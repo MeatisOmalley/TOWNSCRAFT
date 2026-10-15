@@ -86,7 +86,7 @@ class SoftwareSpanNativeTests(unittest.TestCase):
                  '-Wno-unused-function', '-I', src, '-I', ROOT / 'src/platform/dos',
                  '-I', R96]
         objects = []
-        for source in (R96 / 'r96_soft.c', R96 / 'r96_span.S'):
+        for source in (R96 / 'r96_soft.c', R96 / 'r96_span.S', R96 / 'r96_vga.S'):
             obj = folder / (source.stem + '.o')
             run([*flags, '-Werror', '-c', source, '-o', obj])
             objects.append(obj)
@@ -96,6 +96,7 @@ class SoftwareSpanNativeTests(unittest.TestCase):
     def test_assembly_matches_reference_exact_perspective_and_coverage(self):
         result = run([self.executable, '3000'])
         print(result.stdout.strip())
+        self.assertIn('PASS: Mode X plane writer', result.stdout)
         self.assertIn('PASS: 3000 perspective scenes', result.stdout)
 
 
@@ -128,6 +129,93 @@ class VoodooBackendNativeTests(unittest.TestCase):
         self.assertIn('PASS: 1500 Voodoo scenes, fills, far layer, affine', result.stdout)
 
 
+
+def find_terrain():
+    """A prebaked 1024 world with its distant-terrain map (ignored build data)."""
+    name = Path('build/checks/large-world-proto/terrain1024-far.bin')
+    for base in (ROOT, Path.home() / 'Documents/craft/86craft/DOScraft'):
+        if (base / name).is_file():
+            return base / name
+    return None
+
+
+TERRAIN = find_terrain()
+
+
+@unittest.skipUnless(sys.platform == 'win32' and ZIG is not None and TERRAIN is not None
+                     and imported.COMPILER.is_file(),
+                     'Zig, DJGPP and the prebaked 1024 world are required')
+class WholeFrameTests(unittest.TestCase):
+    """Real frames of the prebaked world through the actual 1996 front end."""
+    def probe(self, folder, variant):
+        import shutil
+        output = folder / variant
+        build_1996.build(variant, output=output)
+        src = output / 'imported/src'
+        inc = folder / 'inc'
+        inc.mkdir(exist_ok=True)
+        (inc / 'dpmi.h').write_text('typedef struct { struct { unsigned short ax,bx,flags; } x; } __dpmi_regs;\n'
+                                    'int __dpmi_int(int,__dpmi_regs *);\n')
+        common = ['-DDOS_STREAM_LIGHT_CACHE', '-DDOS_FAR_FIELD', '-DDOS_FAR_DETAILS',
+                  '-DDOS_FAR_VIEW_DEPTH', '-DDOS_FAR_REPROJECT']
+        platform = [*common, '-DDOS_LARGE_WORLD', '-DDOS_R96', '-DDOS_GRAPHICS_PRESETS']
+        platform += ['-DR96_SST_HOOK', '-DR96_PROBE_3DFX', '-DDOS_R96_3DFX'] if variant == '3dfx' else ['-DR96_STATS']
+        flags = [ZIG, 'cc', '-target', 'x86-windows-gnu', '-mcpu=pentium', '-O2', '-std=gnu99',
+                 '-fno-builtin', '-w', '-I', inc, '-I', src, '-I', output / 'platform/src',
+                 '-I', ROOT / 'src/platform/dos', '-I', R96, '-I', ROOT / 'tests']
+        objects = []
+        for name in ('render', 'world', 'textures', 'blocks', 'fmath', 'tables', 'libc'):
+            obj = folder / f'{variant}-{name}.o'
+            run([*flags, *common, '-c', src / f'{name}.c', '-o', obj])
+            objects.append(obj)
+        backend = (('r96_raster3dfx.c', 'r96_sst1.c') if variant == '3dfx'
+                   else ('r96_soft.c', 'r96_span.S'))
+        sources = [ROOT / 'src/platform/dos/heap.c', ROOT / 'src/platform/dos/graphics_presets.c',
+                   *(R96 / name for name in backend)]
+        for source in sources:
+            obj = folder / f'{variant}-{source.stem}.o'
+            run([*flags, *platform, '-c', source, '-o', obj])
+            objects.append(obj)
+        obj = folder / f'{variant}-hdd.o'
+        run([*flags, *platform, '-Dopen=world_test_open', '-c', ROOT / 'src/platform/dos/hdd.c', '-o', obj])
+        exe = folder / f'probe-{variant}.exe'
+        run([*flags, *platform, ROOT / 'tests/r96_frame_probe.c', *objects, obj, '-o', exe])
+        terrain = folder / 'terrain.bin'
+        if not terrain.exists():
+            shutil.copyfile(TERRAIN, terrain)
+        (folder / 'png').mkdir(exist_ok=True)
+        return exe, terrain
+
+    def test_software_assembly_equals_reference_on_real_frames(self):
+        with tempfile.TemporaryDirectory(prefix='doscraft-r96-frames-') as directory:
+            folder = Path(directory)
+            exe, terrain = self.probe(folder, 'soft')
+            for view in ('16', '32'):
+                sums = []
+                for reference in (False, True):
+                    env = dict(os.environ)
+                    env.pop('R96_REF', None)
+                    if reference:
+                        env['R96_REF'] = '1'
+                    result = subprocess.run([str(exe), str(terrain), str(folder / 'png'), view],
+                                            capture_output=True, text=True, env=env, timeout=600)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    sums.append([line.split()[1] for line in result.stdout.splitlines()
+                                 if line.startswith('p') and ' sum=' in line])
+                self.assertEqual(len(sums[0]), 20)
+                self.assertEqual(sums[0], sums[1], f'view {view}: assembly frames differ from C reference')
+
+    def test_voodoo_backend_renders_real_frames(self):
+        with tempfile.TemporaryDirectory(prefix='doscraft-r96-frames3d-') as directory:
+            folder = Path(directory)
+            exe, terrain = self.probe(folder, '3dfx')
+            result = run([exe, terrain, folder / 'png', '24'], timeout=600)
+            frames = [line for line in result.stdout.splitlines() if line.startswith('p')]
+            self.assertEqual(len(frames), 20)
+            self.assertTrue(all(int(line.split('triangles=')[1].split()[0]) >= 0 for line in frames))
+            self.assertTrue((folder / 'png/v1-1.png').stat().st_size > 1000)
+
+
 @unittest.skipUnless(imported.COMPILER.is_file(), 'Existing DJGPP unavailable')
 class DjgppObjectTests(unittest.TestCase):
     """The 1996 sources compile for the Pentium DOS target as built."""
@@ -141,7 +229,7 @@ class DjgppObjectTests(unittest.TestCase):
             fpu = [flag for flag in integer if flag not in ('-mno-80387', '-mgeneral-regs-only')]
             # r96_gfx3dfx.c needs the staged gfx drawing include: build_1996 covers it.
             for name in ('r96_soft.c', 'r96_raster3dfx.c', 'r96_sst1.c', 'r96_video3dfx.c',
-                         'r96_span.S'):
+                         'r96_span.S', 'r96_vga.S'):
                 flags = integer if name == 'r96_video3dfx.c' else fpu
                 obj = folder / (Path(name).stem + '.o')
                 run([*flags, '-c', R96 / name, '-o', obj])

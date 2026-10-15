@@ -12,12 +12,16 @@
    SST-1 needs host gradients), done once per polygon: every triangle of a
    fan from the topmost vertex shares vertex A, its start values and the
    gradients, so only the first triangle sends them. Later triangles write
-   two vertices and the command. Registers are written in ascending order
-   for PCI bursts, and repeated state is never resent.
+   two vertices and the command. Registers go out in ascending order
+   (A,B,C 0x88-0x9c, starts 0xb4-0xbc, gradients 0xd4-0xfc, command 0x100)
+   so the chipset can merge PCI writes into bursts, and repeated state is
+   never resent. The plane's one divide overlaps the first triangle's six
+   vertex writes, which are integer moves of the float bits: an FPU store
+   would wait for the divide.
 
    2D effects that the game draws into its 8-bit page are composited by
    r96_gfx3dfx.c; distant terrain is drawn into an 8-bit layer here and sent
-   as 64x64 texture tiles. */
+   as 64x64 texture tiles, each drawn only over its content. */
 #include "raster.h"
 #include "gfx.h"
 #include "textures.h"
@@ -41,6 +45,7 @@ int r96_frame_3d;
 
 static int vw,vh;
 static float toX,toY;           /* Voodoo pixels per 28.4 unit */
+static const float one=1.0f;
 
 /* Register state as last written (~0: unknown) */
 static u32 curPath=~0u,curMode=~0u,curTexMode=~0u,curBase=~0u,curLod=~0u,curColor=~0u;
@@ -137,7 +142,12 @@ static u32 tile_address(const u8 *tile)
 #define FAR_COLS ((SCR_W+FAR_TILE-1)/FAR_TILE)
 #define FAR_ROWS ((VIEW_H+FAR_TILE-1)/FAR_TILE)
 static u8 farLayer[FAR_ROWS*FAR_TILE][FAR_COLS*FAR_TILE];
-static int farTop=VIEW_H,farBottom,farSet;
+static int farTop=VIEW_H,farBottom;
+/* What each tile last sent: its slot (of two) and texels. An unchanged tile
+   is drawn from that slot again without a download; a changed one goes to
+   the other slot, which no queued triangle still reads. */
+typedef struct { int slot,valid,r0,r1,c0,c1; u8 texels[FAR_TILE*FAR_TILE]; } FarSent;
+static FarSent farSent[FAR_ROWS*FAR_COLS];
 
 static void flush_far(void);
 static inline void before_draw(void)
@@ -178,21 +188,28 @@ void raster_far_strip(int x,int width,int y0,int y1,u8 color)
 
 /* ---------- Triangles ---------- */
 
-typedef struct { float x,y; } P2;
+/* A vertex on the Voodoo, as floats and their bits */
+typedef union { float f; u32 u; } FU;
+typedef struct { FU x,y; int ix,iy; } P2;   /* ix,iy: 28.4 for ordering */
 
-/* SST-1 triangle: A has the smallest y, then B, then C; the sign tells
-   on which side of AC the vertex B lies. */
-static inline void emit_bc(const P2 *a,const P2 *b,const P2 *c)
+/* SST-1 triangle: A has the smallest y, then B, then C; the sign tells on
+   which side of AC the vertex B lies. Ordered with the integer 28.4 values,
+   so no FPU instruction is involved. */
+static inline u32 order_bc(const P2 *a,const P2 **b,const P2 **c)
 {
 	const P2 *t;
-	float area;
-	if(c->y<b->y) { t=b; b=c; c=t; }
-	area=(b->x-a->x)*(c->y-a->y)-(c->x-a->x)*(b->y-a->y);
-	sst_f(SST_FVERTEX_BX,b->x);
-	sst_f(SST_FVERTEX_BY,b->y);
-	sst_f(SST_FVERTEX_CX,c->x);
-	sst_f(SST_FVERTEX_CY,c->y);
-	sst_w(SST_FTRIANGLE,area<0 ? 0x80000000u : 0);
+	if((*c)->iy<(*b)->iy) { t=*b; *b=*c; *c=t; }
+	return ((*b)->ix-a->ix)*((*c)->iy-a->iy)-((*c)->ix-a->ix)*((*b)->iy-a->iy)<0 ? 0x80000000u : 0;
+}
+
+static inline void emit_bc(const P2 *a,const P2 *b,const P2 *c)
+{
+	u32 sign=order_bc(a,&b,&c);
+	sst_w(SST_FVERTEX_BX,b->x.u);
+	sst_w(SST_FVERTEX_BY,b->y.u);
+	sst_w(SST_FVERTEX_CX,c->x.u);
+	sst_w(SST_FVERTEX_CY,c->y.u);
+	sst_w(SST_FTRIANGLE,sign);
 }
 
 static int to_screen(const RVert *v,int n,P2 *p)
@@ -200,8 +217,10 @@ static int to_screen(const RVert *v,int n,P2 *p)
 	int i,top=0;
 	for(i=0; i<n; ++i)
 	{
-		p[i].x=v[i].x*toX;
-		p[i].y=v[i].y*toY;
+		p[i].x.f=v[i].x*toX;
+		p[i].y.f=v[i].y*toY;
+		p[i].ix=v[i].x;
+		p[i].iy=v[i].y;
 		if(v[i].y<v[top].y) top=i;
 	}
 	return top;
@@ -211,8 +230,8 @@ static int to_screen(const RVert *v,int n,P2 *p)
 static void flat_fan(const P2 *p,int n,int top)
 {
 	int k;
-	sst_f(SST_FVERTEX_AX,p[top].x);
-	sst_f(SST_FVERTEX_AY,p[top].y);
+	sst_w(SST_FVERTEX_AX,p[top].x.u);
+	sst_w(SST_FVERTEX_AY,p[top].y.u);
 	for(k=1; k+1<n; ++k)
 		emit_bc(&p[top],&p[(top+k)%n],&p[(top+k+1)%n]);
 }
@@ -232,30 +251,46 @@ void raster_flat_poly(const RVert *v,int n,u8 color)
 }
 
 /* Plane of S/W=u*16*q, T/W=v*16*q, 1/W=q over Voodoo pixels (the TMU
-   samples texel (S/W)>>4 of a 16x16 tile), fitted to the fan triangle of
-   largest area. Affine polygons (no w) use q=1 per triangle instead. */
-typedef struct { float s,t,q,dsdx,dtdx,dqdx,dsdy,dtdy,dqdy; } Grad;
+   samples texel (S/W)>>4 of a 16x16 tile). Affine polygons (no w) use q=1
+   per triangle instead. */
+typedef struct { float dsdx,dtdx,dqdx,dsdy,dtdy,dqdy; } Grad;
 #define Q_SCALE (1.0f/16777216.0f)     /* w<=focal16<<16/NEAR_Z keeps q below 1 */
 #define ST_SCALE (16.0f/65536.0f)      /* 16.16 texels to 16x16-tile S/W units */
 
-static int gradients(const P2 *p,const float *q,const float *s,const float *t,int a,int b,int c,Grad *g)
+/* 1/det, and the six vertex registers of the first triangle (A, B, C as
+   float bits) sent while the FDIV runs. */
+static inline float divide_sending_abc(float det,const u32 *abc)
 {
-	float x1=p[b].x-p[a].x,y1=p[b].y-p[a].y,x2=p[c].x-p[a].x,y2=p[c].y-p[a].y;
-	float det=x1*y2-x2*y1,inv;
-	if(det>-0.01f && det<0.01f) return 0;
-	inv=1.0f/det;
+#ifdef R96_SST_HOOK
+	int i;
+	for(i=0; i<6; ++i) sst_w(SST_FVERTEX_AX+i*4,abc[i]);
+	return one/det;
+#else
+	float inv;
+	__asm__ volatile(
+		"fdivrs %3\n\t"
+		"movl (%2),%%eax\n\tmovl %%eax,0x88(%1)\n\t"
+		"movl 4(%2),%%eax\n\tmovl %%eax,0x8c(%1)\n\t"
+		"movl 8(%2),%%eax\n\tmovl %%eax,0x90(%1)\n\t"
+		"movl 12(%2),%%eax\n\tmovl %%eax,0x94(%1)\n\t"
+		"movl 16(%2),%%eax\n\tmovl %%eax,0x98(%1)\n\t"
+		"movl 20(%2),%%eax\n\tmovl %%eax,0x9c(%1)"
+		: "=t"(inv) : "r"(r96_sst),"r"(abc),"m"(one),"0"(det) : "eax","memory");
+	return inv;
+#endif
+}
+
+static inline void gradients(const float *q,const float *s,const float *t,int a,int b,int c,
+	float x1,float y1,float x2,float y2,float inv,Grad *g)
+{
 	g->dqdx=((q[b]-q[a])*y2-(q[c]-q[a])*y1)*inv; g->dqdy=((q[c]-q[a])*x1-(q[b]-q[a])*x2)*inv;
 	g->dsdx=((s[b]-s[a])*y2-(s[c]-s[a])*y1)*inv; g->dsdy=((s[c]-s[a])*x1-(s[b]-s[a])*x2)*inv;
 	g->dtdx=((t[b]-t[a])*y2-(t[c]-t[a])*y1)*inv; g->dtdy=((t[c]-t[a])*x1-(t[b]-t[a])*x2)*inv;
-	return 1;
 }
 
-/* Vertex A with the parameters at it, then the gradients: ascending
-   registers 0x88..0xfc, so the chipset can merge them into PCI bursts. */
-static inline void send_a(const P2 *a,float s,float t,float q,const Grad *g)
+/* Parameters at vertex A, then the gradients (0xb4..0xfc). */
+static inline void send_params(float s,float t,float q,const Grad *g)
 {
-	sst_f(SST_FVERTEX_AX,a->x);
-	sst_f(SST_FVERTEX_AY,a->y);
 	sst_f(SST_FSTART_S,s);
 	sst_f(SST_FSTART_T,t);
 	sst_f(SST_FSTART_W,q);
@@ -265,6 +300,29 @@ static inline void send_a(const P2 *a,float s,float t,float q,const Grad *g)
 	sst_f(SST_FDSDY,g->dsdy);
 	sst_f(SST_FDTDY,g->dtdy);
 	sst_f(SST_FDWDY,g->dqdy);
+}
+
+/* One textured triangle (A, B, C) with gradients fitted to triangle
+   (fa,fb,fc) of the same plane; returns 0 when degenerate. */
+static int textured_triangle(const P2 *p,const float *q,const float *s,const float *t,
+	int a,int b,int c,int fa,int fb,int fc)
+{
+	const P2 *A=&p[a],*B=&p[b],*C=&p[c];
+	float x1=p[fb].x.f-p[fa].x.f,y1=p[fb].y.f-p[fa].y.f;
+	float x2=p[fc].x.f-p[fa].x.f,y2=p[fc].y.f-p[fa].y.f;
+	float det=x1*y2-x2*y1,inv,dx,dy;
+	u32 abc[6],sign;
+	Grad g;
+	if(det>-0.01f && det<0.01f) return 0;
+	sign=order_bc(A,&B,&C);
+	abc[0]=A->x.u; abc[1]=A->y.u; abc[2]=B->x.u; abc[3]=B->y.u; abc[4]=C->x.u; abc[5]=C->y.u;
+	inv=divide_sending_abc(det,abc);
+	gradients(q,s,t,fa,fb,fc,x1,y1,x2,y2,inv,&g);
+	/* Values at vertex A, on the plane */
+	dx=A->x.f-p[fa].x.f; dy=A->y.f-p[fa].y.f;
+	send_params(s[fa]+g.dsdx*dx+g.dsdy*dy,t[fa]+g.dtdx*dx+g.dtdy*dy,q[fa]+g.dqdx*dx+g.dqdy*dy,&g);
+	sst_w(SST_FTRIANGLE,sign);
+	return 1;
 }
 
 void raster_poly(const RVert *v,int n,const u8 *tile,int flags)
@@ -292,24 +350,18 @@ void raster_poly(const RVert *v,int n,const u8 *tile,int flags)
 	}
 	if(flags&RP_PERSP)
 	{
-		/* One plane for the polygon: every vertex lies on it. */
-		Grad g;
+		/* One plane for the polygon, fitted to the fan triangle of largest
+		   area (every vertex lies on it); later triangles reuse it. */
 		int best=1,k;
 		float bestArea=0;
 		for(i=1; i+1<n; ++i)
 		{
-			float area=(p[i].x-p[0].x)*(p[i+1].y-p[0].y)-(p[i+1].x-p[0].x)*(p[i].y-p[0].y);
+			float area=(p[i].x.f-p[0].x.f)*(p[i+1].y.f-p[0].y.f)-(p[i+1].x.f-p[0].x.f)*(p[i].y.f-p[0].y.f);
 			if(area<0) area=-area;
 			if(area>bestArea) { bestArea=area; best=i; }
 		}
-		if(!gradients(p,q,s,t,0,best,best+1,&g)) return;
-		{
-			/* Values at the topmost vertex, on the plane */
-			float dx=p[top].x-p[0].x,dy=p[top].y-p[0].y;
-			send_a(&p[top],s[0]+g.dsdx*dx+g.dsdy*dy,t[0]+g.dtdx*dx+g.dtdy*dy,
-			       q[0]+g.dqdx*dx+g.dqdy*dy,&g);
-		}
-		for(k=1; k+1<n; ++k)
+		if(!textured_triangle(p,q,s,t,top,(top+1)%n,(top+2)%n,0,best,best+1)) return;
+		for(k=2; k+1<n; ++k)
 			emit_bc(&p[top],&p[(top+k)%n],&p[(top+k+1)%n]);
 	}
 	else
@@ -319,10 +371,7 @@ void raster_poly(const RVert *v,int n,const u8 *tile,int flags)
 		for(k=1; k+1<n; ++k)
 		{
 			int b=(top+k)%n,c=(top+k+1)%n;
-			Grad g;
-			if(!gradients(p,q,s,t,top,b,c,&g)) continue;
-			send_a(&p[top],s[top],t[top],q[top],&g);
-			emit_bc(&p[top],&p[b],&p[c]);
+			textured_triangle(p,q,s,t,top,b,c,top,b,c);
 		}
 	}
 }
@@ -377,9 +426,43 @@ void raster_line(int x0,int y0,int x1,int y1,u8 color)
 
 /* ---------- Frame ---------- */
 
+/* The 8-bit pages under 3D frames hold R96_KEY in their view rows. A page
+   whose last use was a 3D frame needs only the rows its overlays touched
+   reset (r96_gfx3dfx.c reports them); any other page is keyed in full. */
+typedef struct { u8 *page; int keyed; u8 dirty[VIEW_H]; } KeyPage;
+static KeyPage keyPages[3];
+static int keyNext;
+
+static KeyPage *key_page(u8 *page,int create)
+{
+	int i;
+	for(i=0; i<3; ++i) if(keyPages[i].page==page) return &keyPages[i];
+	if(!create) return 0;
+	{
+		KeyPage *k=&keyPages[keyNext];
+		keyNext=(keyNext+1)%3;
+		k->page=page;
+		k->keyed=0;
+		return k;
+	}
+}
+
+void r96_3dfx_page_dirty_row(u8 *page,int y)
+{
+	KeyPage *k=key_page(page,0);
+	if(k && (unsigned)y<VIEW_H) k->dirty[y]=1;
+}
+
+void r96_3dfx_page_unkeyed(u8 *page)
+{
+	KeyPage *k=key_page(page,0);
+	if(k) k->keyed=0;
+}
+
 void raster_set_target(u8 *buf,int w,int h,int pitch,int scale)
 {
 	int y;
+	KeyPage *k=key_page(buf,1);
 	(void)scale;
 	vw=w; vh=h;
 	r96_scale_x=R96_SCREEN_W/w;
@@ -387,7 +470,10 @@ void raster_set_target(u8 *buf,int w,int h,int pitch,int scale)
 	toX=r96_scale_x/16.0f;
 	toY=r96_scale_y/16.0f;
 	/* The 3D view is on the Voodoo; the page keeps the key under overlays. */
-	for(y=0; y<VIEW_H; ++y) memset(buf+y*pitch,R96_KEY,SCR_W);
+	for(y=0; y<VIEW_H; ++y)
+		if(!k->keyed || k->dirty[y]) memset(buf+y*pitch,R96_KEY,SCR_W);
+	memset(k->dirty,0,sizeof(k->dirty));
+	k->keyed=1;
 	r96_frame_3d=1;
 	if(r96_palette_dirty) upload_palette();
 	clipView=0;
@@ -410,14 +496,14 @@ int raster_occluded(int minx,int maxx,int miny,int maxy,int nearDepth,u32 key)
 	return 0;
 }
 
-/* The far layer's dirty rows as 64x64 P8 tiles (alternating sets), each
-   drawn as a chroma-keyed quad; the layer is then cleared for next time. */
+/* The far layer's dirty rows as 64x64 P8 tiles, each drawn as a chroma-
+   keyed quad over the rectangle its content spans (keyed pixels still cost
+   the board fill time) and downloaded only when its texels changed; the
+   layer is then cleared. */
 static void flush_far(void)
 {
 	int tx,ty,y0=farTop,y1=farBottom;
-	u32 set=TEX_FAR+(u32)farSet*FAR_COLS*FAR_ROWS*4096u;
 	farTop=VIEW_H; farBottom=0;
-	farSet^=1;
 	set_texmode(SST_TM_LOCAL|SST_TM_P8|SST_TM_PERSP|SST_TM_CLAMP_S|SST_TM_CLAMP_T);
 	set_lod(LOD_64);
 	set_path(SST_CP_RGB_TEXTURE|SST_CP_TEXTURE|SST_CP_PARAM_ADJUST);
@@ -426,36 +512,57 @@ static void flush_far(void)
 	for(ty=y0/FAR_TILE; ty*FAR_TILE<y1; ++ty)
 		for(tx=0; tx*FAR_TILE<vw; ++tx)
 		{
-			u32 address=set+(u32)(ty*FAR_COLS+tx)*4096u;
-			int y,used=0;
+			FarSent *sent=&farSent[ty*FAR_COLS+tx];
+			u32 address;
+			int y,r0=FAR_TILE,r1=-1,c0=FAR_TILE/4,c1=-1,same;
 			const u8 *src=&farLayer[ty*FAR_TILE][tx*FAR_TILE];
-			for(y=0; y<FAR_TILE && !used; ++y)
-			{
-				const u32 *row=(const u32 *)(src+y*sizeof(farLayer[0]));
-				int i;
-				for(i=0; i<FAR_TILE/4; ++i) if(row[i]) { used=1; break; }
-			}
-			if(!used) continue;
-			/* LOD 2 base and download: rows of 64 texels, 4 per write */
-			curBase=((address-(65536u+16384u))>>3)&0x7FFFFu;
-			sst_w(SST_TEXBASE,curBase);
 			for(y=0; y<FAR_TILE; ++y)
 			{
 				const u32 *row=(const u32 *)(src+y*sizeof(farLayer[0]));
 				int i;
-				for(i=0; i<FAR_TILE/4; ++i) sst_tex_w((2u<<17)|((u32)y<<9)|((u32)i<<3),row[i]);
+				for(i=0; i<FAR_TILE/4; ++i)
+					if(row[i]) { r0=MIN(r0,y); r1=y; c0=MIN(c0,i); c1=MAX(c1,i); }
+			}
+			if(r1<0) continue;
+			same=sent->valid && sent->r0==r0 && sent->r1==r1 && sent->c0==c0 && sent->c1==c1;
+			for(y=r0; same && y<=r1; ++y)
+				same=!memcmp(sent->texels+y*FAR_TILE+c0*4,src+y*sizeof(farLayer[0])+c0*4,(c1-c0+1)*4);
+			if(!same)
+			{
+				sent->slot^=1;
+				sent->valid=1; sent->r0=r0; sent->r1=r1; sent->c0=c0; sent->c1=c1;
+			}
+			address=TEX_FAR+((u32)sent->slot*FAR_COLS*FAR_ROWS+(u32)(ty*FAR_COLS+tx))*4096u;
+			curBase=((address-(65536u+16384u))>>3)&0x7FFFFu;
+			sst_w(SST_TEXBASE,curBase);
+			if(!same)
+			{
+				/* LOD 2 download of the used rows: 64 texels, 4 per write */
+				for(y=r0; y<=r1; ++y)
+				{
+					const u32 *row=(const u32 *)(src+y*sizeof(farLayer[0]));
+					int i;
+					for(i=c0; i<=c1; ++i) sst_tex_w((2u<<17)|((u32)y<<9)|((u32)i<<3),row[i]);
+					memcpy(sent->texels+y*FAR_TILE+c0*4,src+y*sizeof(farLayer[0])+c0*4,(c1-c0+1)*4);
+				}
 			}
 			{
-				/* Screen quad of the tile, S/W over 0..256 */
-				float x0=tx*FAR_TILE*r96_scale_x,x1=x0+FAR_TILE*r96_scale_x;
-				float yA=ty*FAR_TILE*r96_scale_y,yB=yA+FAR_TILE*r96_scale_y;
-				Grad g={0,0,1,256.0f/(x1-x0),0,0,0,256.0f/(yB-yA),0};
-				P2 a={x0,yA},b={x1,yA},c={x1,yB},d={x0,yB};
-				send_a(&a,0,0,1,&g);
+				/* Screen rectangle of the used texels; S/W and T/W are 4 per
+				   texel of the 64x64 tile (256 across). */
+				float sx=(float)r96_scale_x,sy=(float)r96_scale_y;
+				float xa=(tx*FAR_TILE+c0*4)*sx,xb=(tx*FAR_TILE+c1*4+4)*sx;
+				float ya=(ty*FAR_TILE+r0)*sy,yb=(ty*FAR_TILE+r1+1)*sy;
+				Grad g={4.0f/sx,0,0,0,4.0f/sy,0};
+				P2 a,b,c,d;
+				a.x.f=xa; a.y.f=ya; b.x.f=xb; b.y.f=ya; c.x.f=xb; c.y.f=yb; d.x.f=xa; d.y.f=yb;
+				a.ix=d.ix=0; b.ix=c.ix=1; a.iy=b.iy=0; c.iy=d.iy=1;
+				sst_w(SST_FVERTEX_AX,a.x.u);
+				sst_w(SST_FVERTEX_AY,a.y.u);
+				send_params(c0*16.0f,r0*4.0f,1,&g);
 				emit_bc(&a,&b,&c);
 				emit_bc(&a,&c,&d);
 			}
-			for(y=0; y<FAR_TILE; ++y) memset((u8 *)src+y*sizeof(farLayer[0]),0,FAR_TILE);
+			for(y=r0; y<=r1; ++y) memset((u8 *)src+y*sizeof(farLayer[0]),0,FAR_TILE);
 		}
 }
 

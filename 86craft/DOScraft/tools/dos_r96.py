@@ -12,6 +12,8 @@ perspective instead of the 486 renderer's screen-affine spans:
 - The guard-band clip interpolates w linearly and u,v perspective-correctly.
 - The draw list holds more items, for the longer 1996 view distances.
 - Atlas rebuilds notify the backend (r96_textures_changed).
+- On 32 MiB or more (the 128 MiB 1996 machine), a 7x7 ring of resident
+  terrain columns and a larger mesh pool allow views of up to 32 blocks.
 
 Every replacement fails closed, as in dos_sources.
 """
@@ -37,10 +39,39 @@ static void r96_clip_uv(const RVert *a,const RVert *b,int t,RVert *o)
 
 
 def adapt(name, data):
-    if name not in ('raster.h', 'render.c'):
+    if name not in ('raster.h', 'render.c', 'world.c', 'column_cache.inc'):
         return data, []
     recipe = []
     text = lf_text(data, recipe)
+    if name == 'world.c':
+        # 128 MiB machines keep a 7x7 ring of terrain columns resident (48
+        # blocks on every side) instead of 5x5, for views beyond 16 blocks,
+        # and a mesh pool for the larger meshed area.
+        text = replace_once(text, 'static u8 residentDirty[25];\nstatic u8 residentReady[25];\n',
+            '/* R96: up to 49 resident columns (world_alloc) */\n'
+            'static u8 residentDirty[49];\nstatic u8 residentReady[49];\n', recipe)
+        text = replace_once(text, 'columnCoordsStorage[50];\n', 'columnCoordsStorage[98];\n', recipe)
+        text = replace_once(text, '\tg_residentColumns=25;\n',
+            '\tg_residentColumns=g_ramMB>=32 ? 49 : 25;\n', recipe)
+        text = replace_once(text, '\treturn g_ramMB<=2 ? 16000 : 24000;\n',
+            '\treturn g_ramMB>=32 ? 64000 : g_ramMB<=2 ? 16000 : 24000;\n', recipe)
+        return text.encode('utf-8'), recipe
+    if name == 'column_cache.inc':
+        # The streamed neighborhood and its eviction guard follow the ring.
+        text = replace_once(text, 'static void cache_stream(int x,int z,int budget)\n{\n',
+            '/* R96: columns kept around the player: 2 (5x5) or 3 (7x7) */\n'
+            '#define R96_RING (g_residentColumns>25 ? 3 : 2)\n'
+            'static void cache_stream(int x,int z,int budget)\n{\n', recipe)
+        text = replace_once(text,
+            '\t\t\tfor(cz=MAX(0,pcz-2); cz<=MIN(g_NC-1,pcz+2); ++cz)\n'
+            '\t\t\tfor(cx=MAX(0,pcx-2); cx<=MIN(g_NC-1,pcx+2); ++cx)\n',
+            '\t\t\tfor(cz=MAX(0,pcz-R96_RING); cz<=MIN(g_NC-1,pcz+R96_RING); ++cz)\n'
+            '\t\t\tfor(cx=MAX(0,pcx-R96_RING); cx<=MIN(g_NC-1,pcx+R96_RING); ++cx)\n', recipe)
+        text = replace_once(text,
+            '\t\t\tif(ABS(cx-pcx)<=2 && ABS(cz-pcz)<=2 && (!critical || d<=26*26)) continue;\n',
+            '\t\t\tif(ABS(cx-pcx)<=R96_RING && ABS(cz-pcz)<=R96_RING &&\n'
+            '\t\t\t   (!critical || d<=(R96_RING*16-6)*(R96_RING*16-6))) continue;\n', recipe)
+        return text.encode('utf-8'), recipe
     if name == 'raster.h':
         text = replace_once(text, '\tint u,v;   /* 16.16 texels */\n} RVert;',
             '\tint u,v;   /* 16.16 texels */\n'

@@ -61,7 +61,7 @@ def source_transform(variant, audio=True):
 
 
 def soft_adapters(names):
-    return (*names, 'r96/r96_soft.c', 'r96/r96_span.S')
+    return (*names, 'r96/r96_soft.c', 'r96/r96_span.S', 'r96/r96_vga.S')
 
 
 def voodoo_adapters(names):
@@ -98,9 +98,13 @@ def build(variant, output=None, benchmark=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('variants', nargs='*', choices=(*VARIANTS, []), default=list(VARIANTS))
+    parser.add_argument('variants', nargs='*', metavar='variant',
+                        help=f'any of {", ".join(VARIANTS)} (default: all)')
     parser.add_argument('--benchmark', action='store_true', help='Fixed-seed benchmark builds')
     args = parser.parse_args()
+    for variant in args.variants:
+        if variant not in VARIANTS:
+            parser.error(f'unknown variant {variant!r}; choose from {", ".join(VARIANTS)}')
     for variant in args.variants or VARIANTS:
         report = build(variant, benchmark=args.benchmark)
         print(f'{variant}: {OUTPUT / variant / EXE[variant]} ({report["executable_bytes"]} bytes)')

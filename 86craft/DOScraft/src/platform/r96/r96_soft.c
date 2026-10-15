@@ -1,7 +1,9 @@
 /* Pentium software rasterizer for the 1996 build (replaces raster.c/trap.S).
 
    Coverage is the 486 rasterizer's: 28.4 vertices, pixel centers, edges
-   stepped in 16.16 from an exact IDIV setup, so the same pixels are drawn.
+   stepped in 16.16, so the same pixels are drawn. Edge slopes come from a
+   reciprocal table and one 64-bit IMUL (about 14 cycles on a Pentium)
+   instead of IDIV (46).
    What changes is texturing. Polygons from the 3D front end carry w, the
    projection's focal16<<16/z (RP_PERSP); this file fits the polygon's plane
    to q=w/65536, s=u*q and t=v*q (all linear on screen) and r96_span.S maps
@@ -9,9 +11,10 @@
    FDIV with integer texel stores. Polygons without w (the held item) keep
    the old edge-interpolated affine mapping.
 
-   The FPU runs at single precision only around the span loops: FDIV is 19
-   instead of 39 cycles on a Pentium, and nothing there needs more bits.
-   Plane setup and everything else keep the default precision. */
+   The FPU runs at single precision from raster_set_target to raster_finish
+   (one FLDCW each per frame): FDIV is 19 instead of 39 cycles on a Pentium,
+   and no rasterizer value needs more bits. Nothing else in the game uses
+   the FPU. */
 #include "raster.h"
 #include "fmath.h"
 #include "gfx.h"
@@ -31,8 +34,9 @@ typedef struct
 	float q,s,t;            /* Plane at pixel (0,row) */
 	float dqdx,dsdx,dtdx;
 	float dqdy,dsdy,dtdy;
+	float dqdx16,dsdx16,dtdx16;  /* 16-pixel steps */
 } R96Trap;
-typedef char r96_trap_layout[(sizeof(R96Trap)==76) ? 1 : -1];
+typedef char r96_trap_layout[(sizeof(R96Trap)==88) ? 1 : -1];
 
 void r96_persp_opaque(R96Trap *t);
 void r96_persp_transp(R96Trap *t);
@@ -54,13 +58,42 @@ int r96_reference_spans;
 
 static u16 fpuDefault,fpuSingle;
 
+/* 2^31/dy for edge heights in 28.4 units: dx=(x1-x0)*recip>>15. */
+#define EDGE_RECIP 8192
+static int edgeRecip[EDGE_RECIP];
+
+#ifdef R96_STATS
+R96Stats r96_stats;
+static int statAffine;
+static int bucket(int v,const int *limits,int n)
+{
+	int i;
+	for(i=0; i<n && v>=limits[i]; ++i);
+	return i;
+}
+static void stat_span(int n)
+{
+	static const int limits[5]={2,4,8,16,32};
+	++r96_stats.spans; r96_stats.pixels+=n;
+	r96_stats.segments+=(n+15)/16;
+	++r96_stats.spanLen[bucket(n,limits,5)];
+}
+#define STAT(x) do { x; } while(0)
+#else
+#define STAT(x) do { } while(0)
+#endif
+
 void raster_set_target(u8 *buf,int w,int h,int pitch,int scale)
 {
 	if(!fpuDefault)
 	{
+		int i;
 		__asm__ volatile("fnstcw %0":"=m"(fpuDefault));
 		fpuSingle=fpuDefault&~0x0300;    /* PC=00: 24-bit mantissa */
+		edgeRecip[1]=0x7FFFFFFF;
+		for(i=2; i<EDGE_RECIP; ++i) edgeRecip[i]=(int)((0x80000000u+(u32)i/2)/(u32)i);
 	}
+	__asm__ volatile("fldcw %0"::"m"(fpuSingle));
 	rbuf=buf;
 	rw=w;
 	rh=h;
@@ -100,7 +133,7 @@ typedef struct
 static inline void pedge_init(PEdge *e,const RVert *a,const RVert *b,int s,int tex)
 {
 	int dy=b->y-a->y,pre=s*16+8-a->y;
-	e->dx=divshift(b->x-a->x,dy,16);
+	e->dx=dy<EDGE_RECIP ? mulshift(b->x-a->x,edgeRecip[dy],15) : divshift(b->x-a->x,dy,16);
 	e->x16=(a->x<<12)+mulshift(e->dx,pre,4);
 	if(tex)
 	{
@@ -138,6 +171,14 @@ static inline void flat_span(u8 *dst,int n,u32 color)
 	{
 		while(n-->0) *dst++=(u8)color;
 		return;
+	}
+	if(n>=32)
+	{
+		/* The P54C does not allocate lines on write misses: read each line
+		   first, so the dword stores hit L1 instead of draining one by one
+		   through the write buffers. */
+		const volatile u8 *line=(const volatile u8 *)((u32)dst&~31u);
+		for(; line<dst+n; line+=32) (void)*line;
 	}
 	n-=prefix;
 	while(prefix--) *dst++=(u8)color;
@@ -193,6 +234,11 @@ void raster_flat_poly(const RVert *v,int n,u8 color)
 	Scan sc;
 	int s,end;
 	u32 word=(u32)color*0x01010101u;
+#ifdef R96_NULL_RASTER
+	(void)v;(void)n;(void)word;(void)sc;(void)s;(void)end;
+	return;
+#endif
+	STAT(++r96_stats.flat);
 	if(!scan_begin(&sc,v,n)) return;
 	for(s=sc.sTop; s<sc.sBot && (end=scan_band(&sc,v,n,s,0)); )
 	{
@@ -205,6 +251,7 @@ void raster_flat_poly(const RVert *v,int n,u8 color)
 			if(xr>xl)
 			{
 				BENCH_HOOK(if(!g_fastFlat) g_benchCnt[S_FLATPX]+=xr-xl);
+				STAT(r96_stats.flatPixels+=xr-xl);
 				flat_span(row+xl*rscale,(xr-xl)*rscale,word);
 			}
 			sc.left->x16+=sc.left->dx;
@@ -236,6 +283,7 @@ static void affine_poly(const RVert *v,int n,const u8 *tile,int flags)
 {
 	Scan sc;
 	int s,end,wrap=flags&RP_WRAP,transparent=flags&RP_TRANSPARENT;
+	STAT(++r96_stats.affine);
 	if(!scan_begin(&sc,v,n)) return;
 	for(s=sc.sTop; s<sc.sBot && (end=scan_band(&sc,v,n,s,1)); )
 	{
@@ -315,31 +363,78 @@ static inline int round_float(float f)
 	return i;
 }
 
-/* The span loop of r96_span.S in C, on the same segment endpoints: exact
-   u,v at every 16th pixel and at the last one, linear in between. Serves
-   the doubled presets and the native tests. */
+/* The span loop of r96_span.S in C, with the same arithmetic: exact u,v
+   at every 16th pixel and at the last one, linear in between; full
+   segments step by (end-start)>>4, the last by the float difference over
+   k unless an end was clamped. Serves the doubled presets and the tests. */
 static void persp_span_c(u8 *dst,int x,int count,const R96Trap *t,int flags)
 {
-	int wrap=flags&RP_WRAP,transparent=flags&RP_TRANSPARENT;
-	float q=t->q+t->dqdx*x,s=t->s+t->dsdx*x,tt=t->t+t->dtdx*x;
-	int u0=round_float(s/q),v0=round_float(tt/q);
-	if(!wrap) { u0=CLAMP(u0,UV_LOW,UV_TOP); v0=CLAMP(v0,UV_LOW,UV_TOP); }
+	static const float invK[17]={1,1,1.0f/2,1.0f/3,1.0f/4,1.0f/5,1.0f/6,1.0f/7,1.0f/8,
+		1.0f/9,1.0f/10,1.0f/11,1.0f/12,1.0f/13,1.0f/14,1.0f/15,1.0f/16};
+	static const float halfN[17]={0,0,0.5f,1,1.5f,2,2.5f,3,3.5f,4,4.5f,5,5.5f,6,6.5f,7,7.5f};
+	int wrap=flags&RP_WRAP,transparent=flags&RP_TRANSPARENT,clamped=0;
+	if(count<=16)
+	{
+		/* Up to 16 pixels: value and slope at the span's middle */
+		float h=halfN[count],xe=(float)x+h;
+		float qm=t->q+t->dqdx*xe,sm=t->s+t->dsdx*xe,tm=t->t+t->dtdx*xe,zm=1.0f/qm;
+		float um=sm*zm,vm=tm*zm;
+		float duf=(t->dsdx-um*t->dqdx)*zm,dvf=(t->dtdx-vm*t->dqdx)*zm;
+		int du=round_float(duf),dv=round_float(dvf),i;
+		int u0=round_float(um-duf*h),v0=round_float(vm-dvf*h);
+		if(!wrap)
+		{
+			int u1=round_float(um+duf*h),v1=round_float(vm+dvf*h);
+			clamped=u0<UV_LOW || u0>UV_TOP || v0<UV_LOW || v0>UV_TOP ||
+			        u1<UV_LOW || u1>UV_TOP || v1<UV_LOW || v1>UV_TOP;
+			u0=CLAMP(u0,UV_LOW,UV_TOP); v0=CLAMP(v0,UV_LOW,UV_TOP);
+			u1=CLAMP(u1,UV_LOW,UV_TOP); v1=CLAMP(v1,UV_LOW,UV_TOP);
+			if(clamped && count>1)
+			{
+				du=round_float((u1-u0)*invK[count-1]);
+				dv=round_float((v1-v0)*invK[count-1]);
+			}
+		}
+		for(i=0; i<count; ++i,dst+=rscale)
+			put(dst,texel(t->tile,u0+i*du,v0+i*dv,wrap),transparent);
+		return;
+	}
+	{
+	float q=t->q+t->dqdx*x,s=t->s+t->dsdx*x,tt=t->t+t->dtdx*x,z=1.0f/q;
+	float u0f=s*z,v0f=tt*z;
+	int u0=round_float(u0f),v0=round_float(v0f);
+	if(!wrap)
+	{
+		clamped=u0<UV_LOW || u0>UV_TOP || v0<UV_LOW || v0>UV_TOP;
+		u0=CLAMP(u0,UV_LOW,UV_TOP); v0=CLAMP(v0,UV_LOW,UV_TOP);
+	}
 	while(count>0)
 	{
 		int len=count>16 ? 16 : count,k=count>16 ? 16 : count-1,i,u1,v1,du=0,dv=0;
 		if(k>0)
 		{
-			float q1=q+t->dqdx*k,s1=s+t->dsdx*k,t1=tt+t->dtdx*k;
-			u1=round_float(s1/q1); v1=round_float(t1/q1);
-			if(!wrap) { u1=CLAMP(u1,UV_LOW,UV_TOP); v1=CLAMP(v1,UV_LOW,UV_TOP); }
-			du=round_float((float)(u1-u0)/k); dv=round_float((float)(v1-v0)/k);
-			q=q1; s=s1; tt=t1;
+			float q1=k==16 ? q+t->dqdx16 : q+t->dqdx*k;
+			float s1=k==16 ? s+t->dsdx16 : s+t->dsdx*k;
+			float t1=k==16 ? tt+t->dtdx16 : tt+t->dtdx*k;
+			float z1=1.0f/q1,u1f=s1*z1,v1f=t1*z1;
+			u1=round_float(u1f); v1=round_float(v1f);
+			if(!wrap)
+			{
+				clamped|=u1<UV_LOW || u1>UV_TOP || v1<UV_LOW || v1>UV_TOP;
+				u1=CLAMP(u1,UV_LOW,UV_TOP); v1=CLAMP(v1,UV_LOW,UV_TOP);
+			}
+			if(16==k) { du=(u1-u0)>>4; dv=(v1-v0)>>4; }
+			else if(clamped) { du=round_float((u1-u0)*invK[k]); dv=round_float((v1-v0)*invK[k]); }
+			else { du=round_float((u1f-u0f)*invK[k]); dv=round_float((v1f-v0f)*invK[k]); }
+			q=q1; s=s1; tt=t1; u0f=u1f; v0f=v1f;
+			clamped=0;
 		}
 		else { u1=u0; v1=v0; }
 		for(i=0; i<len; ++i,dst+=rscale)
 			put(dst,texel(t->tile,u0+i*du,v0+i*dv,wrap),transparent);
 		u0=u1; v0=v1;
 		count-=len;
+	}
 	}
 }
 
@@ -350,6 +445,25 @@ static void persp_poly(const RVert *v,int n,const u8 *tile,int flags)
 	R96Trap t;
 	int s,end,useAsm;
 	if(!fit_plane(v,n,&p) || !scan_begin(&sc,v,n)) return;
+#ifdef R96_STATS
+	{
+		static const int limits[5]={1,2,5,10,25};
+		int i,qmin=v[0].w,qmax=v[0].w;
+		for(i=1; i<n; ++i) { qmin=MIN(qmin,v[i].w); qmax=MAX(qmax,v[i].w); }
+		++r96_stats.persp;
+		++r96_stats.depthRatio[bucket(qmin>0 ? (int)(((long long)(qmax-qmin)*100)/qmin) : 99,limits,5)];
+		{
+			int umin=v[0].u,umax=v[0].u,vmin=v[0].v,vmax=v[0].v;
+			for(i=1; i<n; ++i)
+			{
+				umin=MIN(umin,v[i].u); umax=MAX(umax,v[i].u);
+				vmin=MIN(vmin,v[i].v); vmax=MAX(vmax,v[i].v);
+			}
+			statAffine=qmin>0 && (double)(qmax-qmin)/qmin*((umax-umin)+(vmax-vmin))/65536.0<=0.5;
+			r96_stats.affinePolys+=statAffine;
+		}
+	}
+#endif
 	useAsm=1==rscale && !r96_reference_spans;
 	t.stride=rstride;
 	t.maxX=rw;
@@ -358,13 +472,25 @@ static void persp_poly(const RVert *v,int n,const u8 *tile,int flags)
 	t.q=p.q+p.dqdy*sc.sTop; t.s=p.s+p.dsdy*sc.sTop; t.t=p.t+p.dtdy*sc.sTop;
 	t.dqdx=p.dqdx; t.dsdx=p.dsdx; t.dtdx=p.dtdx;
 	t.dqdy=p.dqdy; t.dsdy=p.dsdy; t.dtdy=p.dtdy;
+	t.dqdx16=p.dqdx*16; t.dsdx16=p.dsdx*16; t.dtdx16=p.dtdx*16;
 	t.row=rbuf+sc.sTop*rstride;
-	if(useAsm) __asm__ volatile("fldcw %0"::"m"(fpuSingle));
 	for(s=sc.sTop; s<sc.sBot && (end=scan_band(&sc,v,n,s,0)); )
 	{
 		t.rows=end-s;
 		t.lx=sc.left->x16; t.ldx=sc.left->dx;
 		t.rx=sc.right->x16; t.rdx=sc.right->dx;
+#ifdef R96_STATS
+		{
+			int r,lx=t.lx,rx=t.rx;
+			for(r=0; r<t.rows; ++r,lx+=t.ldx,rx+=t.rdx)
+			{
+				int xl=MAX(0,(lx+0x7FFF)>>16),xr=MIN(rw,(rx+0x7FFF)>>16);
+				++r96_stats.rows;
+				if(xr>xl) stat_span(xr-xl);
+				if(statAffine) { ++r96_stats.affineRows; if(xr>xl) r96_stats.affinePixels+=xr-xl; }
+			}
+		}
+#endif
 		if(useAsm)
 		{
 			perspFunc[flags&(RP_TRANSPARENT|RP_WRAP)](&t);
@@ -388,12 +514,15 @@ static void persp_poly(const RVert *v,int n,const u8 *tile,int flags)
 		sc.left->x16=t.lx; sc.right->x16=t.rx;
 		s=end;
 	}
-	if(useAsm) __asm__ volatile("fldcw %0"::"m"(fpuDefault));
 	g_statPixels+=t.pixels;
 }
 
 void raster_poly(const RVert *v,int n,const u8 *tile,int flags)
 {
+#ifdef R96_NULL_RASTER
+	(void)v;(void)n;(void)tile;(void)flags;
+	return;
+#endif
 	if(flags&RP_PERSP) persp_poly(v,n,tile,flags);
 	else affine_poly(v,n,tile,flags);
 }
@@ -402,6 +531,7 @@ void raster_poly(const RVert *v,int n,const u8 *tile,int flags)
 
 void raster_pixel(int x,int y,u8 color)
 {
+	STAT(++r96_stats.pixel);
 	if((unsigned)x<(unsigned)rw && (unsigned)y<(unsigned)rh)
 	{
 		if(1==rscale) rbuf[y*rpitch+x]=color;
@@ -448,6 +578,7 @@ void raster_finish(void)
 	if(2==rscale)
 		for(y=0; y<rh; ++y)
 			memcpy(rbuf+(y*2+1)*rpitch,rbuf+y*2*rpitch,rw*2);
+	__asm__ volatile("fldcw %0"::"m"(fpuDefault));
 }
 
 /* ---------- Distant terrain columns (far_render.inc) ---------- */
