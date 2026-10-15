@@ -8,7 +8,12 @@ enum {
     DOS_GRAPHICS_HIGH,
     DOS_GRAPHICS_VERY_LOW,
     DOS_GRAPHICS_COUNT,
+#ifdef DOS_R96
+    /* 1996 build: a Pentium 200 starts at the top preset. */
+    DOS_GRAPHICS_DEFAULT = DOS_GRAPHICS_HIGH
+#else
     DOS_GRAPHICS_DEFAULT = DOS_GRAPHICS_LOW
+#endif
 };
 
 typedef struct {
@@ -31,7 +36,12 @@ void dos_graphics_apply_resolution(int index);
 /* Set at startup when the CPU is a 386 (system.c): the 386 keeps to the Low
  * and Very Low presets and 8 blocks. */
 extern int dos_cpu386;
+#ifdef DOS_R96
+/* 1996 build: 128 MiB keeps a 7x7 ring of terrain columns (see dos_r96). */
+#define DOS_GRAPHICS_MAX_DISTANCE (dos_cpu386 ? 8 : 32)
+#else
 #define DOS_GRAPHICS_MAX_DISTANCE (dos_cpu386 ? 8 : 16)
+#endif
 
 /* Preserve the renderer's historical zero (all textured) representation. */
 static inline int dos_textured_distance(int flat, int view)
