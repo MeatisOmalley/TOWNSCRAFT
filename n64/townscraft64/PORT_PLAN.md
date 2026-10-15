@@ -1,7 +1,9 @@
 # Townscraft64: N64 port plan
 
-Status, 2026-10-15: planning draft. No implementation, toolchain or emulator
-work has started. Numbers marked *estimate* come from published hardware
+Status, 2026-10-15: N1 done (pinned toolchain, libdragon, ares;
+hello-triangle ROM boots on 4 MB and 8 MB; peripheral findings in
+[research/n1-toolchain-2026-10-15.md](research/n1-toolchain-2026-10-15.md)).
+No game code yet. Numbers marked *estimate* come from published hardware
 figures or rough reasoning and must be replaced by measurements on the
 target before they drive a decision.
 
@@ -31,6 +33,10 @@ Follow DOScraft's structure: Phase A is a direct port to parity, Phase B is
 separate N64-specific improvement and only starts after the user accepts
 parity.
 
+Project philosophy (user, 2026-10-15): squeeze out every last millisecond.
+Choices between otherwise-equal options go to whichever leaves more room
+for hand-tuned code, and every performance claim needs a measurement.
+
 ## 2. Target hardware
 
 | Component | Target | Notes |
@@ -38,10 +44,10 @@ parity.
 | Console | NTSC N64 (NUS-001) | PAL timing is a later check, not a release gate. |
 | CPU | NEC VR4300, 93.75 MHz, MIPS III, 16 KB I-cache / 8 KB D-cache | Runs as 32-bit code (o32-style pointers); 64-bit ops only where measured useful. |
 | RCP | RSP (vector coprocessor, microcode) + RDP (rasterizer), 62.5 MHz | RDP has 4 KB TMEM for textures. |
-| RAM | 4 MB RDRAM base; Expansion Pak decision open | See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) Q2. |
-| Cartridge ROM | Up to 64 MB | Size class open; a larger ROM costs nothing on emulator/flashcart but matters for authenticity. |
-| Save | FlashRAM 128 KB, SRAM 32 KB, EEPROM 512 B/2 KB, Controller Pak 32 KB | Choice tied to save design, §6. |
-| Input | Standard controller; N64 Mouse optional | Controller mapping open, Q5. |
+| RAM | 4 MB base runs the full game; 8 MB Expansion Pak unlocks extras | Q2, decided 2026-10-15. The Expansion Disk path requires 8 MB. |
+| Cartridge ROM | 64 MB maximum (Q7) | Period hardware only: nothing Nintendo did not ship (through ~2000, Japan). |
+| Save | FlashRAM 128 KB (Q6); optional 64DD Expansion Disk | Cartridge is the complete game; the disk path needs the Expansion Pak. See §6. |
+| Input | Official: N64 Mouse (NUS-005) + Randnet keyboard. Fallback: standard controller, Turok-style | Q5. Keyboard needs our own Joybus driver; emulator support unconfirmed. |
 | Video | 320x240, 16-bit color, NTSC | 640x480 not considered for gameplay. |
 
 ## 3. Source baseline
@@ -110,7 +116,7 @@ Hard fits on the N64, to resolve with Q2 and Q6:
 | Video, page flipping | `video.c`, `gfx.c` | SDK display/framebuffer management. HUD and font drawn as RDP rectangles or a CPU blit. |
 | Sound | `sound.c` | YM2612/RF5c68 → RSP mixer (§7). |
 | Storage | `hdd.c`, `save.c`, `column_*.inc` | ROM + RAM delta + cartridge save (§6). |
-| Input | keyboard/mouse/pad in `game.c`/`sys.c` | Controller via the SDK's joybus API. |
+| Input | keyboard/mouse/pad in `game.c`/`sys.c` | Randnet keyboard (own Joybus driver), N64 Mouse and controller via libdragon's Joybus/joypad API. |
 
 ### Port hazards to check first
 
@@ -128,8 +134,10 @@ Hard fits on the N64, to resolve with Q2 and Q6:
 
 Phase A goal: the same world, view distances, HUD and visible content,
 drawn by the RDP. Not pixel parity: the N64 gives perspective-correct
-texturing and Z for free, and the user may prefer to keep the point-sampled
-look (Q4).
+texturing and Z for free. Style (Q4, decided 2026-10-15): DOScraft look in
+Phase A — point sampling, per-face light, RDP anti-aliasing off. Filtering,
+fog, smooth light and similar are Phase B presets, each kept only if it
+earns its measured cost.
 
 Mapping of existing techniques:
 
@@ -174,21 +182,31 @@ residency at that size does not fit next to the framebuffers. The existing
 
 ## 6. World and saves
 
-Proposed model (needs approval, Q6):
+Model (Q6, decided 2026-10-15: cartridge is the complete game; an
+optional 64DD Expansion Disk is added later, see below):
 
 1. **Base world in ROM.** Prebaked seed(s) stored compressed on the
    cartridge, read by DMA on demand. Replaces Towns' HDD scratch backing and
    DOScraft's prebaked HDD seed. Seed generation on the console is optional;
    the generator still runs at build time.
-2. **Edits as a RAM delta.** Changed columns stay in RAM, compressed, on top
-   of the ROM base.
-3. **Save = delta + player/inventory/mobs** written to FlashRAM (128 KB).
-   This caps how much of the world a player can change per save. The cap
-   must be measured with real edit patterns and shown to the player.
+2. **Edits as a block-level RAM store.** Unlike DOScraft, which pages whole
+   edited columns out to HDD, an edited column leaving the resident window
+   keeps only its changed blocks (~3 bytes each, or the RLE column if
+   smaller) in a fixed RAM budget. Page-in = ROM column + apply its edits.
+3. **Save = that edit store + player/inventory/mobs** written to FlashRAM
+   (128 KB). One budget for RAM and save (*estimate* ~40,000 changed
+   blocks), shown to the player.
 
-This is a behavior change from both existing ports (they can save
-arbitrarily large edits) and needs user sign-off before Phase A treats it as
-parity.
+This is a behavior change from DOScraft (effectively unlimited edits), so
+the edit volume of real play must be measured at N5 against the budget.
+
+**Optional Expansion Disk** (Q6 amendment, 2026-10-15). Modeled on the
+F-Zero X Expansion Kit: with a 64DD and Expansion Pak attached, the game
+saves several worlds to the disk and pages edited columns out to it as
+DOScraft does to its HDD, removing the edit cap. Rules: no cost on the
+cartridge path (switch only at column page-in/page-out and save; separate
+ROM or overlay), no frame hitches from disk writes (buffer and write at
+save/idle), and its own milestone after cartridge saves work.
 
 ## 7. Audio
 
@@ -204,16 +222,19 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
 
 ## 8. Toolchain and test platforms
 
-- **SDK.** Recommendation: libdragon (open source, GCC toolchain, maintained,
-  hardware-accurate RDP command layer). Nintendo's libultra is proprietary
-  and only available through leaks; avoid it. Q3.
-- **Emulator.** ares for development and measurement; it is the
-  low-level emulator the libdragon project recommends. High-level emulators
-  give misleading performance and should not be used for numbers. How close
-  ares timing is to hardware for our workload must itself be checked.
-- **Real hardware.** A flashcart (for example SummerCart64) for final
-  measurements, as DOScraft uses 86Box but calibrates against period
-  hardware where possible.
+- **SDK: libdragon** (Q3, decided 2026-10-15). Pin the libdragon revision
+  and toolchain like DOScraft pins DJGPP. The project goal is maximum
+  performance, so the 3D layer (GL port, tiny3d or custom microcode) is
+  picked by measurement, and custom RSP microcode is in scope.
+- **Emulator: ares is the target** (Q7, decided 2026-10-15). Development,
+  measurement and acceptance all run in a pinned ares build, as DOScraft
+  targets pinned 86Box VMs. High-level emulators give misleading
+  performance and are not used for numbers. ares v148 has no Randnet
+  keyboard (N1 finding; ares issue #1482), so a pinned ares fork with a
+  keyboard device is required before the official controls can be tested.
+- **Real hardware:** not an acceptance gate. Only period hardware features
+  are used (no flashcart SD/USB/extra RAM), so the ROM should still run on
+  a console, but this is not verified.
 - **Host tests.** Keep native logic tests; add the big-endian variant (§3).
 
 ## 9. Phases and milestones
@@ -221,13 +242,14 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
 | Milestone | Deliverable | Gate |
 | --- | --- | --- |
 | N0: plan | This document, open questions answered | User signs off on Q1–Q6. |
-| N1: toolchain | Pinned SDK and toolchain build, hello-triangle ROM, launch script for ares | Boots in ares and (if available) on hardware; build is reproducible. |
+| N1: toolchain — **done 2026-10-15** | Pinned libdragon/toolchain build, pinned ares, hello-triangle ROM, launch script; check ares Mouse, Randnet keyboard and 64DD support, and libdragon 64DD support | Boots in ares on 4 MB and 8 MB. Keyboard: needs an ares fork. 64DD: ares emulates it; libdragon has no disk driver. Mouse runtime check pending one manual step. |
 | N2: portable core | Pinned DOScraft snapshot with manifest, DOScraft feature checklist (core / extract / reimplement), Towns core compiled for MIPS, endian/alignment fixes, big-endian host tests | All existing logic tests pass on big-endian; checklist reviewed by the user. |
 | N3: render slice | Static chunk meshes on the RDP with Z, textures, vertex light; controller look/move | Frame time, triangle and fill counters reported in ares. |
 | N4: gameplay | Breaking/placing, inventory, crafting, mobs, day/night, weather, HUD | Feature checklist from the pinned source. |
 | N5: world/save | ROM world, RAM delta, cartridge save/load | Save/reload round trip; edit cap measured. |
 | N6: audio | Effects and music via RSP mixer | Audible check; mixer cost profiled. |
 | N7: parity | Complete feature checklist, measured baseline | User accepts parity. Gates Phase B. |
+| N8: Expansion Disk | 64DD driver (libdragon's or ours), multi-world saves, edited-column page-out to disk, buffered writes | Cartridge-path frame times and I-cache misses unchanged; save/reload round trip on disk in ares; worst-case disk hitch measured. Can start once N5 works; does not gate N7. |
 
 Phase B candidates (not before N7): float math on the VR4300 FPU, no-Z
 opaque terrain, larger view distance, filtered textures, smooth lighting,
