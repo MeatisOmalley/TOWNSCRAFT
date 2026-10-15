@@ -182,6 +182,8 @@ def materials(name, one):
         one('\tB_WALL_TORCH,B_DOOR_LOWER_OPEN,B_DOOR_UPPER_OPEN,\n\tNUM_BLOCKS',
             '\tB_WALL_TORCH,B_DOOR_LOWER_OPEN,B_DOOR_UPPER_OPEN,\n'
             '\t/* Early game */\n\t' + ','.join(NEW_BLOCKS) + ',\n\tNUM_BLOCKS')
+        one('extern const BlockDef g_blockDef[BLOCK_IDS];',
+            'extern const BlockDef g_blockDef[BLOCK_IDS];\n#define DOS_EARLY_BLOCKS 1')
         one('\tI_RAW_CHICKEN,I_COOKED_CHICKEN,I_FEATHER,\n\tNUM_ITEMS',
             '\tI_RAW_CHICKEN,I_COOKED_CHICKEN,I_FEATHER,\n\t' + ','.join(NEW_ITEMS) + ',\n\tNUM_ITEMS')
         one('TOOL_NONE,TOOL_PICK,TOOL_AXE,TOOL_SHOVEL,TOOL_SWORD',

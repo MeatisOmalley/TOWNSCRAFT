@@ -1,9 +1,36 @@
 # Primitive early game: sticks, stone, clay, copper, bronze
 
-Design, 2026-10-15. Not implemented and not yet scheduled for a build. It
-replaces the Minecraft ladder (wood, stone, iron) with a historical one and
-keeps the existing iron and diamond tiers after it. Saves are not preserved:
-every change here may rebuild the world. Numbers are starting values to tune.
+Design, 2026-10-15. It replaces the Minecraft ladder (wood, stone, iron) with
+a historical one and keeps the existing iron and diamond tiers after it.
+Saves are not preserved: every change here may rebuild the world. Numbers are
+starting values to tune.
+
+## Implementation status (2026-10-15)
+
+Built on branch `claude/next-feature-planning-cc05c4`, one commit per feature.
+Game logic is the `tools/dos_early_game.py` overlay (fields and hook calls in the
+pinned sources) and `src/platform/dos/early_game.c` (the systems themselves).
+
+- Tool durability, wear bars, wear kept through moves; large-world save
+  version 7 with an extension section (wear, hunger, fires, sheared sheep).
+- Terracotta palette ramp and 38 reviewed tiles (`tools/early_game_textures.py`).
+- New blocks, items and tiers; bare-hand drops (logs need an axe, cobble is
+  hand-collectable, gravel gives flint and tin, clay four lumps).
+- One recipe list (`RECIPES`) for the recipe table and named grid patterns;
+  stone anvil, campfire with its own fuel, clay furnace, bronze, bellows and
+  bloomery (iron smelts only there).
+- Spear jab and charge, hunger, double-tap W sprint, sheep plucking, water
+  filling.
+- World: `tools/bake_large_world.py` overlays the materials after all other
+  generation (`--no-early` reproduces the old world byte for byte), and
+  `tools/check_world_contract.py` checks the result. Seed 4242 bakes in about a
+  minute: base, then `bake_large_light.py`, then `bake_far_field.py
+  --crown-leaves`. Clay and copper show as dirt and stone from a distance
+  (`FAR_REMAP`, `dos_far_id`).
+
+Not yet: bench upgrade tiers (the anvil and crafting table are separate),
+binding, farming, rain putting out fires. Wall torches, doors and the new
+blocks have not been tried by hand in the emulator.
 
 ## Philosophy
 

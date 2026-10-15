@@ -35,7 +35,19 @@ void dos_far_follow(int x,int z);
 #define FAR_IDS 32
 #define FAR_ID(b) ((b)&31)
 /* Only the distant summary ignores this baked metadata bit. */
-static inline int dos_far_cube(u8 b) { return b!=(B_LEAVES|DOS_LEAF_RIM) && BLK_ID(b)<FAR_IDS && (blk_flags(b)&BF_CUBE); }
+static inline int dos_far_cube(u8 b) { return b!=(B_LEAVES|DOS_LEAF_RIM) && (blk_flags(b)&BF_CUBE); }
+/* A world cell's distant material: newer cubes show as the nearest older
+ * material (tools/bake_far_field.py FAR_REMAP bakes the same). */
+static inline int dos_far_id(u8 b)
+{
+	int id=BLK_ID(b);
+	if(id<FAR_IDS) return id;
+#ifdef DOS_EARLY_BLOCKS
+	if(B_CLAY==id) return B_DIRT;
+	if(B_BRICKS==id || B_CLAY_FURNACE==id || B_BLOOMERY==id) return B_COBBLE;
+#endif
+	return B_STONE;
+}
 int dos_far_available(void);
 void dos_far_toggle(void);
 void dos_far_change(int direction);

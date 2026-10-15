@@ -64,7 +64,7 @@ class CrownTests(unittest.TestCase):
         blocks=bytearray(12288)
         for z in range(5,10):
             for x in range(5,10):blocks[(z*16+x)*48+21:(z*16+x)*48+28]=bytes([7])*7
-        for y in range(20,25):blocks[(7*16+7)*48+y]=6|32
+        for y in range(20,25):blocks[(7*16+7)*48+y]=6|64  # A log with metadata (6-bit IDs)
         roots=bytearray(324)
         for c,h in enumerate(root_heights(blocks)):roots[(c//16+1)*18+c%16+1]=h
         flagged=mark_rim(blocks,roots,crown=True)
