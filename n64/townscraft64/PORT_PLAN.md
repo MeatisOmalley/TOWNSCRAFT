@@ -46,17 +46,49 @@ parity.
 
 ## 3. Source baseline
 
-DOScraft pinned an immutable Towns snapshot (`86craft/DOScraft/vendor/towns`,
-`MANIFEST.json`, source commit `d706a67d`) and kept its own platform adapters
-separate. Townscraft64 should do the same: copy a pinned snapshot with a
-manifest, never build against whatever is dirty in `fmtowns/townscraft`, and
-cherry-pick later fixes on purpose.
+**Reference game: current DOScraft** (Q1, decided 2026-10-15). Phase A
+parity means DOScraft's feature set on the N64.
 
-Which snapshot is open (Q1). DOScraft has since added a 1024x1024 prebaked
-seed, version-5 saves, sampled audio and many PC-specific renderer changes.
-The renderer work does not transfer; the world/save/audio-asset work might.
+DOScraft is built from an immutable Towns snapshot
+(`86craft/DOScraft/vendor/towns`, `MANIFEST.json`, source commit
+`d706a67d`) plus its own code in `src/platform/dos/` and offline tools in
+`tools/`. Townscraft64 follows the same discipline: import a pinned DOScraft
+revision with a manifest (file hashes and source commit), never build
+against the live `86craft/DOScraft` tree, and bring later DOScraft changes
+over as reviewed cherry-picks.
 
-### What carries over
+Three layers, treated differently:
+
+1. **Towns core** (`vendor/towns/src`): portable gameplay and world code;
+   import as-is, same as DOScraft does. Tables below.
+2. **DOScraft game features** in `src/platform/dos/` and `tools/`: chickens,
+   biomes, resolution-selected textures, first-person arm/held items,
+   20-minute day, mob despawn rule, large prebaked streamed world, V3 edit
+   log, distant terrain, graphics menus, MIDI music, sound bank. These are
+   interleaved with DOS/VGA/IRQ/SB code. Each gets an extraction step: split
+   the platform-neutral part into a shared module (or reimplement it for the
+   N64) with a test that checks it against DOScraft's behavior.
+3. **DOScraft platform and 486 renderer code** (VGA transport, Mode X,
+   `f2b_*`, `packed_raster`, `low_planar.S`, IRQ/SB/OPL drivers): not
+   ported. Their *design* (for example distant-terrain levels) is the
+   reference; the N64 implementation is new.
+
+Feature inventory: N2 starts with a complete DOScraft feature checklist at
+the pinned revision, each item tagged core / extract / reimplement, as
+DOScraft's own Phase A did for Towns.
+
+Hard fits on the N64, to resolve with Q2 and Q6:
+
+- **Large world.** DOScraft streams a 1024x1024 prebake from a writable
+  HDD with 8–16 MB RAM. On the N64 the prebake moves to cartridge ROM
+  (fits the medium well); the resident working set must fit ~2.5–3 MB.
+- **Edit log.** DOScraft's V3 edit log is written to HDD. The N64 has at
+  most 128 KB of writable save memory.
+- **Music.** DOScraft's multi-song OPL2 player becomes sampled-instrument
+  sequencing on the RSP mixer; the MIDI import pipeline and per-song
+  settings remain the source data.
+
+### What carries over from the Towns core
 
 | Area | Towns files | N64 treatment |
 | --- | --- | --- |
@@ -190,7 +222,7 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
 | --- | --- | --- |
 | N0: plan | This document, open questions answered | User signs off on Q1–Q6. |
 | N1: toolchain | Pinned SDK and toolchain build, hello-triangle ROM, launch script for ares | Boots in ares and (if available) on hardware; build is reproducible. |
-| N2: portable core | Pinned source snapshot, core compiled for MIPS, endian/alignment fixes, big-endian host tests | All existing logic tests pass on big-endian. |
+| N2: portable core | Pinned DOScraft snapshot with manifest, DOScraft feature checklist (core / extract / reimplement), Towns core compiled for MIPS, endian/alignment fixes, big-endian host tests | All existing logic tests pass on big-endian; checklist reviewed by the user. |
 | N3: render slice | Static chunk meshes on the RDP with Z, textures, vertex light; controller look/move | Frame time, triangle and fill counters reported in ares. |
 | N4: gameplay | Breaking/placing, inventory, crafting, mobs, day/night, weather, HUD | Feature checklist from the pinned source. |
 | N5: world/save | ROM world, RAM delta, cartridge save/load | Save/reload round trip; edit cap measured. |

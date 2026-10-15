@@ -3,17 +3,27 @@
 Decisions the user needs to make. Each lists a recommendation and the
 milestone it blocks. Record answers here with the date.
 
-## Q1. Which source snapshot? (blocks N2)
+## Q1. Which game is the reference? — ANSWERED 2026-10-15
 
-- **A.** The same Towns snapshot DOScraft vendored (`d706a67d`). Smallest,
-  cleanest gameplay baseline; no PC-specific changes.
-- **B.** A pinned DOScraft revision. Brings the 1024x1024 prebaked seed,
-  version-5 save format and portable audio assets, but also a lot of
-  486/VGA-specific renderer code we would discard.
-- **C.** A, plus selected DOScraft pieces (prebake tool, audio assets)
-  imported deliberately.
+**Decision: the current DOScraft game.** Phase A reproduces DOScraft's
+feature set, not only the Towns one.
 
-Recommendation: **C**.
+Background at decision time: the Towns source has had no commits since
+DOScraft pinned it (`d706a67d`), so DOScraft's vendored snapshot *is*
+current Towns. DOScraft has since added (about 170 commits) chickens,
+offline biomes, resolution-selected textures, a first-person arm and held
+items, a 20-minute day, mob despawn beyond 32 blocks, prebaked streamed
+1024x1024 worlds with a V3 edit log, distant terrain, Low/Medium/High menus,
+multi-song MIDI music and a hand-picked sound bank. Many of these live in
+`src/platform/dos/` beside VGA/IRQ/Sound Blaster code, or in offline Python
+tools, so each must be extracted, not copied.
+
+Options that were considered: pure Towns, or Towns plus selected DOScraft
+features.
+
+Consequences: Q2 (RAM) and Q6 (saves) become harder, because DOScraft's
+large world and edit log assume 8–16 MB RAM and a writable hard disk. See
+PORT_PLAN.md §3.
 
 ## Q2. Base 4 MB or Expansion Pak? (blocks N3)
 
