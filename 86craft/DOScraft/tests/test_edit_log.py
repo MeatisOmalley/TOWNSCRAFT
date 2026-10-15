@@ -116,6 +116,7 @@ class EditLogTests(unittest.TestCase):
             cls.run_cmd([*flags, '-Dopen=world_test_open', '-c', ROOT / f'src/platform/dos/{name}.c', '-o', obj])
         cls.exe = folder / 'edit-log.exe'
         cls.run_cmd([*flags, ROOT / 'tests/edit_log_native.c', ROOT / 'src/platform/dos/heap.c',
+                     ROOT / 'src/platform/dos/early_game.c',
                      *(src / s for s in ('inventory.c', 'blocks.c', 'fmath.c', 'libc.c')),
                      tables, *objects, '-o', cls.exe])
         cls.v2 = synthetic_v2()

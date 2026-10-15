@@ -22,7 +22,7 @@ def replay(data,recipe):
 # Approved overlays every build applies (day length, chickens, block textures,
 # crafting grid, plant placement, immediate edit light, mob despawn). Optional
 # experiments are compared against this default build, not the raw snapshot.
-DEFAULT_CHANGED=('blocks.c','game.c','inventory.c','mobs.c','render.c','textures.c','world.c','world.h',
+DEFAULT_CHANGED=('blocks.c','game.c','inventory.c','mobs.c','render.c','textures.c','ui.c','world.c','world.h','inventory.h',
                  'blocks.h','mobs.h','render.h','textures.h')
 
 

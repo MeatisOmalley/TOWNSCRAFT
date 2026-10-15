@@ -91,6 +91,7 @@ int dos_craft_grid_take(Slot *destination,int station,int width)
         Slot *s=&dos_craft_grid[y*3+x];
         if(s->item && --s->count==0) s->item=0;
     }
+    if(!destination->item) destination->wear=0;
     destination->item=r->out;
     destination->count+=r->outCount;
     return 1;
@@ -102,7 +103,7 @@ int dos_craft_grid_return(void)
     for(i=0;i<9;++i) {
         Slot *s=&dos_craft_grid[i];
         if(s->item) {
-            s->count=inv_add(s->item,s->count);
+            s->count=inv_add_slot(s);
             if(s->count) all=0;
             else s->item=0;
         }

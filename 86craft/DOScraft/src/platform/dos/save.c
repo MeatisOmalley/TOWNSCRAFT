@@ -9,6 +9,7 @@
 #include "inventory.h"
 #include "game.h"
 #include "mobs.h"
+#include "early_game.h"
 #include "save_backend.h"
 #include "file_commit.h"
 #include <errno.h>
@@ -29,8 +30,9 @@ void world_commit_large_columns(void);
 #define NUM_TRACKS (77*2)
 #define SAVE_MAGIC 0x46435354
 #ifdef DOS_LARGE_WORLD
-/* 6: 6-bit block IDs, items from 64. Version 5 saves hold old item IDs. */
-#define SAVE_VERSION 6
+/* 6: 6-bit block IDs, items from 64 (version 5 saves hold old item IDs).
+   7: adds the early-game extension section after the mobs. */
+#define SAVE_VERSION 7
 #else
 #define SAVE_VERSION 4
 #endif

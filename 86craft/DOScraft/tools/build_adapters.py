@@ -113,6 +113,13 @@ def stage(output, vendor=imported.VENDOR, large_world=False, chickens=False):
             data,steps=dos_block_ids.adapt(name,path.read_bytes());path.write_bytes(data)
             record['block_id_headers'].append(dict(path='src/'+name,
                 staged_sha256=imported.sha256(data),transformations=steps))
+        import dos_early_game
+        record['early_game_headers']=[]
+        for name in dos_early_game.HEADERS:
+            path=output/'src'/name
+            data,steps=dos_early_game.adapt(name,path.read_bytes());path.write_bytes(data)
+            record['early_game_headers'].append(dict(path='src/'+name,
+                staged_sha256=imported.sha256(data),transformations=steps))
     (output / selection['staged']).write_bytes(portable)
     record['gfx_selection'] = selection
     (output / save_selection['staged']).write_bytes(codec)

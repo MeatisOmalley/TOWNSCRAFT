@@ -9,10 +9,11 @@ NORMALIZE=bytes(b&~RIM if b&63==7 else b for b in range(256))
 BANK=77*8192
 DIRECTORY=20+64+72
 DIRECTORY_END=DIRECTORY+12+4096*16
-# Large-world save versions. 6 is the 6-bit block-ID layout (items from 64);
-# its bytes are laid out like 5, so media tools read both. The game loads only 6.
-SAVE_VERSION=6
-SAVE_VERSIONS=(5,6)
+# Large-world save versions. 6 is the 6-bit block-ID layout (items from 64)
+# and 7 appends the early-game section; the bank and directory layout is shared,
+# so media tools read all three. The game loads only the newest.
+SAVE_VERSION=7
+SAVE_VERSIONS=(5,6,7)
 
 def offset(column,slot=0):return (33+column*72+slot*24)*512
 

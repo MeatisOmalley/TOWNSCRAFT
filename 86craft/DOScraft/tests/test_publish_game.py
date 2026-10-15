@@ -54,7 +54,7 @@ class PublishTests(unittest.TestCase):
             (out/'build.json').write_text(json.dumps({'exe_sha256':'b'*64,'extra_adapter_flags':['-DDOS_LARGE_WORLD']}))
             (smoke/'build.json').write_text(json.dumps({'smoke':True,'large_world':True,
                 'exe_sha256':'b'*64,'terrain_sha256':publisher.sha(terrain)}))
-            (smoke/'large-world-smoke.json').write_text(json.dumps({'save_version':6,
+            (smoke/'large-world-smoke.json').write_text(json.dumps({'save_version':7,
                 'new':'RESULT=PASS\n','load':'RESULT=PASS\n'}))
             (new/'DOSCRAFT.ISO').write_bytes(b'new iso')
             record={'iso_sha256':publisher.sha(new/'DOSCRAFT.ISO'),'large_world':True,
