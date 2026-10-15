@@ -43,7 +43,9 @@ none of this, but the workaround is harmless there.
 
 `src/main.c`: an RDP-shaded spinning triangle, a guest-timed frame counter,
 detected RAM size, and a per-port report (libdragon style, raw Joybus
-identifier, stick/mouse deltas). ROM 196,608 bytes; ELF 255,292 bytes of
+identifier, stick/mouse deltas and their running sum, A/B buttons). The
+running sum was added after the screenshots, because one-frame mouse deltas
+are too brief to see. ROM 196,608 bytes; ELF 255,292 bytes of
 text+data+bss, almost all libdragon. Hash of the tested build:
 `072b8dc2905924e9366cfd84e0e264b6192177d37d6cf9ff67d391612e097ebb`.
 
@@ -64,17 +66,31 @@ default.
 
 | Device | ares v148 | libdragon `39d0d609` | Result |
 | --- | --- | --- | --- |
-| N64 Mouse | Supported: controller port device "Mouse" (`ares/n64/controller/mouse`) | `JOYPAD_STYLE_MOUSE`; deltas in `stick_x/stick_y` | Supported on both sides by source. **Runtime check pending:** port devices are chosen from ares's *Nintendo 64* menu, not a setting, so it needs one manual step (below). |
+| N64 Mouse | Supported: controller port device "Mouse" (`ares/n64/controller/mouse`) | `JOYPAD_STYLE_MOUSE`; deltas in `stick_x/stick_y`, left/right buttons as A/B | **Works.** User-verified 2026-10-15 in ares v148: P2 reports Mouse, motion and buttons reach the ROM. |
 | Randnet keyboard | **Not supported.** Ports offer only Gamepad, Mouse (and Aleck64). Open request: ares issue #1482. | Only the raw Joybus command ID (`0x13`) and identifier (`0x0002`) are defined; no driver. | Needs an **ares fork** with a keyboard device, and our own keyboard driver. |
 | 64DD | Emulated (`ares/n64/dd`, "Nintendo 64DD" system). Needs the 64DD IPL firmware, which is not downloaded here (it must come from the user's own hardware, like DOScraft's ROMs). | Detection, ASIC register access and the 64DD RTC only (`include/dd.h`); **no disk read/write driver**. | Emulator side available; we write the disk driver at N8. |
 
-### Manual mouse check
+### Using the mouse in ares
+
+One-time setup (saved in the launcher's private `build/ares-runtime/settings.bml`):
+
+1. *Settings* → *Input*: system *Nintendo 64*, *Controller Port 2*, device
+   *Mouse*. Right-click the mapping cells: X → *Mouse X-axis*, Y →
+   *Mouse Y-axis*, Left/Right → *Mouse Left/Right Button*. (Pressing a key
+   cannot map an axis.)
+2. *Settings* → *Hotkeys* → *Toggle Mouse Capture*: assign a key. There is
+   no default.
+
+Every launch:
 
 1. `powershell -File tools/run_ares.ps1`
-2. In ares: *Nintendo 64* → *Controller Port 2* → *Mouse* (and bind it in
-   *Settings* → *Input* if needed).
-3. The ROM's `P2` line should change to `Mouse` with identifier `0200`, and
-   x/y should follow mouse motion.
+2. *Nintendo 64* → *Controller Port 2* → *Mouse*. ares does not remember
+   port devices between launches.
+3. Click the game picture and press the capture key; the cursor disappears.
+   **ares ignores mouse motion and buttons entirely until captured**
+   (`desktop-ui/input/input.cpp` checks `ruby::input.acquired()`).
+4. The ROM's `P2` line shows `Mouse 0200`; `sum` accumulates motion and
+   `A`/`B` show the left/right buttons.
 
 ## Consequences for the plan
 

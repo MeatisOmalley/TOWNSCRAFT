@@ -47,12 +47,19 @@ int main(void)
 
         rdpq_text_printf(NULL, FONT_DEBUG, 8, 14, "Townscraft64 N1  %.2f ms  RAM %d MB",
                          frame_ms, get_memory_size() >> 20);
+        /* Mouse deltas last one frame, so also show their running sum; A/B
+         * are the mouse's left/right buttons. */
+        static int sum_x[JOYPAD_PORT_COUNT], sum_y[JOYPAD_PORT_COUNT];
         JOYPAD_PORT_FOREACH(port) {
             joypad_inputs_t in = joypad_get_inputs(port);
-            rdpq_text_printf(NULL, FONT_DEBUG, 8, 196 + port * 10,
-                             "P%d %-7s id %04x  x%+4d y%+4d",
+            sum_x[port] += in.stick_x;
+            sum_y[port] += in.stick_y;
+            rdpq_text_printf(NULL, FONT_DEBUG, 8, 186 + port * 12,
+                             "P%d %-7s %04x d%+4d%+4d sum%+6d%+6d %c%c",
                              port + 1, style_name(joypad_get_style(port)),
-                             joybus_get_identifier(port, NULL), in.stick_x, in.stick_y);
+                             joybus_get_identifier(port, NULL), in.stick_x, in.stick_y,
+                             sum_x[port], sum_y[port],
+                             in.btn.a ? 'A' : '-', in.btn.b ? 'B' : '-');
         }
 
         rdpq_detach_show();
