@@ -12,5 +12,8 @@ const char *dos_music_backend(void);
 unsigned int dos_music_songs(void);
 /* The piece playing or last played: a pack song index, or -1 for the Towns piece. */
 int dos_music_current(void);
+int dos_music_playing(void);
+/* A pack song's name (from its MIDI file name), or "Towns piece". */
+const char *dos_music_song_name(int piece);
 extern unsigned int dos_music_notes;
 #endif

@@ -19,6 +19,9 @@
 #include "audio_voices.h"
 #include "opl_music.h"
 #include "audio_bank.h"
+#ifdef DOS_MUSIC_JUKEBOX
+#include "textures.h"
+#endif
 #endif
 #ifdef DOS_FAR_FIELD
 #include "far_field.h"
@@ -276,6 +279,19 @@ static void finish(void)
 }
 void __wrap_gfx_present(void)
 {
+#if defined(DOS_MUSIC_JUKEBOX) && defined(DOS_GAME_AUDIO)
+    /* Listening build: name the song in a strip along the top of every screen. */
+    {
+        char line[48];
+        int piece=dos_music_current();
+        if(dos_music_playing())
+            snprintf(line,sizeof(line),"%d/%u %s  (F6 next)",piece+1,dos_music_songs(),
+                     dos_music_song_name(piece));
+        else snprintf(line,sizeof(line),"Next song in a moment  (F6 next)");
+        gfx_rect(g_fb,0,0,SCR_W,11,C_BLACK);
+        gfx_text_shadow(g_fb,4,2,line,C_WHITE,C_BLACK);
+    }
+#endif
     const u8 *frame=g_fb;
     __real_gfx_present();
     if(!smoke) return;

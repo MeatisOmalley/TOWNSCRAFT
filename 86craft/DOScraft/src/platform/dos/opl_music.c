@@ -183,6 +183,15 @@ int dos_music_init(void)
 const char *dos_music_backend(void) { return ready ? "OPL2" : "NONE"; }
 unsigned int dos_music_songs(void) { return ready ? pack_song_count : 0; }
 int dos_music_current(void) { return current; }
+int dos_music_playing(void) { return ready && playing; }
+const char *dos_music_song_name(int piece)
+{
+    static char name[21];
+    if(piece<0 || (unsigned)piece>=pack_song_count)return "Towns piece";
+    memcpy(name,pack_songs+(unsigned)piece*PACK_SONG,20);
+    name[20]=0;
+    return name;
+}
 
 void music_schedule(int ticks)
 {
