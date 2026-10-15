@@ -44,14 +44,103 @@ def portable_experiment_flags(flags):
     return tuple(flag for flag in flags if flag in PORTABLE_EXPERIMENT_FLAGS or flag in ('-DDOS_COLLECT_VERIFY','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_SKIP_FIRST','-DDOS_FAR_REPROJECT','-DDOS_BENCH_FAR_COARSE_EYE','-DDOS_BENCH_PROFILE_FAR','-DDOS_VERY_LOW_PLANAR','-DDOS_VERY_LOW_COARSE','-DDOS_VERY_LOW_FAR_COARSE','-DDOS_VL_TEMPORAL_FAR'))
 
 
+def dos_transform(extra_adapter_flags, graphics, audio):
+    """DOS overlays selected by a build's flags: (transform, options).
+    Shared with tools/build_1996.py and its tests, so they see render.c as
+    a build transforms it."""
+    raster_zero_dx='-DDOS_RASTER_ZERO_DX' in extra_adapter_flags
+    camera_reuse='-DDOS_CAMERA_REUSE' in extra_adapter_flags
+    packed_raster='-DDOS_PACKED_RASTER' in extra_adapter_flags
+    early_split_cull='-DDOS_EARLY_SPLIT_CULL' in extra_adapter_flags
+    front_to_back='-DDOS_FRONT_TO_BACK' in extra_adapter_flags
+    edge_recip='-DDOS_EDGE_RECIP' in extra_adapter_flags
+    trap_zero_gradient='-DDOS_TRAP_ZERO_GRADIENT' in extra_adapter_flags
+    trap_destination='-DDOS_TRAP_DESTINATION' in extra_adapter_flags
+    split_reuse='-DDOS_SPLIT_REUSE' in extra_adapter_flags
+    depth_adaptive='-DDOS_DEPTH_ADAPTIVE' in extra_adapter_flags
+    trap_stable='-DDOS_TRAP_STABLE' in extra_adapter_flags
+    trap_four='-DDOS_TRAP_FOUR' in extra_adapter_flags
+    wall_visibility='-DDOS_WALL_VISIBILITY' in extra_adapter_flags
+    wall_verify='-DDOS_WALL_VERIFY' in extra_adapter_flags
+    group_facing='-DDOS_GROUP_FACING' in extra_adapter_flags
+    proven_rows='-DDOS_VGA_PROVEN_ROWS' in extra_adapter_flags
+    raster_finish_skip='-DDOS_RASTER_FINISH_SKIP' in extra_adapter_flags
+    very_low='-DDOS_VERY_LOW' in extra_adapter_flags
+    very_low_texels='-DDOS_VERY_LOW_TEXELS' in extra_adapter_flags
+    low_planar='-DDOS_LOW_PLANAR' in extra_adapter_flags
+    very_low_planar='-DDOS_VERY_LOW_PLANAR' in extra_adapter_flags
+    a1_census='-DDOS_BENCH_A1_CENSUS' in extra_adapter_flags
+    profile_cw='-DDOS_BENCH_PROFILE_CW' in extra_adapter_flags
+    large_world='-DDOS_LARGE_WORLD' in extra_adapter_flags
+    if '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags and not proven_rows:
+        raise ValueError('Vertical row proof requires proven rows')
+    if raster_finish_skip and not (proven_rows and '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags):
+        raise ValueError('Raster finish skip requires vertical row proof')
+    if very_low and not raster_finish_skip:
+        raise ValueError('Very Low output requires the repeated-row raster finish path')
+    if very_low_texels and not very_low:
+        raise ValueError('Very Low texels require Very Low output')
+    if low_planar and not (raster_finish_skip and '-DDOS_VGA_PACK_ALL' in extra_adapter_flags and
+                           '-DDOS_VGA_BROADCAST' in extra_adapter_flags):
+        raise ValueError('Planar Low requires the finish-skip bands and all-plane broadcast presenter')
+    if very_low_planar and not (low_planar and very_low_texels and '-DDOS_FLAT_INLINE' in extra_adapter_flags):
+        raise ValueError('Very Low planar output requires planar Low, Very Low texels and inline flat spans')
+    if proven_rows and ('-DDOS_VGA_FUSED' in extra_adapter_flags or
+                        '-DDOS_VGA_FUSED_TRANSPOSE' in extra_adapter_flags):
+        raise ValueError('Measure proven rows independently of fused packing')
+    transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
+        raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster,
+        early_split_cull=early_split_cull,front_to_back=front_to_back,edge_recip=edge_recip,
+        trap_zero_gradient=trap_zero_gradient,trap_destination=trap_destination,
+        split_reuse=split_reuse,depth_adaptive=depth_adaptive,trap_stable=trap_stable,trap_four=trap_four,
+        wall_visibility=wall_visibility,wall_verify=wall_verify,group_facing=group_facing,
+        hud_proof='-DDOS_VGA_HUD_PROOF' in extra_adapter_flags,
+        proven_rows=proven_rows,raster_finish_skip=raster_finish_skip,
+        very_low_texels=very_low_texels,low_planar=low_planar,a1_census=a1_census,
+        profile_cw=profile_cw,large_world=large_world,
+        collect_margin=any(flag in extra_adapter_flags for flag in ('-DDOS_COLLECT_MARGIN','-DDOS_VERY_LOW_COLLECT_MARGIN')),
+        very_low_collect_margin='-DDOS_VERY_LOW_COLLECT_MARGIN' in extra_adapter_flags,
+        stream_light='-DDOS_STREAM_LIGHT_CACHE' in extra_adapter_flags,
+        far_field='-DDOS_FAR_FIELD' in extra_adapter_flags,
+        stream_validate_once='-DDOS_STREAM_VALIDATE_ONCE' in extra_adapter_flags,
+        light_offsets='-DDOS_LIGHT_OFFSETS' in extra_adapter_flags,
+        mesh_edges='-DDOS_MESH_EDGES' in extra_adapter_flags,
+        collect_swap='-DDOS_COLLECT_SWAP' in extra_adapter_flags,
+        memmove_dwords='-DDOS_MEMMOVE_DWORDS' in extra_adapter_flags,
+        world_scans='-DDOS_WORLD_SCANS' in extra_adapter_flags,
+        baked_light_fast='-DDOS_BAKED_LIGHT_FAST' in extra_adapter_flags,
+        sort_histograms='-DDOS_SORT_HISTOGRAMS' in extra_adapter_flags,
+        texel_edx='-DDOS_TEXEL_EDX' in extra_adapter_flags,
+        row_pointer='-DDOS_ROW_POINTER' in extra_adapter_flags,
+        flat_inline='-DDOS_FLAT_INLINE' in extra_adapter_flags,
+        row_mul='-DDOS_ROW_MUL' in extra_adapter_flags,
+        mulshift='-DDOS_MULSHIFT' in extra_adapter_flags,
+        planar_expand_words='-DDOS_PLANAR_EXPAND_WORDS' in extra_adapter_flags,
+        plant_billboards='-DDOS_PLANT_BILLBOARDS' in extra_adapter_flags,
+        fill_rows='-DDOS_FILL_ROWS' in extra_adapter_flags,
+        viewmodel='-DDOS_VIEWMODEL' in extra_adapter_flags,very_low_planar=very_low_planar,
+        flat_distance=True,
+        very_low_coarse='-DDOS_VERY_LOW_COARSE' in extra_adapter_flags,
+        very_low_local_mesh='-DDOS_VERY_LOW_LOCAL_MESH' in extra_adapter_flags,
+        vl_stream_radius='-DDOS_VL_STREAM_RADIUS' in extra_adapter_flags,
+        vl_native_flat='-DDOS_VL_NATIVE_FLAT' in extra_adapter_flags,game_audio=audio)
+    return transform,dict(packed_raster=packed_raster,front_to_back=front_to_back,
+        edge_recip=edge_recip,proven_rows=proven_rows,low_planar=low_planar,large_world=large_world)
+
+
 def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=None,audio=None,
-          music_dir=None,music_builtin=True):
+          music_dir=None,music_builtin=True,arch=ARCH_CFLAGS,source_overlay=None,drop_imported=(),
+          adapter_names=None,fpu_adapters=(),exe_name='DOSCRAFT.EXE'):
+    """The keyword hooks after music_builtin serve separate hardware targets
+    (tools/build_1996.py); their defaults reproduce the shared 386/486 build.
+    source_overlay runs after the DOS overlays; drop_imported names imported
+    objects (stems) replaced by platform adapters; adapter_names edits the
+    adapter list; fpu_adapters may use the x87, which the rest never does."""
     if extra_adapter_flags is None: extra_adapter_flags=DEFAULT_ADAPTER_FLAGS
     if graphics is None: graphics=not benchmark
     if audio is None:audio=not benchmark
     if audio:extra_adapter_flags=(*extra_adapter_flags,'-DDOS_GAME_AUDIO','-DDOS_SB_STREAM')
     # Later -march/-mtune options override the i486 defaults in imported.CFLAGS.
-    arch=ARCH_CFLAGS
     output=Path(output)
     output.mkdir(parents=True,exist_ok=True)
     report={'stage':'Full game link; silent audio; gameplay acceptance pending',
@@ -81,89 +170,32 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             report['stage']='Full game link; sampled effects; gameplay acceptance pending'
         report['extra_adapter_flags']=list(extra_adapter_flags)
         report['graphics_presets']=graphics
-        raster_zero_dx='-DDOS_RASTER_ZERO_DX' in extra_adapter_flags
-        camera_reuse='-DDOS_CAMERA_REUSE' in extra_adapter_flags
-        packed_raster='-DDOS_PACKED_RASTER' in extra_adapter_flags
-        early_split_cull='-DDOS_EARLY_SPLIT_CULL' in extra_adapter_flags
-        front_to_back='-DDOS_FRONT_TO_BACK' in extra_adapter_flags
-        edge_recip='-DDOS_EDGE_RECIP' in extra_adapter_flags
-        trap_zero_gradient='-DDOS_TRAP_ZERO_GRADIENT' in extra_adapter_flags
-        trap_destination='-DDOS_TRAP_DESTINATION' in extra_adapter_flags
-        split_reuse='-DDOS_SPLIT_REUSE' in extra_adapter_flags
-        depth_adaptive='-DDOS_DEPTH_ADAPTIVE' in extra_adapter_flags
-        trap_stable='-DDOS_TRAP_STABLE' in extra_adapter_flags
-        trap_four='-DDOS_TRAP_FOUR' in extra_adapter_flags
-        wall_visibility='-DDOS_WALL_VISIBILITY' in extra_adapter_flags
-        wall_verify='-DDOS_WALL_VERIFY' in extra_adapter_flags
-        group_facing='-DDOS_GROUP_FACING' in extra_adapter_flags
-        proven_rows='-DDOS_VGA_PROVEN_ROWS' in extra_adapter_flags
-        raster_finish_skip='-DDOS_RASTER_FINISH_SKIP' in extra_adapter_flags
-        very_low='-DDOS_VERY_LOW' in extra_adapter_flags
-        very_low_texels='-DDOS_VERY_LOW_TEXELS' in extra_adapter_flags
-        low_planar='-DDOS_LOW_PLANAR' in extra_adapter_flags
-        very_low_planar='-DDOS_VERY_LOW_PLANAR' in extra_adapter_flags
-        a1_census='-DDOS_BENCH_A1_CENSUS' in extra_adapter_flags
-        profile_cw='-DDOS_BENCH_PROFILE_CW' in extra_adapter_flags
-        large_world='-DDOS_LARGE_WORLD' in extra_adapter_flags
-        if '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags and not proven_rows:
-            raise ValueError('Vertical row proof requires proven rows')
-        if raster_finish_skip and not (proven_rows and '-DDOS_VGA_PROVEN_VERTICAL' in extra_adapter_flags):
-            raise ValueError('Raster finish skip requires vertical row proof')
-        if very_low and not raster_finish_skip:
-            raise ValueError('Very Low output requires the repeated-row raster finish path')
-        if very_low_texels and not very_low:
-            raise ValueError('Very Low texels require Very Low output')
-        if low_planar and not (raster_finish_skip and '-DDOS_VGA_PACK_ALL' in extra_adapter_flags and
-                               '-DDOS_VGA_BROADCAST' in extra_adapter_flags):
-            raise ValueError('Planar Low requires the finish-skip bands and all-plane broadcast presenter')
-        if very_low_planar and not (low_planar and very_low_texels and '-DDOS_FLAT_INLINE' in extra_adapter_flags):
-            raise ValueError('Very Low planar output requires planar Low, Very Low texels and inline flat spans')
-        if proven_rows and ('-DDOS_VGA_FUSED' in extra_adapter_flags or
-                            '-DDOS_VGA_FUSED_TRANSPOSE' in extra_adapter_flags):
-            raise ValueError('Measure proven rows independently of fused packing')
-        transform=lambda name,data:dos_sources.adapt(name,data,graphics=graphics,
-            raster_zero_dx=raster_zero_dx,camera_reuse=camera_reuse,packed_raster=packed_raster,
-            early_split_cull=early_split_cull,front_to_back=front_to_back,edge_recip=edge_recip,
-            trap_zero_gradient=trap_zero_gradient,trap_destination=trap_destination,
-            split_reuse=split_reuse,depth_adaptive=depth_adaptive,trap_stable=trap_stable,trap_four=trap_four,
-            wall_visibility=wall_visibility,wall_verify=wall_verify,group_facing=group_facing,
-            hud_proof='-DDOS_VGA_HUD_PROOF' in extra_adapter_flags,
-            proven_rows=proven_rows,raster_finish_skip=raster_finish_skip,
-            very_low_texels=very_low_texels,low_planar=low_planar,a1_census=a1_census,
-            profile_cw=profile_cw,large_world=large_world,
-            collect_margin=any(flag in extra_adapter_flags for flag in ('-DDOS_COLLECT_MARGIN','-DDOS_VERY_LOW_COLLECT_MARGIN')),
-            very_low_collect_margin='-DDOS_VERY_LOW_COLLECT_MARGIN' in extra_adapter_flags,
-            stream_light='-DDOS_STREAM_LIGHT_CACHE' in extra_adapter_flags,
-            far_field='-DDOS_FAR_FIELD' in extra_adapter_flags,
-            stream_validate_once='-DDOS_STREAM_VALIDATE_ONCE' in extra_adapter_flags,
-            light_offsets='-DDOS_LIGHT_OFFSETS' in extra_adapter_flags,
-            mesh_edges='-DDOS_MESH_EDGES' in extra_adapter_flags,
-            collect_swap='-DDOS_COLLECT_SWAP' in extra_adapter_flags,
-            memmove_dwords='-DDOS_MEMMOVE_DWORDS' in extra_adapter_flags,
-            world_scans='-DDOS_WORLD_SCANS' in extra_adapter_flags,
-            baked_light_fast='-DDOS_BAKED_LIGHT_FAST' in extra_adapter_flags,
-            sort_histograms='-DDOS_SORT_HISTOGRAMS' in extra_adapter_flags,
-            texel_edx='-DDOS_TEXEL_EDX' in extra_adapter_flags,
-            row_pointer='-DDOS_ROW_POINTER' in extra_adapter_flags,
-            flat_inline='-DDOS_FLAT_INLINE' in extra_adapter_flags,
-            row_mul='-DDOS_ROW_MUL' in extra_adapter_flags,
-            mulshift='-DDOS_MULSHIFT' in extra_adapter_flags,
-            planar_expand_words='-DDOS_PLANAR_EXPAND_WORDS' in extra_adapter_flags,
-            plant_billboards='-DDOS_PLANT_BILLBOARDS' in extra_adapter_flags,
-            fill_rows='-DDOS_FILL_ROWS' in extra_adapter_flags,
-            viewmodel='-DDOS_VIEWMODEL' in extra_adapter_flags,very_low_planar=very_low_planar,
-            flat_distance=True,
-            very_low_coarse='-DDOS_VERY_LOW_COARSE' in extra_adapter_flags,
-            very_low_local_mesh='-DDOS_VERY_LOW_LOCAL_MESH' in extra_adapter_flags,
-            vl_stream_radius='-DDOS_VL_STREAM_RADIUS' in extra_adapter_flags,
-            vl_native_flat='-DDOS_VL_NATIVE_FLAT' in extra_adapter_flags,game_audio=audio)
+        transform,options=dos_transform(extra_adapter_flags,graphics,audio)
+        packed_raster=options['packed_raster']; front_to_back=options['front_to_back']
+        edge_recip=options['edge_recip']; proven_rows=options['proven_rows']
+        low_planar=options['low_planar']; large_world=options['large_world']
+        if source_overlay:
+            base_transform=transform
+            def transform(name,data):
+                data,steps=base_transform(name,data)
+                data,more=source_overlay(name,data)
+                return data,[*steps,*more]
         portable=imported.build(output=output/'imported',
             extra_cflags=(*arch,*extra,*portable_experiment_flags(extra_adapter_flags),
                 '-I',str(ROOT/'src/platform/dos'),'-I',str(output/'imported/src')),source_transform=transform)
         platform=adapters.stage(output/'platform',large_world=large_world,chickens=True)
+        if source_overlay:
+            # Adapters must see the same declarations (e.g. struct layouts).
+            for header in sorted((output/'platform/src').glob('*.h')):
+                data,steps=source_overlay(header.name,header.read_bytes())
+                if steps:
+                    header.write_bytes(data)
+                    platform.setdefault('overlay_headers',[]).append(
+                        dict(path='src/'+header.name,transformations=steps))
         report['imported']=portable
         report['platform']=platform
-        objects=[output/'imported'/row['path'] for row in portable['objects']]
+        objects=[output/'imported'/row['path'] for row in portable['objects']
+                 if Path(row['path']).stem not in drop_imported]
         objdir=output/'obj'; objdir.mkdir(exist_ok=True)
         names=tuple('bench_runtime.c' if name=='game_runtime.c' else name for name in GAME_ADAPTERS) if benchmark else GAME_ADAPTERS
         if audio:
@@ -194,21 +226,26 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         if front_to_back:
             names=(*names,'coverage_spans.c','f2b_capture.c','f2b_texel.c','f2b_raster.c','f2b_span.S')
         if edge_recip: names=(*names,'edge_recip.c')
+        if adapter_names: names=tuple(adapter_names(names))
         for name in names:
-            source=ROOT/'src/platform/dos'/name
+            # Bare names are DOS adapters; 'dir/name' is under src/platform.
+            source=ROOT/'src/platform'/(name if '/' in name else 'dos/'+name)
             obj=objdir/(Path(name).stem+'.o')
             # Only benchmark builds sample the profiler.
             profile=() if benchmark else ('-DDOS_PROFILE_SAMPLES=1',)
-            command=[imported.COMPILER,*imported.CFLAGS,*arch,*extra,*profile,*extra_adapter_flags,
+            cflags=imported.CFLAGS
+            if name in fpu_adapters:
+                cflags=tuple(flag for flag in cflags if flag not in ('-mno-80387','-mgeneral-regs-only'))
+            command=[imported.COMPILER,*cflags,*arch,*extra,*profile,*extra_adapter_flags,
                 *(('-DDOS_GRAPHICS_PRESETS',) if graphics else ()),'-I',output/'platform/src',
-                '-I',ROOT/'src/platform/dos','-c',source,'-o',obj]
+                '-I',ROOT/'src/platform/dos','-I',ROOT/'src/platform/r96','-c',source,'-o',obj]
             subprocess.run(list(map(str,command)),check=True)
             report['commands'].append(list(map(str,command)))
             report['objects'].append({'source':str(source.relative_to(ROOT)),
                 'source_sha256':imported.sha256(source.read_bytes()),
                 'object_sha256':imported.sha256(obj.read_bytes())})
             objects.append(obj)
-        exe=output/'DOSCRAFT.EXE'
+        exe=output/exe_name
         wraps='-Wl,--wrap=gfx_present' if benchmark else '-Wl,--wrap=gfx_present,--wrap=save_world,--wrap=load_world,--wrap=render_frame'
         if packed_raster: wraps+=',--wrap=raster_finish'
         if front_to_back:

@@ -100,12 +100,13 @@ def upgrade_disk(old_disk,new_terrain,*,compact=False):
 
 
 def disk_log_sectors(disk,prefix_sectors):
-    """24 MiB, or as much as the disk's FAT volume holds beside its other
-    files (the 386's 40 MB disk), for a log after prefix_sectors."""
-    from convert_large_v3 import DEFAULT_LOG_BYTES,log_size_for_volume
+    """The log a V2 player migrates into: 24 MiB, or as much as the disk's FAT
+    volume holds beside its other files (the 386's 40 MB disk), after
+    prefix_sectors."""
+    from convert_large_v3 import LEGACY_LOG_BYTES,log_size_for_volume
     volume=FatImage(disk,struct.unpack_from('<I',disk,454)[0]*512)
     others=[size for name,attr,cluster,size in volume.directory() if name!='TERRAIN.TMP']
-    return min(DEFAULT_LOG_BYTES//512,log_size_for_volume(volume,prefix_sectors,others))
+    return min(LEGACY_LOG_BYTES//512,log_size_for_volume(volume,prefix_sectors,others))
 
 def upgrade_log_disk(old_disk,previous,save,new_terrain):
     """V2 or V3 player media onto V3 media of the same immutable world.

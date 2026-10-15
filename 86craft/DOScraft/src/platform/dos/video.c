@@ -13,6 +13,15 @@
 #include <string.h>
 #include "vga_pack.h"
 #include "video_backend.h"
+#ifdef DOS_R96
+#include <sys/nearptr.h>
+/* Pentium build, full resolution: the 200 view rows go straight from the
+ * frame to the VGA planes in dword stores (src/platform/r96/r96_vga.S). */
+void r96_vga_plane_rows(const unsigned char *src, unsigned int pitch,
+                        unsigned int rows, unsigned int *vga);
+#define R96_VGA_BAND 16   /* 16 rows: 5 KiB of source, read once per plane from L1 */
+static int r96_vga_direct;
+#endif
 #include "bench_transport.h"
 #ifdef DOS_VGA_PROVEN_ROWS
 #if !defined(DOS_VGA_BROADCAST) || !defined(DOS_VGA_PACK_ALL)
@@ -498,6 +507,9 @@ void video_init(void)
     latch_pending=0;
 #endif
     atexit(dos_video_restore);
+#ifdef DOS_R96
+    r96_vga_direct=__djgpp_nearptr_enable();
+#endif
     bios_mode(0x13);
     outportw(0x3c4, 0x0604); /* No chain-4, extended memory. */
     outportw(0x3c4, 0x0100); /* Synchronous reset while changing clock. */
@@ -768,6 +780,19 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
         }
     } else
 #endif
+#ifdef DOS_R96
+    if(r96_vga_direct && !repeated_pixel_hint) {
+        /* Only the HUD rows still pass through packed, for its page cache. */
+        unsigned int y,x,p;
+        for(y=200;y<240;++y) {
+            const unsigned char *row=source+(size_t)y*pitch;
+            for(p=0;p<4;++p) {
+                unsigned char *d=packed+p*DOS_VGA_PLANE_BYTES+y*80u;
+                for(x=0;x<80;++x) d[x]=row[x*4u+p];
+            }
+        }
+    } else
+#endif
     if(
 #ifdef DOS_VGA_PACK_WORDS
        dos_vga_pack_words(source,pitch,packed,sizeof(packed))
@@ -862,6 +887,33 @@ void dos_video_present(const unsigned char *source, unsigned int pitch)
                || !planar_hud_valid[next_page]
 #endif
                )) {
+                outportw(0x3c4,((1u<<plane)<<8)|2);
+                dosmemput(hud,DOS_VGA_HUD_CACHE_MAX_BYTES,0xa0000+offset+200*80);
+            }
+        }
+#ifdef DOSCRAFT_BENCH
+        dos_bench_upload+=bench_us()-stamp;
+#endif
+    } else
+#endif
+#ifdef DOS_R96
+    if(r96_vga_direct) {
+        unsigned char *vga=(unsigned char *)(0xa0000+__djgpp_conventional_base)+offset;
+        unsigned int band,rows;
+#ifdef DOSCRAFT_BENCH
+        stamp=bench_us();
+#endif
+        for(band=0;band<200;band+=R96_VGA_BAND) {
+            rows=200-band<R96_VGA_BAND ? 200-band : R96_VGA_BAND;
+            for(plane=0;plane<4;++plane) {
+                outportw(0x3c4,((1u<<plane)<<8)|2);
+                r96_vga_plane_rows(source+(size_t)band*pitch+plane,pitch,rows,
+                                   (unsigned int *)(vga+band*80u));
+            }
+        }
+        for(plane=0;plane<4;++plane) {
+            const unsigned char *hud=packed+plane*DOS_VGA_PLANE_BYTES+200*80;
+            if(dos_vga_hud_changed(hud,hud_shadow[next_page][plane],DOS_VGA_HUD_CACHE_MAX_BYTES)) {
                 outportw(0x3c4,((1u<<plane)<<8)|2);
                 dosmemput(hud,DOS_VGA_HUD_CACHE_MAX_BYTES,0xa0000+offset+200*80);
             }

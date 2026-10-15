@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "source_commit": "d706a67db6242627c6233e5593fd1a1e1ddc69af",
+  "source_root": "fmtowns/townscraft",
+  "files": [
+    {
+      "path": "tests/caves_test.c",
+      "source_path": "fmtowns/townscraft/tests/caves_test.c",
+      "git_blob": "ac4a317c076b6c13c77ffd8cf7c341e3b70de785",
+      "git_mode": "100644",
+      "sha256": "9e60caf5e90e51c1ddb022356ca072cf600152bab5c5c364a0f52085dbc73ab8",
+      "size": 3351
+    },
+    {
+      "path": "tests/column_cache_test.c",
+      "source_path": "fmtowns/townscraft/tests/column_cache_test.c",
+      "git_blob": "b584b73097ee65e294d3c29e8b51d865d4f269a6",
+      "git_mode": "100644",
+      "sha256": "355576dd51293d92e3a560742d82652b0e757acb23f760a04bb05dd58219faf5",
+      "size": 11553
+    },
+    {
+      "path": "tests/column_save_test.c",
+      "source_path": "fmtowns/townscraft/tests/column_save_test.c",
+      "git_blob": "142ebdedbb78f5d64de89db44b4d541462dbab1d",
+      "git_mode": "100644",
+      "sha256": "42bafb40042d6313bbb2d9c51041ff1cf03153c17fba172baea9813dbee60d71",
+      "size": 8264
+    },
+    {
+      "path": "tests/deferred_light_test.c",
+      "source_path": "fmtowns/townscraft/tests/deferred_light_test.c",
+      "git_blob": "ec44c9b3ff6471f88c625363e3ccd12a554f1dd2",
+      "git_mode": "100644",
+      "sha256": "136db97b50b9ddd30c45649fff0d7fac2d8b1e9a7633b6b7362f151288d8e4ba",
+      "size": 2753
+    },
+    {
+      "path": "tests/edit_test.c",
+      "source_path": "fmtowns/townscraft/tests/edit_test.c",
+      "git_blob": "6d1aca804ea94249dbb6158c0f9d6eb4e91ee774",
+      "git_mode": "100644",
+      "sha256": "75bbaff1b228c9f88a114bffa4046963e00bf8bc3c7d5cff4b7ae625e41a1c1e",
+      "size": 5720
+    },
+    {
+      "path": "tests/hdd_mock.inc",
+      "source_path": "fmtowns/townscraft/tests/hdd_mock.inc",
+      "git_blob": "dbd85b02812f99ddedcc58bb35d727ca9cbbf14a",
+      "git_mode": "100644",
+      "sha256": "3a9f2a7857fb74b804f59de5b445e3c17fd8f0309130c7cb75e206f63761918f",
+      "size": 1504
+    },
+    {
+      "path": "tests/hdd_runtime_probe.inc",
+      "source_path": "fmtowns/townscraft/tests/hdd_runtime_probe.inc",
+      "git_blob": "c3d668ec203c757ae89120c84fb672002367bd9f",
+      "git_mode": "100644",
+      "sha256": "1ed770e09995063290e7b7ece97a4eff87c87eb4d635c499d2fafd9eda66494b",
+      "size": 1904
+    },
+    {
+      "path": "tests/hdd_test.c",
+      "source_path": "fmtowns/townscraft/tests/hdd_test.c",
+      "git_blob": "ee57169b7615efa34d758ba1ef376d98eeb6be23",
+      "git_mode": "100644",
+      "sha256": "eaff161133a708bd6888805c6699893d026489c2a724e912dee4ac0167e13a59",
+      "size": 15525
+    },
+    {
+      "path": "tests/keyboard_test.c",
+      "source_path": "fmtowns/townscraft/tests/keyboard_test.c",
+      "git_blob": "16ceca3997139f3528afd50c34e082343911cd2a",
+      "git_mode": "100644",
+      "sha256": "899035fcce0a5de592147c283a623f17dd309998fbcf5bb4c3d18ae027ae6ed6",
+      "size": 2397
+    },
+    {
+      "path": "tests/mesh_value_probe.inc",
+      "source_path": "fmtowns/townscraft/tests/mesh_value_probe.inc",
+      "git_blob": "48a3386c7d4cde8b2602e52f5305c18167eb26f6",
+      "git_mode": "100644",
+      "sha256": "bd823d597a9512844c88cc7e665e0885d85de8cda089b73d0fd59526dad9f037",
+      "size": 3073
+    },
+    {
+      "path": "tests/mob_regions_test.c",
+      "source_path": "fmtowns/townscraft/tests/mob_regions_test.c",
+      "git_blob": "59f86d5b18dbec41daef5da3f13a9a9a3fee3a76",
+      "git_mode": "100644",
+      "sha256": "eb157b27f9cf361dfbe60279750c20d0f881a3d6aa4c4201e3835e881954b84a",
+      "size": 4663
+    },
+    {
+      "path": "tests/mobs_test.c",
+      "source_path": "fmtowns/townscraft/tests/mobs_test.c",
+      "git_blob": "04ba7468bfdf4a7f367755557b5a273226673d57",
+      "git_mode": "100644",
+      "sha256": "910a6b90cb619c74f0831c0c04c2f39d0bc93b05a4dc433dca626a35ffb9d11b",
+      "size": 3138
+    },
+    {
+      "path": "tests/no_hdd.c",
+      "source_path": "fmtowns/townscraft/tests/no_hdd.c",
+      "git_blob": "0e83ced279e986f55e744a66e0774556e4c1720f",
+      "git_mode": "100644",
+      "sha256": "23b26cc25963ba24ca4f396024ecd5cd35d15e3e09d8ecaff289360eeef5956b",
+      "size": 323
+    },
+    {
+      "path": "tests/perf_probe.inc",
+      "source_path": "fmtowns/townscraft/tests/perf_probe.inc",
+      "git_blob": "b25761550c783763b431134c4104f4b51656d859",
+      "git_mode": "100644",
+      "sha256": "faf51798ab02c68332433d05cff95f0eb8ebcd73d8ed29f8691bdb414252457c",
+      "size": 2293
+    },
+    {
+      "path": "tests/player_test.c",
+      "source_path": "fmtowns/townscraft/tests/player_test.c",
+      "git_blob": "899b21da9ea46bb912b978349329a4c53e4736a7",
+      "git_mode": "100644",
+      "sha256": "2fea73cd56afa7b99e4f5f92ff194dbc884e9b82ff4f2965537bf20e2fe387c1",
+      "size": 2865
+    },
+    {
+      "path": "tests/render_distance_test.c",
+      "source_path": "fmtowns/townscraft/tests/render_distance_test.c",
+      "git_blob": "6688bcdbe73824f470f2d41f1653f47e3e6d536a",
+      "git_mode": "100644",
+      "sha256": "e38443510bdaac6a6bacdf4bd25e7ab094451d25ee934cdedf4ea0e29b42a3c0",
+      "size": 1986
+    },
+    {
+      "path": "tests/render_general_occlusion_test.c",
+      "source_path": "fmtowns/townscraft/tests/render_general_occlusion_test.c",
+      "git_blob": "9a06d30c0655700db8ab4c713df2943aac60452e",
+      "git_mode": "100644",
+      "sha256": "f608b43ed6d2381b1a05038bd4ef15040134ce48eae0b7f683dd137bed088a91",
+      "size": 4148
+    },
+    {
+      "path": "tests/render_occlusion_test.c",
+      "source_path": "fmtowns/townscraft/tests/render_occlusion_test.c",
+      "git_blob": "5a9889d28c65e20f594a726135578ef99fbeb1e0",
+      "git_mode": "100644",
+      "sha256": "2c58f60278b608fa7d200d252c1f4813f2d532be51ab90c16fb329cfae03c9d0",
+      "size": 5351
+    },
+    {
+      "path": "tests/render_subdivision_test.c",
+      "source_path": "fmtowns/townscraft/tests/render_subdivision_test.c",
+      "git_blob": "1a9f762603e815e42c65c19f10964717fed6ef14",
+      "git_mode": "100644",
+      "sha256": "41f68169bb70d6a4a146b6ba6c297814f913ad1c578024857e08834215a4b1e1",
+      "size": 2026
+    },
+    {
+      "path": "tests/save_regions_test.c",
+      "source_path": "fmtowns/townscraft/tests/save_regions_test.c",
+      "git_blob": "b6bc166a543770a2515125b026bd1ebd4928df54",
+      "git_mode": "100644",
+      "sha256": "bd8da41e8c4c4a06ae954a7fe83499bcce42597545c250a4e138703017b4f151",
+      "size": 4119
+    },
+    {
+      "path": "tests/standard_level.inc",
+      "source_path": "fmtowns/townscraft/tests/standard_level.inc",
+      "git_blob": "1932724fd0aaa821a13b8fdb4c8ea696e1a3f4c2",
+      "git_mode": "100644",
+      "sha256": "f23531d6016ac18a07696a1ca230c01d5505917f0144bfee2c2ff41375e8df82",
+      "size": 1380
+    },
+    {
+      "path": "tests/standard_probe.inc",
+      "source_path": "fmtowns/townscraft/tests/standard_probe.inc",
+      "git_blob": "e2fd4aed28578cbeeeec057aa48589cb52f020e7",
+      "git_mode": "100644",
+      "sha256": "3ea9b1a3c8d270611431a9cb900647f0cb4615d5a5b1c2dbd1c12d9904b26ee7",
+      "size": 3739
+    },
+    {
+      "path": "tests/stream_test.c",
+      "source_path": "fmtowns/townscraft/tests/stream_test.c",
+      "git_blob": "02d2c18c877b8d101bdc2133ec21ad502084b831",
+      "git_mode": "100644",
+      "sha256": "89bfa014930e0a58fa814f288492796b302466d0b36387d4a831aaa191c1bc16",
+      "size": 3136
+    },
+    {
+      "path": "tests/terrain_floppy_test.c",
+      "source_path": "fmtowns/townscraft/tests/terrain_floppy_test.c",
+      "git_blob": "57fcdca5d933bf44113312ecd27ded747ed278a7",
+      "git_mode": "100644",
+      "sha256": "189092c78bc8369d6b8145519313aca3b1f1d7fd98129aaad0a422a7469fe904",
+      "size": 7012
+    },
+    {
+      "path": "tests/terrain_hdd_test.c",
+      "source_path": "fmtowns/townscraft/tests/terrain_hdd_test.c",
+      "git_blob": "73652463dd000d7b43249f180c1f984da76d4860",
+      "git_mode": "100644",
+      "sha256": "d0bce116bae691151b39f705fc5d2a34919357e7c75bcde39bc389ee7e365e35",
+      "size": 5950
+    }
+  ]
+}

@@ -13,12 +13,25 @@ static const DosGraphicsSettings presets386[DOS_GRAPHICS_COUNT] = {
     {2, 8, 4, 0, SUBDIV_ADAPTIVE},
     {2, 4, 0, 0, SUBDIV_ADAPTIVE}
 };
+#ifdef DOS_R96
+/* 1996 build: full resolution, with the view distance rising to 24 blocks
+ * at High (the settings menu reaches 32: DOS_GRAPHICS_MAX_DISTANCE).
+ * Perspective-correct texturing (Pentium spans or the Voodoo) needs no
+ * near-camera subdivision of merged quads. */
+static const DosGraphicsSettings presets[DOS_GRAPHICS_COUNT] = {
+    {1, 8, 0, 0, SUBDIV_OFF},
+    {1, 16, 0, 0, SUBDIV_OFF},
+    {1, 24, 0, 0, SUBDIV_OFF},
+    {2, 8, 0, 0, SUBDIV_OFF}
+};
+#else
 static const DosGraphicsSettings presets[DOS_GRAPHICS_COUNT] = {
     {2, 8, 0, 0, SUBDIV_ADAPTIVE},
     {2, 8, 0, 0, SUBDIV_ADAPTIVE},
     {1, 8, 0, 0, SUBDIV_ADAPTIVE},
     {2, 8, 0, 0, SUBDIV_ADAPTIVE}
 };
+#endif
 
 static const char *const messages[DOS_GRAPHICS_COUNT] = {
     "Graphics: Low", "Graphics: Medium", "Graphics: High", "Graphics: Very Low"

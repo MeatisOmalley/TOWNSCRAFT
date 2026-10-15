@@ -36,10 +36,12 @@ The emulator checkout at `../86Box` is an independent Git repository. Game work 
 
 The current playable ISO uses a **1024×1024 prebaked seed (4242)** streamed from
 the June 1990 VM's writable SCSI HDD. The bake includes surface terrain, trees,
-plants, ores, worm caves, and cave entrances. Saving writes a version-6 world
-directory plus edited terrain slots. Version 6 (2026-10-15) uses 6-bit block
+plants, ores, worm caves, and cave entrances. Saving writes a version-8 world
+directory plus edited terrain. Version 6 (2026-10-15) uses 6-bit block
 IDs with items numbered from 64; older version-5 saves are not offered or
-loaded, so players start a New Game. New seed generation in DOS is deferred.
+loaded, so players start a New Game. Version 8 adds per-block edits and the
+early-game section; only version 8 loads (both version 7 formats were
+development-only). New seed generation in DOS is deferred.
 The previous 256-world VM and its ISO backup remain intact. The current
 `ISO/Launch-DOScraft.cmd` opens the 1024-world VM selected by
 `build/game/486dx25/latest-play-vm.txt`.
@@ -63,10 +65,24 @@ clones (the shared release was republished; each previous VM is kept as its
 backup). `tools/log_player_vm.py` stages such a clone and switches a launcher
 only with `--update-pointer`; publishing a compact release now migrates a V2
 player disk too. See [the V3 contract](LARGE_WORLD_STORAGE.md#v3-edit-log-2026-10-14).
+Since 2026-10-15 most edits stay out of the log entirely: lightly edited
+columns keep their changed blocks in RAM and in the save (version 8), and only
+columns with over 512 changed blocks use log records. New media therefore get
+a 4 MiB log, and `TERRAIN.TMP` shrinks from 49.6 MB to 28.6 MB. Existing player
+disks keep their log size. See
+[per-block edits](LARGE_WORLD_STORAGE.md#per-block-edits-2026-10-15).
 
 The separate [local 386SX-25 VM](HARDWARE_386.md) uses
 `ISO/Launch-DOScraft-386.cmd`, 4 MiB RAM, Trident VGA, a 40 MB IDE disk and
 the merged shared 386/486 executable with compact V2 world storage.
+
+A [1996 port](HARDWARE_1996.md) targets a Pentium 200 with an optional 3dfx
+Voodoo Graphics. `tools/build_1996.py` builds the shipping renderer as a
+baseline (`D96REF.EXE`), a Pentium software renderer with Quake-style
+perspective spans (`D96SOFT.EXE`) and a Voodoo renderer with its own SST-1
+driver (`D963DFX.EXE`), with views of up to 32 blocks on its 128 MiB machine.
+They are tested natively on real world frames but have not yet run in the
+pending 1996 VM.
 
 The shared ISO now includes the first restrained block-texture pass. A separate
 prebaked biome world adds plains, forests, deserts and rocky highlands; its

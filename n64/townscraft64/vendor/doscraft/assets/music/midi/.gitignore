@@ -1,0 +1,5 @@
+# MIDI files you supply stay out of git unless you remove these lines.
+*.mid
+*.MID
+*.midi
+*.MIDI

@@ -1,5 +1,10 @@
 /* Optional visual-only map. Base/edit/save offsets stay fixed. */
+#ifdef DOS_R96
+/* 1996 build: the largest distant terrain the map allows (clamped at load). */
+int dos_far_enabled=DOS_FAR_HIGH;
+#else
 int dos_far_enabled;
+#endif
 u32 dos_far_version,dos_far_boundary_version;
 u8 *dos_far_map;
 static u32 farMapSector,farMapSum;
@@ -113,7 +118,7 @@ static void far_world_apply_edits(int x0,int z0,int x1,int z1)
     for(int cz=z0/8;cz<=(z1-1)/8;++cz)
     for(int cx=x0/8;cx<=(x1-1)/8;++cx) {
         int id=cz*g_NC+cx,s=g_columnMap[id];
-        if(columnRecords[id].off==large_column_offset(id,0)) continue;
+        if(!large_column_edited(id)) continue;
         if(farUseResident && s>=0 && residentReady[s]) { far_world_column(cx,cz,g_blocks+s*COLUMN_CELLS); continue; }
         if(!column_prepare(cx,cz)) fatal("Cannot read distant terrain edits");
         column_restore_valid(cx,cz,columnEncodeScratch);
@@ -230,8 +235,7 @@ static void far_world_reset(void)
      * Only edited columns are read; none of this runs in the frame loop. */
     terrainBlocking=1;
     for(int id=0;id<TERRAIN_COLUMNS;++id) {
-        ColumnRecord *r=&columnRecords[id];
-        if(r->off==large_column_offset(id,0)) continue;
+        if(!large_column_edited(id)) continue;
         int cx=id%g_NC,cz=id/g_NC;
         if(!column_prepare(cx,cz)) fatal("Cannot read distant terrain edits");
         column_restore_valid(cx,cz,columnEncodeScratch);

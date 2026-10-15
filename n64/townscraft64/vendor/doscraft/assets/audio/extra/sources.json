@@ -1,0 +1,189 @@
+{
+  "note": "Unmodified original recordings picked for the game; see CREDITS.md",
+  "files": [
+    {
+      "file": "25-CC0-mud-sfx/mud_02.ogg",
+      "pack": "25 CC0 mud sfx",
+      "author": "rubberduck",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/25-cc0-mud-sfx",
+      "sha256": "4114686a24a5b8a8a2fc6be41b19692657ed9255d8f00bbe6fe989562ad7d80b"
+    },
+    {
+      "file": "25-CC0-mud-sfx/mud_04.ogg",
+      "pack": "25 CC0 mud sfx",
+      "author": "rubberduck",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/25-cc0-mud-sfx",
+      "sha256": "76e379bcb99931673c6cd8ecbdf8ec8d44e1bb843574b2800c0bbbb2b5224153"
+    },
+    {
+      "file": "25-CC0-mud-sfx/mud_07.ogg",
+      "pack": "25 CC0 mud sfx",
+      "author": "rubberduck",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/25-cc0-mud-sfx",
+      "sha256": "0457afad5cafa7fab030cfb0ca9003b3cec79468392fe5bc10532afdb9798344"
+    },
+    {
+      "file": "25-CC0-mud-sfx/mud_08.ogg",
+      "pack": "25 CC0 mud sfx",
+      "author": "rubberduck",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/25-cc0-mud-sfx",
+      "sha256": "e37cbeee0667af13d7453f4d367fb1d0b2ba63a2a7cb8ead359ed814386e8f45"
+    },
+    {
+      "file": "25-CC0-mud-sfx/mud_17.ogg",
+      "pack": "25 CC0 mud sfx",
+      "author": "rubberduck",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/25-cc0-mud-sfx",
+      "sha256": "b88b7f23f274fe2478fd498e5aa743d2395be3dda203f1aba4784b5def839c53"
+    },
+    {
+      "file": "25-CC0-mud-sfx/mud_21.ogg",
+      "pack": "25 CC0 mud sfx",
+      "author": "rubberduck",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/25-cc0-mud-sfx",
+      "sha256": "4f9600e21d2855b4599bf6456edbd46b9143f857663ac68d4a310e17a28a55f1"
+    },
+    {
+      "file": "40-cc0-water-splash-slime-sfx/splash_02.ogg",
+      "pack": "40 CC0 water / splash / slime SFX",
+      "author": "rubberduck",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/40-cc0-water-splash-slime-sfx",
+      "sha256": "eab0bb4bc01386528ba1e6244c6fd8940ee8d3c91ddb9e9cfea186e8560e04de"
+    },
+    {
+      "file": "40-cc0-water-splash-slime-sfx/splash_10.ogg",
+      "pack": "40 CC0 water / splash / slime SFX",
+      "author": "rubberduck",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/40-cc0-water-splash-slime-sfx",
+      "sha256": "69ec352dc6c0ea4691435e692063f903c98e5292579ba71297d4fbdb51c33649"
+    },
+    {
+      "file": "40-cc0-water-splash-slime-sfx/splash_15.ogg",
+      "pack": "40 CC0 water / splash / slime SFX",
+      "author": "rubberduck",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/40-cc0-water-splash-slime-sfx",
+      "sha256": "9b0ef483f0d8939199c10ecf26d952fda92637cb7e1f323decb9388a07a79b03"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandL1.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "93a2630579a82507e3c6ceab9b012f71a50cf8922f4beadb14057dcc0636b099"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandL2.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "9bb57478cc96e1410cae27d926aa8d77d5f2d368d9776822f63cf0b37c6d2faf"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandL3.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "042820e65cc947d8bb8adf18524ffff7cdf5fc310f9412cbf8bdf7a139984c21"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandR1.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "3514d12f3369297233e915814364ed02902003d4103b010371c2ac15c2aa48fe"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-SandR2.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "0356f659313887f01a9f21fd5bedf57a77073d0d74d57b5621279ee453a80f3c"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneL1.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "7cfa4a2f500ae2bd19a961022296611d837c34ca2e556fe68deb692388f49971"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneL3.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "37a25f4254cf8f2e56d271912b0569f3bb15c57bf3fde9de492466eb23853b0d"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneR1.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "7073bddd2e3ba432e15a83844180c0ebc52835c2c6bab0fa902ee5952499c729"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneR2.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "d66330b4a32e93b0dfdcb8c53667654de8702a0fa48b2d06c48d94dc66b3e1cc"
+    },
+    {
+      "file": "Fantozzi-footsteps/Fantozzi-footsteps/flac/Fantozzi-StoneR3.flac",
+      "pack": "Fantozzi's Footsteps (Grass/Sand & Stone)",
+      "author": "Fantozzi",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/fantozzis-footsteps-grasssand-stone",
+      "sha256": "b98f2c4b932242739ce8687206f7eb3313ce30afd4af7b7e148507c5cbd26787"
+    },
+    {
+      "file": "[kdd]DifferentSteps_0/gravel.ogg",
+      "pack": "Different steps on wood, stone, leaves, gravel and mud",
+      "author": "TinyWorlds",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud",
+      "sha256": "34e6057ec1581b5cb8802e4942952b00b1dac235bfcb0ed8cff0ceb15a3ebbbf"
+    },
+    {
+      "file": "[kdd]DifferentSteps_0/wood02.ogg",
+      "pack": "Different steps on wood, stone, leaves, gravel and mud",
+      "author": "TinyWorlds",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud",
+      "sha256": "588bb121bd3db005b4c2a5b55c1cf39b8ec620f820c2123ac1f62748d132dac2"
+    },
+    {
+      "file": "chicken-sound-effect/Chicken Sound Effect.mp3",
+      "pack": "Chicken Sound Effect",
+      "author": "IMadeIt",
+      "license": "CC-BY 3.0",
+      "page": "https://opengameart.org/content/chicken-sound-effect",
+      "sha256": "546ba7a01118baa2a4c2d7978d12a79cc23e61d7af521950d5b527f86ecfbb9a"
+    },
+    {
+      "file": "zombies-sound-pack/zombies/zombie-20.wav",
+      "pack": "Zombies Sound Pack",
+      "author": "artisticdude",
+      "license": "CC0",
+      "page": "https://opengameart.org/content/zombies-sound-pack",
+      "sha256": "3a962ea1d8517ad4c2fea8221e6a0e622dcad3ba34bae5a436d4f0971774b56d"
+    }
+  ]
+}

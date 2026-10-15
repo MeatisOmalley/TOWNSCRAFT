@@ -1,0 +1,291 @@
+# DOScraft
+
+IBM-PC port of Townscraft, targeting an overclocked 486DX/33 at 40 MHz (June 30, 1990 hardware cutoff) in 86Box.
+
+Primary target: Intel 486DX/33 overclocked to 40 MHz with its integrated x87 FPU, 8 MB RAM, Tseng ET4000AX ISA with 1 MB video RAM, ISA SCSI HDD and original Sound Blaster. The 40 MHz entry is a custom emulator overclock of the period 33 MHz part, not a claim that Intel shipped a 486DX/40 by June 30, 1990. The ASUS ISA-486 motherboard and selected BIOS images are emulator proxies, not an authenticated 1989 Compaq reconstruction. The Everex-class 386DX/33 is a **deferred compatibility/port target**, to revisit only after the main demake meets its agreed correctness/performance goals. The main build may use 486 instructions and x87; 386 compatibility is not a current release gate.
+
+Current stage: direct port working, measured platform optimization underway. The pinned 50-file Towns
+snapshot remains immutable. The full gameplay/fixed-point renderer now links
+into `DOSCRAFT.EXE` through the original `kmain`, with DOS platform adapters.
+The original 256-world procedural generation, AT movement/full-pitch input,
+torch placement/removal and save/fresh-process reload pass in 86Box. Full feature acceptance is still
+pending. The base build now has sampled Sound Blaster effects, with basic
+synthesized effects and PC-speaker fallback, zombie groans, and the original
+music score on the Sound Blaster/AdLib OPL2 FM chip. Original
+sound masters and the external target-specific bank are documented in
+[the sound asset guide](assets/audio/README.md).
+Five verified VGA-transport optimizations and the measured i486 frame-register
+compiler optimization are now enabled. High also uses the verified ET4000
+banked chunky CPU-upload path, now with direct pitched rows and word-wise HUD
+comparisons. The opaque raster loop uses verified four-texel unrolling.
+Low/Medium use producer-proven doubled view rows to pack and broadcast fewer
+VGA planes, reusing each packed even row for its proven odd partner. Sharp
+overlays and the HUD retain full packing. Against the earlier combined release,
+three-repeat Low replays reduce walking, house and edit frame time by 9.9%,
+9.3% and 8.4%; High is essentially neutral. These are
+frozen replay measurements, not full gameplay FPS promises.
+Mode X display timing, sharp HUD and triple buffering remain unchanged. The user-authorized
+DOS graphics settings are grouped into Low/Medium/High. The current large-world
+release despawns passive and hostile mobs beyond 32 blocks. All three presets
+retain adaptive texture subdivision.
+Earlier diagnostic paragraphs below record their individual historical gates.
+
+See [the port plan](PORT_PLAN.md) for the direct-port parity gate, the [optimization backlog](OPTIMIZATION_BACKLOG.md), and [measured DOS performance checkpoints](PERFORMANCE.md). The user authorized optimization work on October 10; full feature-parity acceptance remains separate. [The investigation runner](tools/audit_towns_house.py) builds isolated Towns test snapshots without modifying Towns production sources or ISOs.
+
+The emulator checkout at `../86Box` is an independent Git repository. Game work belongs here. Generated builds and mutable runtime images are ignored.
+
+The current playable ISO uses a **1024×1024 prebaked seed (4242)** streamed from
+the June 1990 VM's writable SCSI HDD. The bake includes surface terrain, trees,
+plants, ores, worm caves, and cave entrances. Saving writes a version-6 world
+directory plus edited terrain slots. Version 6 (2026-10-15) uses 6-bit block
+IDs with items numbered from 64; older version-5 saves are not offered or
+loaded, so players start a New Game. New seed generation in DOS is deferred.
+The previous 256-world VM and its ISO backup remain intact. The current
+`ISO/Launch-DOScraft.cmd` opens the 1024-world VM selected by
+`build/game/486dx25/latest-play-vm.txt`.
+`ISO/Launch-DOScraft-1992.cmd` uses the same published ISO with its separate
+1992 hardware profile and writable HDD. On each stopped launch it refreshes
+that VM's boot floppy from the current shared release when needed; it leaves
+the 1992 disk and CMOS untouched. The two VMs can therefore use the same game
+executable without sharing world saves or hardware settings.
+Both current hardware profiles have their own HDD containing the prebaked
+1024-world seed; the previous 1992 256-world disk is preserved separately.
+All active 1024-world HDDs, including the 1990 and 1992 players, now use V2 RLE
+compression. The crown-leaf world occupies 33,835,008 bytes instead of
+178,815,488 bytes; disk geometry stays unchanged. The migration preserves
+logical terrain edits and both committed save banks, keeping the original VM
+as a recovery copy. New large-world media is compact by default.
+New media now use V3 edit-log storage: edits go to a preallocated log sized
+to real edits (24 MiB on 486 media; what fits on the 386's 40 MB disk), so all
+4,096 columns stay editable instead of V2's 384. The shared executable reads
+V1, V2 and V3. On 2026-10-14 the 1990, 1992 and 386 player VMs moved to V3
+clones (the shared release was republished; each previous VM is kept as its
+backup). `tools/log_player_vm.py` stages such a clone and switches a launcher
+only with `--update-pointer`; publishing a compact release now migrates a V2
+player disk too. See [the V3 contract](LARGE_WORLD_STORAGE.md#v3-edit-log-2026-10-14).
+
+The separate [local 386SX-25 VM](HARDWARE_386.md) uses
+`ISO/Launch-DOScraft-386.cmd`, 4 MiB RAM, Trident VGA, a 40 MB IDE disk and
+the merged shared 386/486 executable with compact V2 world storage.
+
+The shared ISO now includes the first restrained block-texture pass. A separate
+prebaked biome world adds plains, forests, deserts and rocky highlands; its
+preview launcher keeps a separate save so existing terrain edits are preserved.
+See [biomes, texture comparisons and launch instructions](BIOMES_AND_TEXTURES.md).
+
+## Build and launch the real game
+
+For maintenance of the **previous 256-world release**, use its save-preserving
+release workflow:
+
+```powershell
+python tools/game_smoke.py --bios "runtime/<known-good-ISA486-VM>/nvr/isa486.nvr" --report "build/<new-smoke-report-directory>"
+python tools/publish_game.py --bios "runtime/<same-known-good-ISA486-VM>/nvr/isa486.nvr"
+```
+
+The smoke runner needs no Windows keypresses and checks real AT input, menus,
+all three graphics presets, torch placement/breaking, VGA readback and save/reload.
+Publication requires that exact executable to pass. It preserves the old VM,
+copies its entire HDD byte-for-byte to the new VM, backs up the old ISO beside
+it, and updates `ISO/DOSCRAFT.ISO` and the launcher pointer. It refuses a live
+player VM. Neither procedure starts or modifies the old player VM.
+
+For the current **1024-world release**, build with `-DDOS_LARGE_WORLD`, bake a
+seed using `tools/bake_large_world.py`, attach it to a private June 1990 smoke
+VM using `tools/prepare_large_vm.py`, and run `tools/large_game_smoke.py`.
+`tools/publish_game.py --large-terrain <baked image> --large-smoke-vm <passing
+smoke VM> --build-output <matching build directory>` validates the exact
+executable and terrain image before publishing a new ISO and separate player
+HDD. The old VM and disk are preserved. The guest smoke uses scripted AT scan
+codes; it needs no host mouse or keyboard interaction.
+
+For a **first installation only** (no player HDD to preserve):
+
+With the existing pinned dependencies/ROMs present, run from this directory:
+
+```powershell
+python tools/build_game.py
+python tools/game_media.py --bios "runtime/<known-good-ISA486-VM>/nvr/isa486.nvr"
+```
+
+Omit `--bios` on a new machine and configure CMOS as described below. Each media
+preparation creates a **new private HDD**, never overwriting an old world.
+Copy the printed ISO into `ISO/DOSCRAFT.ISO` for this first setup. Do not use
+fresh media preparation as an existing-player upgrade; use publication above.
+Double-click `ISO/Launch-DOScraft.cmd` afterward; keep its `.ps1` and `DOSCRAFT.ISO` beside it. It needs no Python at launch time
+and works regardless of the current directory. It validates the prepared ISO,
+embedded boot media, emulator/ROM hashes and hardware, refuses a second process
+on the same writable HDD, and reuses that HDD on future launches. `-ValidateOnly`
+on the PowerShell launcher checks these gates without starting a window.
+An error is shown and kept visible by the `.cmd` launcher.
+
+### Graphics presets
+
+Open **Settings → Graphics** from the main menu or **Escape → Settings →
+Graphics** during play. The submenu offers the existing presets, view resolution,
+textured render distance, and flat render distance. Flat distance is the total
+visibility limit: terrain is textured first, then flat shaded out to that limit.
+Both distances change in 2-block steps. Textured distance can be reduced to 0 for flat
+opaque block faces, while flat distance has a minimum of 4. The flat limit
+cannot be shorter than the textured distance. Equal distances keep all visible
+terrain textured. Cutout masks remain available in textureless mode. Flat faces
+skip the texture subdivision work on every CPU.
+At 80x50, background mesh refresh, column preparation, flat polygon rasterization
+and collection reuse use the same shared optimizations on every CPU; Very Low
+distant terrain also uses wider strips.
+The [386 textureless benchmark](research/386sx25-shared-textureless-optimized-flat4-2026-10-14.md)
+records the explicit 0-textured/4-flat configuration and its performance.
+The [next four experiments](research/386sx25-next-four-2026-10-14.md) improve that
+configuration from 7.89 to 9.91 FPS in the fixed graphics replay.
+Changing an individual option marks the preset Custom; choosing a preset
+restores all of its graphics values. **F2** still cycles Low → Medium → High →
+Very Low → Low, and startup remains Low. Mode X retains the 320x240 display and
+40-row HUD. Controls and Diagnostics are separate settings submenus. Effects
+use the external sound bank described above. F6 toggles music and F7 sound
+effects, as on the Towns.
+
+| Preset | 3D view resolution | View distance | Textured distance | Subdivision |
+| --- | --- | --- | --- | --- |
+| Low (default) | 160x100, doubled | 8 blocks | All 8 blocks | Adaptive |
+| Medium | 160x100, doubled | 12 blocks | 10 blocks, then flat shading | Adaptive |
+| High | 320x200 | 12 blocks | 10 blocks, then flat shading | Adaptive |
+
+Low preserves the primary-target benchmark quality. Medium/High combine existing
+settings, not new rendering effects. Significant new visual/gameplay changes
+require approval before experimentation. Occlusion remains off pending evidence;
+it is no longer an independent player toggle.
+
+The exact ISO path is printed at preparation and recorded via
+`build/game/486dx25/latest-play-vm.txt`. The ISO contains the real executable and
+a FreeDOS/CWSDPMI/CuteMouse boot payload. The ISA-486 profile boots **the floppy
+extracted byte-for-byte from that ISO**; it does not claim 1989 BIOS native
+El Torito boot. No CD controller is silently added or ESDI hardware replaced.
+The writable files are `C:\TERRAIN.TMP` and `C:\WORLD.SAV` on a private 206-MiB
+SCSI HDD for the current 1024 world. The earlier 256-world VM retains its
+private 20-MiB disk. Generated media/dependencies
+remain ignored; source/build/launch/test tools are tracked. This is a local
+development package, not a standalone redistribution of DOS/emulator ROMs.
+
+The main menu has **New Game**, **Load Game**, **Settings**, and **Quit to DOS**.
+Use Up/Down (or W/S) to select and Enter/Space to open. **New Game immediately
+replaces the single save slot**, clearing both save-bank headers while retaining
+the fixed-size HDD save medium. The current 1024 world resets to its prebaked
+seed and discards previous terrain edits. Load Game is disabled while the slot
+is empty; L remains a load shortcut. A new world fills the slot when saved.
+
+Escape pauses gameplay and opens **Resume Game**, **Settings**, **Save Game**,
+and **Save & Main Menu**. Saving must succeed before returning to the main
+menu. Escape returns one menu level; controls opened from Settings return to
+their submenu. WASD walks; arrows look; J breaks/attacks; E places/uses; Tab
+opens inventory; C opens crafting; F1 shows controls; F9 saves during play.
+Wait for saving/generation to finish before closing the emulator.
+
+`python tools/game_media.py --smoke --bios "<same-machine isa486.nvr>" --launch`
+creates separate test media. It runs the real generator/game loop, drives AT
+controller input, checks movement/full pitch and torch placement/breaking,
+opens inventory/crafting, saves and reloads in a second DOS process. The
+diagnostic must wait for a real rendered gameplay frame, not load progress,
+and must not exit from inside a save callback. VGA snapshots include palette
+and full-plane readback. `tools/game_report.py --vm "<test VM>" --output
+"<new output directory>"` extracts both passing reports, independently checks
+the original v3 save checksum/RLE extent and renders diagnostic PNGs.
+These tests are not comprehensive feature parity, Windows input capture or a
+performance benchmark; audio and broader interactive acceptance remain deferred.
+
+The completed 2026-10-09 real-game run passes both phases at width256 with 25
+resident columns, actual mobs/inventory/world state and zero stream errors.
+The full save's checksum independently verifies 409,724 terrain RLE runs;
+its used payload ends at byte821,145 within the unchanged raw save capacity.
+World/inventory/crafting/placement snapshots were visually inspected. All 165
+host tests pass (two environment-dependent symlink skips), and all 50 vendor
+files still verify. [Guest reports, build hashes and snapshots](tests/baselines/2026-10-09-game/report.json)
+are tracked. The normal `.cmd` actually opened 86Box and reached the title;
+an attempted duplicate launch was refused. Tests are closed, their disks kept.
+Synthesized Windows Space remained unreliable even after explicit focus/capture;
+this is not evidence that a physical keyboard fails, nor a passed physical
+ingress test. Please verify physical Space/mouse capture when playing.
+
+The standalone DOS heap adapter is now implemented under `src/platform/dos/heap.*`. Native tests compare 80,000 allocation/rewind trace steps with the checksum-verified pinned Towns allocator, including alignment, low-to-high fallback and fatal behavior. A DJGPP harness also compiles/links against the imported declarations. The adapter borrows caller-supplied arenas; DOS startup now supplies and tests their backing, but integration into the complete game is still pending. Logical high-heap marks preserve the existing API rather than exposing relocated DOS pointers. No allocator optimization or world-memory policy change is implied.
+
+The game-facing framebuffer adapter now preserves three RAM-page identities and the original drawing/font bodies. Mode X uploads into hidden VGA pages and changes the display start at retrace; this replaces Towns page-presentation hardware, not its renderer. Native tests cover cached HUD/page contents, drawing bounds, row padding and page synchronization. Guest `ADAPTER.EXE` has passed twelve full-plane transfers, page retention/synchronization and heap rewind; this diagnostic is still not the game. AT keyboard translation is tested, including all keys used by the pinned game and the original 32-slot/drop-new queue behavior.
+
+DOS startup and IRQ0/IRQ1 transport are now implemented and guest-tested by `SYSTEM.EXE`. The hardware timer is nominally 100 Hz (AT PIT divisor 11932); the unchanged gameplay accumulator still updates at **20 Hz**, not 100 Hz. BIOS timer chaining retains its normal roughly 18.2 Hz cadence. Explicit image/ISR-stack locking, nested interrupt-state guards, profiler sampling, vector/PIC restoration and repeated installation passed. The automatic key test injects ten bytes through the emulated AT controller, exercising real IRQ1 delivery; it does not establish Windows key automation or interactive gameplay. The profiler recognizes the return trampoline in the pinned normal CWSDPMI r7 binary and excludes real-mode callbacks/foreign code; arbitrary DPMI hosts and CWSDPR0 are not supported profiler transports. [CWSDPMI r7 source](https://www.delorie.com/pub/djgpp/current/v2misc/csdpmi7s.zip), `tables.asm:irq_common` and `dpmisim.asm:rmcb_task/_user_interrupt_return`.
+
+Startup reports installed RAM from the pinned motherboard BIOS, requires the primary 486/16-MiB floor and rejects disk paging. Separate 1-MiB permanent low and 8-MiB rewindable high arenas cover the audited pinned-source allocation peaks with headroom; world size, column cache, mesh and renderer budgets still use installed RAM (`g_ramMB=16`), not the 9-MiB backing size. Physical DMA buffers will need separate conventional allocations in the audio adapter. DOS fatal errors restore text mode and report the error instead of permanently halting the computer. VGA timeout waits switch to the IRQ clock while the PIT runs at 100 Hz, because libc `uclock()` assumes the original BIOS divisor. The combined guest test passed heap backing/rewind, three full-plane VGA transfers with IRQs installed and return to DOS. Audio and the complete game link remain pending; no gameplay parity or FPS gain is claimed.
+
+The mouse adapter uses the normal DOS `INT 33h` driver interface: Windows input goes through 86Box's emulated two-button Microsoft serial mouse on COM1/IRQ4, then through a resident DOS driver, then into the unchanged `mouse_read` game API. CuteMouse is guest software that also works on physical DOS PCs, not an emulator extension. The configured AT/serial system has no built-in BIOS `INT 33h` service; a compatible driver or an in-game UART/IRQ handler is needed. We use the driver route for the direct port, with no mouse callback in our timer ISR, no software cursor, no new gamepad mapping and no camera scaling.
+
+The reproducible mouse probe pins [CuteMouse 1.9.1](https://cutemouse.sourceforge.net/) and starts `CTMOUSE /S14 /R11 /W /Y`: COM1/IRQ4, linear motion in both axes, conventional-memory TSR and no blind Mouse Systems fallback. This is modern DOS infrastructure, not a claim that the driver shipped in 1989. The inspected 1.9.1 `updateposition` source bypasses acceleration when resolution is 1. CuteMouse 2.1 beta 4 was rejected: a UART packet containing `(127,127)` produced `(381,381)` in its function-0B counters. Its driver-level acceleration would alter camera behavior even though [the INT 33 motion API](https://delorie.com/djgpp/doc/rbinter/id/86/59.html) describes relative movement. Do not substitute driver releases/settings without rerunning the motion parity gate.
+
+`MOUSE.EXE` verifies signed UART loopback packets through real IRQ4 delivery, driver detection, left/right combinations, motion accumulation/consumption (including +381/-384 totals), reset/cleanup and UART restoration while Mode X and the custom 100-Hz PIT are active. Native mocks exhaust all 65,536 signed counter values with eight button masks and cover absent/null/IRET drivers and DPMI failures. Loopback does **not** establish Windows/physical mouse capture or interactive gameplay; those remain acceptance gates. The launcher checks the emulator binary, actual boot-media driver hash, complete linear COM1 startup/shell configuration and mouse hardware; serial passthrough is refused. The driver stays loaded until DOS exits; game shutdown does not uninstall someone else's TSR. Close completed diagnostic emulator windows and preserve their images/reports.
+
+The temporary terrain `hdd_*` adapter now uses a dedicated DOS file, `C:\TERRAIN.TMP`, rather than Towns SCSI/DMA. It opens an existing regular, sector-aligned file without creation/truncation, checks the signed 32-bit seek range and retains one outstanding request, identical-argument polling, terminal-result restart and cancellation/buffer ownership. Each poll transfers at most 2 KiB; positive short transfers advance, zero progress/errors terminate, and write completion includes a strictly checked DOS commit (INT 21h/AX=6800h, including the carry flag) before callers can publish a slot. This avoids DJGPP `fsync` treating DOS errors 1/6 as success. Cancellation does not undo already-written slices. Missing or malformed files are never automatically formatted. The original world code still owns the marker, checksums, alternating slots, edit revisions and RAM-only directory; this adapter is not a new cache policy or durable save format. [Microsoft DOS commit API](https://www.pcjs.org/documents/books/mspl13/msdos/encyclopedia/appendix-a/).
+
+`STORAGE.EXE` passed on the primary guest with IRQ0/IRQ1 installed: 12-KiB polled reads/writes, unchanged marker, request identity, bounds, cancellation, alternate-slot isolation and flush/close/reopen. The host independently checked the entire 6,291,968-byte terrain file against the exact expected two-slot changes; all other bytes remained zero. Native fault injection covers absent/invalid files, short/zero/error transfers, seek/commit/close errors, failures after partial writes, strict commit ordering and cleanup/retry. `--probe storage --prepare-vm` creates this fixture **only in a newly allocated private diagnostic HDD**; it never provisions an existing image. The launcher rejects unknown file markers/capacity, malformed partition/BPB geometry and altered startup. DOS file calls themselves can block: sliced polling does not reproduce the Towns hardware driver's wait-latency bound. This is transport evidence, not world traversal or FPS evidence. Mixed save/scratch source integration, dirty eviction and full world/mob save/load remain pending.
+
+Persistent saves now use a separate existing `C:\WORLD.SAV` file containing the exact 1,261,568-byte raw Towns logical save medium. The pinned byte stream/checksum/RLE and versions 1-4 are retained via a provenance-checked extraction; bounded DOS close-error propagation and the separately approved loader-precedence fix are recorded transformations. No create/truncate, new envelope, automatic formatting, new mob policy or UI wording change. Writes are strictly committed track-by-track before header/RAM-column publication. Read-only files can load; positive short I/O advances, while failed seeks, EOF/zero/error I/O, commit or close return failure. Cooperative reads retain one destination and adjacent-track reuse, but DOS calls can block.
+
+`SAVEIO.EXE` passed with the resident timer/key IRQs on a fresh private HDD: width-256 cached v3 roundtrip, two-bank v4 roundtrip, protected-source `writeBackup` and cross-track paging. Native tests also cover v1/v2 inputs, short transfers followed by EOF/error, every payload/header commit boundary, distinct old/new snapshots, read-only writes, and idle/cancel/final close errors. Both native and guest save files match an independent 1,261,568-byte oracle exactly. **World/mob providers in this diagnostic are mocks**; the real world-cache, mob codec, restart and gameplay integration remain unverified. `--probe saveio --prepare-vm` provisions a blank file only in a fresh diagnostic image; launch refuses nonblank media, so use a new VM for another run. [Inherited storage issues](KNOWN_PORT_ISSUES.md) have separately approved bugfix commits: completed save reads release their shared destination, and repeat requests recopy it after terrain overwrites it; recognized legacy v1-v3 at track zero takes precedence over surviving v4 bank 1, without rewriting banks or changing format selection. Legacy formats cannot encode cross-format chronology. Native regressions pass. The extended guest test also passes with a private CRT initial-memory-lock experiment; default unlocked startup currently faults before that diagnostic starts. The runtime adaptation is a separate port-infrastructure checkpoint, not part of either save correction.
+
+The startup issue mentioned above is now resolved in the normal build: the IRQ adapter declares DJGPP's `_CRT0_FLAG_NONMOVE_SBRK | _CRT0_FLAG_LOCK_MEMORY` policy, requesting resident initial image/CRT-stack memory before startup DOS calls. The explicit checked ISR-image lock and its failure handling remain, because CRT locking does not check errors. Normal `SAVEIO.EXE` passes all extended gates and the complete save-byte oracle; normal `SYSTEM.EXE` passes timer/keyboard/profiler/heap/VGA, restoration and reinstallation. All 86 native tests pass, with two environment-dependent symlink skips. This is a separate port-infrastructure correction, not a renderer optimization: no emulator/ROM/libc patches, CPU overrides, game heap-budget changes or gameplay/UI changes. Full-game memory headroom and real world/cache/mob parity remain pending. See [the startup investigation](KNOWN_PORT_ISSUES.md#separate-dos-runtime-startup-correction) and recorded evidence.
+
+The next storage checkpoint uses **real pinned world/cache, mobs and inventory**, not the earlier mock providers. Native x86 tests run the actual DOS heap and save/terrain adapters against private Win32 files; only DOS path routing and commit transport are substituted. They verify dirty-column eviction, exact resident terrain, torch light, active/dormant state and stable IDs, player/inventory/chest state, width-256 v3 saving and a second-process reload. All 1,261,568 save bytes match an independent Python oracle, including checksum, exact RLE/state and untouched trailing tracks. The write test refuses any nonblank save. Separate mob-codec tests exercise every serialized field, capacity, invalid records and transport EOF; zero-filled truncated suffixes can be accepted by the raw `get(void)` codec, so its enclosing transport must also reject EOF. No spawning/freeze-policy change accompanies these tests.
+
+`WORLDIO.EXE /WRITE` followed by `/RELOAD` passed that integration fixture in two DOS processes on the primary 486/16-MiB machine, with ordinary resident IRQs and both private HDD files. The full guest save matched the oracle after both processes. The launcher validates both markers/capacities, blank save and exact two-process startup; a failed write phase skips reload. This imports a deterministic flat test level through the existing world API, not a new generator or reduced world/cache/mesh budget. Fresh-process reload is not a power-cycle or power-loss durability test. Rendering/audio/combat/physics callbacks are explicit unused diagnostic stubs: this is still not a playable game or a full parity/FPS gate. Actual v4 mixed saved-column/scratch ownership, generation/gameplay and full audio/game linking remain separate work. [Recorded world-storage evidence](tests/baselines/2026-10-09-world-storage.json).
+
+The first audio checkpoint retains the original ten synthesized effects and complete two-hand score, with replayable source selections from the immutable pin. `sound_assets.c` builds them at startup, converting RF5c68 sign-magnitude samples to unsigned mono PCM without baked resampling or new timing rules. The borrowed buffer preserves offsets/base pitches/volumes; unused alignment gaps and excluded end markers are explicitly silent. Native x86 tests compare every byte, descriptor and event against the full original `sound.c`, with only its hardware wave window redirected to bounded mocks. Repeated builds restore the original seed and score.
+
+`SOUNDGEN.EXE` passed on the primary guest with normal resident startup/IRQs. Its entire 48,917-byte diagnostic output matches that independent original-source reference: 47,425 waveform bytes, ten effects, 328 events and 9,792 song ticks. This is data parity, **not playback**: the SB1 mono mixer/DMA transport, OPL2 instruments/sequencer and audible/gameplay checks remain unimplemented. No renderer optimization, spawning/freeze change, UI change or user-medium mutation accompanies it. The completed emulator window was closed. [Recorded audio-data evidence](tests/baselines/2026-10-09-audio-assets.json).
+
+## Build the initial platform probe
+
+Audio playback infrastructure has advanced beyond the data-only checkpoint above. The foreground mono mixer retains seven round-robin effects plus the eighth looping voice, with original pitch/volume controls and phase-preserving loop updates. Its explicit mono fold, nearest-sample rate conversion and saturating sum are tested against independent integer arithmetic and the full original-source assets; this is a platform adaptation, not analog RF5c68 fidelity or a new gameplay rule.
+
+The SB1 transport uses A220/IRQ7/DMA1, unsigned mono at time constant 165 (about 10,989 Hz), and single-cycle command 14h. It owns 4 KiB of conventional RAM, selects a 2-KiB window that cannot cross a physical 64-KiB DMA page, and copies only while idle. A locked private IRQ stack handles acknowledgement/completion and spurious IRQ7; no mixing, DOS call or DSP command polling occurs in the ISR. Reset/masking stop DMA before teardown, vector-restore failure aborts without releasing live IRQ memory, and cleanup preserves other devices' current PIC mask bits. The launcher validates the actual SB1.05/default enum, base and IRQ rather than assuming the card name proves its settings. [Creative hardware guide](https://www.cs.utexas.edu/~dahlin/Classes/UGOS/reading/SoundBlaster.pdf), [DJGPP conventional DMA memory guidance](https://www.delorie.com/djgpp/v2faq/faq18_13.html), [pinned emulator DSP enum](https://github.com/86Box/86Box/blob/4fef696a/src/include/86box/snd_sb.h).
+
+`SBPCM.EXE` passed real IRQ delivery, exact conventional-memory copies, DMA terminal counts, Mode X with audio active, vector/mask restoration and reinitialization. `SFXPCM.EXE` then passed 48 mixed-effect blocks while foreground DOS writes ran; all 24,576 output bytes match an independent original-assets/arithmetic oracle, including final silence. Both completed diagnostic windows were closed. **This is still not continuous or playable-game audio:** foreground-only single-cycle rearming leaves gaps; buffering/service integration under slow rendering/disk I/O, listener/game API integration, OPL2 music and audible checks remain. [Recorded transport/mixed-effect evidence](tests/baselines/2026-10-09-sb-pcm.json). No optimization, mob policy, UI or Towns-source change is included.
+
+From this directory, with Python 3.10 or newer:
+
+```powershell
+python tools/fetch_dependencies.py
+python tools/fetch_roms.py
+python -m unittest discover -s tests -p "test_*.py"
+python tools/build_pc.py --prepare-vm
+python tools/build_pc.py --probe display --prepare-vm
+python tools/build_pc.py --probe display --hold-display --prepare-vm
+python tools/build_pc.py --probe adapter --prepare-vm
+python tools/build_pc.py --probe system --prepare-vm
+python tools/build_pc.py --probe mouse --prepare-vm
+python tools/build_pc.py --probe storage --prepare-vm
+python tools/build_pc.py --probe saveio --prepare-vm
+python tools/build_pc.py --probe worldio --prepare-vm
+python tools/build_pc.py --probe soundgen --prepare-vm
+python tools/build_pc.py --probe sbpcm --prepare-vm
+python tools/build_pc.py --probe sfxpcm --prepare-vm
+python tools/import_towns.py --verify
+python tools/build_imported.py
+python tools/build_adapters.py
+```
+
+The build target keeps its historical name `486dx25` (it selects i486 code generation; the VM profile `profiles/486dx25-platform.cfg` now runs the CPU at 40 MHz). VMs use a locally built 86Box v6.0 with DOScraft hardware commits, rebuilt by `tools/build_patched_86box.py` into `build/deps/86box-doscraft-40`: the ET4000AX ISA is registered as the 16-bit card it is (v6.0 gave it byte-only memory handlers, so every 32-bit write cost four 8-bit transfers), planar word/dword VGA accesses are charged one bus transfer, and the overclocked i486DX/40 uses a 10 MHz ISA bus (40/4). The earlier 33 MHz runtime remains separate for the published player VM until a save-preserving upgrade. The official v6.0 runtime still supplies the ROMs. Video memory is the ET4000AX maximum, 1 MB. BIOS shadowing is left at the seed CMOS setting: 86Box charges ROM reads like RAM, so it cannot change emulated timing. Results at 25 and 33 MHz are not directly comparable to the 40 MHz profile.
+
+The default target is `486dx25`: compiler flags include `-march=i486 -mtune=i486 -m80387 -mfpmath=387`, with no fast-math option. This permits native 486/x87 code; it does not rewrite the integer renderer or establish a speedup. Builds are isolated under `build/pc/486dx25`, whose `build.json` records the compiler command, CPU floor, profile hash, executable hash and VM path.
+
+The dependencies are version/hash-pinned and extracted only under ignored `build/deps`; nothing is installed globally. Each `--prepare-vm` invocation creates a new private directory under `runtime`, never overwriting an existing world/disk image. These probes use a custom FreeDOS floppy and fresh approximately 20 MiB FAT16 scratch HDD, **not** final disk geometry. Official 86Box v6 lacks the desired Wren V timing preset and silently substitutes RAM Disk for it; diagnostic profiles now explicitly use supported `1989_3500rpm`, a generic timing proxy. The desired ESDI/Wren hardware target is unchanged.
+
+Launch an exact prepared diagnostic directory with `python tools/run_vm.py --vm "<VM directory printed by the build>"`. Add `--dry-run` to validate without launching. The launcher checks the hardware, ROM hashes and actual boot-media executable hash; it creates/replaces no images. First boot requires CMOS configuration. The probes are not the game, and the compiled import intentionally leaves DOS hardware services unresolved.
+
+### First-boot BIOS settings
+
+Select BIOS defaults, then Standard CMOS: drive A **1.44 MB 3.5-inch**, drive B absent, first HDD **Type 2 only when shown as 615 cylinders / 4 heads / 17 sectors**, second HDD absent, VGA display and keyboard installed. In Advanced CMOS set **System Boot Up Sequence to `A:, C:`**. Save with Write to CMOS and Exit. The temporary HDD deliberately has no bootloader; `C:, A:` can hang at the system summary because its MBR has a signature but no executable boot code. Do not use Hard Disk Utility or format anything.
+
+The ordinary display probe holds its pattern for three guest seconds and writes `C:\DISPLAY.TXT`; `--hold-display` creates separate test media that waits for Escape for visual inspection. It does not change the game's UI or renderer. A fresh VM may reuse a known-good same-machine `nvr/isa486.nvr` copy without sharing disk images. Leave working VMs and their reports intact. Keyboard Requires Capture can remain unchecked; if checked, capture the guest before typing. A serial mouse and DOS driver will be required later, not for these probes.
+
+Windows automation finding: explicit window activation and viewport focus are possible, but are not proof that a guest key arrived. The pinned emulator's default low-level keyboard hook requires its window to be foreground **at event delivery** and consumes hardware scan codes. It does not generally reject injected events; a zero scan code follows a multimedia-only path instead of an ordinary Escape fallback. Raw Input is an alternative selected with `--nohook`, not our current launcher path. Focus races and synthetic event fields are unresolved causes of the failed automated Escape. Physical Escape is verified. No emulator or Windows settings were changed to bypass this. [Pinned hook implementation](https://github.com/86Box/86Box/blob/4fef696a4eead1d55a28d6ac0e5bd2864e5454da/src/qt/qt_main.cpp#L218-L234).
+
+Mode X is VGA presentation, not a new 3D rendering engine. The current display backend transports the existing 320x240 indexed image, including its HUD, without changing the painter renderer. Latest user guidance allows an evidence-based choice of resolution; 320x240 display with the existing doubled 160x100 3D option is the initial candidate, not an immutable resolution requirement. Compare full-resolution rendering and transfer costs after the playable port exists.
+
+The old scaffold can still be built explicitly with `--target 386dx33`; its separate output is `build/pc/386dx33`. That is a retained platform diagnostic, not a currently supported 386 game port. It still emulates an Intel `387`: the desired Cyrix FasMath 83D87 is not separately supported/timed by this 86Box version. No Cyrix speed multiplier or emulator rewrite has been introduced; that investigation is deferred with the 386 port.
+
+The probe tests an 8 MiB heap allocation, explicit x87 initialization, a 32 KiB DOS file roundtrip, and Mode 13h framebuffer upload using the guest PIT clock. It restores text mode and writes `PLATFORM.TXT` on the scratch HDD (or floppy fallback). Paging is disabled in the guest startup. This is a platform diagnostic, not a game-resolution/HUD change or a renderer performance result. Host-side FAT tests do not establish that the guest successfully booted.

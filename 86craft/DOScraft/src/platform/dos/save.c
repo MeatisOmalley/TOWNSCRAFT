@@ -20,7 +20,7 @@
 
 #ifdef DOS_LARGE_WORLD
 int world_save_large_columns(void (*put)(u32));
-int world_load_large_columns(u32 (*get)(void));
+int world_load_large_columns(u32 (*get)(void),u32 version);
 void world_commit_large_columns(void);
 #endif
 
@@ -31,8 +31,11 @@ void world_commit_large_columns(void);
 #define SAVE_MAGIC 0x46435354
 #ifdef DOS_LARGE_WORLD
 /* 6: 6-bit block IDs, items from 64 (version 5 saves hold old item IDs).
-   7: adds the early-game extension section after the mobs. */
-#define SAVE_VERSION 7
+   7: two development formats that never reached a player disk: per-block
+      edits, or the early-game section; retired.
+   8: per-block edits after the column directory and the early-game
+      section after the mobs. Only version 8 loads. */
+#define SAVE_VERSION 8
 #else
 #define SAVE_VERSION 4
 #endif
@@ -189,7 +192,7 @@ int dos_save_has_world(void)
             u32 magic,version;
             memcpy(&magic,trackBuf,4); memcpy(&version,trackBuf+4,4);
 #ifdef DOS_LARGE_WORLD
-            if(magic==SAVE_MAGIC && version==SAVE_VERSION) found=1;
+            if(magic==SAVE_MAGIC && (version==SAVE_VERSION || version==6)) found=1;
 #else
             if(magic==SAVE_MAGIC && version>=1 && version<=SAVE_VERSION &&
                (bank==0 || version>=4)) found=1;

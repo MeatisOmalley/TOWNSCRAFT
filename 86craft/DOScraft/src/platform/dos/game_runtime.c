@@ -57,6 +57,7 @@ extern int world_measure_log_copy(int count,u32 *sectors);
 extern u32 g_terrainLogStats[7];
 extern int g_terrainLogForceCompact;
 extern u32 g_terrainLogScanTicks[3];
+extern u32 g_terrainDeltaStats[3];
 static int terrain_persist_ok=1;
 static int edge_stream_ok=1;
 /* V3 edit log: guest cost of compaction's record copy (-1: not a V3 medium). */
@@ -262,6 +263,9 @@ static void finish(void)
                log_copy_ticks,log_copy_sectors,g_terrainLogScanTicks[0],g_terrainLogScanTicks[1],
                g_terrainLogScanTicks[2],g_terrainLogStats[0],g_terrainLogStats[1],g_terrainLogStats[2],
                g_terrainLogStats[3],g_terrainLogStats[4],g_terrainLogStats[5],g_terrainLogStats[6])<0) written=0;
+    /* Per-block edits held: entries, columns, switches to a full log record. */
+    if(fprintf(file,"DELTA=%u,%u,%u\n",g_terrainDeltaStats[0],g_terrainDeltaStats[1],
+               g_terrainDeltaStats[2])<0) written=0;
 #endif
     if(vga_failed_snapshot && fprintf(file,"VGA_FAILED_SNAPSHOT=%s\n",vga_failed_snapshot)<0) written=0;
     if(fprintf(file,"CHICKENS=%s\n",chicken_ok?"PASS":"FAIL")<0) written=0;

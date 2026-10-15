@@ -4,10 +4,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import build_imported
+import dos_immediate_edit_light  # noqa: F401 - patched by name below
 import dos_sources
 
 ZIG = ROOT.parents[1] / 'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'
@@ -23,8 +25,15 @@ class ImmediateLightTests(unittest.TestCase):
             folder = Path(folder)
             build_imported.stage_sources(build_imported.VENDOR, folder)
             src = folder / 'src'
-            original = (src / 'world.c').read_bytes()
-            world, _ = dos_sources.adapt('world.c', original)
+            vendor_world = (src / 'world.c').read_bytes()
+            # Every source gets the default overlays (block IDs among them);
+            # the baseline lacks only the immediate-light overlay under test.
+            for path in src.iterdir():
+                if path.suffix in ('.c', '.h', '.inc') and path.name != 'world.c':
+                    path.write_bytes(dos_sources.adapt(path.name, path.read_bytes())[0])
+            world, _ = dos_sources.adapt('world.c', vendor_world)
+            with patch('dos_immediate_edit_light.adapt', lambda name, data: (data, [])):
+                original, _ = dos_sources.adapt('world.c', vendor_world)
             tests = folder / 'tests'
             tests.mkdir()
             shutil.copyfile(EDIT, tests / 'edit_test.c')
