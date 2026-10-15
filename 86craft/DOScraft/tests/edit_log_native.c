@@ -130,7 +130,7 @@ static void log_report(void)
     }
     printf("LOG sectors=%u free=%u live_records=%u live_sectors=%u slots=%u\n",
         terrainV3 ? terrainLogEnd-terrainLogFirst : 0,terrainV3 ? logFree : 0,records,used,
-        terrainV3 ? log_slots() : 0);
+        terrainV3 ? log_slots(~0u) : 0);
     printf("STATS rebuilds=%u wraps=%u compactions=%u moved=%u moved_sectors=%u refused=%u writes=%u failed=%u\n",
         g_terrainLogStats[0],g_terrainLogStats[1],g_terrainLogStats[2],g_terrainLogStats[3],
         g_terrainLogStats[4],g_terrainLogStats[6],g_terrainDiskStats[1],g_terrainDiskStats[3]);
@@ -143,10 +143,46 @@ static void finish(void)
     puts("PASS");
 }
 
+/* Run-boundary scans against a bit-by-bit reference on random bitmaps. */
+static void bitmap_scans(void)
+{
+    u32 seed=12345;
+    for(int trial=0; trial<400; ++trial) {
+        u32 size=1+(trial*997u)%LOG_MAX_SECTORS,used=trial%7;
+        terrainLogFirst=5000; terrainLogEnd=5000+size;
+        memset(logBits,0,sizeof(logBits));
+        for(u32 i=0; i<size; ) {
+            seed=seed*1103515245u+12345u;
+            u32 run=1+(seed>>16)%(trial%3 ? 40 : 4);
+            if(((seed>>8)&7)<used) for(u32 k=i; k<i+run && k<size; ++k) logBits[k>>5]|=1u<<(k&31);
+            i+=run;
+        }
+        u32 slots=0,run=0;
+        for(u32 i=0; i<=size; ++i) {
+            if(i<size && !log_bit(i)) ++run;
+            else { slots+=run/TERRAIN_SECTORS; run=0; }
+        }
+        check(log_slots(~0u)==slots && (slots<3 ? log_slots(3)==slots : log_slots(3)>=3),"slot count");
+        for(int q=0; q<20; ++q) {
+            seed=seed*1103515245u+12345u;
+            u32 from=(seed>>4)%size,end=from+(seed>>12)%(size-from+1),n=1+(seed>>20)%24;
+            u32 s0=(seed>>3)%size,s1=s0+(seed>>9)%64,want=~0u;
+            if(q&1) s0=s1=0;
+            for(u32 i=from,r=0; i<end; ++i) {
+                if(log_bit(i) || (i>=s0 && i<s1)) { r=0; continue; }
+                if(++r==n) { want=i+1-n; break; }
+            }
+            check(log_find(from,end,n,s0,s1)==want,"free-run search");
+        }
+    }
+    puts("PASS: bitmap scans");
+}
+
 int main(int argc,char **argv)
 {
     check(argc>=2,"mode");
     const char *mode=argv[1];
+    if(!strcmp(mode,"bits")) { bitmap_scans(); return 0; }
     if(!strcmp(mode,"new")) { start(argc,argv,1); place_player(g_spawnZ/CS*g_NC+g_spawnX/CS); save_now(); finish(); return 0; }
     if(!strcmp(mode,"fail")) { start(argc,argv,0); return 1; }
     check(argc>=7,"column range and value");

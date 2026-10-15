@@ -48,6 +48,7 @@ static int logExact;
    refused play-time records */
 u32 g_terrainLogStats[7];
 int g_terrainLogForceCompact;
+u32 g_terrainLogScanTicks[3];   /* smoke probe: 64 rebuilds, slot scans, failing finds */
 
 static u32 large_ref(const ColumnRecord *r)
 {
@@ -92,13 +93,8 @@ static int log_rebuild(void)
 		for(int id=0; id<TERRAIN_COLUMNS; ++id)
 			if(logPin[b][id]) log_mark(logPin[b][id]);
 	if(terrainWriteID>=0 && large_ref(&terrainPending)) log_mark(large_ref(&terrainPending));
-	logFree=0;
-	for(u32 i=0; i<size; ++i)
-	{
-		u32 w=logBits[i>>5];
-		if(!(i&31) && i+32<=size && (!w || w==~0u)) { if(!w) logFree+=32; i+=31; }
-		else logFree+=!((w>>(i&31))&1u);
-	}
+	logFree=size; /* no bit beyond the log is ever marked */
+	for(u32 w=0; w<(size+31)/32; ++w) logFree-=(u32)__builtin_popcount(logBits[w]);
 	logExact=1; ++g_terrainLogStats[0];
 	return ok;
 }
@@ -108,41 +104,49 @@ static void large_log_reset(void)
 	memset(logBits,0,sizeof(logBits));
 	logHead=0; logFree=terrainLogEnd-terrainLogFirst; logExact=1;
 }
+/* First sector in [i,end) that is marked (used) or free; end if none. Scans
+   skip whole words and jump between run boundaries, never bit by bit. */
+static u32 log_next(u32 i,u32 end,int used)
+{
+	if(i>=end) return end;
+	u32 w=(used ? logBits[i>>5] : ~logBits[i>>5])&(~0u<<(i&31));
+	while(!w)
+	{
+		i=(i|31u)+1u;
+		if(i>=end) return end;
+		w=used ? logBits[i>>5] : ~logBits[i>>5];
+	}
+	i=(i&~31u)+(u32)__builtin_ctz(w);
+	return i<end ? i : end;
+}
 /* First run of n free sectors in [from,end), outside [skip0,skip1); ~0u if none. */
 static u32 log_find(u32 from,u32 end,u32 n,u32 skip0,u32 skip1)
 {
-	u32 run=0;
-	for(u32 i=from; i<end; ++i)
+	for(u32 i=from; i<end; )
 	{
-		u32 w=logBits[i>>5];
-		if(i>=skip0 && i<skip1) { run=0; i=skip1-1; continue; }
-		if(!(i&31) && i+32<=end && (i+32<=skip0 || i>=skip1) && (!w || w==~0u))
-		{
-			if(w) run=0;
-			else if(run+32>=n) return i-run;
-			else run+=32;
-			i+=31; continue;
-		}
-		if((w>>(i&31))&1u) run=0;
-		else if(++run==n) return i+1-n;
+		u32 f=log_next(i,end,0),u;
+		if(f>=end) break;
+		if(f>=skip0 && f<skip1) { i=skip1; continue; }
+		u=log_next(f,end,1);
+		if(f<skip0 && u>skip0) u=skip0;
+		if(u-f>=n) return f;
+		i=u;
 	}
 	return ~0u;
 }
-/* Free runs as whole 24-sector records: what a flush of dirty columns needs. */
-static u32 log_slots(void)
+/* Free runs as whole 24-sector records (what a flush of dirty columns
+   needs), counting no further than limit. */
+static u32 log_slots(u32 limit)
 {
-	u32 size=terrainLogEnd-terrainLogFirst,slots=0,run=0;
-	for(u32 i=0; i<size; ++i)
+	u32 size=terrainLogEnd-terrainLogFirst,slots=0;
+	for(u32 i=0; i<size && slots<limit; )
 	{
-		u32 w=logBits[i>>5];
-		if(!(i&31) && i+32<=size && (!w || w==~0u))
-		{
-			if(w) { slots+=run/TERRAIN_SECTORS; run=0; } else run+=32;
-			i+=31; continue;
-		}
-		if((w>>(i&31))&1u) { slots+=run/TERRAIN_SECTORS; run=0; } else ++run;
+		u32 f=log_next(i,size,0),u;
+		if(f>=size) break;
+		u=log_next(f,size,1);
+		slots+=(u-f)/TERRAIN_SECTORS; i=u;
 	}
-	return slots+run/TERRAIN_SECTORS;
+	return slots;
 }
 /* Place a record of len bytes for column id. Play-time records (non-blocking
    eviction) must leave room for a save to flush every resident column; saves,
@@ -157,7 +161,7 @@ static int large_log_alloc(int id,u32 len,u32 *off)
 		if(at!=~0u)
 		{
 			log_mark((terrainLogFirst+at)<<5|n);
-			if(terrainBlocking || log_slots()>=(u32)g_residentColumns+1) break;
+			if(terrainBlocking || log_slots((u32)g_residentColumns+1)>=(u32)g_residentColumns+1) break;
 			log_unmark(at,n); at=~0u;
 		}
 		if(logExact) break;
@@ -181,7 +185,8 @@ static void large_log_compact(void)
 	u32 size=terrainLogEnd-terrainLogFirst,window=(size+LOG_WINDOWS-1)/LOG_WINDOWS;
 	u32 live[LOG_WINDOWS],best=0,t0=g_ticks;
 	log_rebuild();
-	if(log_slots()>=2u*((u32)g_residentColumns+1) && !g_terrainLogForceCompact) return;
+	u32 enough=2u*((u32)g_residentColumns+1);
+	if(log_slots(enough)>=enough && !g_terrainLogForceCompact) return;
 	memset(live,0,sizeof(live));
 	for(int id=0; id<TERRAIN_COLUMNS; ++id)
 	{
@@ -395,12 +400,14 @@ int world_verify_large_travel(int x,int z)
  * live record count times (read, checksum, write and DOS commit) into free
  * log sectors that nothing references, which stay free. Returns elapsed
  * 100 Hz ticks and the sectors written; -1 without an edit log or live
- * record, -2 after a transfer or checksum failure. */
+ * record, -2 after a transfer or checksum failure. Dirty columns are
+ * flushed first, as a save would, so the smoke's edit is a live record. */
 int world_measure_log_copy(int count,u32 *sectors)
 {
 	int id=0;
 	*sectors=0;
-	if(!terrainV3 || !world_backing_idle()) return -1;
+	if(!terrainV3) return -1;
+	if(!world_store_flush()) return -2;
 	while(id<TERRAIN_COLUMNS && !large_ref(&columnRecords[id])) ++id;
 	if(id==TERRAIN_COLUMNS) return -1;
 	const ColumnRecord *r=&columnRecords[id];
@@ -417,5 +424,19 @@ int world_measure_log_copy(int count,u32 *sectors)
 		at+=n; *sectors+=n;
 	}
 	terrainBlocking=0; preparedColumn=-1;
-	return (int)(g_ticks-t0);
+	int ticks=(int)(g_ticks-t0);
+	/* Bitmap work, 64 times each: an exact rebuild, then a full slot count
+	   and a failing 24-sector search over a fragmented log (7 sectors used,
+	   3 free, repeated). The final rebuild restores the exact bitmap. */
+	u32 t1=g_ticks;
+	for(int i=0; i<64; ++i) log_rebuild();
+	u32 t2=g_ticks;
+	memset(logBits,0,sizeof(logBits));
+	for(u32 i=0; i<size; ++i) if(i%10<7) logBits[i>>5]|=1u<<(i&31);
+	for(int i=0; i<64; ++i) (void)log_slots(~0u);
+	u32 t3=g_ticks;
+	for(int i=0; i<64; ++i) (void)log_find(0,size,TERRAIN_SECTORS,0,0);
+	g_terrainLogScanTicks[0]=t2-t1; g_terrainLogScanTicks[1]=t3-t2; g_terrainLogScanTicks[2]=g_ticks-t3;
+	log_rebuild();
+	return ticks;
 }

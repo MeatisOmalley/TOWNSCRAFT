@@ -51,6 +51,7 @@ extern int world_verify_large_travel(int x,int z);
 extern int world_measure_log_copy(int count,u32 *sectors);
 extern u32 g_terrainLogStats[7];
 extern int g_terrainLogForceCompact;
+extern u32 g_terrainLogScanTicks[3];
 static int terrain_persist_ok=1;
 static int edge_stream_ok=1;
 /* V3 edit log: guest cost of compaction's record copy (-1: not a V3 medium). */
@@ -247,9 +248,10 @@ static void finish(void)
                terrain_persist_ok?"PASS":"FAIL",edge_stream_ok?"PASS":"FAIL")<0) written=0;
     /* Copy probe, then rebuilds, wraps, compactions, moved records/sectors,
        last compaction ticks and refused play-time records. */
-    if(fprintf(file,"LOG_COPY=%d,%u\nLOG_STATS=%u,%u,%u,%u,%u,%u,%u\n",log_copy_ticks,log_copy_sectors,
-               g_terrainLogStats[0],g_terrainLogStats[1],g_terrainLogStats[2],g_terrainLogStats[3],
-               g_terrainLogStats[4],g_terrainLogStats[5],g_terrainLogStats[6])<0) written=0;
+    if(fprintf(file,"LOG_COPY=%d,%u\nLOG_SCAN=%u,%u,%u\nLOG_STATS=%u,%u,%u,%u,%u,%u,%u\n",
+               log_copy_ticks,log_copy_sectors,g_terrainLogScanTicks[0],g_terrainLogScanTicks[1],
+               g_terrainLogScanTicks[2],g_terrainLogStats[0],g_terrainLogStats[1],g_terrainLogStats[2],
+               g_terrainLogStats[3],g_terrainLogStats[4],g_terrainLogStats[5],g_terrainLogStats[6])<0) written=0;
 #endif
     if(vga_failed_snapshot && fprintf(file,"VGA_FAILED_SNAPSHOT=%s\n",vga_failed_snapshot)<0) written=0;
     if(fprintf(file,"CHICKENS=%s\n",chicken_ok?"PASS":"FAIL")<0) written=0;

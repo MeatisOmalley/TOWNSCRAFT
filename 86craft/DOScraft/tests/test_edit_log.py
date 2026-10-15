@@ -11,6 +11,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -155,6 +156,9 @@ class EditLogTests(unittest.TestCase):
     def banks(self, terrain, save):
         return v3.v3_records(terrain.read_bytes(), save.read_bytes(), checked=True)
 
+    def test_bitmap_scans_match_bit_by_bit_reference(self):
+        self.assertIn('PASS: bitmap scans', self.run_cmd([self.exe, 'bits']).stdout)
+
     def every_column(self, log_sectors):
         terrain, save = self.media(log_sectors)
         out = self.game('edit', terrain, save, 0, 4096, 1, 512).stdout
@@ -270,7 +274,9 @@ class EditLogTests(unittest.TestCase):
         disk[part:] = populate(disk[part:part + 512], [('TERRAIN.TMP', terrain.read_bytes()),
                                                        ('WORLD.SAV', save.read_bytes())])
         before = bytes(disk)
+        t0 = time.time()
         result, log, proof = migrate_disk(before)
+        print(f'\nmigration: {time.time() - t0:.1f} s', {k: proof[k] for k in ('log_sectors', 'log_used_sectors', 'edited_records')})
         self.assertEqual(bytes(disk), before)
         self.assertEqual(len(result), len(before))
         self.assertEqual((proof['edited_columns'], proof['edited_records'], proof['save_banks']), (384, 484, 2))

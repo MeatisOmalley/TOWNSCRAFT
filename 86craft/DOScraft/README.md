@@ -52,6 +52,12 @@ compression. The crown-leaf world occupies 33,835,008 bytes instead of
 178,815,488 bytes; disk geometry stays unchanged. The migration preserves
 logical terrain edits and both committed save banks, keeping the original VM
 as a recovery copy. New large-world media is compact by default.
+New media now use V3 edit-log storage: edits go to a preallocated log sized
+to real edits (24 MiB on 486 media; what fits on the 386's 40 MB disk), so all
+4,096 columns stay editable instead of V2's 384. The shared executable reads
+V1, V2 and V3. Existing player disks stay V2 until migrated with
+`tools/log_player_vm.py`, which stages a clone and leaves the launchers alone;
+see [the V3 contract](LARGE_WORLD_STORAGE.md#v3-edit-log-2026-10-14).
 
 The separate [local 386SX-25 VM](HARDWARE_386.md) uses
 `ISO/Launch-DOScraft-386.cmd`, 4 MiB RAM, Trident VGA, a 40 MB IDE disk and
