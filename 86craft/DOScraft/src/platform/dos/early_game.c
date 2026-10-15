@@ -78,8 +78,28 @@ void dos_block_placed(int id,int x,int y,int z)
 	}
 }
 
+#define WATER_FALL 8
+
+static int is_water(int x,int y,int z)
+{
+	return B_WATER==BLK_ID(wget(x,y,z));
+}
+
+/* Water never flows on its own; a cell the player empties next to water
+   fills, and the water drops through air below it (bounded). */
+static void fill_with_water(int x,int y,int z)
+{
+	int k;
+	if(!is_water(x-1,y,z) && !is_water(x+1,y,z) && !is_water(x,y,z-1) &&
+	   !is_water(x,y,z+1) && !is_water(x,y+1,z)) return;
+	world_set(x,y,z,B_WATER);
+	for(k=0; k<WATER_FALL && y-1-k>0 && B_AIR==wget(x,y-1-k,z); ++k)
+		world_set(x,y-1-k,z,B_WATER);
+}
+
 void dos_block_removed(int id,int x,int y,int z)
 {
+	if(B_AIR==wget(x,y,z)) fill_with_water(x,y,z);
 	if(B_FIRE==id || B_FIRE_OUT==id)
 	{
 		int i=fire_find(x,y,z);
@@ -296,8 +316,26 @@ int dos_sprint_tap(int forwardDown)
 	return sprinting;
 }
 
+int dos_try_pluck(int maxDist)
+{
+	int ex,ey,ez,dx,dy,dz,dist,i;
+	player_eye(&ex,&ey,&ez);
+	player_look_dir(&dx,&dy,&dz);
+	i=mobs_ray_hit(ex,ey,ez,dx,dy,dz,MIN(maxDist,3*FU),&dist);
+	if(i<0 || MOB_SHEEP!=g_mobs[i].type) return 0;
+	if(!mob_pluck(i))
+	{
+		game_message("Its wool is growing back");
+		return 1;
+	}
+	sound_play(SFX_CRUNCH,380,180,0);
+	game_message("+ Wool");
+	return 1;
+}
+
 void dos_extras_clear(void)
 {
+	mobs_sheared_clear();
 	memset(fires,0,sizeof(fires));
 	openFire=-1;
 	g_fireLit=0;
@@ -380,6 +418,7 @@ void dos_extras_save(void (*put)(u32))
 			put((u32)(u16)fires[i].z | (u32)fires[i].fuel<<16);
 		}
 	put(0);
+	mobs_sheared_save(put);
 }
 
 int dos_extras_load(u32 (*get)(void))
@@ -403,5 +442,5 @@ int dos_extras_load(u32 (*get)(void))
 		if((a>>24) || fires[i].fuel>FIRE_MAX_FUEL) return 0;
 		fires[i].used=1;
 	}
-	return 1;
+	return mobs_sheared_load(get);
 }

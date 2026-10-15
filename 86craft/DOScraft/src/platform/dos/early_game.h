@@ -37,6 +37,9 @@ int dos_holding_spear(void);
  * into a wall or swims (sampled every frame; 100 Hz timer). */
 int dos_sprint_tap(int forwardDown);
 
+/* An empty hand plucks wool from the sheep it points at (within maxDist). */
+int dos_try_pluck(int maxDist);
+
 /* Forget all early-game world state (new game, or before loading). */
 void dos_extras_clear(void);
 

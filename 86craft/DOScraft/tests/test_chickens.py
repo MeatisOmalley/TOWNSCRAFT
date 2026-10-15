@@ -25,7 +25,7 @@ class ChickenTests(unittest.TestCase):
                 ROOT/'tests/chickens_native.c',*(src/name for name in
                     ('blocks.c','inventory.c','physics.c','fmath.c','libc.c')),tables,'-o',exe])),check=True)
             result=subprocess.run([str(exe)],check=True,capture_output=True,text=True)
-            self.assertIn('PASS: chicken spawn',result.stdout)
+            self.assertIn('PASS: sheep plucking',result.stdout)
 
     def test_overlays_replay_exactly(self):
         for name in ('mobs.h','mobs.c','blocks.h','blocks.c','inventory.c','textures.c'):

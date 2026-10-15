@@ -90,5 +90,27 @@ int main(void)
     /* Worst-case mixed passive/hostile/TNT population fits existing box cap. */
     assert((MAX_MOBS-hostile_limit()-2)*7+hostile_limit()*6+2<=160);
     puts("PASS: chicken spawn, AI, physics, model, combat, drops, cooking, save IDs and despawn");
+    /* Sheep give wool to an empty hand once a day; bare sheep drop no wool. */
+    {
+        mobs_clear(); mobs_sheared_clear(); inv_clear();
+        int sheep=mob_spawn(MOB_SHEEP,48*FU,FU,48*FU); assert(sheep>=0);
+        assert(!mob_sheared(sheep) && mob_pluck(sheep) && inv_count(B_WOOL)==1 && mob_sheared(sheep));
+        assert(!mob_pluck(sheep) && inv_count(B_WOOL)==1);
+        nRendered=0; mobs_add_render_boxes(0);
+        assert(nRendered==6 && rendered[0].tex[0]==T_PLAYER_SKIN);
+        count=position=0; mobs_sheared_save(put);
+        mobs_sheared_clear(); assert(!mob_sheared(sheep));
+        assert(mobs_sheared_load(get) && position==count && mob_sheared(sheep));
+        for(int t=0;t<23999;++t) mobs_sheep_tick();
+        assert(mob_sheared(sheep));
+        mobs_sheep_tick(); assert(!mob_sheared(sheep));
+        assert(mob_pluck(sheep) && inv_count(B_WOOL)==2);
+        mob_hurt(sheep,8,48*FU,48*FU,1);
+        assert(!g_mobs[sheep].type && inv_count(B_WOOL)==2 && inv_count(I_RAW_MUTTON)==1);
+        sheep=mob_spawn(MOB_SHEEP,48*FU,FU,48*FU);
+        mob_hurt(sheep,8,48*FU,48*FU,1);
+        assert(inv_count(B_WOOL)==3 && inv_count(I_RAW_MUTTON)==2);
+    }
+    puts("PASS: sheep plucking");
     return 0;
 }

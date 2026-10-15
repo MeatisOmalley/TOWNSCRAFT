@@ -6,8 +6,8 @@ fields and hook calls that logic needs.
 """
 from build_imported import replace_once
 
-HEADERS = ('blocks.h', 'inventory.h', 'textures.h', 'player.h', 'ui.h')
-NAMES = HEADERS + ('blocks.c', 'inventory.c', 'game.c', 'ui.c', 'textures.c', 'world.c', 'render.c', 'player.c')
+HEADERS = ('blocks.h', 'inventory.h', 'textures.h', 'player.h', 'ui.h', 'mobs.h')
+NAMES = HEADERS + ('blocks.c', 'inventory.c', 'game.c', 'ui.c', 'textures.c', 'world.c', 'render.c', 'player.c', 'mobs.c')
 
 # The olive ramp becomes terracotta: red clay, bricks and copper (EARLY_GAME.md, Textures).
 OLIVE = (95, 155, 85)
@@ -464,6 +464,71 @@ def sprint(name, one):
     one('\t\t"W A S D     Move      CTRL  Sprint",', '\t\t"W A S D     Move   WW/CTRL  Sprint",')
 
 
+SHEEP_PARTS = (
+    '\t{0,12,0, -5,7,-8,5,17,8, 0, T_SHEEP_WOOL,T_SHEEP_WOOL,T_SHEEP_WOOL},\n'
+    '\t{0,14,8, -3,12,7,3,19,13, 0, T_SHEEP_WOOL,T_SHEEP_FACE,T_SHEEP_WOOL},\n'
+    '\tLEG(-3,5,7,1,T_PLAYER_SKIN),LEG(3,5,7,2,T_PLAYER_SKIN),LEG(-3,-5,7,2,T_PLAYER_SKIN),LEG(3,-5,7,1,T_PLAYER_SKIN),\n'
+)
+SHEARED_PARTS = (
+    '\t{0,12,0, -4,8,-7,4,16,7, 0, T_PLAYER_SKIN,T_PLAYER_SKIN,T_PLAYER_SKIN},\n'
+    '\t{0,14,8, -3,12,7,3,19,13, 0, T_SHEEP_WOOL,T_SHEEP_FACE,T_SHEEP_WOOL},\n'
+    '\tLEG(-3,5,7,1,T_PLAYER_SKIN),LEG(3,5,7,2,T_PLAYER_SKIN),LEG(-3,-5,7,2,T_PLAYER_SKIN),LEG(3,-5,7,1,T_PLAYER_SKIN),\n'
+)
+
+
+def sheep(name, one):
+    if name == 'mobs.h':
+        one('void mob_hurt(int i,int dmg,int fromX,int fromZ,int byPlayer);',
+            'void mob_hurt(int i,int dmg,int fromX,int fromZ,int byPlayer);\n'
+            '/* Sheep give wool to an empty hand; the fleece regrows in a day. */\n'
+            'int mob_sheared(int i);\nint mob_pluck(int i);         /* 1 if wool came off */\n'
+            'void mobs_sheep_tick(void);\nvoid mobs_sheared_clear(void);\n'
+            'void mobs_sheared_save(void (*put)(u32));\nint mobs_sheared_load(u32 (*get)(void));')
+    elif name == 'mobs.c':
+        one('static const Part sheepParts[]=\n{\n' + SHEEP_PARTS + '};\n',
+            'static const Part sheepParts[]=\n{\n' + SHEEP_PARTS + '};\n'
+            '/* A plucked sheep shows bare skin until its fleece regrows. */\n'
+            'static const Part shearedSheepParts[]=\n{\n' + SHEARED_PARTS + '};\n'
+            '#define MAX_SHEARED 24\n#define REGROW_TICKS 24000   /* One 20-minute day */\n'
+            'static struct { u32 id; u16 regrow; } sheared[MAX_SHEARED];\n'
+            'static int dropsSheared;\n\n'
+            'static int sheared_slot(u32 id)\n{\n\tint k;\n'
+            '\tfor(k=0; k<MAX_SHEARED; ++k) if(sheared[k].regrow && sheared[k].id==id) return k;\n'
+            '\treturn -1;\n}\n\n'
+            'int mob_sheared(int i)\n{\n\treturn MOB_SHEEP==g_mobs[i].type && sheared_slot(g_mobIDs[i])>=0;\n}\n\n'
+            'int mob_pluck(int i)\n{\n\tint k,best=0;\n'
+            '\tif(MOB_SHEEP!=g_mobs[i].type || mob_sheared(i)) return 0;\n'
+            '\t/* A full list forgets the sheep closest to regrowing. */\n'
+            '\tfor(k=0; k<MAX_SHEARED; ++k) if(sheared[k].regrow<sheared[best].regrow) best=k;\n'
+            '\tsheared[best].id=g_mobIDs[i];\n\tsheared[best].regrow=REGROW_TICKS;\n'
+            '\tinv_add(B_WOOL,1);\n\treturn 1;\n}\n\n'
+            'void mobs_sheep_tick(void)\n{\n\tint k;\n'
+            '\tfor(k=0; k<MAX_SHEARED; ++k) if(sheared[k].regrow) --sheared[k].regrow;\n}\n\n'
+            'void mobs_sheared_clear(void)\n{\n\tmemset(sheared,0,sizeof(sheared));\n}\n\n'
+            'void mobs_sheared_save(void (*put)(u32))\n{\n\tint k,n=0;\n'
+            '\tfor(k=0; k<MAX_SHEARED; ++k) n+=0!=sheared[k].regrow;\n\tput(n);\n'
+            '\tfor(k=0; k<MAX_SHEARED; ++k) if(sheared[k].regrow) { put(sheared[k].id); put(sheared[k].regrow); }\n}\n\n'
+            'int mobs_sheared_load(u32 (*get)(void))\n{\n\tu32 k,n=get();\n'
+            '\tmobs_sheared_clear();\n\tif(n>MAX_SHEARED) return 0;\n'
+            '\tfor(k=0; k<n; ++k)\n\t{\n\t\tu32 regrow;\n'
+            '\t\tsheared[k].id=get();\n\t\tregrow=get();\n'
+            '\t\tif(!regrow || regrow>REGROW_TICKS) return 0;\n\t\tsheared[k].regrow=(u16)regrow;\n\t}\n'
+            '\treturn 1;\n}\n')
+        one('\t\tcase MOB_SHEEP:   parts=sheepParts;   nParts=ARRAY_LEN(sheepParts);   break;',
+            '\t\tcase MOB_SHEEP:   parts=mob_sheared(i) ? shearedSheepParts : sheepParts;   nParts=ARRAY_LEN(sheepParts);   break;')
+        one('\t\tinv_add(B_WOOL,1+rnd_range(2));\n\t\tinv_add(I_RAW_MUTTON,1);\n\t\tgame_message("+ Wool, Raw Mutton");',
+            '\t\tinv_add(I_RAW_MUTTON,1);\n'
+            '\t\tif(dropsSheared) game_message("+ Raw Mutton");\n'
+            '\t\telse { inv_add(B_WOOL,1); game_message("+ Wool, Raw Mutton"); }')
+        one('\t\t\tdrops(m->type);', '\t\t\tdropsSheared=mob_sheared(i);\n\t\t\tdrops(m->type);')
+    elif name == 'game.c':
+        one('static void do_use(void)\n{\n\tif(dos_holding_spear()) return;\n',
+            'static void do_use(void)\n{\n\tif(dos_holding_spear()) return;\n'
+            '\tif(!held_item() && dos_try_pluck(targetValid ? targetDist : 3*FU))\n\t{\n'
+            '\t\tg_player.swing=6;\n\t\treturn;\n\t}\n')
+        one('\tdos_fires_tick();\n\tdos_spear_tick();\n', '\tdos_fires_tick();\n\tdos_spear_tick();\n\tmobs_sheep_tick();\n')
+
+
 def adapt(name, data):
     if name not in NAMES:
         return data, []
@@ -491,4 +556,5 @@ def adapt(name, data):
     spears(name, one)
     hunger(name, one)
     sprint(name, one)
+    sheep(name, one)
     return text.encode(), recipe
