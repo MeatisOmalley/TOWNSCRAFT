@@ -1,0 +1,75 @@
+"""Build/boot the real game, scripted AT input, save/reload; no Windows keys."""
+import argparse
+import json
+from pathlib import Path
+import subprocess
+import sys
+import time
+from build_game import build,ROOT,OUTPUT,DEFAULT_ADAPTER_FLAGS
+from game_media import prepare,validate
+from run_vm import diagnostic_volume
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--bios',type=Path)
+    parser.add_argument('--hardware-vm',type=Path,
+        help='Use the current June 1990 playable VM hardware, CMOS and emulator in a private smoke VM')
+    parser.add_argument('--timeout',type=int,default=900)
+    parser.add_argument('--report',required=True,type=Path)
+    parser.add_argument('--omit-frame-pointer',action='store_true',help='Test the explicit codegen candidate before changing production defaults')
+    parser.add_argument('--et4000-chunky',action='store_true',help='Test the opt-in banked CPU upload, including graphics-preset transitions')
+    parser.add_argument('--trap-destination',action='store_true',help='Test exact destination-register reuse in the original textured painter')
+    parser.add_argument('--trap-four',action='store_true',help='Test four-texel opaque loops together with accepted production transport')
+    parser.add_argument('--proven-rows',action='store_true',help='Explicitly include the scale-2 row proof (already in current defaults)')
+    parser.add_argument('--proven-vertical',action='store_true',help='Explicitly include even/odd row reuse (already in current defaults)')
+    parser.add_argument('--low-planar',action='store_true',help='Test scale-2 rendering straight into Mode X plane rows')
+    parser.add_argument('--build-output',type=Path,default=OUTPUT,help='Isolated build directory for experimental smoke tests')
+    args=parser.parse_args()
+    if args.trap_destination and args.trap_four:
+        parser.error('Measure alternate trap probes separately')
+    flags=None
+    if args.omit_frame_pointer or args.et4000_chunky or args.trap_destination or args.trap_four or args.proven_rows or args.proven_vertical or args.low_planar:
+        defaults=tuple(flag for flag in DEFAULT_ADAPTER_FLAGS
+            if not (args.trap_destination and flag=='-DDOS_TRAP_FOUR'))
+        flags=tuple(dict.fromkeys([*defaults,
+            *(('-fomit-frame-pointer',) if args.omit_frame_pointer else ()),
+            *(('-DDOS_ET4000_CHUNKY',) if args.et4000_chunky else ()),
+            *(('-DDOS_TRAP_DESTINATION',) if args.trap_destination else ()),
+            *(('-DDOS_TRAP_FOUR',) if args.trap_four else ()),
+            *(('-DDOS_VGA_PROVEN_ROWS',) if args.proven_rows else ()),
+            *(('-DDOS_VGA_PROVEN_VERTICAL',) if args.proven_vertical else ()),
+            *(('-DDOS_LOW_PLANAR',) if args.low_planar else ())]))
+    build(output=args.build_output,extra_adapter_flags=flags)
+    if not args.bios and not args.hardware_vm:
+        parser.error('Provide --bios or --hardware-vm')
+    prepare_options={'smoke':True,'bios':args.bios,'output':args.build_output}
+    if args.hardware_vm: prepare_options['hardware_vm']=args.hardware_vm
+    vm,record=prepare(**prepare_options)
+    process=subprocess.Popen(validate(vm),cwd=vm)
+    print(f'VM={vm}\nPID={process.pid}',flush=True)
+    until=time.monotonic()+args.timeout
+    while time.monotonic()<until:
+        volume=diagnostic_volume((vm/'scratch.img').read_bytes())
+        try: first=volume.read('PLAYNEW.TXT').decode('ascii')
+        except FileNotFoundError: first=''
+        if 'RESULT=FAIL\n' in first:
+            process.terminate(); process.wait(timeout=30); raise RuntimeError(f'New-game smoke FAILED; {vm}')
+        try: reports=[volume.read(name).decode('ascii') for name in ('PLAYNEW.TXT','PLAYLOAD.TXT')]
+        except FileNotFoundError:
+            if process.poll() is not None: raise RuntimeError('Guest stopped before smoke reports')
+            time.sleep(2); continue
+        if not all('RESULT=PASS\n' in report for report in reports):
+            process.terminate(); process.wait(timeout=30); raise RuntimeError(f'Guest smoke FAILED; {vm}')
+        # Guest closes storage/restores hardware before writing these reports.
+        process.terminate(); process.wait(timeout=30)
+        subprocess.run([sys.executable,str(ROOT/'tools/game_report.py'),'--vm',str(vm),
+            '--output',str(args.report)],check=True,stdout=subprocess.DEVNULL)
+        manifest=json.loads((args.build_output/'build.json').read_text())
+        if manifest['exe_sha256']!=record['exe_sha256']: raise ValueError('Build changed during smoke')
+        manifest['smoke_verified_exe_sha256']=record['exe_sha256']
+        manifest['smoke_report']=str((args.report/'report.json').resolve())
+        (args.build_output/'build.json').write_text(json.dumps(manifest,indent=2)+'\n')
+        print(f'PASS={args.report / "report.json"}',flush=True); return
+    raise RuntimeError(f'Smoke timeout; private active VM {vm}, PID {process.pid} preserved for diagnosis')
+
+if __name__=='__main__': main()

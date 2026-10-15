@@ -177,7 +177,7 @@ launcher unless asked. Sizes, pause measurements and limits are in
 Most edits no longer reach the edit log. While a column's record is still
 its base, its changed cells stay in RAM as (cell, block) pairs: evicting the
 column writes nothing, and reloading it decodes the base and applies them.
-Saves store them in `WORLD.SAV` after the column directory (save version 6;
+Saves store them in `WORLD.SAV` after the column directory (save version 8;
 the format is in `tools/convert_large_v3.py`), so the two-bank commit covers
 them and a crash loses only unsaved work, as before. A column with more than
 512 changed cells, or one edited while the 4,096-entry pool is full, switches
@@ -188,8 +188,8 @@ New media therefore get a 4 MiB log (8,192 sectors) instead of 24 MiB:
 `TERRAIN.TMP` drops from 49.6 MB to 28.6 MB on 486 media, and the 386's new
 media take 4 MiB rather than the 15 MiB that fitted its disk. Republishing
 keeps an existing log's size; V2 player migrations still use 24 MiB, since a
-full 384-pair pool can need 9,216 sectors. The game reads version 5 and 6
-saves and writes 6. Guest results are in
+full 384-pair pool can need 9,216 sectors. The game writes and loads only
+version 8; media tools read 5, 6 and 8. Guest results are in
 [the research note](research/per-block-edits-2026-10-15.md).
 
 `tools/log_player_vm.py` also moves a stopped V3 player onto a 4 MiB log

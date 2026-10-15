@@ -132,6 +132,12 @@ void sys_init(void)
     /* Keep permanent low allocations independent of high temporary rewind.
      * Reserve less backing on smaller machines; the imported world already
      * selects 96/160/208/256-block widths from installed RAM. */
+#ifdef DOS_R96
+    /* 1996 build (128 MiB workstation): the 16-block draw list alone is
+     * 512 KiB of low allocations. */
+    if (g_ramMB >= 32) { low_bytes=2u*MIB; high_bytes=24u*MIB; }
+    else
+#endif
     if (g_ramMB >= 16) { low_bytes=LOW_BYTES; high_bytes=HIGH_BYTES; }
     else if (g_ramMB >= 8) {
         low_bytes=672u*1024u;

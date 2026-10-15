@@ -21,13 +21,13 @@ On a V3 medium each V5 save directory entry (16 bytes per column) is
                 knows both banks' records: 0 for none/base, else sector<<5|count
 The game never writes into a record that either committed bank references.
 
-Version 6 saves (the current game) follow the directory with the per-block
+Version 8 saves (the current game) follow the directory with the per-block
 edits of columns whose record is still the base:
   u32 columns   then per column, in increasing id order:
   u32 id | count << 16   count 1..DELTA_COLUMN_MAX distinct cells
   u32 cell << 8 | block  per cell; cell is the column codec's cell index
 A column past that many edits is a log record instead, so most edits never
-use the log. Version 5 saves have no such section.
+use the log. Version 5 and 6 saves have no such section.
 """
 import argparse
 from pathlib import Path
@@ -35,6 +35,7 @@ import struct
 
 from bake_large_world import checksum
 from convert_large_v2 import V2_MAGIC, COLUMNS, CELLS, check_v2, decode, sectors
+from leaf_flags_media import SAVE_VERSION, SAVE_VERSIONS  # noqa: F401 - SAVE_VERSION for callers
 
 V3_MAGIC = b'DOSCRAFT-1024-V3'
 SECTOR = 512
@@ -51,7 +52,6 @@ SAVE_MAGIC = 0x46435354
 BANK = 77 * 8192
 DIRECTORY = 20 + 64 + 72
 DIRECTORY_END = DIRECTORY + 12 + COLUMNS * 16
-SAVE_VERSIONS = (5, 6)                    # 6 adds per-block edits
 DELTA_COLUMN_MAX = 512                    # src/platform/dos/large_world.inc
 DELTA_ENTRIES = 4096
 
@@ -152,8 +152,8 @@ def committed_banks(save):
 
 
 def save_deltas(save, start):
-    """{column: {cell: block}} of a committed version 6 bank; {} for version 5."""
-    if struct.unpack_from('<I', save, start + 4)[0] < 6:
+    """{column: {cell: block}} of a committed version 8 bank; {} before that."""
+    if struct.unpack_from('<I', save, start + 4)[0] < 8:
         return {}
     at = start + DIRECTORY_END
     columns = struct.unpack_from('<I', save, at)[0]

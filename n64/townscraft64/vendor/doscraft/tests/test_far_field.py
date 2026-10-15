@@ -1,0 +1,146 @@
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'tools'))
+import build_imported,dos_sources
+from bake_far_field import surface,append_map
+from large_world_media import FAR_BYTES,LIT_BYTES,identity
+ZIG=ROOT.parents[1]/'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'
+TERRAIN=ROOT/'build/checks/large-world-proto/terrain1024-far.bin'
+
+class FarTests(unittest.TestCase):
+    def test_baker_ignores_models_and_keeps_highest_cube(self):
+        raw=bytearray(12288)
+        raw[0]=11; raw[47]=23; raw[48+19]=2
+        self.assertEqual(surface(raw)[:2],bytes((20,2)))
+        raw[48+46]=7
+        self.assertEqual(surface(raw)[:2],bytes((47,7)))
+        self.assertEqual(surface(raw,leaves=False)[:2],bytes((20,2)))
+        raw[48+24]=6
+        self.assertEqual(surface(raw,leaves=False)[:2],bytes((25,6)))
+        self.assertEqual(surface(raw,leaves=True)[:2],bytes((47,7)))
+
+    def test_overlay_replays_with_release_and_planar(self):
+        for name in ('world.c','render.c','raster.c','column_cache.inc','column_hdd.inc'):
+            original=(build_imported.VENDOR/'src'/name).read_bytes()
+            data,recipe=dos_sources.adapt(name,original,large_world=True,stream_light=True,
+                collect_margin=True,raster_finish_skip=True,proven_rows=True,
+                very_low_texels=True,low_planar=True,far_field=True)
+            replay=original
+            for step in recipe:
+                before,after=step['before'].encode(),step['after'].encode()
+                self.assertEqual(replay.count(before),step['count'])
+                replay=replay.replace(before,after)
+            self.assertEqual(replay,data)
+
+    @unittest.skipUnless(TERRAIN.is_file(),'existing prebaked seed required')
+    def test_original_shared_map_preserves_seed_and_offsets(self):
+        original=TERRAIN.read_bytes();result=append_map(original)
+        self.assertEqual(len(result),FAR_BYTES)
+        self.assertEqual(identity(result),identity(original))
+        self.assertEqual(result[:72],original[:72])
+        self.assertEqual(result[116:LIT_BYTES],original[116:LIT_BYTES])
+        self.assertFalse(any(result[92:116]))
+        self.assertIn(7,result[LIT_BYTES+1:FAR_BYTES:2])
+        self.assertTrue(result[LIT_BYTES:]==original[LIT_BYTES:],'original surface appendix changed')
+
+    @unittest.skipUnless(ZIG.is_file() and TERRAIN.is_file(),'native Zig and distant seed required')
+    def test_actual_world_edit_reload_and_checksum(self):
+        with tempfile.TemporaryDirectory(prefix='doscraft-far-') as name:
+            folder=Path(name); build_imported.stage_sources(build_imported.VENDOR,folder)
+            src=folder/'src'
+            for f in src.iterdir():
+                if f.is_file():
+                    data,_=dos_sources.adapt(f.name,f.read_bytes(),large_world=True,stream_light=True,far_field=True)
+                    f.write_bytes(data)
+            (folder/'dpmi.h').write_text('typedef struct { struct { unsigned short ax,bx,flags; } x; } __dpmi_regs;\nint __dpmi_int(int, __dpmi_regs *);\n')
+            tables=src/'tables.c'; self.run_cmd([sys.executable,folder/'tools/gentables.py',tables])
+            flags=[ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99','-fno-builtin',
+                '-DDOS_LARGE_WORLD','-DDOS_STREAM_LIGHT_CACHE','-DDOS_FAR_FIELD','-DDOS_FAR_DETAILS',
+                '-Werror=implicit-function-declaration','-I',folder,'-I',src,'-I',ROOT/'src/platform/dos']
+            obj=folder/'hdd.o'; self.run_cmd([*flags,'-Dopen=world_test_open','-c',ROOT/'src/platform/dos/hdd.c','-o',obj])
+            exe=folder/'far.exe'
+            self.run_cmd([*flags,ROOT/'tests/far_world_native.c',ROOT/'src/platform/dos/heap.c',
+                *(src/s for s in ('blocks.c','fmath.c','libc.c')),tables,obj,'-o',exe])
+            terrain=folder/'terrain.tmp'
+            for source in (TERRAIN,TERRAIN.with_name('terrain1024-fixed-leaves.bin'),
+                           TERRAIN.with_name('terrain1024-crown-leaves-v2.bin'),
+                           TERRAIN.with_name('terrain1024-crown-leaves.bin')):
+                if not source.exists():continue
+                shutil.copyfile(source,terrain)
+                self.assertIn('PASS: distant map',self.run_cmd([exe,terrain]).stdout)
+            with terrain.open('r+b') as f:
+                f.seek(178291200); value=f.read(1); f.seek(178291200); f.write(bytes([value[0]^1]))
+            r=subprocess.run([str(exe),str(terrain)],capture_output=True,text=True,timeout=120)
+            self.assertNotEqual(r.returncode,0); self.assertIn('Corrupt distant terrain',r.stderr)
+
+    @unittest.skipUnless(ZIG.is_file(),'native Zig required')
+    def test_renderer_gates_and_real_strip_layouts(self):
+        with tempfile.TemporaryDirectory(prefix='doscraft-far-render-') as name:
+            folder=Path(name); build_imported.stage_sources(build_imported.VENDOR,folder)
+            src=folder/'src'; tables=src/'tables.c'
+            self.run_cmd([sys.executable,folder/'tools/gentables.py',tables])
+            data,_=dos_sources.adapt('raster.c',(src/'raster.c').read_bytes(),large_world=True,
+                raster_finish_skip=True,proven_rows=True,very_low_texels=True,low_planar=True,far_field=True)
+            text=data.decode(); begin=text.index('void raster_far_column('); end=text.index('void raster_pixel(',begin)
+            (folder/'far_raster_test.inc').write_text(text[begin:end])
+            exe=folder/'render.exe'
+            self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',
+                '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
+                src/'blocks.c',src/'fmath.c',tables,'-o',exe])
+            actual=self.run_cmd([exe]).stdout
+            self.assertIn('PASS: distant levels',actual)
+            reference=subprocess.run(['git','show','codex/b8-before-tweaks-2026-10-13:86craft/DOScraft/src/platform/dos/far_render.inc'],cwd=ROOT,capture_output=True,check=True).stdout
+            (folder/'far_reference.inc').write_bytes(reference)
+            baseline=folder/'reference.exe'
+            self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',
+                '-DFAR_RENDER_TEST_LEGACY',
+                '-DFAR_RENDER_TEST_INCLUDE="far_reference.inc"',
+                '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
+                src/'blocks.c',src/'fmath.c',tables,'-o',baseline])
+            expected=self.run_cmd([baseline]).stdout
+            expected_hash=[line for line in expected.splitlines() if line.startswith('POSE_HASH=')]
+            base_hash=[line for line in actual.splitlines() if line.startswith('POSE_HASH=')]
+            self.assertEqual(len(base_hash),576)
+            for scale in range(2):
+                for current,legacy in ((0,0),(1,0),(2,1),(3,2)):
+                    self.assertEqual(base_hash[scale*288+current*72:scale*288+(current+1)*72],
+                                     expected_hash[scale*216+legacy*72:scale*216+(legacy+1)*72],
+                                     'plain far image changed versus checkpoint')
+            previous=subprocess.run(['git','show','be642145:86craft/DOScraft/src/platform/dos/far_render.inc'],cwd=ROOT,capture_output=True,check=True).stdout
+            (folder/'far_previous.inc').write_bytes(previous)
+            for flags in (['-DDOS_FAR_DETAILS'],['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH'],
+                          ['-DDOS_FAR_DETAILS','-DDOS_FAR_VIEW_DEPTH','-DDOS_FAR_REPROJECT']):
+                self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
+                    '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
+                    src/'blocks.c',src/'fmath.c',tables,'-o',exe])
+                output=self.run_cmd([exe]).stdout
+                self.assertIn('PASS: distant levels',output)
+                hashes=[line for line in output.splitlines() if line.startswith('POSE_HASH=')]
+                self.assertEqual(len(hashes),576)
+                if len(flags)==1:
+                    for start in (0,288):
+                        self.assertEqual(hashes[start:start+72],hashes[start+72:start+144],'Very Low is not styled like Low')
+                        self.assertNotEqual(hashes[start+72:start+144],base_hash[start+72:start+144],'Low lacks visual detail')
+                        self.assertNotEqual(hashes[start+144:start+288],base_hash[start+144:start+288],'Medium/High lack visual detail')
+                self.run_cmd([ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',*flags,
+                    '-DFAR_TEST_LEVELS=3','-DFAR_RENDER_TEST_INCLUDE="far_previous.inc"',
+                    '-I',folder,'-I',src,'-I',ROOT/'src/platform/dos',ROOT/'tests/far_render_native.c',
+                    src/'blocks.c',src/'fmath.c',tables,'-o',baseline])
+                previous_hash=[line for line in self.run_cmd([baseline]).stdout.splitlines() if line.startswith('POSE_HASH=')]
+                for scale in range(2):
+                    # Very Low is now styled like Low (checked above), not pinned here.
+                    for current,prior in ((2,1),(3,2)):
+                        self.assertEqual(hashes[scale*288+current*72:scale*288+(current+1)*72],
+                                         previous_hash[scale*216+prior*72:scale*216+(prior+1)*72],
+                                         'Medium/High image changed')
+
+    def run_cmd(self,args):
+        r=subprocess.run(list(map(str,args)),capture_output=True,text=True,errors='replace',timeout=120)
+        self.assertEqual(r.returncode,0,r.stdout+'\n'+r.stderr[-6000:]); return r
+
+if __name__=='__main__': unittest.main()

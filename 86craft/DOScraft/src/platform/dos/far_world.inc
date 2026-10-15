@@ -1,5 +1,10 @@
 /* Optional visual-only map. Base/edit/save offsets stay fixed. */
+#ifdef DOS_R96
+/* 1996 build: the largest distant terrain the map allows (clamped at load). */
+int dos_far_enabled=DOS_FAR_HIGH;
+#else
 int dos_far_enabled;
+#endif
 u32 dos_far_version,dos_far_boundary_version;
 u8 *dos_far_map;
 static u32 farMapSector,farMapSum;
@@ -53,7 +58,7 @@ static int far_world_cell(int cx,int cz,int lx,int lz,const u8 *blocks)
     int mx=(cx*CS+lx)>>1,mz=(cz*CS+lz)>>1;
     if(!dos_far_in_window(mx,mz)) return 0; /* Reapplied when the window reaches it. */
     u32 i=dos_far_index(mx,mz);
-    if(dos_far_map[i]==h && BLK_ID(dos_far_map[i+1])==b) return 0;
+    if(dos_far_map[i]==h && FAR_ID(dos_far_map[i+1])==b) return 0;
     dos_far_map[i]=h; dos_far_map[i+1]=b;
     return 1;
 }
@@ -63,7 +68,7 @@ static int far_world_cell(int cx,int cz,int lx,int lz,const u8 *blocks)
 static void far_world_style(int x,int z)
 {
     u32 i=dos_far_index(x,z);
-    int h=dos_far_map[i],b=BLK_ID(dos_far_map[i+1]);
+    int h=dos_far_map[i],b=FAR_ID(dos_far_map[i+1]);
     int west=dos_far_in_window(x-1,z) ? dos_far_map[dos_far_index(x-1,z)] : h;
     int north=dos_far_in_window(x,z-1) ? dos_far_map[dos_far_index(x,z-1)] : h;
     int slope=CLAMP(1+((west+north-2*h)>>2),0,3);
@@ -124,7 +129,7 @@ static void far_world_apply_edits(int x0,int z0,int x1,int z1)
 /* Base cells [x0,x1)x[z0,z1) into the window; rows are 1 KiB, 4 per read. */
 static void far_cell_store(int x,int z,const u8 *cell)
 {
-    if(cell[0]>WH || cell[1]>=NUM_BLOCKS) fatal("Invalid distant terrain cell");
+    if(cell[0]>WH || cell[1]>=FAR_IDS) fatal("Invalid distant terrain cell");
     u32 i=dos_far_index(x,z);
     dos_far_map[i]=cell[0]; dos_far_map[i+1]=cell[1];
 }
@@ -224,7 +229,7 @@ static void far_world_reset(void)
     if(column_checksum(dos_far_map,DOS_FAR_BYTES)!=farMapSum)
         fatal("Corrupt distant terrain");
     for(u32 i=0;i<DOS_FAR_BYTES;i+=2)
-        if(dos_far_map[i]>WH || dos_far_map[i+1]>=NUM_BLOCKS)
+        if(dos_far_map[i]>WH || dos_far_map[i+1]>=FAR_IDS)
             fatal("Invalid distant terrain cell");
     /* Reconstruct summaries from the committed edit directory on load.
      * Only edited columns are read; none of this runs in the frame loop. */
@@ -256,5 +261,5 @@ int dos_far_sample(int x,int z,int detailed,u8 *block)
     }
     if(!dos_far_in_window(x>>1,z>>1)) return 0;
     u32 i=dos_far_index(x>>1,z>>1);
-    *block=BLK_ID(dos_far_map[i+1]); return dos_far_map[i];
+    *block=FAR_ID(dos_far_map[i+1]); return dos_far_map[i];
 }

@@ -15,7 +15,7 @@ class ChickenTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='doscraft-chickens-') as directory:
             folder=Path(directory);build_imported.stage_sources(build_imported.VENDOR,folder)
             src=folder/'src'
-            for name in ('blocks.h','blocks.c','mobs.h','mobs.c','inventory.c'):
+            for name in ('blocks.h','blocks.c','mobs.h','mobs.c','inventory.h','inventory.c'):
                 path=src/name;path.write_bytes(dos_sources.adapt(name,path.read_bytes())[0])
             tables=src/'tables.c'
             subprocess.run([sys.executable,str(folder/'tools/gentables.py'),str(tables)],check=True)
@@ -25,7 +25,7 @@ class ChickenTests(unittest.TestCase):
                 ROOT/'tests/chickens_native.c',*(src/name for name in
                     ('blocks.c','inventory.c','physics.c','fmath.c','libc.c')),tables,'-o',exe])),check=True)
             result=subprocess.run([str(exe)],check=True,capture_output=True,text=True)
-            self.assertIn('PASS: chicken spawn',result.stdout)
+            self.assertIn('PASS: sheep plucking',result.stdout)
 
     def test_overlays_replay_exactly(self):
         for name in ('mobs.h','mobs.c','blocks.h','blocks.c','inventory.c','textures.c'):

@@ -475,8 +475,8 @@ int world_load_large_columns(u32 (*get)(void),u32 version)
         if(slot) stream_light_invalidate((id%g_NC)*CS,(id/g_NC)*CS);
 #endif
 	}
-	/* Version 6 adds the per-block edits of base-record columns. */
-	if(version>=6 && !large_delta_load(get)) return 0;
+	/* Version 8 holds the per-block edits of base-record columns. */
+	if(version>=8 && !large_delta_load(get)) return 0;
 	/* Distinct live records never share sectors; that would be corrupt. */
 	if(terrainV3 && !log_rebuild()) return 0;
 #ifdef DOS_FAR_FIELD

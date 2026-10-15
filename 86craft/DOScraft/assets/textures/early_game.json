@@ -1,0 +1,481 @@
+{
+  "assets_sha256": "0fad09bfbf21d83eb7fc43fde973ebdbe2136ac0feb484ebd5ae06a3de45504b",
+  "palette_sha256": "b4aa5a3476d07fa2ac5c2da5f502baf14f3e237965deeac24b1931cba5224e0b",
+  "conversion": "nearest shade 1-15 of the listed ramps; no dithering",
+  "tiles": [
+    {
+      "texture": "T_CLAY",
+      "ramps": [
+        15
+      ],
+      "rule": "clay.png on the \"less noise\" red-clay gradient",
+      "sha256": "dd68ef22d4d5f01c77075029b9e6f5fdf1f9e1de892047f49d77aed987eb9357",
+      "colors": 4,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_COPPER_ORE",
+      "ramps": [
+        0,
+        15,
+        12
+      ],
+      "rule": "copper_ore.png",
+      "sha256": "befcef3a8b5b9ac22c464b5ca4f943b6e092cc0940c308f73f3f06d6910992c8",
+      "colors": 8,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_FIRE_LOG",
+      "ramps": [
+        5,
+        6,
+        1,
+        11,
+        9,
+        15
+      ],
+      "rule": "campfire_log_lit.png, frame 1",
+      "sha256": "a8c2ee026ceb626edaf99565b963fae6d59e21aa33a30727adc9f98ce8ca9238",
+      "colors": 17,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_FIRE_FLAME",
+      "ramps": [
+        11,
+        9,
+        15
+      ],
+      "rule": "campfire_fire.png, frame 1",
+      "sha256": "d9314e82ad5d305bc5328c9ac1d4a93ebb70013d8bcb6dd1f317cd6fe1f98777",
+      "colors": 5,
+      "transparent_pixels": 117
+    },
+    {
+      "texture": "T_FIRE_ASH",
+      "ramps": [
+        5,
+        6,
+        1,
+        0
+      ],
+      "rule": "campfire_log.png (unlit)",
+      "sha256": "4be8ab6b5028efc53d44d0f6ffe65f4594f4f59aa4104df18e7e57b6ed0af2b3",
+      "colors": 13,
+      "transparent_pixels": 48
+    },
+    {
+      "texture": "T_ANVIL_TOP",
+      "ramps": [
+        0,
+        14,
+        5
+      ],
+      "rule": "hand-drawn second-pass anvil, top",
+      "sha256": "040f9ae3ae9eac1d94003a6c715611990e076d801aa782794a89a697ccd085c1",
+      "colors": 13,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_ANVIL_SIDE",
+      "ramps": [
+        0,
+        14,
+        5
+      ],
+      "rule": "hand-drawn second-pass anvil, side",
+      "sha256": "ff638b7c2ef5cf3402685ae63f1879427c1d2a74172dda9589c5548767829e03",
+      "colors": 8,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_CLAYF_FRONT",
+      "ramps": [
+        15,
+        9,
+        11,
+        5
+      ],
+      "rule": "hand-drawn terracotta furnace front, heavier soot ring",
+      "sha256": "e5b7e7794804a63670cde8ffdf8e64eb3a59121ee4284d8d97dda39817506dec",
+      "colors": 10,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_CLAYF_SIDE",
+      "ramps": [
+        15,
+        5
+      ],
+      "rule": "hand-drawn terracotta furnace side",
+      "sha256": "5d001ff908c6b74815d18cf4bf96836fad782d4f0fac676cd8dee5dc38812080",
+      "colors": 4,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_CLAYF_TOP",
+      "ramps": [
+        15,
+        9,
+        5
+      ],
+      "rule": "hand-drawn terracotta furnace top",
+      "sha256": "b46e21b29f555b22f93bc2148f25ec1762e15a42c72b9b92049f4a804c3fc1f4",
+      "colors": 6,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_BRICKS",
+      "ramps": [
+        15,
+        0
+      ],
+      "rule": "bricks.png, bricks on the fired-brick gradient, grey mortar",
+      "sha256": "06ff6bf210cd34b6bde0c46fd4be5a0f77c9c6ce2fd91299358f9241135102b5",
+      "colors": 7,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_BLOOMERY_FRONT",
+      "ramps": [
+        15,
+        9,
+        11,
+        5
+      ],
+      "rule": "darker fired-clay furnace front",
+      "sha256": "7ceea69e5c56660991107c24b3e3d28f77b1d91ef6fb05d7012539e2dee47ffc",
+      "colors": 12,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_BLOOMERY_SIDE",
+      "ramps": [
+        15,
+        5
+      ],
+      "rule": "darker fired-clay furnace side",
+      "sha256": "bca5a21673af92078f243d996f125793215744536d40af17dce8aaacdef95bd5",
+      "colors": 6,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_I_CLAY_LUMP",
+      "ramps": [
+        15
+      ],
+      "rule": "clay_ball.png, higher-contrast red clay",
+      "sha256": "78d5c3f3819ac62b15051f481d790dd69eea1da619195dd326d202c7c9e89787",
+      "colors": 8,
+      "transparent_pixels": 160
+    },
+    {
+      "texture": "T_I_BRICK",
+      "ramps": [
+        15
+      ],
+      "rule": "brick.png, brighter fired brick",
+      "sha256": "58dad5e002bca8a001919df5541a59b8fdf13b0974a8a7992ebd8ed33c77d83d",
+      "colors": 6,
+      "transparent_pixels": 121
+    },
+    {
+      "texture": "T_I_FLINT",
+      "ramps": [
+        0
+      ],
+      "rule": "flint.png",
+      "sha256": "0b55a98cf207cc56ff6e7c8f57216ed26738404997565e7c89169fe58631d788",
+      "colors": 8,
+      "transparent_pixels": 140
+    },
+    {
+      "texture": "T_I_CHARCOAL",
+      "ramps": [
+        0,
+        5
+      ],
+      "rule": "charcoal.png",
+      "sha256": "69b05e346b882fa2f709d0cc6d176b1bd75e063830a9b511bb85e983a4a6e76d",
+      "colors": 10,
+      "transparent_pixels": 117
+    },
+    {
+      "texture": "T_I_COPPER_INGOT",
+      "ramps": [
+        15
+      ],
+      "rule": "copper_ingot.png",
+      "sha256": "4a9f112bc4f0a802919e0818a7b80d8008ad7a9911cc622b1fe3030ee05fa52c",
+      "colors": 6,
+      "transparent_pixels": 121
+    },
+    {
+      "texture": "T_I_TIN",
+      "ramps": [
+        0,
+        5,
+        1
+      ],
+      "rule": "raw_copper.png shape, dark cassiterite",
+      "sha256": "7d05a65a9d6d62de74b4c7b8c557629e5cf07991b2c796cf9fc73283f0525c90",
+      "colors": 12,
+      "transparent_pixels": 90
+    },
+    {
+      "texture": "T_I_BRONZE_INGOT",
+      "ramps": [
+        6,
+        11,
+        5
+      ],
+      "rule": "copper_ingot.png recoloured bronze",
+      "sha256": "1d4ec722b0dbf824b102e8ca4b0a4e86e8723b8551a5cca5b44c4b6c7e5faa94",
+      "colors": 9,
+      "transparent_pixels": 121
+    },
+    {
+      "texture": "T_I_STICK_SPEAR",
+      "ramps": [
+        5,
+        6,
+        1
+      ],
+      "rule": "wooden_spear.png",
+      "sha256": "0ef0d527ee5a9e7e36db163e3b2cd072ad07a37f43e1a88a09715a2b594ff2c7",
+      "colors": 13,
+      "transparent_pixels": 182
+    },
+    {
+      "texture": "T_I_FLINT_SPEAR",
+      "ramps": [
+        0,
+        5,
+        6,
+        1
+      ],
+      "rule": "stone_spear.png with a flint head",
+      "sha256": "a7d6418a07af9ee71360a46b092db92451b81303c3c3d66ee3a38dac17669300",
+      "colors": 15,
+      "transparent_pixels": 182
+    },
+    {
+      "texture": "T_I_COPPER_SPEAR",
+      "ramps": [
+        15,
+        5,
+        6,
+        1
+      ],
+      "rule": "copper_spear.png",
+      "sha256": "1a98bbeeccc4af829bacd5a9acbc5360927d2300a1f7e5191d03b17f43794eec",
+      "colors": 12,
+      "transparent_pixels": 182
+    },
+    {
+      "texture": "T_I_BRONZE_SPEAR",
+      "ramps": [
+        6,
+        11,
+        5,
+        6,
+        1
+      ],
+      "rule": "copper_spear.png with a bronze head",
+      "sha256": "27af0ad4746e4680a9d0bbac8c0d27b195f8e0338f7728a44c10ac6cd4fb44b3",
+      "colors": 13,
+      "transparent_pixels": 182
+    },
+    {
+      "texture": "T_I_IRON_SPEAR",
+      "ramps": [
+        0,
+        5,
+        6,
+        1
+      ],
+      "rule": "iron_spear.png",
+      "sha256": "2536ac5f45b6ad0cdce1143bc4367d54ccb3108c54bfd5017e7c05ee151ad156",
+      "colors": 17,
+      "transparent_pixels": 182
+    },
+    {
+      "texture": "T_I_COPPER_PICK",
+      "ramps": [
+        15,
+        5,
+        6,
+        1
+      ],
+      "rule": "copper_pickaxe.png",
+      "sha256": "df3fb240cda67e9ffa7933d8e40def86f425cbf1b36848be830d03b4fe9415f8",
+      "colors": 9,
+      "transparent_pixels": 188
+    },
+    {
+      "texture": "T_I_COPPER_AXE",
+      "ramps": [
+        15,
+        5,
+        6,
+        1
+      ],
+      "rule": "copper_axe.png",
+      "sha256": "7f92901c3762ec625b21f134d10619a4ab612ba4a85e10a81095fdb5f95c4633",
+      "colors": 10,
+      "transparent_pixels": 196
+    },
+    {
+      "texture": "T_I_COPPER_SHOVEL",
+      "ramps": [
+        15,
+        5,
+        6,
+        1
+      ],
+      "rule": "copper_shovel.png",
+      "sha256": "99c03183dfb31d51aa1537403bf92b20d0abd1a60f68a14a51066a93fcab4c48",
+      "colors": 9,
+      "transparent_pixels": 203
+    },
+    {
+      "texture": "T_I_IRON_AXE",
+      "ramps": [
+        0,
+        5,
+        6,
+        1
+      ],
+      "rule": "iron_axe.png",
+      "sha256": "aa305c54b453506daa090ff5c628d4ad4ebff41577b09b4d195865a772863a04",
+      "colors": 10,
+      "transparent_pixels": 196
+    },
+    {
+      "texture": "T_I_IRON_SHOVEL",
+      "ramps": [
+        0,
+        5,
+        6,
+        1
+      ],
+      "rule": "iron_shovel.png",
+      "sha256": "c5d1bd7377acf25d0fdb88ce4be624bb0215c9b7771a600113ec5f4c9fb6fa27",
+      "colors": 9,
+      "transparent_pixels": 203
+    },
+    {
+      "texture": "T_I_DIAMOND_AXE",
+      "ramps": [
+        12,
+        0,
+        5,
+        6,
+        1
+      ],
+      "rule": "diamond_axe.png",
+      "sha256": "088f1e2b8ff9bf63b98957a557127a55c039008d9e530d951553e90eaf4b597c",
+      "colors": 9,
+      "transparent_pixels": 196
+    },
+    {
+      "texture": "T_I_DIAMOND_SHOVEL",
+      "ramps": [
+        12,
+        0,
+        5,
+        6,
+        1
+      ],
+      "rule": "diamond_shovel.png",
+      "sha256": "abc3d9fccba008f0f569c42ef760d4d13fa19b59b72e92816ba61ebadad377a9",
+      "colors": 8,
+      "transparent_pixels": 203
+    },
+    {
+      "texture": "T_I_FIRE",
+      "ramps": [
+        5,
+        6,
+        1,
+        11,
+        9,
+        0
+      ],
+      "rule": "campfire.png",
+      "sha256": "4d0cece1c6ec8270cdfe4578525eef9cabef2a80b51e6195ef757229d33d5d25",
+      "colors": 15,
+      "transparent_pixels": 130
+    },
+    {
+      "texture": "T_I_BELLOWS",
+      "ramps": [
+        5,
+        6,
+        0,
+        4
+      ],
+      "rule": "hand-drawn bellows",
+      "sha256": "9984aaf4a26bc2d2a62388bc0e6d88e5fe49621b6e1f1679a72a9bb07f3e397a",
+      "colors": 8,
+      "transparent_pixels": 125
+    },
+    {
+      "texture": "T_I_BRONZE_PICK",
+      "ramps": [
+        6,
+        11,
+        5,
+        6,
+        1
+      ],
+      "rule": "copper_pickaxe.png with a bronze head",
+      "sha256": "fc5c904cddf62d38fc121920dd5f62ad3ec96857409af3dca629f379de97bb50",
+      "colors": 10,
+      "transparent_pixels": 188
+    },
+    {
+      "texture": "T_I_BRONZE_AXE",
+      "ramps": [
+        6,
+        11,
+        5,
+        6,
+        1
+      ],
+      "rule": "copper_axe.png with a bronze head",
+      "sha256": "ce453385f0b8b90846833cd1bc932c4dcfe74ade7408e7a6e828f664d309a130",
+      "colors": 10,
+      "transparent_pixels": 196
+    },
+    {
+      "texture": "T_I_BRONZE_SHOVEL",
+      "ramps": [
+        6,
+        11,
+        5,
+        6,
+        1
+      ],
+      "rule": "copper_shovel.png with a bronze head",
+      "sha256": "898196f16ace8786e753c77025e2124d264fcf732556276cc611ed0fceb29f4b",
+      "colors": 10,
+      "transparent_pixels": 203
+    },
+    {
+      "texture": "T_I_BRONZE_SWORD",
+      "ramps": [
+        6,
+        11,
+        5,
+        6,
+        1
+      ],
+      "rule": "copper_sword.png with a bronze head",
+      "sha256": "4adeefec5134977f6e9e2eadfbb8e4a11dc28a8625b21327fd5105a0309f7a38",
+      "colors": 11,
+      "transparent_pixels": 172
+    }
+  ]
+}

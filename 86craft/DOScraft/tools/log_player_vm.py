@@ -22,7 +22,7 @@ from fat_image import FatImage
 from large_world_media import disk_log_sectors, replace_world_files
 from publish_game import atomic_write
 
-# Per-block edits (save version 6, b4cc3d1d) keep most edits out of the log,
+# Per-block edits (save version 8; b4cc3d1d) keep most edits out of the log,
 # so a 4 MiB log needs an executable that has them. Every such executable
 # carries this smoke-report line; the release and smoke binaries are the same.
 PER_BLOCK_EDITS_MARKER = b'DELTA=%u,%u,%u\n'

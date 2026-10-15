@@ -58,6 +58,10 @@ void body_tick(Body *b,int gravity) { (void)b; (void)gravity; check(0,"physics")
 int face_light_level(int light,int dir,int darken) { (void)light; (void)dir; (void)darken; return 0; }
 MBox *render_add_box(void) { check(0,"renderer"); return NULL; }
 void game_message(const char *message) { (void)message; }
+void sound_play(int sfx,int pitch,int vol,int pan) { (void)sfx; (void)pitch; (void)vol; (void)pan; }
+void gfx_text_shadow(u8 *fb,int x,int y,const char *s,u8 c,u8 shadow) { (void)fb; (void)x; (void)y; (void)s; (void)c; (void)shadow; }
+void player_eye(int *x,int *y,int *z) { *x=*y=*z=0; }
+void player_look_dir(int *dx,int *dy,int *dz) { *dx=*dy=0; *dz=16384; }
 
 /* Column id's marker cell; values cycle through solid blocks. */
 static const u8 marks[]={B_COBBLE,B_PLANKS,B_WOOL,B_STONEBRICK,B_GLASS,B_GRAVEL};

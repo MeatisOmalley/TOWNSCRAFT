@@ -23,6 +23,17 @@ PATHS={
         'a8a5d2ebd6c25f8073d279b23c5bda554deceb5b16991545354ad663327dc67d',
     'video/et4000w32/ET4000W32VLB_bios_MX27C512.BIN':
         '4d2dafc08b78e9d216408d6c7fa53dca404fb8dfa10d6d7fddabac8e767b050d',
+    # 1996 Pentium VM (HARDWARE_1996.md).
+    'machines/p55t2p4/0207_j2.bin':
+        '3cdabde2f4abbed74887ec714c2c87d565dc76a0fc8ee7b681c9bd82add20ecd',
+    'video/matrox/matrox2064wr2.BIN':
+        '68aeb40cce41d6a9a7b4d4198dd74e0f126b2c3646b4053a44a561f81df104b3',
+    'sound/creative/CT4540 PnP.BIN':
+        '6011f34d1c9d8ede8425df0a945acf31dcb6d57302085e471489000b3d9b37de',
+    'sound/creative/awe32.raw':
+        '4e143b94f758734f594ded78f4e5115635975c16fa37fabeae0baa4938ca710e',
+    'scsi/ncr53c8xx/NCR307.BIN':
+        '87aa743acf8e416bf53e6266dc3ef119e515fa8da5071045577a215440b09365',
 }
 def main():
     records=[]

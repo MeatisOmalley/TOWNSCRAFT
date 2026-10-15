@@ -1,6 +1,6 @@
 {
   "assets_sha256": "0fad09bfbf21d83eb7fc43fde973ebdbe2136ac0feb484ebd5ae06a3de45504b",
-  "palette_sha256": "d2f0655409e3b0c18e97f39eb6eb8c67a93e66be75d06d75d3a861771b117114",
+  "palette_sha256": "b4aa5a3476d07fa2ac5c2da5f502baf14f3e237965deeac24b1931cba5224e0b",
   "conversion": "nearest existing ramp shade; no dithering",
   "retained": [
     "T_GRASS_TOP"
@@ -871,7 +871,7 @@
         14,
         15
       ],
-      "converted_sha256": "9a0bf5c031bcb5b33f549a4728d09aea0b68ebdd9ea9160a6e9788126f212f36",
+      "converted_sha256": "f19bf0edee0ed718f016d016ef5b137a9cb67446eb63afce2cbb27ce69e6e081",
       "colors": 9,
       "transparent_pixels": 221
     },
@@ -1291,8 +1291,8 @@
         14,
         15
       ],
-      "converted_sha256": "579c22f7bde50dd7473823a92807ad492bbbf39c84dfe5072423264501d17a78",
-      "colors": 2,
+      "converted_sha256": "389f23717d1ee3c8e805af036ada25fccdda92d276cee506d264c7188f718efb",
+      "colors": 3,
       "transparent_pixels": 0
     },
     {
@@ -1326,7 +1326,7 @@
         14,
         15
       ],
-      "converted_sha256": "9fb5d5d3b54d3491d3ffe8153f651d0e229f5be9a511fdc4400c0eb2ca3a1c70",
+      "converted_sha256": "cd5916058c9b7dc08361127e6abacab4d4d49d102ed81b962b7bfcfbc91f0e76",
       "colors": 7,
       "transparent_pixels": 0
     },
@@ -1361,7 +1361,7 @@
         14,
         15
       ],
-      "converted_sha256": "a940f04b712afdbca0fd7cd58672b22a2357d82c21aa78ca273966fcfdf9015b",
+      "converted_sha256": "6b531caa4a4686bacde8a9b114692ca246bd29a6dc94cc6d067f30907b90cf4a",
       "colors": 6,
       "transparent_pixels": 0
     },
@@ -1431,7 +1431,7 @@
         14,
         15
       ],
-      "converted_sha256": "aea3995bcdbd519b92300b547443b89eeff90c1610b8e2f717b95dba47f2314b",
+      "converted_sha256": "492491fa35a63468b7c87ebaefe564dc96b03a30b9347efd15657a3a22178c8b",
       "colors": 17,
       "transparent_pixels": 0
     },
@@ -1466,7 +1466,7 @@
         14,
         15
       ],
-      "converted_sha256": "4ce03093238cda53ffec04b74ed795693b3247307139688a2830546cc732ab39",
+      "converted_sha256": "ec8f9c1be712070051fa6e09fccb27bccb6773a53736314c8fb64e83842ae143",
       "colors": 13,
       "transparent_pixels": 0
     },
