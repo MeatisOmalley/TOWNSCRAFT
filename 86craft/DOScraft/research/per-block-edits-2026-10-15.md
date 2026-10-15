@@ -147,6 +147,16 @@ in the new game and the reload alike: 1,612,312 of 1,703,936 bytes, 91,624
 bytes (89 KiB) spare. The pool's three allocations (8 + 8 + 4 KiB) sit in
 conventional memory. Stack peak 26,940 of 64,748 bytes.
 
+These 386 runs used the pre-merge executable, whose per-block saves were
+then numbered 6. Repeated with the merged version 8 executable
+(`1231233a...`, memory build `75959b60...`): the same storage checks pass
+in the new game and the reload, saves are version 8, the same six 486
+checks fail, and the three dry runs are unchanged. Memory is tighter:
+peak 415,416 low and 1,250,144 high, 1,665,560 of 1,703,936 bytes, so
+38,376 bytes (37 KiB) spare, 36,544 of them in the high arena. The
+early-game merge added about 54 KiB of high-arena use; the pool still
+fits.
+
 Raw reports: [per-block-edits-386-2026-10-15.json](per-block-edits-386-2026-10-15.json).
 
 ## Not run
