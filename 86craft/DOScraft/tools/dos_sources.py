@@ -19,6 +19,8 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     if game_audio:
         import dos_game_audio
         data,steps=dos_game_audio.adapt(name,data);recipe.extend(steps)
+    import dos_day_length
+    data,steps=dos_day_length.adapt(name,data);recipe.extend(steps)
     import dos_chickens
     data,steps=dos_chickens.adapt(name,data)
     recipe.extend(steps)

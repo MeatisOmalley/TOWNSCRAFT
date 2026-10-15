@@ -39,6 +39,9 @@ class AudioLibraryTests(unittest.TestCase):
             self.assertEqual(replay.count(s['before'].encode()),s['count'])
             replay=replay.replace(s['before'].encode(),s['after'].encode())
         self.assertEqual(result,replay);self.assertIn(b'dos_sound_step',result)
+        # Minecraft's spacing for both new and loaded worlds; the title screen keeps 8-16 s.
+        self.assertEqual(result.count(b'music_set_gap(60000);'),2)
+        self.assertNotIn(b'music_set_gap(12000);',result);self.assertIn(b'music_set_gap(800);',result)
         self.assertEqual(dos_game_audio.adapt('world.c',b'test'),(b'test',[]))
         data=(build_imported.VENDOR/'src/mobs.c').read_bytes();result,steps=dos_game_audio.adapt('mobs.c',data)
         self.assertIn(b'dos_sound_zombie(',result);self.assertEqual(len(steps),2)
