@@ -293,9 +293,12 @@ Found by reading the source on 2026-10-15.
    would compile against the old layout. The far-terrain map keeps its own
    5-bit material byte (`FAR_ID`, `far_field.h`); blocks with IDs of 32 or more
    are skipped as distant surfaces until it gets a remap. Saves written before
-   this change store old item IDs and must not be loaded; bump the large-world
-   save version with the world rebake (it is tied into the media tools).
-   Tested by `tests/test_block_ids.py`. Not yet run in the emulator.
+   this change store old item IDs, so the large-world save is now version 6
+   and the game neither offers nor loads version 5 (media tools still read
+   both layouts). Tested by `tests/test_block_ids.py` and the large-world
+   guest smoke; published 2026-10-15 to the 1990 player (1992 refreshes on
+   its next launch) and the 386 player. Wall torches and doors have not been
+   tried in the guest.
 2. **No durability.** A `Slot` is `{u8 item, count}` (`inventory.h:8`). Add a
    wear field to inventory slots, chest slots, the craft grid and the save
    codec.
