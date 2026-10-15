@@ -36,8 +36,9 @@ static void reset(void)
 }
 int main(void)
 {
-    assert(MOB_TNT==5 && MOB_CHICKEN==6 && I_RAW_PORK==45 && I_GOLDEN_APPLE==58);
-    assert(I_RAW_CHICKEN==59 && I_FEATHER==61);
+    /* Item IDs follow the 64 block IDs; their order is stable. */
+    assert(MOB_TNT==5 && MOB_CHICKEN==6 && I_RAW_PORK==BLOCK_IDS+13 && I_GOLDEN_APPLE==BLOCK_IDS+26);
+    assert(I_RAW_CHICKEN==BLOCK_IDS+27 && I_FEATHER==BLOCK_IDS+29);
     g_blocks=calloc(g_W*g_W,WH);g_zOff=calloc(g_W,sizeof(int));assert(g_blocks && g_zOff);
     for(int z=0;z<g_W;++z) {
         g_zOff[z]=z*g_W*WH;

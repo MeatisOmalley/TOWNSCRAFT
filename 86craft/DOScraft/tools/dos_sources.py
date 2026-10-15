@@ -24,6 +24,9 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
     import dos_chickens
     data,steps=dos_chickens.adapt(name,data)
     recipe.extend(steps)
+    import dos_block_ids
+    data,steps=dos_block_ids.adapt(name,data)
+    recipe.extend(steps)
     if name in ('textures.c','textures.h','render.c','render.h'):
         import dos_block_textures
         data,steps=dos_block_textures.adapt(name,data)

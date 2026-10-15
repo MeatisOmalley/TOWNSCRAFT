@@ -15,9 +15,10 @@ columns use log records. The contract is in
   (`column_restore_valid`); every reader of edited columns (streaming, the
   distant-terrain summaries) goes through it.
 - Eviction of such a column writes nothing (`large_delta_keep`).
-- Saves write version 6: the V5 directory, then each edited column's pairs.
-  Load validates order, ranges and duplicates, and refuses a column that has
-  both a log record and pairs. Version 5 saves still load.
+- Saves write version 7: version 6 (6-bit block IDs, from master the same
+  day) followed by each edited column's pairs. Load validates order, ranges
+  and duplicates, and refuses a column that has both a log record and pairs.
+  Version 6 saves still load; version 5 stays refused, as on master.
 - Past 512 cells in one column, or when the 4,096-entry pool is empty, the
   column drops its pairs and is written whole on its next eviction or save,
   as before. A log column stays one.
@@ -57,7 +58,9 @@ exercising the log; new scenarios use the game's limit:
 
 **Smoke** (`tools/large_game_smoke.py`, private VM `game-smoke-3mc_n2r6`,
 executable `0ad79152...`, new 4 MiB-log media): new game and fresh-process
-reload both PASS, saves are version 6. Terrain persistence, edge streaming
+reload both PASS, saves were version 6 in this run (the per-block format
+was renumbered 7 when merged with master's 6-bit block-ID version 6; see
+below). Terrain persistence, edge streaming
 (corner travel evicts and reloads the edited spawn column), light cache,
 distant terrain, chickens, menus and all graphics presets pass. The edits
 were held as pairs (`DELTA=5,1,0` new, `8,1,0` after reload); the log was
@@ -89,3 +92,15 @@ real but not measured by this replay.
 The 1992 and 386 profiles were not run. The 386's 4 MiB tier has about
 40 KiB of low-arena headroom by earlier measurements; the 20 KiB pool should
 fit but has not been measured there.
+
+## After merging master (save version 7)
+
+Master meanwhile made version 6 the 6-bit block-ID save and refused version
+5, so per-block edits became version 7: the game writes 7 and loads 6 and 7.
+The merged executable (`5bdb04e3...`) passed the same 1990 smoke on fresh
+4 MiB-log media (`game-smoke-8bsfhbfw`): new game and reload PASS, version 7
+saves, `DELTA=5,1,0` and `8,1,0`, terrain persistence, edge streaming, light
+cache, distant terrain, chickens, menus and presets all PASS. The full test
+suite passes except the Pillow-dependent texture test (Pillow is not
+installed on this machine). The renderer and storage paths the benchmark measured are
+unchanged by the merge, so it was not repeated.

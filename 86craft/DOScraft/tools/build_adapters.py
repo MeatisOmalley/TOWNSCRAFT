@@ -105,6 +105,14 @@ def stage(output, vendor=imported.VENDOR, large_world=False, chickens=False):
             data,steps=dos_chickens.adapt(name,path.read_bytes());path.write_bytes(data)
             record['chicken_headers'].append(dict(path='src/'+name,
                 staged_sha256=imported.sha256(data),transformations=steps))
+        # Platform code must see the same cell layout as the game it links with.
+        import dos_block_ids
+        record['block_id_headers']=[]
+        for name in ('blocks.h','world.h'):
+            path=output/'src'/name
+            data,steps=dos_block_ids.adapt(name,path.read_bytes());path.write_bytes(data)
+            record['block_id_headers'].append(dict(path='src/'+name,
+                staged_sha256=imported.sha256(data),transformations=steps))
     (output / selection['staged']).write_bytes(portable)
     record['gfx_selection'] = selection
     (output / save_selection['staged']).write_bytes(codec)

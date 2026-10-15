@@ -36,8 +36,11 @@ The emulator checkout at `../86Box` is an independent Git repository. Game work 
 
 The current playable ISO uses a **1024×1024 prebaked seed (4242)** streamed from
 the June 1990 VM's writable SCSI HDD. The bake includes surface terrain, trees,
-plants, ores, worm caves, and cave entrances. Saving writes a version-5 world
-directory plus edited terrain slots. New seed generation in DOS is deferred.
+plants, ores, worm caves, and cave entrances. Saving writes a version-7 world
+directory plus edited terrain. Version 6 (2026-10-15) uses 6-bit block
+IDs with items numbered from 64; older version-5 saves are not offered or
+loaded, so players start a New Game. Version 7 adds per-block edits; version 6
+saves still load. New seed generation in DOS is deferred.
 The previous 256-world VM and its ISO backup remain intact. The current
 `ISO/Launch-DOScraft.cmd` opens the 1024-world VM selected by
 `build/game/486dx25/latest-play-vm.txt`.
@@ -62,7 +65,7 @@ backup). `tools/log_player_vm.py` stages such a clone and switches a launcher
 only with `--update-pointer`; publishing a compact release now migrates a V2
 player disk too. See [the V3 contract](LARGE_WORLD_STORAGE.md#v3-edit-log-2026-10-14).
 Since 2026-10-15 most edits stay out of the log entirely: lightly edited
-columns keep their changed blocks in RAM and in the save (version 6), and only
+columns keep their changed blocks in RAM and in the save (version 7), and only
 columns with over 512 changed blocks use log records. New media therefore get
 a 4 MiB log, and `TERRAIN.TMP` shrinks from 49.6 MB to 28.6 MB. Existing player
 disks keep their log size. See

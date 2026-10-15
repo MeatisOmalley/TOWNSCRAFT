@@ -5,10 +5,16 @@ from bake_large_world import checksum
 MAGIC=0x3246414c
 RIM=64
 CELLS=12288
-NORMALIZE=bytes(b&~RIM if b&31==7 else b for b in range(256))
+NORMALIZE=bytes(b&~RIM if b&63==7 else b for b in range(256))
 BANK=77*8192
 DIRECTORY=20+64+72
 DIRECTORY_END=DIRECTORY+12+4096*16
+# Large-world save versions. 6 is the 6-bit block-ID layout (items from 64);
+# its bytes are laid out like 5. 7 adds per-block edits after the column
+# directory (tools/convert_large_v3.py). Media tools read all three; the game
+# writes 7 and loads 6 and 7.
+SAVE_VERSION=7
+SAVE_VERSIONS=(5,6,7)
 
 def offset(column,slot=0):return (33+column*72+slot*24)*512
 
@@ -58,8 +64,8 @@ def upgrade(previous,terrain,save):
         start=bank*BANK
         magic,version,total,length,generation=struct.unpack_from('<5I',save,start)
         if magic!=0x46435354:continue
-        # Version 6 adds per-block edits, which V1/V2 media never hold.
-        if version not in (5,6) or (version==6 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or length<DIRECTORY_END-20 or length>BANK-20:
+        # Version 7 adds per-block edits, which V1/V2 media never hold.
+        if version not in SAVE_VERSIONS or (version>=7 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or length<DIRECTORY_END-20 or length>BANK-20:
             raise ValueError('Unsupported player save for leaf migration')
         if save_sum(save[start+20:start+20+length])!=total:
             raise ValueError('Invalid save payload checksum')
@@ -87,8 +93,8 @@ def upgrade(previous,terrain,save):
                     blocks=decode(encoded,raw);old_blocks=bytes(blocks)
                     base=terrain[offset(c):offset(c)+CELLS]
                     for i,b in enumerate(blocks):
-                        if b&31==7:
-                            flag=base[i]&RIM if base[i]&31==7 else RIM
+                        if b&63==7:
+                            flag=base[i]&RIM if base[i]&63==7 else RIM
                             blocks[i]=(b&~RIM)|flag
                     if old_blocks.translate(NORMALIZE)!=bytes(blocks).translate(NORMALIZE):
                         raise ValueError('Leaf migration changed an edited block')
@@ -132,8 +138,8 @@ def upgrade_v2(previous,terrain,save):
         start=bank*BANK
         magic,version,total,length,generation=struct.unpack_from('<5I',save,start)
         if magic!=0x46435354:continue
-        # Version 6 adds per-block edits, which V1/V2 media never hold.
-        if version not in (5,6) or (version==6 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
+        # Version 7 adds per-block edits, which V1/V2 media never hold.
+        if version not in SAVE_VERSIONS or (version>=7 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
             raise ValueError('Invalid V2 save payload')
         seed,index,count=struct.unpack_from('<3I',save,start+DIRECTORY)
         if (seed,index,count)!=(struct.unpack_from('<I',previous,36)[0],old_sum,4096):
@@ -166,8 +172,8 @@ def upgrade_v2(previous,terrain,save):
                     blocks=decode(encoded,raw);old_blocks=bytes(blocks)
                     off,size,_=new_base[c];base=unpack(terrain[off:off+size],CELLS)
                     for i,b in enumerate(blocks):
-                        if b&31==7:
-                            blocks[i]=(b&~RIM)|(base[i]&RIM if base[i]&31==7 else RIM)
+                        if b&63==7:
+                            blocks[i]=(b&~RIM)|(base[i]&RIM if base[i]&63==7 else RIM)
                     if old_blocks.translate(NORMALIZE)!=bytes(blocks).translate(NORMALIZE):
                         raise ValueError('Leaf migration changed an edited block')
                     payload,new_raw=encode(blocks)

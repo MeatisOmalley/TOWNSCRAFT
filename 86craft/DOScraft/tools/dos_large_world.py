@@ -244,14 +244,19 @@ def adapt_save_codec(text, recipe):
         nonlocal text
         text = replace_once(text, before, after, recipe)
 
+    # Version 6: version 5's layout with 6-bit block IDs and items from 64.
+    # Version 7 (written) adds per-block edits; 6 still loads. Older large
+    # saves hold the previous item IDs and are never loaded.
     one('if(!streamOk || get32()!=SAVE_MAGIC || get32()!=4) continue;',
-        'if(!streamOk || get32()!=SAVE_MAGIC || get32()-5u>1u) continue; /* 5, or 6 with edits */')
+        'if(!streamOk || get32()!=SAVE_MAGIC || get32()-6u>1u) continue; /* 6, or 7 with edits */')
+    one('(version=get32())<1 || version>SAVE_VERSION',
+        '((version=get32())!=SAVE_VERSION && version!=6)')
     one('static void put_chests(void)', 'static void put_chests(int version)')
     one('put8(c->x); put8(c->y); put8(c->z);',
         'if(version>=5) { put32(c->x); put8(c->y); put32(c->z); }\n'
         '\t\t\telse { put8(c->x); put8(c->y); put8(c->z); }')
     one('int ok,version=world_cache_active() && g_W<256 ? SAVE_VERSION : 3;',
-        'int ok,version=g_W==1024 ? 6 : (world_cache_active() && g_W<256 ? 4 : 3);')
+        'int ok,version=g_W==1024 ? SAVE_VERSION : (world_cache_active() && g_W<256 ? 4 : 3);')
     one('if(!world_backing_idle()) return SAVE_DISK_ERROR;\n\tworld_set_backing_reader(save_column_read);',
         'if(!world_backing_idle()) return SAVE_DISK_ERROR;\n'
         '\tif(version>=5 && !world_store_flush()) return SAVE_DISK_ERROR;\n'

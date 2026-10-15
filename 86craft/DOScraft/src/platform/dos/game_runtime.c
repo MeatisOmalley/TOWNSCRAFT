@@ -119,7 +119,7 @@ static int torches(void)
 {
     int i,count=0;
     for(i=0;i<g_residentColumns*COLUMN_CELLS;++i)
-        if(BLK_ID(g_blocks[i])==B_TORCH) ++count;
+        if(BLK_ID(g_blocks[i])==B_TORCH || BLK_ID(g_blocks[i])==B_WALL_TORCH) ++count;
     return count;
 }
 #ifdef DOS_RASTER_FINISH_SKIP
