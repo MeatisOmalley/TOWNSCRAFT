@@ -1,0 +1,3371 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0">
+<title>DOScraft FM Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a sound card on the bench. Header strip with the chip's live output,
+   then the two operator boards side by side, the channel wiring between them,
+   the OPL3-only drawer, the patch library, and a keybed docked at the bottom. */
+:root {
+  --bg: #e9eee8;          /* pale solder mask */
+  --panel: #f8faf6;
+  --panel-2: #dfe6dd;
+  --ink: #13201a;
+  --muted: #4b5c52;
+  --line: #b9c6bb;
+  --accent: #8a4b00;      /* tinned copper, readable on both panels */
+  --accent-ink: #fff8ee;
+  --accent-soft: #f3dfbf;
+  --trace: #0f6d3c;       /* scope beam */
+  --warn: #8d1f12;
+  --warn-soft: #fbe2dc;
+  --focus: #0b55c8;
+  --key-white: #fdfdfb;
+  --key-black: #1d2621;
+  --key-down: #e8a33a;
+  --font-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.2rem;
+  --step-2: 1.5rem;
+  --step-3: 2.1rem;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1511; --panel: #13201a; --panel-2: #1b2b23; --ink: #e5eee7; --muted: #a8b9ad;
+    --line: #34493d; --accent: #f1b453; --accent-ink: #1a1206; --accent-soft: #3d2c12;
+    --trace: #7fe0a4; --warn: #ff9d8a; --warn-soft: #3b1712; --focus: #8ab4ff;
+    --key-white: #d9e0da; --key-black: #050907; --key-down: #f1b453;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1511; --panel: #13201a; --panel-2: #1b2b23; --ink: #e5eee7; --muted: #a8b9ad;
+  --line: #34493d; --accent: #f1b453; --accent-ink: #1a1206; --accent-soft: #3d2c12;
+  --trace: #7fe0a4; --warn: #ff9d8a; --warn-soft: #3b1712; --focus: #8ab4ff;
+  --key-white: #d9e0da; --key-black: #050907; --key-down: #f1b453;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.5;
+}
+.page { max-width: 1240px; margin: 0 auto; padding: 20px 16px 24px; display: grid; gap: 20px; }
+h1, h2, h3, legend.h { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: var(--step-3); font-weight: 700; letter-spacing: 0.01em; }
+h2 { font-size: var(--step-2); font-weight: 600; }
+h3 { font-size: var(--step-1); font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--font-mono); }
+.muted { color: var(--muted); }
+.small { font-size: var(--step--1); }
+.label-caps { font-family: var(--font-display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; color: var(--muted); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+button, .button {
+  font: 600 var(--step--1)/1 var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  min-height: 44px;
+  padding: 0 14px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+button:hover, .button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.danger { border-color: var(--warn); color: var(--warn); }
+button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+button.primary[aria-pressed="true"] { color: var(--ink); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+input[type="text"], textarea, select {
+  font: var(--step-0) var(--font-mono);
+  color: var(--ink);
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  min-height: 44px;
+  padding: 8px 10px;
+  width: 100%;
+}
+select { font-family: var(--font-body); }
+
+/* Header strip */
+.masthead { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: stretch; }
+.masthead .intro { display: grid; gap: 10px; align-content: start; }
+.chipmark { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.chip-pill { font: 600 0.78rem/1 var(--font-mono); padding: 6px 8px; border: 1.5px solid var(--ink); border-radius: 3px; letter-spacing: 0.06em; }
+.scope-box { background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 12px; display: grid; gap: 10px; min-width: 0; }
+.scope-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
+canvas.scope { width: 100%; height: 120px; display: block; background: var(--panel-2); border-radius: 4px; }
+.voices { display: flex; gap: 6px; align-items: center; }
+.voice-led { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; }
+.voice-led.on { background: var(--key-down); border-color: var(--accent); }
+.voice-led.sus { background: var(--accent-soft); border-color: var(--accent); }
+.status { font-size: var(--step--1); color: var(--muted); }
+.status.err { color: var(--warn); }
+
+/* Hex strip */
+.hexbar { background: var(--panel); border: 2px solid var(--accent); border-radius: var(--radius); padding: 14px; display: grid; gap: 10px; }
+.hexrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.hexline { font: 600 clamp(1rem, 2.6vw, 1.45rem)/1.3 var(--font-mono); letter-spacing: 0.02em; flex: 1 1 22ch; min-width: 0; overflow-wrap: anywhere; user-select: all; }
+.hexline .op { color: var(--ink); }
+.hexline .sep { color: var(--muted); padding: 0 0.3ch; }
+.hexline .c0 { color: var(--accent); }
+.paste-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.paste-row input { flex: 1 1 24ch; min-width: 0; }
+.warnbox { background: var(--warn-soft); color: var(--warn); border-radius: var(--radius); padding: 8px 12px; font-size: var(--step--1); }
+
+/* Presets */
+.presets { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.presets button { text-transform: none; font-size: var(--step-0); letter-spacing: 0.01em; }
+.edited-tag { font: 600 0.75rem var(--font-mono); color: var(--accent); }
+
+/* Channel wiring */
+.wiring { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 24px; align-items: center; background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 14px; }
+.wiring-controls { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: center; }
+.wiring-controls > .slider { flex: 1 1 340px; }
+svg.algo { width: 260px; max-width: 100%; height: auto; }
+svg.algo text { font: 600 13px var(--font-display); fill: var(--ink); }
+svg.algo .box { fill: var(--panel-2); stroke: var(--ink); stroke-width: 2; }
+svg.algo .wire { stroke: var(--ink); stroke-width: 2; fill: none; }
+svg.algo .fb { stroke: var(--accent); stroke-width: 2; fill: none; }
+svg.algo .fbtext { fill: var(--accent); font: 600 11px var(--font-mono); }
+
+/* Operator boards */
+.ops { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.op-board { container-type: inline-size; background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 18px; min-width: 0; }
+.op-title { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; border-bottom: 2px solid var(--line); padding-bottom: 8px; }
+.op-title .regs { font: 0.78rem var(--font-mono); color: var(--muted); }
+.group { display: grid; gap: 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.group > legend { padding: 0; margin-bottom: 4px; }
+.slider { display: grid; grid-template-columns: minmax(7.5rem, 9rem) minmax(0, 1fr) minmax(5.5rem, auto); gap: 4px 12px; align-items: center; }
+.slider label { font-weight: 700; }
+.slider output { font: 600 var(--step--1) var(--font-mono); text-align: right; white-space: nowrap; }
+.slider output .raw { color: var(--muted); font-weight: 400; }
+input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 36px; background: transparent; margin: 0; cursor: pointer; }
+input[type="range"]::-webkit-slider-runnable-track { height: 8px; background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 4px; }
+input[type="range"]::-moz-range-track { height: 8px; background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 4px; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 28px; margin-top: -11px; border-radius: 4px; background: var(--accent); border: 2px solid var(--ink); }
+input[type="range"]::-moz-range-thumb { width: 18px; height: 24px; border-radius: 4px; background: var(--accent); border: 2px solid var(--ink); }
+input[type="range"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+@container (max-width: 560px) {
+  .slider { grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; }
+  .slider input[type="range"] { grid-column: 1 / -1; grid-row: 2; }
+}
+.env-canvas { width: 100%; height: 110px; display: block; background: var(--panel-2); border-radius: 4px; }
+.toggles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); gap: 8px 16px; }
+.toggle { display: flex; gap: 10px; align-items: center; min-height: 44px; }
+.toggle input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+.toggle span small { display: block; color: var(--muted); font-size: 0.8rem; }
+.select-row { display: grid; grid-template-columns: minmax(7.5rem, 9rem) minmax(0, 1fr); gap: 12px; align-items: center; }
+.select-row label { font-weight: 700; }
+.waves { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.waves.eight { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.wave { position: relative; }
+.wave input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.wave label { display: grid; justify-items: center; gap: 2px; padding: 6px 4px 8px; border: 2px solid var(--line); border-radius: var(--radius); background: var(--panel); font: 600 0.8rem var(--font-mono); cursor: pointer; }
+.wave svg { width: 100%; max-width: 72px; height: 34px; }
+.wave svg path { fill: none; stroke: var(--ink); stroke-width: 2.2; }
+.wave svg line { stroke: var(--line); stroke-width: 1; }
+.wave input:checked + label { border-color: var(--accent); background: var(--accent-soft); }
+.wave input:checked + label svg path { stroke: var(--accent); }
+.wave input:focus-visible + label { outline: 3px solid var(--focus); outline-offset: 2px; }
+.wave input:disabled + label { opacity: 0.45; cursor: not-allowed; }
+
+/* OPL3 drawer */
+details.drawer { background: var(--panel); border: 2px dashed var(--warn); border-radius: var(--radius); }
+details.drawer > summary { cursor: pointer; padding: 14px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; list-style: none; min-height: 44px; }
+details.drawer > summary::-webkit-details-marker { display: none; }
+details.drawer > summary::before { content: "▸"; font-family: var(--font-mono); color: var(--warn); }
+details.drawer[open] > summary::before { content: "▾"; }
+.not-game { font: 700 0.75rem/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--warn); border: 1.5px solid var(--warn); border-radius: 3px; padding: 5px 7px; }
+.drawer-body { padding: 0 16px 16px; display: grid; gap: 18px; }
+.drawer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 18px; }
+.subpanel { border: 1.5px solid var(--line); border-radius: var(--radius); padding: 12px; display: grid; gap: 12px; min-width: 0; }
+.ops4 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+
+/* Library */
+.library { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.card { background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.mine { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mine li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 6px; }
+.mine li .name { flex: 1 1 10ch; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.mine li .hex { font: 0.78rem var(--font-mono); color: var(--muted); flex-basis: 100%; overflow-wrap: anywhere; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.row > input[type="text"] { flex: 1 1 14ch; min-width: 0; width: auto; }
+
+/* Play settings + keybed */
+.keybed { background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 12px; display: grid; gap: 10px; }
+@media (min-height: 560px) {
+  .keybed { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -6px 18px rgba(0,0,0,0.12); }
+  .keybed .piano { height: 92px; }
+}
+.play-controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.levels { display: grid; gap: 4px; max-width: 30rem; }
+.vel { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) 7.5rem; gap: 10px; align-items: center; min-width: 0; }
+.vel output { font: 600 var(--step--1) var(--font-mono); white-space: nowrap; }
+.octave { display: flex; gap: 6px; align-items: center; }
+.octave output { font: 600 var(--step-0) var(--font-mono); min-width: 3.5ch; text-align: center; }
+.piano-wrap { min-width: 0; }
+.piano { position: relative; height: 120px; display: flex; touch-action: none; user-select: none; -webkit-user-select: none; }
+.piano .white { flex: 1 1 0; background: var(--key-white); border: 1.5px solid var(--key-black); border-radius: 0 0 5px 5px; margin-right: -1.5px; position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; font: 600 0.72rem var(--font-mono); color: #333c36; }
+.piano .black { position: absolute; top: 0; height: 62%; background: var(--key-black); border-radius: 0 0 4px 4px; z-index: 2; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; font: 600 0.65rem var(--font-mono); color: #c9d3cc; }
+.piano .down { background: var(--key-down) !important; color: #1a1206 !important; }
+.piano .c-label { position: absolute; top: 6px; left: 0; right: 0; text-align: center; font-size: 0.65rem; color: #5a665f; }
+
+/* Help + about */
+.docs { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; }
+.docs .card p, .docs .card li { max-width: 68ch; }
+.docs ul, .docs ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 6px; }
+kbd { font: 600 0.82rem var(--font-mono); border: 1.5px solid var(--line); border-bottom-width: 3px; border-radius: 4px; padding: 1px 5px; background: var(--panel-2); }
+
+@media (max-width: 960px) {
+  .masthead, .ops, .library, .docs, .ops4 { grid-template-columns: minmax(0, 1fr); }
+  .wiring { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .slider { grid-template-columns: minmax(0, 1fr) auto; }
+  .slider input[type="range"] { grid-column: 1 / -1; grid-row: 2; }
+  .select-row { grid-template-columns: minmax(0, 1fr); }
+  h1 { font-size: 1.7rem; }
+  .keyhint { display: none; }
+  .keybed { padding: 8px; gap: 6px; }
+  .keybed button { min-height: 40px; padding: 0 10px; }
+  .play-controls { gap: 6px; flex-wrap: nowrap; }
+  .octave output { min-width: 3ch; }
+  .keybed .piano { height: 76px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="intro">
+      <div class="chipmark">
+        <span class="chip-pill" title="Emulated chip">YM3812 · OPL2</span>
+        <span class="chip-pill" title="Chip sample rate">49 716 Hz</span>
+        <span class="chip-pill" title="Emulator">Nuked-OPL3</span>
+      </div>
+      <h1>DOScraft FM Lab</h1>
+      <p>Design two-operator FM instruments by ear on an emulated Sound Blaster FM chip, then copy them into DOScraft's music pack as one line of hex.</p>
+      <div class="row">
+        <button id="start" class="primary" type="button">Start sound</button>
+        <button id="panic" class="danger" type="button" title="All notes off (Esc)">Panic · all off</button>
+      </div>
+      <div class="levels">
+        <div class="vel">
+          <label for="velocity" class="label-caps">Velocity</label>
+          <input id="velocity" type="range" min="1" max="127" value="100">
+          <output id="velOut" for="velocity"></output>
+        </div>
+        <div class="vel">
+          <label for="master" class="label-caps">Volume</label>
+          <input id="master" type="range" min="0" max="100" value="60">
+          <output id="masterOut" for="master"></output>
+        </div>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite">Sound is off. Press Start sound, play a key, or click the keyboard.</p>
+    </div>
+    <div class="scope-box" aria-label="Chip output">
+      <div class="scope-head">
+        <span class="label-caps">Chip output</span>
+        <div class="voices" role="img" id="voiceLeds" aria-label="Voices in use: 0 of 9"></div>
+      </div>
+      <canvas class="scope" id="scope" width="800" height="160" aria-hidden="true"></canvas>
+      <div class="scope-head small muted">
+        <span id="polyText">9 voices, as in the game</span>
+        <span id="rateText">Output rate: not started</span>
+      </div>
+    </div>
+  </header>
+
+  <section aria-labelledby="presetTitle" class="card">
+    <div class="row" style="justify-content: space-between">
+      <h2 id="presetTitle">Game instruments</h2>
+      <span class="small muted">The 8 patches in DOScraft's music pack today. <span id="editedTag" class="edited-tag" hidden>· edited</span></span>
+    </div>
+    <div class="presets" id="presets" role="group" aria-label="Presets"></div>
+  </section>
+
+  <section class="wiring" aria-labelledby="wiringTitle">
+    <div class="group">
+      <div class="row" style="justify-content: space-between">
+        <h2 id="wiringTitle">Channel</h2>
+        <span class="small muted mono">register C0h</span>
+      </div>
+      <div class="wiring-controls">
+        <fieldset class="group">
+          <legend class="label-caps">Connection</legend>
+          <div class="row" role="radiogroup" aria-label="Connection">
+            <label class="toggle"><input type="radio" name="con" id="conFm" value="0"><span>FM<small>modulator bends the carrier</small></span></label>
+            <label class="toggle"><input type="radio" name="con" id="conAdd" value="1"><span>Additive<small>both operators heard</small></span></label>
+          </div>
+        </fieldset>
+        <div class="slider" data-ctl="fb"></div>
+      </div>
+    </div>
+    <svg class="algo" id="algo" viewBox="0 0 260 110" role="img" aria-label="Operator wiring"></svg>
+  </section>
+
+  <div class="ops" id="ops"></div>
+
+  <section class="hexbar" aria-labelledby="hexTitle">
+    <div class="row" style="justify-content: space-between">
+      <h2 id="hexTitle" class="label-caps" style="font-size: 0.85rem">Game patch · 11 bytes for <code>PATCHES</code> in build_music_pack.py</h2>
+      <span class="small muted">Modulator 20 40 60 80 E0 / Carrier 20 40 60 80 E0 / C0</span>
+    </div>
+    <div class="hexrow">
+      <output id="hexLine" class="hexline" aria-label="Current patch as 11 hex bytes"></output>
+      <button id="copyHex" type="button">Copy hex</button>
+      <button id="copyPy" type="button">Copy Python row</button>
+    </div>
+    <div id="gameWarn" class="warnbox" hidden></div>
+    <div class="paste-row">
+      <label for="pasteHex" class="sr-only">Paste a patch: 11 hex bytes or a PATCHES row</label>
+      <input id="pasteHex" type="text" spellcheck="false" autocomplete="off" placeholder="Paste 11 bytes or a PATCHES row, then press Enter">
+      <button id="loadHex" type="button">Load pasted patch</button>
+    </div>
+    <p id="pasteMsg" class="status" role="status" aria-live="polite"></p>
+  </section>
+
+
+  <details class="drawer" id="drawer">
+    <summary><h2 style="font-size: var(--step-1)">OPL3-only extras</h2><span class="not-game">Not usable in DOScraft</span><span class="small muted">OPL3 waveforms 4–7, four-operator voices, stereo pan, chip-wide depth bits</span></summary>
+    <div class="drawer-body">
+      <p class="small">DOScraft targets the OPL2 on a Sound Blaster. Nothing in this drawer reaches the game: the hex line above always shows what the game would play. Use it to explore, or for other projects.</p>
+      <div class="drawer-grid">
+        <fieldset class="subpanel">
+          <legend class="label-caps">Chip mode</legend>
+          <label class="toggle"><input type="checkbox" id="opl3Mode"><span>OPL3 mode (register 105h NEW = 1)<small>Unlocks waveforms 4–7, stereo pan and four-operator voices</small></span></label>
+          <label class="toggle"><input type="checkbox" id="fourOp" disabled><span>Four-operator voices (104h)<small>6 voices of 4 operators</small></span></label>
+          <div class="select-row">
+            <label for="pan">Stereo output</label>
+            <select id="pan" disabled><option value="48">Both speakers</option><option value="16">Left only</option><option value="32">Right only</option></select>
+          </div>
+        </fieldset>
+        <fieldset class="subpanel">
+          <legend class="label-caps">Chip-wide depth (BDh)</legend>
+          <p class="small muted">These exist on OPL2 too, but they apply to every channel and DOScraft keeps both off.</p>
+          <label class="toggle"><input type="checkbox" id="deepTrem"><span>Deep tremolo<small>4.8 dB instead of 1 dB</small></span></label>
+          <label class="toggle"><input type="checkbox" id="deepVib"><span>Deep vibrato<small>14 cents instead of 7</small></span></label>
+        </fieldset>
+      </div>
+      <fieldset class="subpanel">
+        <legend class="label-caps">OPL3 waveforms for operators 1 and 2</legend>
+        <p class="small muted">Pick “main” to use the OPL2 waveform chosen above. Needs OPL3 mode.</p>
+        <div class="ops4" id="wfxTwo"></div>
+      </fieldset>
+      <fieldset class="subpanel" id="fourOpPanel" disabled>
+        <legend class="label-caps">Operators 3 and 4 (four-operator voices only)</legend>
+        <div class="select-row">
+          <label for="alg4">Algorithm</label>
+          <select id="alg4">
+            <option value="0">FM–FM: 1 → 2 → 3 → 4</option>
+            <option value="1">AM–FM: 1 + (2 → 3 → 4)</option>
+            <option value="2">FM–AM: (1 → 2) + (3 → 4)</option>
+            <option value="3">AM–AM: 1 + (2 → 3) + 4</option>
+          </select>
+        </div>
+        <div class="ops4" id="ops34"></div>
+      </fieldset>
+    </div>
+  </details>
+
+  <div class="library">
+    <section class="card" aria-labelledby="mineTitle">
+      <h2 id="mineTitle">My patches</h2>
+      <p class="small muted">Kept in this browser only, as a convenience. Copy the hex line or save an SBI file for anything you want to keep.</p>
+      <div class="row">
+        <label for="patchName" class="sr-only">Patch name</label>
+        <input id="patchName" type="text" maxlength="31" autocomplete="off" placeholder="Patch name">
+        <button id="savePatch" type="button">Save to my patches</button>
+      </div>
+      <ul class="mine" id="mine"></ul>
+      <p id="mineEmpty" class="small muted">No saved patches yet. Name the current sound and press Save to keep it here.</p>
+    </section>
+    <section class="card" aria-labelledby="sbiTitle">
+      <h2 id="sbiTitle">SBI files</h2>
+      <p class="small muted">The Sound Blaster instrument format used by OPL editors and trackers. Importing loads the first file and adds every file to My patches.</p>
+      <div class="row">
+        <label class="button" for="sbiFile">Import .sbi</label>
+        <input id="sbiFile" type="file" accept=".sbi,application/octet-stream" multiple class="sr-only">
+        <button id="sbiSave" type="button">Save as .sbi</button>
+      </div>
+      <p id="sbiMsg" class="status" role="status" aria-live="polite"></p>
+      <h3>Web MIDI keyboard</h3>
+      <p class="small muted">Optional. Notes, velocity and the sustain pedal (CC 64) from a MIDI keyboard.</p>
+      <div class="row">
+        <button id="midiBtn" type="button">Connect MIDI input</button>
+        <label for="midiIn" class="sr-only">MIDI input</label>
+        <select id="midiIn" hidden></select>
+      </div>
+      <p id="midiMsg" class="status" role="status" aria-live="polite"></p>
+    </section>
+  </div>
+
+  <div class="docs">
+    <section class="card" aria-labelledby="howTitle">
+      <h2 id="howTitle">How to use</h2>
+      <ol>
+        <li>Press <b>Start sound</b> (or just play). Letter keys play notes when no text field has focus: <kbd>Z</kbd>–<kbd>M</kbd> and <kbd>S</kbd> <kbd>D</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> for the lower octave, <kbd>Q</kbd>–<kbd>P</kbd> and the number row for the one above. <kbd>-</kbd> and <kbd>=</kbd> (or Page Down / Page Up) shift the octave, <kbd>Space</kbd> toggles sustain, <kbd>Esc</kbd> stops every note.</li>
+        <li>Pick a game instrument, then shape it. The <b>carrier</b> is what you hear; the <b>modulator</b> changes its tone. Raise the modulator's total level number to make the tone purer, lower it for more bite. Feedback adds grit to the modulator.</li>
+        <li>Every control changes the chip at once, on held notes too. Use <kbd>Tab</kbd> to move between controls and the arrow keys to adjust a slider.</li>
+        <li>When it sounds right, press <b>Copy Python row</b> and replace that instrument's row in <code>PATCHES</code> in <code>tools/build_music_pack.py</code>, keeping the name. Then rebuild the music pack.</li>
+        <li>To bring a patch back, paste its hex or row into the field under the hex line, or import an SBI file.</li>
+      </ol>
+      <p class="small muted">Velocity works as in the game: it adds attenuation to the carrier's total level in 0.75 dB steps (channel volume 100, expression 127). Pitch uses the game's F-number table at the 49 716 Hz chip clock. Envelope times are approximate, for notes near middle C with KSR off.</p>
+    </section>
+    <section class="card" aria-labelledby="aboutTitle">
+      <h2 id="aboutTitle">About</h2>
+      <p>The sound comes from <a href="https://github.com/nukeykt/Nuked-OPL3" target="_blank" rel="noopener">Nuked OPL3</a> 1.8 by Nuke.YKT (Alexey Khokholov), a cycle-accurate emulator of the Yamaha YMF262 built from die shots, compiled unmodified to WebAssembly and running in an AudioWorklet. Where a page refuses WebAssembly, the same build runs as JavaScript translated by Binaryen's wasm2js, with identical output. In OPL2 mode the YMF262 is register-compatible with the YM3812 that DOScraft targets; the chips differ mainly in their output DAC.</p>
+      <p>Nuked OPL3 is copyright © 2013–2020 Nuke.YKT and is free software under the <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html" target="_blank" rel="noopener">GNU Lesser General Public License 2.1</a> or later. Its source, license and the scripts that rebuild the WebAssembly are in DOScraft's repository under <code>tools/fm_lab/</code>; the WebAssembly module embedded in this page is built from that source. Nuked OPL3 credits the MAME team, forums.submarine.org.uk, the OPLx decapsulation project and siliconpr0n.org for chip research.</p>
+      <p class="small muted">The lab page and its wrapper code are part of DOScraft. Fonts: Chakra Petch, Atkinson Hyperlegible and JetBrains Mono from Google Fonts.</p>
+    </section>
+  </div>
+
+  <section class="keybed" aria-labelledby="keybedTitle">
+    <h2 id="keybedTitle" class="sr-only">Keyboard</h2>
+    <div class="play-controls">
+      <div class="octave" role="group" aria-label="Octave">
+        <button id="octDown" type="button" aria-label="Octave down">−</button>
+        <output id="octOut" aria-live="polite" aria-label="Lower row starts at">C3</output>
+        <button id="octUp" type="button" aria-label="Octave up">+</button>
+      </div>
+      <button id="sustain" type="button" aria-pressed="false">Sustain</button>
+      <button id="panic2" class="danger" type="button">All off</button>
+      <span class="small muted keyhint">Letter keys play · <kbd>-</kbd> <kbd>=</kbd> octave · <kbd>Space</kbd> sustain · <kbd>Esc</kbd> all off</span>
+    </div>
+    <div class="piano-wrap">
+      <div class="piano" id="piano" role="group" aria-label="On-screen piano. Click or touch keys; the computer keyboard also plays."></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const WASM_BASE64 = "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";
+const WORKLET_SOURCE = "const oplAsmFunc = (function () {\n\n  var bufferView;\n  var base64ReverseLookup = new Uint8Array(123/*'z'+1*/);\n  for (var i = 25; i >= 0; --i) {\n    base64ReverseLookup[48+i] = 52+i; // '0-9'\n    base64ReverseLookup[65+i] = i; // 'A-Z'\n    base64ReverseLookup[97+i] = 26+i; // 'a-z'\n  }\n  base64ReverseLookup[43] = 62; // '+'\n  base64ReverseLookup[47] = 63; // '/'\n  /** @noinline Inlining this function would mean expanding the base64 string 4x times in the source code, which Closure seems to be happy to do. */\n  function base64DecodeToExistingUint8Array(uint8Array, offset, b64) {\n    var b1, b2, i = 0, j = offset, bLength = b64.length, end = offset + (bLength*3>>2) - (b64[bLength-2] == '=') - (b64[bLength-1] == '=');\n    for (; i < bLength; i += 4) {\n      b1 = base64ReverseLookup[b64.charCodeAt(i+1)];\n      b2 = base64ReverseLookup[b64.charCodeAt(i+2)];\n      uint8Array[j++] = base64ReverseLookup[b64.charCodeAt(i)] << 2 | b1 >> 4;\n      if (j < end) uint8Array[j++] = b1 << 4 | b2 >> 2;\n      if (j < end) uint8Array[j++] = b2 << 6 | base64ReverseLookup[b64.charCodeAt(i+3)];\n    }\n    return uint8Array;\n  }\nfunction initActiveSegments(imports) {\n  base64DecodeToExistingUint8Array(bufferView, 16777217, \"AQIGBwgMDQ4SExQYGRoeHyA=\");\n  base64DecodeToExistingUint8Array(bufferView, 16777249, \"AQIDBAX//wYHCAkKC///DA0ODxAR/////////////wgBAg==\");\n  base64DecodeToExistingUint8Array(bufferView, 16777300, \"AQAAAAEAAQABAQEAAQIEBggKDA4QEhQUGBgeHgEAAAACAAAAAwAAAAQAAAAFAAAABgAAAAcAAAAIAAAAWQjDBgcGiwUuBeQEpgRxBEMEGgT1A9MDtQOYA34DZQNOAzkDJAMRA/8C7QLcAs0CvQKvAqACkwKGAnkCbQJhAlYCSwJAAjYCLAIiAhgCDwIGAv0B9QHsAeQB3AHUAc0BxQG+AbcBsAGpAaIBmwGVAY8BiAGCAXwBdwFxAWsBZgFgAVsBVQFQAUsBRgFBATwBNwEzAS4BKQElASEBHAEYARQBDwELAQcBAwH/APsA+AD0APAA7ADpAOUA4gDeANsA1wDUANEAzQDKAMcAxADBAL4AuwC4ALUAsgCvAKwAqQCnAKQAoQCfAJwAmQCXAJQAkgCPAI0AigCIAIYAgwCBAH8AfQB6AHgAdgB0AHIAcABuAGwAagBoAGYAZABiAGAAXgBcAFsAWQBXAFUAUwBSAFAATgBNAEsASgBIAEYARQBDAEIAQAA/AD4APAA7ADkAOAA3ADUANAAzADEAMAAvAC4ALQArACoAKQAoACcAJgAlACQAIwAiACEAIAAfAB4AHQAcABsAGgAZABgAFwAXABYAFQAUABQAEwASABEAEQAQAA8ADwAOAA0ADQAMAAwACwAKAAoACQAJAAgACAAHAAcABwAGAAYABQAFAAUABAAEAAQAAwADAAMAAgACAAIAAgABAAEAAQABAAEAAQAB\");\n  base64DecodeToExistingUint8Array(bufferView, 16777872, \"+gf1B+8H6gfkB98H2gfUB88HyQfEB78HuQe0B64HqQekB58HmQeUB48HigeEB38Hegd1B3AHagdlB2AHWwdWB1EHTAdHB0IHPQc4BzMHLgcpByQHHwcaBxUHEAcLBwYHAgf9BvgG8wbuBukG5QbgBtsG1gbSBs0GyAbEBr8Guga1BrEGrAaoBqMGngaaBpUGkQaMBogGgwZ/BnoGdgZxBm0GaAZkBl8GWwZXBlIGTgZJBkUGQQY8BjgGNAYwBisGJwYjBh4GGgYWBhIGDgYJBgUGAQb9BfkF9QXwBewF6AXkBeAF3AXYBdQF0AXMBcgFxAXABbwFuAW0BbAFrAWoBaQFoAWcBZkFlQWRBY0FiQWFBYEFfgV6BXYFcgVvBWsFZwVjBWAFXAVYBVQFUQVNBUkFRgVCBT4FOwU3BTQFMAUsBSkFJQUiBR4FGwUXBRQFEAUMBQkFBgUCBf8E+wT4BPQE8QTtBOoE5wTjBOAE3ATZBNYE0gTPBMwEyATFBMIEvgS7BLgEtQSxBK4EqwSoBKQEoQSeBJsEmASUBJEEjgSLBIgEhQSCBH4EewR4BHUEcgRvBGwEaQRmBGMEYARdBFoEVwRUBFEETgRLBEgERQRCBD8EPAQ5BDYEMwQwBC0EKgQoBCUEIgQfBBwEGQQWBBQEEQQOBAsECAQGBAMEAAQAICgtMDM1Nzg6Ozw9Pj9A\");\n}\nfunction wasm2js_trap() { throw new Error('abort'); }\n\n  function wasm2js_memory_fill(dest, value, size) {\n    dest = dest >>> 0;\n    size = size >>> 0;\n    if (dest + size > bufferView.length) throw \"trap: invalid memory.fill\";\n    bufferView.fill(value, dest, dest + size);\n  }\n      \nfunction asmFunc(imports) {\n var buffer = new ArrayBuffer(16842752);\n var HEAP8 = new Int8Array(buffer);\n var HEAP16 = new Int16Array(buffer);\n var HEAP32 = new Int32Array(buffer);\n var HEAPU8 = new Uint8Array(buffer);\n var HEAPU16 = new Uint16Array(buffer);\n var HEAPU32 = new Uint32Array(buffer);\n var HEAPF32 = new Float32Array(buffer);\n var HEAPF64 = new Float64Array(buffer);\n var Math_imul = Math.imul;\n var Math_fround = Math.fround;\n var Math_abs = Math.abs;\n var Math_clz32 = Math.clz32;\n var Math_min = Math.min;\n var Math_max = Math.max;\n var Math_floor = Math.floor;\n var Math_ceil = Math.ceil;\n var Math_trunc = Math.trunc;\n var Math_sqrt = Math.sqrt;\n var global$0 = 16777216;\n function $1() {\n  if (HEAP32[4194600]) {\n   wasm2js_trap()\n  }\n  HEAP32[4194600] = 1;\n }\n \n function $2($0) {\n  $0 = $0 | 0;\n  var $1_1 = 0, $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0;\n  wasm2js_memory_fill(16778408, 0, 19520);\n  $3_1 = 2;\n  while (1) {\n   $1_1 = $4_1 + 16778408 | 0;\n   HEAP8[$1_1 + 1174 | 0] = $3_1;\n   HEAP32[$1_1 + 1148 >> 2] = 16781464;\n   HEAP8[$1_1 + 1143 | 0] = 3;\n   $2_1 = $1_1 + 1138 | 0;\n   HEAP16[$2_1 >> 1] = 511;\n   HEAP16[$2_1 + 2 >> 1] = 511;\n   HEAP32[$1_1 + 1132 >> 2] = 16781464;\n   HEAP32[$1_1 + 1124 >> 2] = 16778408;\n   $5_1 = $3_1 - 2 | 0;\n   HEAP8[$1_1 + 1118 | 0] = $5_1 + 1;\n   HEAP32[$1_1 + 1092 >> 2] = 16781464;\n   HEAP8[$1_1 + 1087 | 0] = 3;\n   $2_1 = $1_1 + 1082 | 0;\n   HEAP16[$2_1 >> 1] = 511;\n   HEAP16[$2_1 + 2 >> 1] = 511;\n   HEAP32[$1_1 + 1076 >> 2] = 16781464;\n   HEAP32[$1_1 + 1068 >> 2] = 16778408;\n   HEAP8[$1_1 + 1062 | 0] = $5_1;\n   HEAP32[$1_1 + 1036 >> 2] = 16781464;\n   HEAP8[$1_1 + 1031 | 0] = 3;\n   $2_1 = $1_1 + 1026 | 0;\n   HEAP16[$2_1 >> 1] = 511;\n   HEAP16[$2_1 + 2 >> 1] = 511;\n   HEAP32[$1_1 + 1020 >> 2] = 16781464;\n   HEAP32[$1_1 + 1012 >> 2] = 16778408;\n   $4_1 = $4_1 + 168 | 0;\n   $1_1 = ($3_1 | 0) != 35;\n   $3_1 = $3_1 + 3 | 0;\n   if ($1_1) {\n    continue\n   }\n   break;\n  };\n  $5_1 = -1008;\n  $3_1 = 0;\n  while (1) {\n   $1_1 = $5_1 + 16778408 | 0;\n   $4_1 = $1_1 + 1008 | 0;\n   $2_1 = Math_imul(HEAPU8[$3_1 + 16777216 | 0], 56) + 16779416 | 0;\n   HEAP32[$4_1 >> 2] = $2_1;\n   HEAP32[$2_1 >> 2] = $4_1;\n   $2_1 = $2_1 + 168 | 0;\n   HEAP32[$1_1 + 1012 >> 2] = $2_1;\n   HEAP32[$2_1 >> 2] = $4_1;\n   $2_1 = 3;\n   $6 = (($3_1 & 255) >>> 0) % 9 | 0;\n   block2 : {\n    if ($6 >>> 0 >= 3) {\n     $2_1 = -3;\n     if ($6 >>> 0 > 5) {\n      break block2\n     }\n    }\n    HEAP32[$1_1 + 1016 >> 2] = Math_imul($2_1 + $3_1 | 0, 56) + 16778408;\n   }\n   HEAP8[$1_1 + 1060 | 0] = $3_1;\n   HEAP32[$1_1 + 1052 >> 2] = -1;\n   HEAP8[$1_1 + 1040 | 0] = 0;\n   HEAP32[$1_1 + 1036 >> 2] = 16781464;\n   HEAP32[$1_1 + 1032 >> 2] = 16781464;\n   HEAP32[$1_1 + 1028 >> 2] = 16781464;\n   HEAP32[$1_1 + 1024 >> 2] = 16781464;\n   HEAP32[$1_1 + 1020 >> 2] = 16778408;\n   $10($4_1);\n   $3_1 = $3_1 + 1 | 0;\n   $5_1 = $5_1 + 56 | 0;\n   if ($5_1) {\n    continue\n   }\n   break;\n  };\n  HEAP32[4195365] = 1;\n  HEAP8[16781459] = 4;\n  HEAP8[16781456] = 1;\n  HEAP32[4195373] = ($0 << 10 >>> 0) / 49716;\n }\n \n function $3($0, $1_1) {\n  $0 = $0 | 0;\n  $1_1 = $1_1 | 0;\n  var $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0;\n  $3_1 = $0 & 65535;\n  $6 = $1_1 & 255;\n  $2_1 = HEAP32[4195383];\n  $0 = ($2_1 << 4) + 16778408 | 0;\n  $4_1 = $0 + 3136 | 0;\n  $0 = HEAPU16[$0 + 3144 >> 1];\n  block1 : {\n   if (!($0 & 512)) {\n    $2_1 = $2_1 + 1 & 1023;\n    $5_1 = HEAP32[4195380];\n    $0 = HEAP32[4195381];\n    break block1;\n   }\n   $8($0 & 511, HEAPU8[$4_1 + 10 | 0]);\n   $2_1 = $2_1 + 1 & 1023;\n   HEAP32[4195382] = $2_1;\n   $1_1 = HEAP32[$4_1 + 4 >> 2];\n   $0 = $1_1;\n   $5_1 = HEAP32[$4_1 >> 2];\n   HEAP32[4195380] = $5_1;\n   HEAP32[4195381] = $0;\n  }\n  HEAP8[$4_1 + 10 | 0] = $6;\n  HEAP32[4195383] = $2_1;\n  HEAP16[$4_1 + 8 >> 1] = $3_1 | 512;\n  $1_1 = HEAP32[4195384] + 2 | 0;\n  $2_1 = $1_1;\n  $3_1 = HEAP32[4195385];\n  $3_1 = $1_1 >>> 0 < 2 ? $3_1 + 1 | 0 : $3_1;\n  $1_1 = ($3_1 | 0) == ($0 | 0) & $1_1 >>> 0 > $5_1 >>> 0 | $0 >>> 0 < $3_1 >>> 0;\n  $5_1 = $1_1 ? $2_1 : $5_1;\n  HEAP32[4195384] = $5_1;\n  $0 = $1_1 ? $3_1 : $0;\n  HEAP32[4195385] = $0;\n  HEAP32[$4_1 >> 2] = $5_1;\n  HEAP32[$4_1 + 4 >> 2] = $0;\n }\n \n function $4($0) {\n  $0 = $0 | 0;\n  var $1_1 = 0, $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0, $7_1 = 0, $8_1 = 0, $9 = 0;\n  $7_1 = 16797936;\n  $5_1 = global$0 - 16 | 0;\n  global$0 = $5_1;\n  $8_1 = $0 >>> 0 >= 4096 ? 4096 : $0;\n  if ($8_1) {\n   while (1) {\n    $9 = $5_1 + 8 | 0;\n    $0 = HEAP32[4195374];\n    $2_1 = HEAP32[4195373];\n    if (($0 | 0) >= ($2_1 | 0)) {\n     while (1) {\n      $0 = HEAP32[4195378];\n      HEAP32[4195375] = HEAP32[4195377];\n      HEAP32[4195376] = $0;\n      $0 = 0;\n      $3_1 = 0;\n      $2_1 = 0;\n      $1_1 = HEAP32[4195368];\n      $1_1 = ($1_1 | 0) <= -32768 ? -32768 : $1_1;\n      HEAP16[8390755] = ($1_1 | 0) >= 32767 ? 32767 : $1_1;\n      $1_1 = HEAP32[4195370];\n      $1_1 = ($1_1 | 0) <= -32768 ? -32768 : $1_1;\n      HEAP16[8390757] = ($1_1 | 0) >= 32767 ? 32767 : $1_1;\n      $7(16779416);\n      $7(16779472);\n      $7(16779528);\n      $7(16779584);\n      $7(16779640);\n      $7(16779696);\n      $7(16779752);\n      $7(16779808);\n      $7(16779864);\n      $7(16779920);\n      $7(16779976);\n      $7(16780032);\n      $7(16780088);\n      $7(16780144);\n      $7(16780200);\n      while (1) {\n       $1_1 = $3_1 + 16778408 | 0;\n       $4_1 = ((HEAPU16[HEAP32[$1_1 + 20 >> 2] >> 1] + HEAPU16[HEAP32[$1_1 + 16 >> 2] >> 1] | 0) + HEAPU16[HEAP32[$1_1 + 24 >> 2] >> 1] | 0) + HEAPU16[HEAP32[$1_1 + 28 >> 2] >> 1] | 0;\n       $2_1 = (($4_1 & HEAPU16[$1_1 + 48 >> 1]) << 16 >> 16) + $2_1 | 0;\n       $0 = ((HEAPU16[$1_1 + 44 >> 1] & $4_1) << 16 >> 16) + $0 | 0;\n       $3_1 = $3_1 + 56 | 0;\n       if (($3_1 | 0) != 1008) {\n        continue\n       }\n       break;\n      };\n      HEAP32[4195369] = $2_1;\n      HEAP32[4195367] = $0;\n      $7(16780256);\n      $7(16780312);\n      $7(16780368);\n      $1_1 = HEAP32[4195367];\n      $1_1 = ($1_1 | 0) <= -32768 ? -32768 : $1_1;\n      HEAP16[8390754] = ($1_1 | 0) >= 32767 ? 32767 : $1_1;\n      $1_1 = HEAP32[4195369];\n      $1_1 = ($1_1 | 0) <= -32768 ? -32768 : $1_1;\n      HEAP16[8390756] = ($1_1 | 0) >= 32767 ? 32767 : $1_1;\n      $7(16780424);\n      $7(16780480);\n      $7(16780536);\n      $7(16780592);\n      $7(16780648);\n      $7(16780704);\n      $7(16780760);\n      $7(16780816);\n      $7(16780872);\n      $7(16780928);\n      $7(16780984);\n      $7(16781040);\n      $7(16781096);\n      $7(16781152);\n      $7(16781208);\n      $3_1 = 0;\n      $0 = 0;\n      $2_1 = 0;\n      while (1) {\n       $1_1 = $3_1 + 16778408 | 0;\n       $4_1 = ((HEAPU16[HEAP32[$1_1 + 20 >> 2] >> 1] + HEAPU16[HEAP32[$1_1 + 16 >> 2] >> 1] | 0) + HEAPU16[HEAP32[$1_1 + 24 >> 2] >> 1] | 0) + HEAPU16[HEAP32[$1_1 + 28 >> 2] >> 1] | 0;\n       $2_1 = (($4_1 & HEAPU16[$1_1 + 50 >> 1]) << 16 >> 16) + $2_1 | 0;\n       $0 = ((HEAPU16[$1_1 + 46 >> 1] & $4_1) << 16 >> 16) + $0 | 0;\n       $3_1 = $3_1 + 56 | 0;\n       if (($3_1 | 0) != 1008) {\n        continue\n       }\n       break;\n      };\n      HEAP32[4195370] = $2_1;\n      HEAP32[4195368] = $0;\n      $7(16781264);\n      $7(16781320);\n      $7(16781376);\n      $1_1 = HEAPU8[16781458];\n      $3_1 = HEAPU16[8390716];\n      if (($3_1 & 63) == 63) {\n       $1_1 = $1_1 + (($1_1 & 255) >>> 0 < 209 ? 1 : 47) | 0;\n       HEAP8[16781458] = $1_1;\n      }\n      $1_1 = $1_1 & 255;\n      block2 : {\n       if ($1_1 >>> 0 <= 104) {\n        $0 = $1_1 >>> HEAPU8[16781459] | 0;\n        break block2;\n       }\n       $0 = 210 - $1_1 >> HEAPU8[16781459];\n      }\n      HEAP8[16781457] = $0;\n      if (($3_1 & 1023) == 1023) {\n       HEAP8[16781455] = HEAPU8[16781455] + 1 & 7\n      }\n      $0 = 1;\n      HEAP16[8390716] = $3_1 + 1;\n      $1_1 = HEAPU8[16781449];\n      block18 : {\n       block17 : {\n        if ($1_1) {\n         $2_1 = HEAP32[4195361];\n         $4_1 = HEAP32[4195360];\n         $3_1 = $4_1;\n         block5 : {\n          if ($4_1 & 1) {\n           break block5\n          }\n          if ($4_1 & 2) {\n           $0 = 2;\n           break block5;\n          }\n          if ($4_1 & 4) {\n           $0 = 3;\n           break block5;\n          }\n          if ($4_1 & 8) {\n           $0 = 4;\n           break block5;\n          }\n          if ($4_1 & 16) {\n           $0 = 5;\n           break block5;\n          }\n          if ($4_1 & 32) {\n           $0 = 6;\n           break block5;\n          }\n          if ($4_1 & 64) {\n           $0 = 7;\n           break block5;\n          }\n          if ($4_1 & 128) {\n           $0 = 8;\n           break block5;\n          }\n          if ($4_1 & 256) {\n           $0 = 9;\n           break block5;\n          }\n          if ($4_1 & 512) {\n           $0 = 10;\n           break block5;\n          }\n          if ($4_1 & 1024) {\n           $0 = 11;\n           break block5;\n          }\n          if ($4_1 & 2048) {\n           $0 = 12;\n           break block5;\n          }\n          $0 = $4_1 & 4096 ? 13 : 0;\n         }\n         HEAP8[16781450] = $0;\n         HEAP8[16781451] = $3_1 & 3;\n         break block17;\n        }\n        if (!HEAPU8[16781448]) {\n         break block18\n        }\n        $4_1 = HEAP32[4195360];\n        $2_1 = HEAP32[4195361];\n       }\n       $3_1 = ($4_1 | 0) == -1 & ($2_1 | 0) == 15;\n       HEAP8[16781448] = $3_1;\n       $0 = $4_1 + 1 | 0;\n       $2_1 = $0 ? $2_1 : $2_1 + 1 | 0;\n       HEAP32[4195360] = $3_1 ? 0 : $0;\n       HEAP32[4195361] = $3_1 ? 0 : $2_1;\n      }\n      HEAP8[16781449] = $1_1 ^ 1;\n      $1_1 = HEAP32[4195382];\n      $0 = ($1_1 << 4) + 16781544 | 0;\n      $3_1 = HEAP32[$0 >> 2];\n      $6 = HEAP32[$0 + 4 >> 2];\n      $2_1 = HEAP32[4195381];\n      $4_1 = HEAP32[4195380];\n      block19 : {\n       if (($6 | 0) == ($2_1 | 0) & $4_1 >>> 0 < $3_1 >>> 0 | $2_1 >>> 0 < $6 >>> 0) {\n        break block19\n       }\n       $3_1 = HEAPU16[$0 + 8 >> 1];\n       if (!($3_1 & 512)) {\n        break block19\n       }\n       $0 = $0 + 8 | 0;\n       while (1) {\n        $3_1 = $3_1 & 511;\n        HEAP16[$0 >> 1] = $3_1;\n        $8($3_1, HEAPU8[($1_1 << 4) + 16781554 | 0]);\n        $1_1 = HEAP32[4195382] + 1 & 1023;\n        HEAP32[4195382] = $1_1;\n        $3_1 = ($1_1 << 4) + 16781544 | 0;\n        $2_1 = $3_1;\n        $0 = HEAP32[$2_1 >> 2];\n        $6 = HEAP32[$2_1 + 4 >> 2];\n        $2_1 = HEAP32[4195381];\n        $4_1 = HEAP32[4195380];\n        if (($6 | 0) == ($2_1 | 0) & $0 >>> 0 > $4_1 >>> 0 | $6 >>> 0 > $2_1 >>> 0) {\n         break block19\n        }\n        $0 = $3_1 + 8 | 0;\n        $3_1 = HEAPU16[$3_1 + 8 >> 1];\n        if ($3_1 & 512) {\n         continue\n        }\n        break;\n       };\n      }\n      $4_1 = $4_1 + 1 | 0;\n      HEAP32[4195380] = $4_1;\n      $0 = $2_1;\n      HEAP32[4195381] = $4_1 ? $0 : $0 + 1 | 0;\n      $2_1 = HEAP32[4195373];\n      $0 = HEAP32[4195374] - $2_1 | 0;\n      HEAP32[4195374] = $0;\n      if (($0 | 0) >= ($2_1 | 0)) {\n       continue\n      }\n      break;\n     }\n    }\n    $1_1 = $2_1 - $0 | 0;\n    HEAP16[$9 >> 1] = (Math_imul(HEAP16[8390754], $0) + Math_imul($1_1, HEAP16[8390750]) | 0) / ($2_1 | 0);\n    HEAP16[$9 + 2 >> 1] = (Math_imul(HEAP16[8390755], $0) + Math_imul(HEAP16[8390751], $1_1) | 0) / ($2_1 | 0);\n    HEAP16[$9 + 4 >> 1] = (Math_imul(HEAP16[8390756], $0) + Math_imul(HEAP16[8390752], $1_1) | 0) / ($2_1 | 0);\n    HEAP32[4195374] = $0 + 1024;\n    HEAP16[$9 + 6 >> 1] = (Math_imul(HEAP16[8390757], $0) + Math_imul(HEAP16[8390753], $1_1) | 0) / ($2_1 | 0);\n    $0 = HEAPU16[$5_1 + 8 >> 1] | HEAPU16[$5_1 + 10 >> 1] << 16;\n    HEAP16[$7_1 >> 1] = $0;\n    HEAP16[$7_1 + 2 >> 1] = $0 >>> 16;\n    $7_1 = $7_1 + 4 | 0;\n    $8_1 = $8_1 - 1 | 0;\n    if ($8_1) {\n     continue\n    }\n    break;\n   }\n  }\n  global$0 = $5_1 + 16 | 0;\n  return 16797936;\n }\n \n function $5() {\n  return 4096;\n }\n \n function $7($0) {\n  var $1_1 = 0, $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0, $7_1 = 0, $8_1 = 0, $9 = 0, $10_1 = 0, $11 = 0, $12 = 0, wasm2js_i32$0 = 0, wasm2js_i32$1 = 0;\n  $6 = HEAP32[$0 >> 2];\n  $4_1 = HEAPU8[$6 + 40 | 0];\n  block1 : {\n   if ($4_1) {\n    $2_1 = HEAP16[$0 + 8 >> 1];\n    $4_1 = $2_1 + HEAP16[$0 + 16 >> 1] >> 9 - $4_1;\n    break block1;\n   }\n   $2_1 = HEAPU16[$0 + 8 >> 1];\n   $4_1 = 0;\n  }\n  HEAP16[$0 + 16 >> 1] = $2_1;\n  HEAP16[$0 + 10 >> 1] = $4_1;\n  $1_1 = HEAPU16[$0 + 18 >> 1];\n  HEAP16[$0 + 20 >> 1] = HEAPU8[HEAP32[$0 + 28 >> 2]] + ($1_1 + (HEAPU8[$0 + 37 | 0] << 2) + (HEAPU8[$0 + 25 | 0] >>> HEAPU8[HEAPU8[$0 + 36 | 0] + 16777280 | 0]) | 0);\n  $10_1 = HEAPU8[$0 + 43 | 0];\n  $9 = HEAPU8[$0 + 23 | 0];\n  $5_1 = $9;\n  $4_1 = !$10_1 | ($5_1 | 0) != 3;\n  block8 : {\n   block3 : {\n    if (!$4_1) {\n     $2_1 = 1;\n     $3_1 = HEAPU8[$0 + 38 | 0];\n     break block3;\n    }\n    $2_1 = 0;\n    block7 : {\n     switch ($5_1 | 0) {\n     case 0:\n      $3_1 = HEAPU8[$0 + 38 | 0];\n      $9 = 0;\n      break block8;\n     case 1:\n      $3_1 = HEAPU8[$0 + 39 | 0];\n      $9 = 1;\n      break block8;\n     case 2:\n      $9 = 2;\n      if (HEAPU8[$0 + 33 | 0]) {\n       break block8\n      }\n      $3_1 = HEAPU8[$0 + 41 | 0];\n      break block8;\n     case 3:\n      break block7;\n     default:\n      break block8;\n     };\n    }\n    $3_1 = HEAPU8[$0 + 41 | 0];\n   }\n   $9 = 3;\n  }\n  HEAP32[$0 + 44 >> 2] = $2_1;\n  $8_1 = HEAPU8[$6 + 43 | 0] >>> ((HEAPU8[$0 + 34 | 0] ^ 1) << 1) | 0;\n  $2_1 = $8_1 + ($3_1 << 2) | 0;\n  $5_1 = $2_1 & 64 ? 15 : ($2_1 & 252) >>> 2 | 0;\n  $2_1 = HEAP32[$0 + 4 >> 2];\n  $12 = $4_1 ^ 1;\n  block10 : {\n   if (!($3_1 & 255)) {\n    break block10\n   }\n   if ($5_1 >>> 0 <= 11) {\n    if (!HEAPU8[$2_1 + 3041 | 0]) {\n     break block10\n    }\n    block14 : {\n     switch ((HEAPU8[$2_1 + 3042 | 0] + $5_1 & 255) - 12 | 0) {\n     case 0:\n      $7_1 = 1;\n      break block10;\n     case 1:\n      $7_1 = $8_1 >>> 1 & 1;\n      break block10;\n     case 2:\n      break block14;\n     default:\n      break block10;\n     };\n    }\n    $7_1 = $8_1 & 1;\n    break block10;\n   }\n   $3_1 = HEAPU8[(HEAPU8[$2_1 + 3043 | 0] + (($8_1 & 3) << 2) | 0) + 16777296 | 0] + ($5_1 & 3) | 0;\n   $7_1 = $3_1 & 4 ? 3 : $3_1;\n   if ($7_1 & 255) {\n    break block10\n   }\n   $7_1 = HEAPU8[$2_1 + 3041 | 0];\n  }\n  $3_1 = $4_1 ? $1_1 : ($5_1 & 255) != 15 ? $1_1 : 0;\n  $8_1 = $1_1 & 504;\n  $3_1 = ($8_1 | 0) != 504 ? $3_1 : $9 ? ($12 ? $3_1 : 511) : $3_1;\n  block18 : {\n   block17 : {\n    switch ($9 | 0) {\n    case 0:\n     if (!$1_1) {\n      HEAP8[$0 + 23 | 0] = 1;\n      break block18;\n     }\n     if (!$10_1) {\n      break block18\n     }\n     if (!($7_1 & 255)) {\n      break block18\n     }\n     if (($5_1 | 0) == 15) {\n      break block18\n     }\n     $11 = $1_1 >>> 4 - ($7_1 & 255) ^ -1;\n     break block18;\n    case 1:\n     if (HEAPU8[$0 + 40 | 0] == ($1_1 >>> 4 | 0)) {\n      HEAP8[$0 + 23 | 0] = 2;\n      break block18;\n     }\n     if ($4_1 ^ 1 | ($8_1 | 0) == 504) {\n      break block18\n     }\n     $1_1 = $7_1 & 255;\n     if (!$1_1) {\n      break block18\n     }\n     $11 = 1 << $1_1 - 1;\n     break block18;\n    case 2:\n    case 3:\n     break block17;\n    default:\n     break block18;\n    };\n   }\n   if ($4_1 ^ 1 | ($8_1 | 0) == 504) {\n    break block18\n   }\n   $1_1 = $7_1 & 255;\n   if (!$1_1) {\n    break block18\n   }\n   $11 = 1 << $1_1 - 1;\n  }\n  HEAP16[$0 + 18 >> 1] = $3_1 + $11 & 511;\n  if (!(($12 ^ 1) & ($10_1 | 0) != 0)) {\n   HEAP8[$0 + 23 | 0] = $10_1 ? 0 : 3\n  }\n  $3_1 = HEAPU16[$6 + 34 >> 1];\n  if (HEAPU8[$0 + 32 | 0]) {\n   $1_1 = HEAPU8[$2_1 + 3047 | 0];\n   $5_1 = ($1_1 & 3 ? ($3_1 >>> 7 & 7) >>> ($1_1 & 1) | 0 : 0) >>> HEAPU8[$2_1 + 3048 | 0] | 0;\n   $3_1 = ($1_1 & 4 ? 0 - $5_1 | 0 : $5_1) + $3_1 | 0;\n  }\n  $1_1 = HEAP32[$0 + 48 >> 2];\n  HEAP16[$0 + 52 >> 1] = $1_1 >>> 9;\n  HEAP32[$0 + 48 >> 2] = (Math_imul(HEAPU8[HEAPU8[$0 + 35 | 0] + 16777312 | 0], ($3_1 & 65535) << HEAPU8[$6 + 38 | 0] >> 1) >>> 1 | 0) + ($4_1 ? $1_1 : 0);\n  block24 : {\n   block26 : {\n    block25 : {\n     block23 : {\n      $6 = HEAPU8[$0 + 54 | 0];\n      switch ($6 - 13 | 0) {\n      case 0:\n       break block23;\n      case 4:\n       break block25;\n      default:\n       break block24;\n      };\n     }\n     HEAP8[$2_1 + 3078 | 0] = $1_1 >>> 16 & 1;\n     HEAP8[$2_1 + 3077 | 0] = $1_1 >>> 12 & 1;\n     HEAP8[$2_1 + 3076 | 0] = $1_1 >>> 11 & 1;\n     $4_1 = 3079;\n     $3_1 = 17;\n     break block26;\n    }\n    if (!(HEAPU8[$2_1 + 3046 | 0] & 32)) {\n     break block24\n    }\n    HEAP8[$2_1 + 3080 | 0] = $1_1 >>> 12 & 1;\n    $4_1 = 3081;\n    $3_1 = 14;\n   }\n   HEAP8[$2_1 + $4_1 | 0] = $1_1 >>> $3_1 & 1;\n  }\n  $4_1 = HEAP32[$2_1 + 3052 >> 2];\n  block27 : {\n   if (!(HEAPU8[$2_1 + 3046 | 0] & 32)) {\n    break block27\n   }\n   $1_1 = HEAPU8[$2_1 + 3081 | 0];\n   $1_1 = $1_1 ^ HEAPU8[$2_1 + 3077 | 0] | HEAPU8[$2_1 + 3078 | 0] ^ HEAPU8[$2_1 + 3076 | 0] | $1_1 ^ HEAPU8[$2_1 + 3080 | 0];\n   block32 : {\n    block30 : {\n     switch ($6 - 13 | 0) {\n     case 0:\n      $6 = $1_1 << 9;\n      $3_1 = $6 | 208;\n      if (($4_1 & 1) != ($1_1 & 255)) {\n       break block32\n      }\n      $3_1 = $6 | 52;\n      break block32;\n     case 3:\n      $1_1 = HEAPU8[$2_1 + 3079 | 0];\n      $3_1 = ($1_1 ^ $4_1 & 1) << 8 | $1_1 << 9;\n      break block32;\n     case 4:\n      break block30;\n     default:\n      break block27;\n     };\n    }\n    $3_1 = $1_1 << 9 | 128;\n   }\n   HEAP16[$0 + 52 >> 1] = $3_1;\n  }\n  HEAP32[$2_1 + 3052 >> 2] = ($4_1 ^ $4_1 >>> 14) << 22 & 4194304 | $4_1 >>> 1;\n  (wasm2js_i32$0 = $0, wasm2js_i32$1 = FUNCTION_TABLE[HEAP32[(HEAPU8[$0 + 42 | 0] << 2) + 16777328 >> 2]](HEAPU16[HEAP32[$0 + 12 >> 2] >> 1] + HEAPU16[$0 + 52 >> 1] & 65535, HEAPU16[$0 + 20 >> 1]) | 0), HEAP16[wasm2js_i32$0 + 8 >> 1] = wasm2js_i32$1;\n }\n \n function $8($0, $1_1) {\n  var $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0, $7_1 = 0, $8_1 = 0, $9 = 0;\n  $3_1 = $0 >>> 8 & 1;\n  block1 : {\n   block8 : {\n    block7 : {\n     block6 : {\n      block9 : {\n       block5 : {\n        block4 : {\n         block3 : {\n          block2 : {\n           block : {\n            $0 = $0 & 255;\n            switch ($0 >>> 4 | 0) {\n            case 0:\n             break block;\n            case 2:\n            case 3:\n             break block2;\n            case 4:\n            case 5:\n             break block3;\n            case 6:\n            case 7:\n             break block4;\n            case 8:\n            case 9:\n             break block5;\n            case 10:\n             break block6;\n            case 11:\n             break block7;\n            case 12:\n             break block8;\n            case 14:\n            case 15:\n             break block9;\n            default:\n             break block1;\n            };\n           }\n           $0 = $0 & 15;\n           if ($3_1) {\n            block12 : {\n             switch ($0 - 4 | 0) {\n             case 0:\n              $3_1 = 0;\n              while (1) {\n               $2_1 = ($3_1 >>> 0 > 2 ? $8_1 + 6 | 0 : $3_1) & 255;\n               $0 = $2_1 + 3 | 0;\n               $7_1 = Math_imul($2_1, 56) + 16778408 | 0;\n               block10 : {\n                if ($1_1 >>> $3_1 & 1) {\n                 $2_1 = HEAP32[$7_1 + 8 >> 2];\n                 $6 = HEAPU8[$7_1 + 38 | 0];\n                 HEAP8[$2_1 + 38 | 0] = $6;\n                 $5_1 = HEAPU16[$7_1 + 34 >> 1];\n                 HEAP16[$2_1 + 34 >> 1] = $5_1;\n                 $4_1 = HEAP32[$2_1 >> 2];\n                 $9 = $4_1;\n                 $4_1 = HEAP32[$4_1 >> 2];\n                 $4_1 = ((HEAPU8[(HEAPU16[$4_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$4_1 + 38 | 0] << 5) | 0) - 256 | 0;\n                 HEAP8[$9 + 25 | 0] = ($4_1 | 0) > 0 ? $4_1 : 0;\n                 HEAP8[$7_1 + 32 | 0] = 1;\n                 HEAP8[(Math_imul($0, 56) + 16778408 | 0) + 32 | 0] = 2;\n                 HEAP8[$2_1 + 43 | 0] = $5_1 >>> 9 - HEAPU8[HEAP32[$2_1 + 12 >> 2] + 3045 | 0] & 1 | $6 << 1;\n                 $0 = HEAP32[$2_1 + 4 >> 2];\n                 $4_1 = $0;\n                 $0 = HEAP32[$0 >> 2];\n                 $0 = ((HEAPU8[(HEAPU16[$0 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$0 + 38 | 0] << 5) | 0) - 256 | 0;\n                 HEAP8[$4_1 + 25 | 0] = ($0 | 0) > 0 ? $0 : 0;\n                 HEAP8[$2_1 + 42 | 0] = HEAPU8[$2_1 + 41 | 0] | HEAPU8[$7_1 + 41 | 0] << 1 | 4;\n                 HEAP8[$7_1 + 42 | 0] = 8;\n                 break block10;\n                }\n                $2_1 = Math_imul($0, 56) + 16778408 | 0;\n                $0 = HEAPU8[$2_1 + 39 | 0];\n                HEAP8[$2_1 + 38 | 0] = $0;\n                $6 = HEAPU16[$2_1 + 36 >> 1];\n                HEAP16[$2_1 + 34 >> 1] = $6;\n                $5_1 = HEAP32[$2_1 >> 2];\n                $4_1 = $5_1;\n                $5_1 = HEAP32[$5_1 >> 2];\n                $5_1 = ((HEAPU8[(HEAPU16[$5_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$5_1 + 38 | 0] << 5) | 0) - 256 | 0;\n                HEAP8[$4_1 + 25 | 0] = ($5_1 | 0) > 0 ? $5_1 : 0;\n                HEAP8[$7_1 + 32 | 0] = 0;\n                HEAP8[$2_1 + 32 | 0] = 0;\n                HEAP8[$2_1 + 43 | 0] = $6 >>> 9 - HEAPU8[HEAP32[$2_1 + 12 >> 2] + 3045 | 0] & 1 | $0 << 1;\n                $0 = HEAP32[$2_1 + 4 >> 2];\n                $4_1 = $0;\n                $0 = HEAP32[$0 >> 2];\n                $0 = ((HEAPU8[(HEAPU16[$0 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$0 + 38 | 0] << 5) | 0) - 256 | 0;\n                HEAP8[$4_1 + 25 | 0] = ($0 | 0) > 0 ? $0 : 0;\n                HEAP8[$7_1 + 42 | 0] = HEAPU8[$7_1 + 41 | 0];\n                $10($7_1);\n                $7_1 = HEAPU8[$2_1 + 41 | 0];\n                HEAP8[$2_1 + 42 | 0] = $7_1;\n                block31 : {\n                 switch (HEAPU8[$2_1 + 32 | 0] - 1 | 0) {\n                 case 0:\n                  $0 = HEAP32[$2_1 + 8 >> 2];\n                  HEAP8[$0 + 42 | 0] = HEAPU8[$0 + 41 | 0] | $7_1 << 1 | 4;\n                  HEAP8[$2_1 + 42 | 0] = 8;\n                  $2_1 = $0;\n                  break block10;\n                 case 1:\n                  break block31;\n                 default:\n                  break block10;\n                 };\n                }\n                $0 = HEAP32[$2_1 + 8 >> 2];\n                HEAP8[$2_1 + 42 | 0] = HEAPU8[$0 + 41 | 0] << 1 | $7_1 | 4;\n                HEAP8[$0 + 42 | 0] = 8;\n               }\n               $10($2_1);\n               $8_1 = $8_1 + 1 | 0;\n               $3_1 = $3_1 + 1 | 0;\n               if (($3_1 | 0) != 6) {\n                continue\n               }\n               break;\n              };\n              return;\n             case 1:\n              break block12;\n             default:\n              break block1;\n             };\n            }\n            HEAP8[16781452] = $1_1 & 1;\n            return;\n           }\n           if (($0 | 0) != 8) {\n            break block1\n           }\n           HEAP8[16781453] = $1_1 >>> 6 & 1;\n           return;\n          }\n          if (!(1 << $0 & 4144959)) {\n           break block1\n          }\n          $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;\n          HEAP8[$0 + 1043 | 0] = $1_1 & 15;\n          HEAP8[$0 + 1042 | 0] = $1_1 >>> 4 & 1;\n          HEAP8[$0 + 1041 | 0] = $1_1 >>> 5 & 1;\n          HEAP8[$0 + 1040 | 0] = $1_1 >>> 6 & 1;\n          HEAP32[$0 + 1036 >> 2] = HEAP32[$0 + 1012 >> 2] + ($1_1 << 24 >> 24 >= 0 ? 3056 : 3049);\n          return;\n         }\n         if (!(1 << $0 & 4144959)) {\n          break block1\n         }\n         $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;\n         HEAP8[$0 + 1045 | 0] = $1_1 & 63;\n         HEAP8[$0 + 1044 | 0] = $1_1 >>> 6;\n         $1_1 = HEAP32[$0 + 1008 >> 2];\n         $1_1 = ((HEAPU8[(HEAPU16[$1_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$1_1 + 38 | 0] << 5) | 0) - 256 | 0;\n         HEAP8[$0 + 1033 | 0] = ($1_1 | 0) > 0 ? $1_1 : 0;\n         return;\n        }\n        if (!(1 << $0 & 4144959)) {\n         break block1\n        }\n        $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;\n        HEAP8[$0 + 1047 | 0] = $1_1 & 15;\n        HEAP8[$0 + 1046 | 0] = $1_1 >>> 4;\n        return;\n       }\n       if (!(1 << $0 & 4144959)) {\n        break block1\n       }\n       $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;\n       HEAP8[$0 + 1049 | 0] = $1_1 & 15;\n       $1_1 = $1_1 >>> 4 | 0;\n       HEAP8[$0 + 1048 | 0] = ($1_1 | 0) == 15 ? 31 : $1_1;\n       return;\n      }\n      if (!(1 << $0 & 4144959)) {\n       break block1\n      }\n      $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;\n      HEAP8[$0 + 1050 | 0] = $1_1 & 7;\n      if (HEAPU8[HEAP32[$0 + 1012 >> 2] + 3044 | 0]) {\n       break block1\n      }\n      HEAP8[($0 + 1008 | 0) + 42 | 0] = $1_1 & 3;\n      return;\n     }\n     $0 = $0 & 15;\n     if ($0 >>> 0 > 8) {\n      break block1\n     }\n     $0 = Math_imul(Math_imul($3_1, 9) + $0 | 0, 56) + 16778408 | 0;\n     $1_1 = $1_1 | HEAPU16[$0 + 36 >> 1] & 768;\n     HEAP16[$0 + 36 >> 1] = $1_1;\n     $2_1 = HEAPU8[$0 + 32 | 0];\n     if (($2_1 | 0) == 2) {\n      break block1\n     }\n     $3_1 = HEAPU8[$0 + 39 | 0];\n     HEAP8[$0 + 38 | 0] = $3_1;\n     HEAP16[$0 + 34 >> 1] = $1_1;\n     $6 = HEAP32[$0 >> 2];\n     $4_1 = $6;\n     $6 = HEAP32[$6 >> 2];\n     $6 = ((HEAPU8[(HEAPU16[$6 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$6 + 38 | 0] << 5) | 0) - 256 | 0;\n     HEAP8[$4_1 + 25 | 0] = ($6 | 0) > 0 ? $6 : 0;\n     $8_1 = $3_1 << 1;\n     HEAP8[$0 + 43 | 0] = $8_1 | $1_1 >>> 9 - HEAPU8[HEAP32[$0 + 12 >> 2] + 3045 | 0] & 1;\n     $6 = HEAP32[$0 + 4 >> 2];\n     $4_1 = $6;\n     $6 = HEAP32[$6 >> 2];\n     $6 = ((HEAPU8[(HEAPU16[$6 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$6 + 38 | 0] << 5) | 0) - 256 | 0;\n     HEAP8[$4_1 + 25 | 0] = ($6 | 0) > 0 ? $6 : 0;\n     if (($2_1 | 0) != 1) {\n      break block1\n     }\n     $0 = HEAP32[$0 + 8 >> 2];\n     HEAP8[$0 + 38 | 0] = $3_1;\n     HEAP16[$0 + 34 >> 1] = $1_1;\n     $2_1 = HEAP32[$0 >> 2];\n     $4_1 = $2_1;\n     $2_1 = HEAP32[$2_1 >> 2];\n     $2_1 = ((HEAPU8[(HEAPU16[$2_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$2_1 + 38 | 0] << 5) | 0) - 256 | 0;\n     HEAP8[$4_1 + 25 | 0] = ($2_1 | 0) > 0 ? $2_1 : 0;\n     HEAP8[$0 + 43 | 0] = $8_1 | $1_1 >>> 9 - HEAPU8[HEAP32[$0 + 12 >> 2] + 3045 | 0] & 1;\n     $0 = HEAP32[$0 + 4 >> 2];\n     $1_1 = $0;\n     $0 = HEAP32[$0 >> 2];\n     $0 = ((HEAPU8[(HEAPU16[$0 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$0 + 38 | 0] << 5) | 0) - 256 | 0;\n     HEAP8[$1_1 + 25 | 0] = ($0 | 0) > 0 ? $0 : 0;\n     return;\n    }\n    block13 : {\n     if (($0 | 0) != 189) {\n      break block13\n     }\n     if ($3_1) {\n      break block13\n     }\n     HEAP8[16781454] = $1_1 & 63;\n     $0 = $1_1 >>> 6 ^ -1;\n     HEAP8[16781456] = $0 & 1;\n     HEAP8[16781459] = ($0 & 2) + 2;\n     if (!($1_1 & 32)) {\n      HEAP8[16778776] = 0;\n      $10(16778744);\n      $0 = HEAP32[4194686];\n      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;\n      HEAP8[16778832] = 0;\n      $0 = HEAP32[4194687];\n      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;\n      $10(16778800);\n      $0 = HEAP32[4194700];\n      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;\n      HEAP8[16778888] = 0;\n      $0 = HEAP32[4194701];\n      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;\n      $10(16778856);\n      $0 = HEAP32[4194714];\n      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;\n      $0 = HEAP32[4194715];\n      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;\n      return;\n     }\n     HEAP8[16778888] = 3;\n     HEAP8[16778832] = 3;\n     HEAP8[16778776] = 3;\n     HEAP32[4194693] = 16781464;\n     HEAP32[4194692] = 16781464;\n     $0 = HEAP32[4194687] + 8 | 0;\n     HEAP32[4194691] = $0;\n     HEAP32[4194690] = $0;\n     $0 = HEAP32[4194700] + 8 | 0;\n     HEAP32[4194705] = $0;\n     HEAP32[4194704] = $0;\n     $0 = HEAP32[4194701] + 8 | 0;\n     HEAP32[4194707] = $0;\n     HEAP32[4194706] = $0;\n     $0 = HEAP32[4194714] + 8 | 0;\n     HEAP32[4194719] = $0;\n     HEAP32[4194718] = $0;\n     $0 = HEAP32[4194715] + 8 | 0;\n     HEAP32[4194721] = $0;\n     HEAP32[4194720] = $0;\n     $10(16778744);\n     $10(16778800);\n     $10(16778856);\n     $0 = HEAP32[4194700];\n     $1_1 = $0;\n     $2_1 = HEAPU8[$0 + 43 | 0] & 253;\n     $0 = HEAPU8[16781454];\n     HEAP8[$1_1 + 43 | 0] = $2_1 | $0 << 1 & 2;\n     $1_1 = HEAP32[4194715];\n     HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 253 | $0 & 2;\n     $1_1 = HEAP32[4194714];\n     HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 253 | $0 >>> 1 & 2;\n     $1_1 = HEAP32[4194701];\n     HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 253 | $0 >>> 2 & 2;\n     $1_1 = HEAP32[4194686];\n     $3_1 = HEAPU8[$1_1 + 43 | 0];\n     if ($0 & 16) {\n      HEAP8[$1_1 + 43 | 0] = $3_1 | 2;\n      $0 = HEAP32[4194687];\n      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] | 2;\n      return;\n     }\n     HEAP8[$1_1 + 43 | 0] = $3_1 & 253;\n     $0 = HEAP32[4194687];\n     HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;\n     return;\n    }\n    $0 = $0 & 15;\n    if ($0 >>> 0 > 8) {\n     break block1\n    }\n    $0 = Math_imul(Math_imul($3_1, 9) + $0 | 0, 56) + 16778408 | 0;\n    $3_1 = $1_1 >>> 2 & 7;\n    HEAP8[$0 + 39 | 0] = $3_1;\n    $2_1 = HEAPU8[$0 + 36 | 0] | $1_1 << 8 & 768;\n    HEAP16[$0 + 36 >> 1] = $2_1;\n    $8_1 = HEAPU8[$0 + 32 | 0];\n    block14 : {\n     if (($8_1 | 0) == 2) {\n      break block14\n     }\n     HEAP8[$0 + 38 | 0] = $3_1;\n     HEAP16[$0 + 34 >> 1] = $2_1;\n     $4_1 = HEAP32[$0 >> 2];\n     $5_1 = $4_1;\n     $4_1 = HEAP32[$4_1 >> 2];\n     $4_1 = ((HEAPU8[(HEAPU16[$4_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$4_1 + 38 | 0] << 5) | 0) - 256 | 0;\n     HEAP8[$5_1 + 25 | 0] = ($4_1 | 0) > 0 ? $4_1 : 0;\n     $6 = $3_1 << 1;\n     HEAP8[$0 + 43 | 0] = $6 | $2_1 >>> 9 - HEAPU8[HEAP32[$0 + 12 >> 2] + 3045 | 0] & 1;\n     $4_1 = HEAP32[$0 + 4 >> 2];\n     $5_1 = $4_1;\n     $4_1 = HEAP32[$4_1 >> 2];\n     $4_1 = ((HEAPU8[(HEAPU16[$4_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$4_1 + 38 | 0] << 5) | 0) - 256 | 0;\n     HEAP8[$5_1 + 25 | 0] = ($4_1 | 0) > 0 ? $4_1 : 0;\n     if (($8_1 | 0) != 1) {\n      break block14\n     }\n     $5_1 = HEAP32[$0 + 8 >> 2];\n     HEAP8[$5_1 + 38 | 0] = $3_1;\n     HEAP16[$5_1 + 34 >> 1] = $2_1;\n     $3_1 = HEAP32[$5_1 >> 2];\n     $4_1 = $3_1;\n     $3_1 = HEAP32[$3_1 >> 2];\n     $3_1 = ((HEAPU8[(HEAPU16[$3_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$3_1 + 38 | 0] << 5) | 0) - 256 | 0;\n     HEAP8[$4_1 + 25 | 0] = ($3_1 | 0) > 0 ? $3_1 : 0;\n     HEAP8[$5_1 + 43 | 0] = $6 | $2_1 >>> 9 - HEAPU8[HEAP32[$5_1 + 12 >> 2] + 3045 | 0] & 1;\n     $5_1 = HEAP32[$5_1 + 4 >> 2];\n     $2_1 = $5_1;\n     $5_1 = HEAP32[$5_1 >> 2];\n     $5_1 = ((HEAPU8[(HEAPU16[$5_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$5_1 + 38 | 0] << 5) | 0) - 256 | 0;\n     HEAP8[$2_1 + 25 | 0] = ($5_1 | 0) > 0 ? $5_1 : 0;\n    }\n    if ($1_1 & 32) {\n     block215 : {\n      switch (HEAPU8[$0 + 32 | 0]) {\n      case 1:\n       $1_1 = HEAP32[$0 >> 2];\n       HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] | 1;\n       $1_1 = HEAP32[$0 + 4 >> 2];\n       HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] | 1;\n       $0 = HEAP32[$0 + 8 >> 2];\n      case 0:\n      case 3:\n       $1_1 = HEAP32[$0 >> 2];\n       HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] | 1;\n       $0 = HEAP32[$0 + 4 >> 2];\n       HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] | 1;\n       break;\n      default:\n       break block215;\n      };\n     }\n     return;\n    }\n    block218 : {\n     switch (HEAPU8[$0 + 32 | 0]) {\n     case 1:\n      $1_1 = HEAP32[$0 >> 2];\n      HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 254;\n      $1_1 = HEAP32[$0 + 4 >> 2];\n      HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 254;\n      $0 = HEAP32[$0 + 8 >> 2];\n     case 0:\n     case 3:\n      $1_1 = HEAP32[$0 >> 2];\n      HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 254;\n      $0 = HEAP32[$0 + 4 >> 2];\n      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 254;\n      break;\n     default:\n      break block218;\n     };\n    }\n    return;\n   }\n   $0 = $0 & 15;\n   if ($0 >>> 0 > 8) {\n    break block1\n   }\n   $0 = Math_imul(Math_imul($3_1, 9) + $0 | 0, 56) + 16778408 | 0;\n   $3_1 = $1_1 & 1;\n   HEAP8[$0 + 42 | 0] = $3_1;\n   HEAP8[$0 + 41 | 0] = $3_1;\n   HEAP8[$0 + 40 | 0] = $1_1 >>> 1 & 7;\n   $2_1 = $0;\n   block1921 : {\n    block18 : {\n     switch (HEAPU8[$0 + 32 | 0] - 1 | 0) {\n     case 0:\n      $2_1 = HEAP32[$0 + 8 >> 2];\n      HEAP8[$2_1 + 42 | 0] = HEAPU8[$2_1 + 41 | 0] | $3_1 << 1 | 4;\n      HEAP8[$0 + 42 | 0] = 8;\n      break block1921;\n     case 1:\n      break block18;\n     default:\n      break block1921;\n     };\n    }\n    $2_1 = HEAP32[$0 + 8 >> 2];\n    HEAP8[$0 + 42 | 0] = $3_1 | HEAPU8[$2_1 + 41 | 0] << 1 | 4;\n    HEAP8[$2_1 + 42 | 0] = 8;\n    $2_1 = $0;\n   }\n   $10($2_1);\n   block21 : {\n    if (!HEAPU8[HEAP32[$0 + 12 >> 2] + 3044 | 0]) {\n     $2_1 = 0;\n     $3_1 = 65535;\n     $1_1 = 65535;\n     break block21;\n    }\n    $2_1 = $1_1 << 24 >> 24 >> 7;\n    $6 = $1_1 << 25 >> 31;\n    $3_1 = $1_1 << 26 >> 31;\n    $1_1 = $1_1 << 27 >> 31;\n   }\n   HEAP16[$0 + 50 >> 1] = $2_1;\n   HEAP16[$0 + 44 >> 1] = $1_1;\n   HEAP16[$0 + 46 >> 1] = $3_1;\n   HEAP16[$0 + 48 >> 1] = $6;\n  }\n }\n \n function $10($0) {\n  var $1_1 = 0, $2_1 = 0, $3_1 = 0, $4_1 = 0;\n  if (HEAPU8[$0 + 32 | 0] == 3) {\n   $1_1 = HEAP32[$0 >> 2];\n   if ((HEAPU8[$0 + 52 | 0] - 7 & 255) >>> 0 <= 1) {\n    $2_1 = HEAP32[$0 + 12 >> 2] + 3056 | 0;\n    HEAP32[$1_1 + 12 >> 2] = $2_1;\n    HEAP32[HEAP32[$0 + 4 >> 2] + 12 >> 2] = $2_1;\n    return;\n   }\n   HEAP32[$1_1 + 12 >> 2] = $1_1 + 10;\n   if (!(HEAP8[$0 + 42 | 0] & 1)) {\n    HEAP32[HEAP32[$0 + 4 >> 2] + 12 >> 2] = $1_1 + 8;\n    return;\n   }\n   HEAP32[HEAP32[$0 + 4 >> 2] + 12 >> 2] = HEAP32[$0 + 12 >> 2] + 3056;\n   return;\n  }\n  $1_1 = HEAPU8[$0 + 42 | 0];\n  if (!($1_1 & 8)) {\n   if ($1_1 & 4) {\n    $3_1 = HEAP32[$0 + 8 >> 2];\n    $2_1 = HEAP32[$0 + 12 >> 2] + 3056 | 0;\n    HEAP32[$3_1 + 28 >> 2] = $2_1;\n    HEAP32[$3_1 + 24 >> 2] = $2_1;\n    HEAP32[$3_1 + 20 >> 2] = $2_1;\n    HEAP32[$3_1 + 16 >> 2] = $2_1;\n    $4_1 = HEAP32[$3_1 >> 2];\n    HEAP32[$4_1 + 12 >> 2] = $4_1 + 10;\n    block8 : {\n     switch (($1_1 & 3) - 1 | 0) {\n     default:\n      $1_1 = HEAP32[$3_1 + 4 >> 2];\n      HEAP32[$1_1 + 12 >> 2] = $4_1 + 8;\n      $3_1 = HEAP32[$0 >> 2];\n      HEAP32[$3_1 + 12 >> 2] = $1_1 + 8;\n      $1_1 = HEAP32[$0 + 4 >> 2];\n      HEAP32[$1_1 + 12 >> 2] = $3_1 + 8;\n      HEAP32[$0 + 28 >> 2] = $2_1;\n      HEAP32[$0 + 24 >> 2] = $2_1;\n      HEAP32[$0 + 20 >> 2] = $2_1;\n      HEAP32[$0 + 16 >> 2] = $1_1 + 8;\n      return;\n     case 0:\n      $1_1 = HEAP32[$3_1 + 4 >> 2];\n      HEAP32[$1_1 + 12 >> 2] = $4_1 + 8;\n      $3_1 = HEAP32[$0 >> 2];\n      HEAP32[$3_1 + 12 >> 2] = $2_1;\n      $4_1 = HEAP32[$0 + 4 >> 2];\n      HEAP32[$4_1 + 12 >> 2] = $3_1 + 8;\n      HEAP32[$0 + 28 >> 2] = $2_1;\n      HEAP32[$0 + 24 >> 2] = $2_1;\n      HEAP32[$0 + 20 >> 2] = $4_1 + 8;\n      HEAP32[$0 + 16 >> 2] = $1_1 + 8;\n      return;\n     case 1:\n      $1_1 = HEAP32[$3_1 + 4 >> 2];\n      HEAP32[$1_1 + 12 >> 2] = $2_1;\n      $3_1 = HEAP32[$0 >> 2];\n      HEAP32[$3_1 + 12 >> 2] = $1_1 + 8;\n      $1_1 = HEAP32[$0 + 4 >> 2];\n      HEAP32[$1_1 + 12 >> 2] = $3_1 + 8;\n      HEAP32[$0 + 28 >> 2] = $2_1;\n      HEAP32[$0 + 24 >> 2] = $2_1;\n      HEAP32[$0 + 20 >> 2] = $1_1 + 8;\n      HEAP32[$0 + 16 >> 2] = $4_1 + 8;\n      return;\n     case 2:\n      break block8;\n     };\n    }\n    $1_1 = HEAP32[$3_1 + 4 >> 2];\n    HEAP32[$1_1 + 12 >> 2] = $2_1;\n    $3_1 = HEAP32[$0 >> 2];\n    HEAP32[$3_1 + 12 >> 2] = $1_1 + 8;\n    $1_1 = HEAP32[$0 + 4 >> 2];\n    HEAP32[$1_1 + 12 >> 2] = $2_1;\n    HEAP32[$0 + 28 >> 2] = $2_1;\n    HEAP32[$0 + 24 >> 2] = $1_1 + 8;\n    HEAP32[$0 + 20 >> 2] = $3_1 + 8;\n    HEAP32[$0 + 16 >> 2] = $4_1 + 8;\n    return;\n   }\n   $2_1 = HEAP32[$0 >> 2];\n   HEAP32[$2_1 + 12 >> 2] = $2_1 + 10;\n   if (!($1_1 & 1)) {\n    $1_1 = HEAP32[$0 + 4 >> 2];\n    HEAP32[$1_1 + 12 >> 2] = $2_1 + 8;\n    HEAP32[$0 + 16 >> 2] = $1_1 + 8;\n    $1_1 = HEAP32[$0 + 12 >> 2] + 3056 | 0;\n    HEAP32[$0 + 20 >> 2] = $1_1;\n    HEAP32[$0 + 24 >> 2] = $1_1;\n    HEAP32[$0 + 28 >> 2] = $1_1;\n    return;\n   }\n   $3_1 = HEAP32[$0 + 4 >> 2];\n   $1_1 = HEAP32[$0 + 12 >> 2] + 3056 | 0;\n   HEAP32[$3_1 + 12 >> 2] = $1_1;\n   HEAP32[$0 + 28 >> 2] = $1_1;\n   HEAP32[$0 + 24 >> 2] = $1_1;\n   HEAP32[$0 + 20 >> 2] = $3_1 + 8;\n   HEAP32[$0 + 16 >> 2] = $2_1 + 8;\n  }\n }\n \n function $18($0, $1_1) {\n  $0 = $0 | 0;\n  $1_1 = $1_1 | 0;\n  var $2_1 = 0;\n  $2_1 = $1_1 << 3;\n  $1_1 = $0 & 255;\n  $1_1 = $2_1 + HEAPU16[(($0 & 256 ? $1_1 ^ 255 : $1_1) << 1) + 16777360 >> 1] | 0;\n  $1_1 = $1_1 >>> 0 >= 8191 ? 8191 : $1_1;\n  return (HEAPU16[(($1_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($1_1 >>> 8) ^ (($0 & 1023) >>> 0 > 511 ? -1 : 0)) << 16 >> 16;\n }\n \n function $19($0, $1_1) {\n  $0 = $0 | 0;\n  $1_1 = $1_1 | 0;\n  var $2_1 = 0;\n  $2_1 = 4096;\n  $0 = $0 & 1023;\n  if ($0 >>> 0 <= 511) {\n   $2_1 = HEAPU16[(($0 >>> 0 < 256 ? $0 : ($0 ^ -1) & 255) << 1) + 16777360 >> 1]\n  }\n  $2_1 = $2_1 + ($1_1 << 3) | 0;\n  $2_1 = $2_1 >>> 0 >= 8191 ? 8191 : $2_1;\n  return HEAPU16[(($2_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($2_1 >>> 8) << 16 >> 16;\n }\n \n function $20($0, $1_1) {\n  $0 = $0 | 0;\n  $1_1 = $1_1 | 0;\n  var $2_1 = 0;\n  $2_1 = $1_1 << 3;\n  $1_1 = $0 & 255;\n  $0 = $2_1 + HEAPU16[(($0 & 256 ? $1_1 ^ 255 : $1_1) << 1) + 16777360 >> 1] | 0;\n  $0 = $0 >>> 0 >= 8191 ? 8191 : $0;\n  return HEAPU16[(($0 & 255) << 1) + 16777872 >> 1] << 1 >>> ($0 >>> 8) << 16 >> 16;\n }\n \n function $21($0, $1_1) {\n  $0 = $0 | 0;\n  $1_1 = $1_1 | 0;\n  var $2_1 = 0;\n  $2_1 = 4096;\n  if (!($0 & 256)) {\n   $2_1 = HEAPU16[(($0 & 255) << 1) + 16777360 >> 1]\n  }\n  $0 = $2_1 + ($1_1 << 3) | 0;\n  $0 = $0 >>> 0 >= 8191 ? 8191 : $0;\n  return HEAPU16[(($0 & 255) << 1) + 16777872 >> 1] << 1 >>> ($0 >>> 8) << 16 >> 16;\n }\n \n function $22($0, $1_1) {\n  $0 = $0 | 0;\n  $1_1 = $1_1 | 0;\n  var $2_1 = 0;\n  $2_1 = 4096;\n  $0 = $0 & 1023;\n  if ($0 >>> 0 <= 511) {\n   $2_1 = $0 << 1 & 254;\n   $2_1 = HEAPU16[(($0 & 128 ? $2_1 ^ 254 : $2_1) << 1) + 16777360 >> 1];\n  }\n  $2_1 = $2_1 + ($1_1 << 3) | 0;\n  $2_1 = $2_1 >>> 0 >= 8191 ? 8191 : $2_1;\n  return (HEAPU16[(($2_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($2_1 >>> 8) ^ (($0 & 768) == 256 ? -1 : 0)) << 16 >> 16;\n }\n \n function $23($0, $1_1) {\n  $0 = $0 | 0;\n  $1_1 = $1_1 | 0;\n  var $2_1 = 0;\n  $2_1 = 4096;\n  $0 = $0 & 1023;\n  if ($0 >>> 0 <= 511) {\n   $2_1 = $0 << 1 & 254;\n   $2_1 = HEAPU16[(($0 & 128 ? $2_1 ^ 254 : $2_1) << 1) + 16777360 >> 1];\n  }\n  $2_1 = $2_1 + ($1_1 << 3) | 0;\n  $2_1 = $2_1 >>> 0 >= 8191 ? 8191 : $2_1;\n  return HEAPU16[(($2_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($2_1 >>> 8) << 16 >> 16;\n }\n \n function $24($0, $1_1) {\n  $0 = $0 | 0;\n  $1_1 = $1_1 | 0;\n  $1_1 = $1_1 << 3;\n  $1_1 = $1_1 >>> 0 >= 8191 ? 8191 : $1_1;\n  return ($0 << 6 << 16 >> 16 >>> 15 ^ HEAPU16[(($1_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($1_1 >>> 8)) << 16 >> 16;\n }\n \n function $25($0, $1_1) {\n  $0 = $0 | 0;\n  $1_1 = $1_1 | 0;\n  var $2_1 = 0, $3_1 = 0;\n  $2_1 = ($0 ^ -1) & 511;\n  $0 = $0 & 1023;\n  $3_1 = $0;\n  $0 = $0 >>> 0 > 511;\n  $1_1 = ($1_1 << 3) + (($0 ? $2_1 : $3_1) << 3) | 0;\n  $1_1 = $1_1 >>> 0 >= 8191 ? 8191 : $1_1;\n  return (HEAPU16[(($1_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($1_1 >>> 8) ^ ($0 ? -1 : 0)) << 16 >> 16;\n }\n \n bufferView = HEAPU8;\n initActiveSegments(imports);\n var FUNCTION_TABLE = [null, $18, $19, $20, $21, $22, $23, $24, $25];\n function __wasm_memory_size() {\n  return buffer.byteLength / 65536 | 0;\n }\n \n function __wasm_memory_grow(pagesToAdd) {\n  pagesToAdd = pagesToAdd | 0;\n  var oldPages = __wasm_memory_size() | 0;\n  var newPages = oldPages + pagesToAdd | 0;\n  if ((oldPages < newPages) && (newPages < 65536)) {\n   var newBuffer = new ArrayBuffer(Math_imul(newPages, 65536));\n   var newHEAP8 = new Int8Array(newBuffer);\n   newHEAP8.set(HEAP8);\n   HEAP8 = new Int8Array(newBuffer);\n   HEAP16 = new Int16Array(newBuffer);\n   HEAP32 = new Int32Array(newBuffer);\n   HEAPU8 = new Uint8Array(newBuffer);\n   HEAPU16 = new Uint16Array(newBuffer);\n   HEAPU32 = new Uint32Array(newBuffer);\n   HEAPF32 = new Float32Array(newBuffer);\n   HEAPF64 = new Float64Array(newBuffer);\n   buffer = newBuffer;\n   bufferView = HEAPU8;\n  }\n  return oldPages;\n }\n \n return {\n  \"memory\": Object.create(Object.prototype, {\n   \"grow\": {\n    \"value\": __wasm_memory_grow\n   }, \n   \"buffer\": {\n    \"get\": function () {\n     return buffer;\n    }\n    \n   }\n  }), \n  \"_initialize\": $1, \n  \"opl_reset\": $2, \n  \"opl_write\": $3, \n  \"opl_render\": $4, \n  \"opl_capacity\": $5\n };\n}\n\nreturn asmFunc;\n})();\n// Runs one emulated chip: the Nuked OPL3 WebAssembly module, or, where a page's\n// security policy refuses WebAssembly, the same module translated to\n// JavaScript by Binaryen's wasm2js (oplAsmFunc; bit-identical output).\n// Shared by the AudioWorklet and the page's main-thread fallback.\nclass OplEngine {\n  constructor(wasmBytes, rate, post, forceJs) {\n    this.rate = rate;\n    this.post = post;\n    this.chip = null;\n    this.pending = [];\n    this.gain = 0.5;\n    this.scope = new Float32Array(2048);\n    this.scopeAt = 0;\n    // Deferred so the caller can attach its message handler first.\n    const useJs = (why) => Promise.resolve().then(() => this.start(oplAsmFunc({}), 'JavaScript (wasm2js)', why));\n    if (forceJs) {\n      useJs('forced');\n      return;\n    }\n    try {\n      WebAssembly.instantiate(wasmBytes, {}).then(\n        ({ instance }) => this.start(instance.exports, 'WebAssembly'),\n        (error) => useJs(String(error)),\n      );\n    } catch (error) {\n      useJs(String(error));\n    }\n  }\n\n  start(exports, engine, why) {\n    if (exports._initialize) exports._initialize();\n    exports.opl_reset(this.rate);\n    this.chip = exports;\n    const queued = this.pending;\n    this.pending = [];\n    queued.forEach((msg) => this.receive(msg));\n    this.post({ ready: true, sampleRate: this.rate, engine, why });\n  }\n\n  receive(msg) {\n    if (!this.chip) {\n      this.pending.push(msg);\n      return;\n    }\n    if (msg.reset) this.chip.opl_reset(this.rate);\n    if (msg.gain !== undefined) this.gain = msg.gain;\n    if (msg.writes) {\n      const w = msg.writes;\n      for (let i = 0; i < w.length; i += 2) this.chip.opl_write(w[i], w[i + 1]);\n    }\n  }\n\n  render(left, right) {\n    const n = left.length;\n    if (!this.chip) {\n      left.fill(0);\n      right.fill(0);\n      return;\n    }\n    const ptr = this.chip.opl_render(n);\n    const pcm = new Int16Array(this.chip.memory.buffer, ptr, n * 2);\n    const g = this.gain / 32768;\n    for (let i = 0; i < n; i++) {\n      left[i] = pcm[i * 2] * g;\n      right[i] = pcm[i * 2 + 1] * g;\n    }\n    // Oscilloscope feed: about 41 ms of mono output at a time.\n    for (let i = 0; i < n && this.scopeAt < this.scope.length; i++) {\n      this.scope[this.scopeAt++] = (pcm[i * 2] + pcm[i * 2 + 1]) / 65536;\n    }\n    if (this.scopeAt === this.scope.length) {\n      this.post({ scope: this.scope }, [this.scope.buffer]);\n      this.scope = new Float32Array(2048);\n      this.scopeAt = 0;\n    }\n  }\n}\n\n// AudioWorklet processor around OplEngine (engine.js, prepended at build time\n// together with the wasm2js fallback). The page sends register writes; the chip\n// renders at the AudioContext rate, ideally its own 49716 Hz so nothing\n// resamples.\nclass OplProcessor extends AudioWorkletProcessor {\n  constructor(options) {\n    super();\n    this.engine = new OplEngine(options.processorOptions.wasm, sampleRate,\n      (msg, transfer) => this.port.postMessage(msg, transfer || []), options.processorOptions.forceJs);\n    this.port.onmessage = (event) => this.engine.receive(event.data);\n  }\n\n  process(inputs, outputs) {\n    const out = outputs[0];\n    this.engine.render(out[0], out[1] || new Float32Array(out[0].length));\n    return true;\n  }\n}\n\nregisterProcessor('opl-processor', OplProcessor);\n";
+const oplAsmFunc = (function () {
+
+  var bufferView;
+  var base64ReverseLookup = new Uint8Array(123/*'z'+1*/);
+  for (var i = 25; i >= 0; --i) {
+    base64ReverseLookup[48+i] = 52+i; // '0-9'
+    base64ReverseLookup[65+i] = i; // 'A-Z'
+    base64ReverseLookup[97+i] = 26+i; // 'a-z'
+  }
+  base64ReverseLookup[43] = 62; // '+'
+  base64ReverseLookup[47] = 63; // '/'
+  /** @noinline Inlining this function would mean expanding the base64 string 4x times in the source code, which Closure seems to be happy to do. */
+  function base64DecodeToExistingUint8Array(uint8Array, offset, b64) {
+    var b1, b2, i = 0, j = offset, bLength = b64.length, end = offset + (bLength*3>>2) - (b64[bLength-2] == '=') - (b64[bLength-1] == '=');
+    for (; i < bLength; i += 4) {
+      b1 = base64ReverseLookup[b64.charCodeAt(i+1)];
+      b2 = base64ReverseLookup[b64.charCodeAt(i+2)];
+      uint8Array[j++] = base64ReverseLookup[b64.charCodeAt(i)] << 2 | b1 >> 4;
+      if (j < end) uint8Array[j++] = b1 << 4 | b2 >> 2;
+      if (j < end) uint8Array[j++] = b2 << 6 | base64ReverseLookup[b64.charCodeAt(i+3)];
+    }
+    return uint8Array;
+  }
+function initActiveSegments(imports) {
+  base64DecodeToExistingUint8Array(bufferView, 16777217, "AQIGBwgMDQ4SExQYGRoeHyA=");
+  base64DecodeToExistingUint8Array(bufferView, 16777249, "AQIDBAX//wYHCAkKC///DA0ODxAR/////////////wgBAg==");
+  base64DecodeToExistingUint8Array(bufferView, 16777300, "AQAAAAEAAQABAQEAAQIEBggKDA4QEhQUGBgeHgEAAAACAAAAAwAAAAQAAAAFAAAABgAAAAcAAAAIAAAAWQjDBgcGiwUuBeQEpgRxBEMEGgT1A9MDtQOYA34DZQNOAzkDJAMRA/8C7QLcAs0CvQKvAqACkwKGAnkCbQJhAlYCSwJAAjYCLAIiAhgCDwIGAv0B9QHsAeQB3AHUAc0BxQG+AbcBsAGpAaIBmwGVAY8BiAGCAXwBdwFxAWsBZgFgAVsBVQFQAUsBRgFBATwBNwEzAS4BKQElASEBHAEYARQBDwELAQcBAwH/APsA+AD0APAA7ADpAOUA4gDeANsA1wDUANEAzQDKAMcAxADBAL4AuwC4ALUAsgCvAKwAqQCnAKQAoQCfAJwAmQCXAJQAkgCPAI0AigCIAIYAgwCBAH8AfQB6AHgAdgB0AHIAcABuAGwAagBoAGYAZABiAGAAXgBcAFsAWQBXAFUAUwBSAFAATgBNAEsASgBIAEYARQBDAEIAQAA/AD4APAA7ADkAOAA3ADUANAAzADEAMAAvAC4ALQArACoAKQAoACcAJgAlACQAIwAiACEAIAAfAB4AHQAcABsAGgAZABgAFwAXABYAFQAUABQAEwASABEAEQAQAA8ADwAOAA0ADQAMAAwACwAKAAoACQAJAAgACAAHAAcABwAGAAYABQAFAAUABAAEAAQAAwADAAMAAgACAAIAAgABAAEAAQABAAEAAQAB");
+  base64DecodeToExistingUint8Array(bufferView, 16777872, "+gf1B+8H6gfkB98H2gfUB88HyQfEB78HuQe0B64HqQekB58HmQeUB48HigeEB38Hegd1B3AHagdlB2AHWwdWB1EHTAdHB0IHPQc4BzMHLgcpByQHHwcaBxUHEAcLBwYHAgf9BvgG8wbuBukG5QbgBtsG1gbSBs0GyAbEBr8Guga1BrEGrAaoBqMGngaaBpUGkQaMBogGgwZ/BnoGdgZxBm0GaAZkBl8GWwZXBlIGTgZJBkUGQQY8BjgGNAYwBisGJwYjBh4GGgYWBhIGDgYJBgUGAQb9BfkF9QXwBewF6AXkBeAF3AXYBdQF0AXMBcgFxAXABbwFuAW0BbAFrAWoBaQFoAWcBZkFlQWRBY0FiQWFBYEFfgV6BXYFcgVvBWsFZwVjBWAFXAVYBVQFUQVNBUkFRgVCBT4FOwU3BTQFMAUsBSkFJQUiBR4FGwUXBRQFEAUMBQkFBgUCBf8E+wT4BPQE8QTtBOoE5wTjBOAE3ATZBNYE0gTPBMwEyATFBMIEvgS7BLgEtQSxBK4EqwSoBKQEoQSeBJsEmASUBJEEjgSLBIgEhQSCBH4EewR4BHUEcgRvBGwEaQRmBGMEYARdBFoEVwRUBFEETgRLBEgERQRCBD8EPAQ5BDYEMwQwBC0EKgQoBCUEIgQfBBwEGQQWBBQEEQQOBAsECAQGBAMEAAQAICgtMDM1Nzg6Ozw9Pj9A");
+}
+function wasm2js_trap() { throw new Error('abort'); }
+
+  function wasm2js_memory_fill(dest, value, size) {
+    dest = dest >>> 0;
+    size = size >>> 0;
+    if (dest + size > bufferView.length) throw "trap: invalid memory.fill";
+    bufferView.fill(value, dest, dest + size);
+  }
+      
+function asmFunc(imports) {
+ var buffer = new ArrayBuffer(16842752);
+ var HEAP8 = new Int8Array(buffer);
+ var HEAP16 = new Int16Array(buffer);
+ var HEAP32 = new Int32Array(buffer);
+ var HEAPU8 = new Uint8Array(buffer);
+ var HEAPU16 = new Uint16Array(buffer);
+ var HEAPU32 = new Uint32Array(buffer);
+ var HEAPF32 = new Float32Array(buffer);
+ var HEAPF64 = new Float64Array(buffer);
+ var Math_imul = Math.imul;
+ var Math_fround = Math.fround;
+ var Math_abs = Math.abs;
+ var Math_clz32 = Math.clz32;
+ var Math_min = Math.min;
+ var Math_max = Math.max;
+ var Math_floor = Math.floor;
+ var Math_ceil = Math.ceil;
+ var Math_trunc = Math.trunc;
+ var Math_sqrt = Math.sqrt;
+ var global$0 = 16777216;
+ function $1() {
+  if (HEAP32[4194600]) {
+   wasm2js_trap()
+  }
+  HEAP32[4194600] = 1;
+ }
+ 
+ function $2($0) {
+  $0 = $0 | 0;
+  var $1_1 = 0, $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0;
+  wasm2js_memory_fill(16778408, 0, 19520);
+  $3_1 = 2;
+  while (1) {
+   $1_1 = $4_1 + 16778408 | 0;
+   HEAP8[$1_1 + 1174 | 0] = $3_1;
+   HEAP32[$1_1 + 1148 >> 2] = 16781464;
+   HEAP8[$1_1 + 1143 | 0] = 3;
+   $2_1 = $1_1 + 1138 | 0;
+   HEAP16[$2_1 >> 1] = 511;
+   HEAP16[$2_1 + 2 >> 1] = 511;
+   HEAP32[$1_1 + 1132 >> 2] = 16781464;
+   HEAP32[$1_1 + 1124 >> 2] = 16778408;
+   $5_1 = $3_1 - 2 | 0;
+   HEAP8[$1_1 + 1118 | 0] = $5_1 + 1;
+   HEAP32[$1_1 + 1092 >> 2] = 16781464;
+   HEAP8[$1_1 + 1087 | 0] = 3;
+   $2_1 = $1_1 + 1082 | 0;
+   HEAP16[$2_1 >> 1] = 511;
+   HEAP16[$2_1 + 2 >> 1] = 511;
+   HEAP32[$1_1 + 1076 >> 2] = 16781464;
+   HEAP32[$1_1 + 1068 >> 2] = 16778408;
+   HEAP8[$1_1 + 1062 | 0] = $5_1;
+   HEAP32[$1_1 + 1036 >> 2] = 16781464;
+   HEAP8[$1_1 + 1031 | 0] = 3;
+   $2_1 = $1_1 + 1026 | 0;
+   HEAP16[$2_1 >> 1] = 511;
+   HEAP16[$2_1 + 2 >> 1] = 511;
+   HEAP32[$1_1 + 1020 >> 2] = 16781464;
+   HEAP32[$1_1 + 1012 >> 2] = 16778408;
+   $4_1 = $4_1 + 168 | 0;
+   $1_1 = ($3_1 | 0) != 35;
+   $3_1 = $3_1 + 3 | 0;
+   if ($1_1) {
+    continue
+   }
+   break;
+  };
+  $5_1 = -1008;
+  $3_1 = 0;
+  while (1) {
+   $1_1 = $5_1 + 16778408 | 0;
+   $4_1 = $1_1 + 1008 | 0;
+   $2_1 = Math_imul(HEAPU8[$3_1 + 16777216 | 0], 56) + 16779416 | 0;
+   HEAP32[$4_1 >> 2] = $2_1;
+   HEAP32[$2_1 >> 2] = $4_1;
+   $2_1 = $2_1 + 168 | 0;
+   HEAP32[$1_1 + 1012 >> 2] = $2_1;
+   HEAP32[$2_1 >> 2] = $4_1;
+   $2_1 = 3;
+   $6 = (($3_1 & 255) >>> 0) % 9 | 0;
+   block2 : {
+    if ($6 >>> 0 >= 3) {
+     $2_1 = -3;
+     if ($6 >>> 0 > 5) {
+      break block2
+     }
+    }
+    HEAP32[$1_1 + 1016 >> 2] = Math_imul($2_1 + $3_1 | 0, 56) + 16778408;
+   }
+   HEAP8[$1_1 + 1060 | 0] = $3_1;
+   HEAP32[$1_1 + 1052 >> 2] = -1;
+   HEAP8[$1_1 + 1040 | 0] = 0;
+   HEAP32[$1_1 + 1036 >> 2] = 16781464;
+   HEAP32[$1_1 + 1032 >> 2] = 16781464;
+   HEAP32[$1_1 + 1028 >> 2] = 16781464;
+   HEAP32[$1_1 + 1024 >> 2] = 16781464;
+   HEAP32[$1_1 + 1020 >> 2] = 16778408;
+   $10($4_1);
+   $3_1 = $3_1 + 1 | 0;
+   $5_1 = $5_1 + 56 | 0;
+   if ($5_1) {
+    continue
+   }
+   break;
+  };
+  HEAP32[4195365] = 1;
+  HEAP8[16781459] = 4;
+  HEAP8[16781456] = 1;
+  HEAP32[4195373] = ($0 << 10 >>> 0) / 49716;
+ }
+ 
+ function $3($0, $1_1) {
+  $0 = $0 | 0;
+  $1_1 = $1_1 | 0;
+  var $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0;
+  $3_1 = $0 & 65535;
+  $6 = $1_1 & 255;
+  $2_1 = HEAP32[4195383];
+  $0 = ($2_1 << 4) + 16778408 | 0;
+  $4_1 = $0 + 3136 | 0;
+  $0 = HEAPU16[$0 + 3144 >> 1];
+  block1 : {
+   if (!($0 & 512)) {
+    $2_1 = $2_1 + 1 & 1023;
+    $5_1 = HEAP32[4195380];
+    $0 = HEAP32[4195381];
+    break block1;
+   }
+   $8($0 & 511, HEAPU8[$4_1 + 10 | 0]);
+   $2_1 = $2_1 + 1 & 1023;
+   HEAP32[4195382] = $2_1;
+   $1_1 = HEAP32[$4_1 + 4 >> 2];
+   $0 = $1_1;
+   $5_1 = HEAP32[$4_1 >> 2];
+   HEAP32[4195380] = $5_1;
+   HEAP32[4195381] = $0;
+  }
+  HEAP8[$4_1 + 10 | 0] = $6;
+  HEAP32[4195383] = $2_1;
+  HEAP16[$4_1 + 8 >> 1] = $3_1 | 512;
+  $1_1 = HEAP32[4195384] + 2 | 0;
+  $2_1 = $1_1;
+  $3_1 = HEAP32[4195385];
+  $3_1 = $1_1 >>> 0 < 2 ? $3_1 + 1 | 0 : $3_1;
+  $1_1 = ($3_1 | 0) == ($0 | 0) & $1_1 >>> 0 > $5_1 >>> 0 | $0 >>> 0 < $3_1 >>> 0;
+  $5_1 = $1_1 ? $2_1 : $5_1;
+  HEAP32[4195384] = $5_1;
+  $0 = $1_1 ? $3_1 : $0;
+  HEAP32[4195385] = $0;
+  HEAP32[$4_1 >> 2] = $5_1;
+  HEAP32[$4_1 + 4 >> 2] = $0;
+ }
+ 
+ function $4($0) {
+  $0 = $0 | 0;
+  var $1_1 = 0, $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0, $7_1 = 0, $8_1 = 0, $9 = 0;
+  $7_1 = 16797936;
+  $5_1 = global$0 - 16 | 0;
+  global$0 = $5_1;
+  $8_1 = $0 >>> 0 >= 4096 ? 4096 : $0;
+  if ($8_1) {
+   while (1) {
+    $9 = $5_1 + 8 | 0;
+    $0 = HEAP32[4195374];
+    $2_1 = HEAP32[4195373];
+    if (($0 | 0) >= ($2_1 | 0)) {
+     while (1) {
+      $0 = HEAP32[4195378];
+      HEAP32[4195375] = HEAP32[4195377];
+      HEAP32[4195376] = $0;
+      $0 = 0;
+      $3_1 = 0;
+      $2_1 = 0;
+      $1_1 = HEAP32[4195368];
+      $1_1 = ($1_1 | 0) <= -32768 ? -32768 : $1_1;
+      HEAP16[8390755] = ($1_1 | 0) >= 32767 ? 32767 : $1_1;
+      $1_1 = HEAP32[4195370];
+      $1_1 = ($1_1 | 0) <= -32768 ? -32768 : $1_1;
+      HEAP16[8390757] = ($1_1 | 0) >= 32767 ? 32767 : $1_1;
+      $7(16779416);
+      $7(16779472);
+      $7(16779528);
+      $7(16779584);
+      $7(16779640);
+      $7(16779696);
+      $7(16779752);
+      $7(16779808);
+      $7(16779864);
+      $7(16779920);
+      $7(16779976);
+      $7(16780032);
+      $7(16780088);
+      $7(16780144);
+      $7(16780200);
+      while (1) {
+       $1_1 = $3_1 + 16778408 | 0;
+       $4_1 = ((HEAPU16[HEAP32[$1_1 + 20 >> 2] >> 1] + HEAPU16[HEAP32[$1_1 + 16 >> 2] >> 1] | 0) + HEAPU16[HEAP32[$1_1 + 24 >> 2] >> 1] | 0) + HEAPU16[HEAP32[$1_1 + 28 >> 2] >> 1] | 0;
+       $2_1 = (($4_1 & HEAPU16[$1_1 + 48 >> 1]) << 16 >> 16) + $2_1 | 0;
+       $0 = ((HEAPU16[$1_1 + 44 >> 1] & $4_1) << 16 >> 16) + $0 | 0;
+       $3_1 = $3_1 + 56 | 0;
+       if (($3_1 | 0) != 1008) {
+        continue
+       }
+       break;
+      };
+      HEAP32[4195369] = $2_1;
+      HEAP32[4195367] = $0;
+      $7(16780256);
+      $7(16780312);
+      $7(16780368);
+      $1_1 = HEAP32[4195367];
+      $1_1 = ($1_1 | 0) <= -32768 ? -32768 : $1_1;
+      HEAP16[8390754] = ($1_1 | 0) >= 32767 ? 32767 : $1_1;
+      $1_1 = HEAP32[4195369];
+      $1_1 = ($1_1 | 0) <= -32768 ? -32768 : $1_1;
+      HEAP16[8390756] = ($1_1 | 0) >= 32767 ? 32767 : $1_1;
+      $7(16780424);
+      $7(16780480);
+      $7(16780536);
+      $7(16780592);
+      $7(16780648);
+      $7(16780704);
+      $7(16780760);
+      $7(16780816);
+      $7(16780872);
+      $7(16780928);
+      $7(16780984);
+      $7(16781040);
+      $7(16781096);
+      $7(16781152);
+      $7(16781208);
+      $3_1 = 0;
+      $0 = 0;
+      $2_1 = 0;
+      while (1) {
+       $1_1 = $3_1 + 16778408 | 0;
+       $4_1 = ((HEAPU16[HEAP32[$1_1 + 20 >> 2] >> 1] + HEAPU16[HEAP32[$1_1 + 16 >> 2] >> 1] | 0) + HEAPU16[HEAP32[$1_1 + 24 >> 2] >> 1] | 0) + HEAPU16[HEAP32[$1_1 + 28 >> 2] >> 1] | 0;
+       $2_1 = (($4_1 & HEAPU16[$1_1 + 50 >> 1]) << 16 >> 16) + $2_1 | 0;
+       $0 = ((HEAPU16[$1_1 + 46 >> 1] & $4_1) << 16 >> 16) + $0 | 0;
+       $3_1 = $3_1 + 56 | 0;
+       if (($3_1 | 0) != 1008) {
+        continue
+       }
+       break;
+      };
+      HEAP32[4195370] = $2_1;
+      HEAP32[4195368] = $0;
+      $7(16781264);
+      $7(16781320);
+      $7(16781376);
+      $1_1 = HEAPU8[16781458];
+      $3_1 = HEAPU16[8390716];
+      if (($3_1 & 63) == 63) {
+       $1_1 = $1_1 + (($1_1 & 255) >>> 0 < 209 ? 1 : 47) | 0;
+       HEAP8[16781458] = $1_1;
+      }
+      $1_1 = $1_1 & 255;
+      block2 : {
+       if ($1_1 >>> 0 <= 104) {
+        $0 = $1_1 >>> HEAPU8[16781459] | 0;
+        break block2;
+       }
+       $0 = 210 - $1_1 >> HEAPU8[16781459];
+      }
+      HEAP8[16781457] = $0;
+      if (($3_1 & 1023) == 1023) {
+       HEAP8[16781455] = HEAPU8[16781455] + 1 & 7
+      }
+      $0 = 1;
+      HEAP16[8390716] = $3_1 + 1;
+      $1_1 = HEAPU8[16781449];
+      block18 : {
+       block17 : {
+        if ($1_1) {
+         $2_1 = HEAP32[4195361];
+         $4_1 = HEAP32[4195360];
+         $3_1 = $4_1;
+         block5 : {
+          if ($4_1 & 1) {
+           break block5
+          }
+          if ($4_1 & 2) {
+           $0 = 2;
+           break block5;
+          }
+          if ($4_1 & 4) {
+           $0 = 3;
+           break block5;
+          }
+          if ($4_1 & 8) {
+           $0 = 4;
+           break block5;
+          }
+          if ($4_1 & 16) {
+           $0 = 5;
+           break block5;
+          }
+          if ($4_1 & 32) {
+           $0 = 6;
+           break block5;
+          }
+          if ($4_1 & 64) {
+           $0 = 7;
+           break block5;
+          }
+          if ($4_1 & 128) {
+           $0 = 8;
+           break block5;
+          }
+          if ($4_1 & 256) {
+           $0 = 9;
+           break block5;
+          }
+          if ($4_1 & 512) {
+           $0 = 10;
+           break block5;
+          }
+          if ($4_1 & 1024) {
+           $0 = 11;
+           break block5;
+          }
+          if ($4_1 & 2048) {
+           $0 = 12;
+           break block5;
+          }
+          $0 = $4_1 & 4096 ? 13 : 0;
+         }
+         HEAP8[16781450] = $0;
+         HEAP8[16781451] = $3_1 & 3;
+         break block17;
+        }
+        if (!HEAPU8[16781448]) {
+         break block18
+        }
+        $4_1 = HEAP32[4195360];
+        $2_1 = HEAP32[4195361];
+       }
+       $3_1 = ($4_1 | 0) == -1 & ($2_1 | 0) == 15;
+       HEAP8[16781448] = $3_1;
+       $0 = $4_1 + 1 | 0;
+       $2_1 = $0 ? $2_1 : $2_1 + 1 | 0;
+       HEAP32[4195360] = $3_1 ? 0 : $0;
+       HEAP32[4195361] = $3_1 ? 0 : $2_1;
+      }
+      HEAP8[16781449] = $1_1 ^ 1;
+      $1_1 = HEAP32[4195382];
+      $0 = ($1_1 << 4) + 16781544 | 0;
+      $3_1 = HEAP32[$0 >> 2];
+      $6 = HEAP32[$0 + 4 >> 2];
+      $2_1 = HEAP32[4195381];
+      $4_1 = HEAP32[4195380];
+      block19 : {
+       if (($6 | 0) == ($2_1 | 0) & $4_1 >>> 0 < $3_1 >>> 0 | $2_1 >>> 0 < $6 >>> 0) {
+        break block19
+       }
+       $3_1 = HEAPU16[$0 + 8 >> 1];
+       if (!($3_1 & 512)) {
+        break block19
+       }
+       $0 = $0 + 8 | 0;
+       while (1) {
+        $3_1 = $3_1 & 511;
+        HEAP16[$0 >> 1] = $3_1;
+        $8($3_1, HEAPU8[($1_1 << 4) + 16781554 | 0]);
+        $1_1 = HEAP32[4195382] + 1 & 1023;
+        HEAP32[4195382] = $1_1;
+        $3_1 = ($1_1 << 4) + 16781544 | 0;
+        $2_1 = $3_1;
+        $0 = HEAP32[$2_1 >> 2];
+        $6 = HEAP32[$2_1 + 4 >> 2];
+        $2_1 = HEAP32[4195381];
+        $4_1 = HEAP32[4195380];
+        if (($6 | 0) == ($2_1 | 0) & $0 >>> 0 > $4_1 >>> 0 | $6 >>> 0 > $2_1 >>> 0) {
+         break block19
+        }
+        $0 = $3_1 + 8 | 0;
+        $3_1 = HEAPU16[$3_1 + 8 >> 1];
+        if ($3_1 & 512) {
+         continue
+        }
+        break;
+       };
+      }
+      $4_1 = $4_1 + 1 | 0;
+      HEAP32[4195380] = $4_1;
+      $0 = $2_1;
+      HEAP32[4195381] = $4_1 ? $0 : $0 + 1 | 0;
+      $2_1 = HEAP32[4195373];
+      $0 = HEAP32[4195374] - $2_1 | 0;
+      HEAP32[4195374] = $0;
+      if (($0 | 0) >= ($2_1 | 0)) {
+       continue
+      }
+      break;
+     }
+    }
+    $1_1 = $2_1 - $0 | 0;
+    HEAP16[$9 >> 1] = (Math_imul(HEAP16[8390754], $0) + Math_imul($1_1, HEAP16[8390750]) | 0) / ($2_1 | 0);
+    HEAP16[$9 + 2 >> 1] = (Math_imul(HEAP16[8390755], $0) + Math_imul(HEAP16[8390751], $1_1) | 0) / ($2_1 | 0);
+    HEAP16[$9 + 4 >> 1] = (Math_imul(HEAP16[8390756], $0) + Math_imul(HEAP16[8390752], $1_1) | 0) / ($2_1 | 0);
+    HEAP32[4195374] = $0 + 1024;
+    HEAP16[$9 + 6 >> 1] = (Math_imul(HEAP16[8390757], $0) + Math_imul(HEAP16[8390753], $1_1) | 0) / ($2_1 | 0);
+    $0 = HEAPU16[$5_1 + 8 >> 1] | HEAPU16[$5_1 + 10 >> 1] << 16;
+    HEAP16[$7_1 >> 1] = $0;
+    HEAP16[$7_1 + 2 >> 1] = $0 >>> 16;
+    $7_1 = $7_1 + 4 | 0;
+    $8_1 = $8_1 - 1 | 0;
+    if ($8_1) {
+     continue
+    }
+    break;
+   }
+  }
+  global$0 = $5_1 + 16 | 0;
+  return 16797936;
+ }
+ 
+ function $5() {
+  return 4096;
+ }
+ 
+ function $7($0) {
+  var $1_1 = 0, $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0, $7_1 = 0, $8_1 = 0, $9 = 0, $10_1 = 0, $11 = 0, $12 = 0, wasm2js_i32$0 = 0, wasm2js_i32$1 = 0;
+  $6 = HEAP32[$0 >> 2];
+  $4_1 = HEAPU8[$6 + 40 | 0];
+  block1 : {
+   if ($4_1) {
+    $2_1 = HEAP16[$0 + 8 >> 1];
+    $4_1 = $2_1 + HEAP16[$0 + 16 >> 1] >> 9 - $4_1;
+    break block1;
+   }
+   $2_1 = HEAPU16[$0 + 8 >> 1];
+   $4_1 = 0;
+  }
+  HEAP16[$0 + 16 >> 1] = $2_1;
+  HEAP16[$0 + 10 >> 1] = $4_1;
+  $1_1 = HEAPU16[$0 + 18 >> 1];
+  HEAP16[$0 + 20 >> 1] = HEAPU8[HEAP32[$0 + 28 >> 2]] + ($1_1 + (HEAPU8[$0 + 37 | 0] << 2) + (HEAPU8[$0 + 25 | 0] >>> HEAPU8[HEAPU8[$0 + 36 | 0] + 16777280 | 0]) | 0);
+  $10_1 = HEAPU8[$0 + 43 | 0];
+  $9 = HEAPU8[$0 + 23 | 0];
+  $5_1 = $9;
+  $4_1 = !$10_1 | ($5_1 | 0) != 3;
+  block8 : {
+   block3 : {
+    if (!$4_1) {
+     $2_1 = 1;
+     $3_1 = HEAPU8[$0 + 38 | 0];
+     break block3;
+    }
+    $2_1 = 0;
+    block7 : {
+     switch ($5_1 | 0) {
+     case 0:
+      $3_1 = HEAPU8[$0 + 38 | 0];
+      $9 = 0;
+      break block8;
+     case 1:
+      $3_1 = HEAPU8[$0 + 39 | 0];
+      $9 = 1;
+      break block8;
+     case 2:
+      $9 = 2;
+      if (HEAPU8[$0 + 33 | 0]) {
+       break block8
+      }
+      $3_1 = HEAPU8[$0 + 41 | 0];
+      break block8;
+     case 3:
+      break block7;
+     default:
+      break block8;
+     };
+    }
+    $3_1 = HEAPU8[$0 + 41 | 0];
+   }
+   $9 = 3;
+  }
+  HEAP32[$0 + 44 >> 2] = $2_1;
+  $8_1 = HEAPU8[$6 + 43 | 0] >>> ((HEAPU8[$0 + 34 | 0] ^ 1) << 1) | 0;
+  $2_1 = $8_1 + ($3_1 << 2) | 0;
+  $5_1 = $2_1 & 64 ? 15 : ($2_1 & 252) >>> 2 | 0;
+  $2_1 = HEAP32[$0 + 4 >> 2];
+  $12 = $4_1 ^ 1;
+  block10 : {
+   if (!($3_1 & 255)) {
+    break block10
+   }
+   if ($5_1 >>> 0 <= 11) {
+    if (!HEAPU8[$2_1 + 3041 | 0]) {
+     break block10
+    }
+    block14 : {
+     switch ((HEAPU8[$2_1 + 3042 | 0] + $5_1 & 255) - 12 | 0) {
+     case 0:
+      $7_1 = 1;
+      break block10;
+     case 1:
+      $7_1 = $8_1 >>> 1 & 1;
+      break block10;
+     case 2:
+      break block14;
+     default:
+      break block10;
+     };
+    }
+    $7_1 = $8_1 & 1;
+    break block10;
+   }
+   $3_1 = HEAPU8[(HEAPU8[$2_1 + 3043 | 0] + (($8_1 & 3) << 2) | 0) + 16777296 | 0] + ($5_1 & 3) | 0;
+   $7_1 = $3_1 & 4 ? 3 : $3_1;
+   if ($7_1 & 255) {
+    break block10
+   }
+   $7_1 = HEAPU8[$2_1 + 3041 | 0];
+  }
+  $3_1 = $4_1 ? $1_1 : ($5_1 & 255) != 15 ? $1_1 : 0;
+  $8_1 = $1_1 & 504;
+  $3_1 = ($8_1 | 0) != 504 ? $3_1 : $9 ? ($12 ? $3_1 : 511) : $3_1;
+  block18 : {
+   block17 : {
+    switch ($9 | 0) {
+    case 0:
+     if (!$1_1) {
+      HEAP8[$0 + 23 | 0] = 1;
+      break block18;
+     }
+     if (!$10_1) {
+      break block18
+     }
+     if (!($7_1 & 255)) {
+      break block18
+     }
+     if (($5_1 | 0) == 15) {
+      break block18
+     }
+     $11 = $1_1 >>> 4 - ($7_1 & 255) ^ -1;
+     break block18;
+    case 1:
+     if (HEAPU8[$0 + 40 | 0] == ($1_1 >>> 4 | 0)) {
+      HEAP8[$0 + 23 | 0] = 2;
+      break block18;
+     }
+     if ($4_1 ^ 1 | ($8_1 | 0) == 504) {
+      break block18
+     }
+     $1_1 = $7_1 & 255;
+     if (!$1_1) {
+      break block18
+     }
+     $11 = 1 << $1_1 - 1;
+     break block18;
+    case 2:
+    case 3:
+     break block17;
+    default:
+     break block18;
+    };
+   }
+   if ($4_1 ^ 1 | ($8_1 | 0) == 504) {
+    break block18
+   }
+   $1_1 = $7_1 & 255;
+   if (!$1_1) {
+    break block18
+   }
+   $11 = 1 << $1_1 - 1;
+  }
+  HEAP16[$0 + 18 >> 1] = $3_1 + $11 & 511;
+  if (!(($12 ^ 1) & ($10_1 | 0) != 0)) {
+   HEAP8[$0 + 23 | 0] = $10_1 ? 0 : 3
+  }
+  $3_1 = HEAPU16[$6 + 34 >> 1];
+  if (HEAPU8[$0 + 32 | 0]) {
+   $1_1 = HEAPU8[$2_1 + 3047 | 0];
+   $5_1 = ($1_1 & 3 ? ($3_1 >>> 7 & 7) >>> ($1_1 & 1) | 0 : 0) >>> HEAPU8[$2_1 + 3048 | 0] | 0;
+   $3_1 = ($1_1 & 4 ? 0 - $5_1 | 0 : $5_1) + $3_1 | 0;
+  }
+  $1_1 = HEAP32[$0 + 48 >> 2];
+  HEAP16[$0 + 52 >> 1] = $1_1 >>> 9;
+  HEAP32[$0 + 48 >> 2] = (Math_imul(HEAPU8[HEAPU8[$0 + 35 | 0] + 16777312 | 0], ($3_1 & 65535) << HEAPU8[$6 + 38 | 0] >> 1) >>> 1 | 0) + ($4_1 ? $1_1 : 0);
+  block24 : {
+   block26 : {
+    block25 : {
+     block23 : {
+      $6 = HEAPU8[$0 + 54 | 0];
+      switch ($6 - 13 | 0) {
+      case 0:
+       break block23;
+      case 4:
+       break block25;
+      default:
+       break block24;
+      };
+     }
+     HEAP8[$2_1 + 3078 | 0] = $1_1 >>> 16 & 1;
+     HEAP8[$2_1 + 3077 | 0] = $1_1 >>> 12 & 1;
+     HEAP8[$2_1 + 3076 | 0] = $1_1 >>> 11 & 1;
+     $4_1 = 3079;
+     $3_1 = 17;
+     break block26;
+    }
+    if (!(HEAPU8[$2_1 + 3046 | 0] & 32)) {
+     break block24
+    }
+    HEAP8[$2_1 + 3080 | 0] = $1_1 >>> 12 & 1;
+    $4_1 = 3081;
+    $3_1 = 14;
+   }
+   HEAP8[$2_1 + $4_1 | 0] = $1_1 >>> $3_1 & 1;
+  }
+  $4_1 = HEAP32[$2_1 + 3052 >> 2];
+  block27 : {
+   if (!(HEAPU8[$2_1 + 3046 | 0] & 32)) {
+    break block27
+   }
+   $1_1 = HEAPU8[$2_1 + 3081 | 0];
+   $1_1 = $1_1 ^ HEAPU8[$2_1 + 3077 | 0] | HEAPU8[$2_1 + 3078 | 0] ^ HEAPU8[$2_1 + 3076 | 0] | $1_1 ^ HEAPU8[$2_1 + 3080 | 0];
+   block32 : {
+    block30 : {
+     switch ($6 - 13 | 0) {
+     case 0:
+      $6 = $1_1 << 9;
+      $3_1 = $6 | 208;
+      if (($4_1 & 1) != ($1_1 & 255)) {
+       break block32
+      }
+      $3_1 = $6 | 52;
+      break block32;
+     case 3:
+      $1_1 = HEAPU8[$2_1 + 3079 | 0];
+      $3_1 = ($1_1 ^ $4_1 & 1) << 8 | $1_1 << 9;
+      break block32;
+     case 4:
+      break block30;
+     default:
+      break block27;
+     };
+    }
+    $3_1 = $1_1 << 9 | 128;
+   }
+   HEAP16[$0 + 52 >> 1] = $3_1;
+  }
+  HEAP32[$2_1 + 3052 >> 2] = ($4_1 ^ $4_1 >>> 14) << 22 & 4194304 | $4_1 >>> 1;
+  (wasm2js_i32$0 = $0, wasm2js_i32$1 = FUNCTION_TABLE[HEAP32[(HEAPU8[$0 + 42 | 0] << 2) + 16777328 >> 2]](HEAPU16[HEAP32[$0 + 12 >> 2] >> 1] + HEAPU16[$0 + 52 >> 1] & 65535, HEAPU16[$0 + 20 >> 1]) | 0), HEAP16[wasm2js_i32$0 + 8 >> 1] = wasm2js_i32$1;
+ }
+ 
+ function $8($0, $1_1) {
+  var $2_1 = 0, $3_1 = 0, $4_1 = 0, $5_1 = 0, $6 = 0, $7_1 = 0, $8_1 = 0, $9 = 0;
+  $3_1 = $0 >>> 8 & 1;
+  block1 : {
+   block8 : {
+    block7 : {
+     block6 : {
+      block9 : {
+       block5 : {
+        block4 : {
+         block3 : {
+          block2 : {
+           block : {
+            $0 = $0 & 255;
+            switch ($0 >>> 4 | 0) {
+            case 0:
+             break block;
+            case 2:
+            case 3:
+             break block2;
+            case 4:
+            case 5:
+             break block3;
+            case 6:
+            case 7:
+             break block4;
+            case 8:
+            case 9:
+             break block5;
+            case 10:
+             break block6;
+            case 11:
+             break block7;
+            case 12:
+             break block8;
+            case 14:
+            case 15:
+             break block9;
+            default:
+             break block1;
+            };
+           }
+           $0 = $0 & 15;
+           if ($3_1) {
+            block12 : {
+             switch ($0 - 4 | 0) {
+             case 0:
+              $3_1 = 0;
+              while (1) {
+               $2_1 = ($3_1 >>> 0 > 2 ? $8_1 + 6 | 0 : $3_1) & 255;
+               $0 = $2_1 + 3 | 0;
+               $7_1 = Math_imul($2_1, 56) + 16778408 | 0;
+               block10 : {
+                if ($1_1 >>> $3_1 & 1) {
+                 $2_1 = HEAP32[$7_1 + 8 >> 2];
+                 $6 = HEAPU8[$7_1 + 38 | 0];
+                 HEAP8[$2_1 + 38 | 0] = $6;
+                 $5_1 = HEAPU16[$7_1 + 34 >> 1];
+                 HEAP16[$2_1 + 34 >> 1] = $5_1;
+                 $4_1 = HEAP32[$2_1 >> 2];
+                 $9 = $4_1;
+                 $4_1 = HEAP32[$4_1 >> 2];
+                 $4_1 = ((HEAPU8[(HEAPU16[$4_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$4_1 + 38 | 0] << 5) | 0) - 256 | 0;
+                 HEAP8[$9 + 25 | 0] = ($4_1 | 0) > 0 ? $4_1 : 0;
+                 HEAP8[$7_1 + 32 | 0] = 1;
+                 HEAP8[(Math_imul($0, 56) + 16778408 | 0) + 32 | 0] = 2;
+                 HEAP8[$2_1 + 43 | 0] = $5_1 >>> 9 - HEAPU8[HEAP32[$2_1 + 12 >> 2] + 3045 | 0] & 1 | $6 << 1;
+                 $0 = HEAP32[$2_1 + 4 >> 2];
+                 $4_1 = $0;
+                 $0 = HEAP32[$0 >> 2];
+                 $0 = ((HEAPU8[(HEAPU16[$0 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$0 + 38 | 0] << 5) | 0) - 256 | 0;
+                 HEAP8[$4_1 + 25 | 0] = ($0 | 0) > 0 ? $0 : 0;
+                 HEAP8[$2_1 + 42 | 0] = HEAPU8[$2_1 + 41 | 0] | HEAPU8[$7_1 + 41 | 0] << 1 | 4;
+                 HEAP8[$7_1 + 42 | 0] = 8;
+                 break block10;
+                }
+                $2_1 = Math_imul($0, 56) + 16778408 | 0;
+                $0 = HEAPU8[$2_1 + 39 | 0];
+                HEAP8[$2_1 + 38 | 0] = $0;
+                $6 = HEAPU16[$2_1 + 36 >> 1];
+                HEAP16[$2_1 + 34 >> 1] = $6;
+                $5_1 = HEAP32[$2_1 >> 2];
+                $4_1 = $5_1;
+                $5_1 = HEAP32[$5_1 >> 2];
+                $5_1 = ((HEAPU8[(HEAPU16[$5_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$5_1 + 38 | 0] << 5) | 0) - 256 | 0;
+                HEAP8[$4_1 + 25 | 0] = ($5_1 | 0) > 0 ? $5_1 : 0;
+                HEAP8[$7_1 + 32 | 0] = 0;
+                HEAP8[$2_1 + 32 | 0] = 0;
+                HEAP8[$2_1 + 43 | 0] = $6 >>> 9 - HEAPU8[HEAP32[$2_1 + 12 >> 2] + 3045 | 0] & 1 | $0 << 1;
+                $0 = HEAP32[$2_1 + 4 >> 2];
+                $4_1 = $0;
+                $0 = HEAP32[$0 >> 2];
+                $0 = ((HEAPU8[(HEAPU16[$0 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$0 + 38 | 0] << 5) | 0) - 256 | 0;
+                HEAP8[$4_1 + 25 | 0] = ($0 | 0) > 0 ? $0 : 0;
+                HEAP8[$7_1 + 42 | 0] = HEAPU8[$7_1 + 41 | 0];
+                $10($7_1);
+                $7_1 = HEAPU8[$2_1 + 41 | 0];
+                HEAP8[$2_1 + 42 | 0] = $7_1;
+                block31 : {
+                 switch (HEAPU8[$2_1 + 32 | 0] - 1 | 0) {
+                 case 0:
+                  $0 = HEAP32[$2_1 + 8 >> 2];
+                  HEAP8[$0 + 42 | 0] = HEAPU8[$0 + 41 | 0] | $7_1 << 1 | 4;
+                  HEAP8[$2_1 + 42 | 0] = 8;
+                  $2_1 = $0;
+                  break block10;
+                 case 1:
+                  break block31;
+                 default:
+                  break block10;
+                 };
+                }
+                $0 = HEAP32[$2_1 + 8 >> 2];
+                HEAP8[$2_1 + 42 | 0] = HEAPU8[$0 + 41 | 0] << 1 | $7_1 | 4;
+                HEAP8[$0 + 42 | 0] = 8;
+               }
+               $10($2_1);
+               $8_1 = $8_1 + 1 | 0;
+               $3_1 = $3_1 + 1 | 0;
+               if (($3_1 | 0) != 6) {
+                continue
+               }
+               break;
+              };
+              return;
+             case 1:
+              break block12;
+             default:
+              break block1;
+             };
+            }
+            HEAP8[16781452] = $1_1 & 1;
+            return;
+           }
+           if (($0 | 0) != 8) {
+            break block1
+           }
+           HEAP8[16781453] = $1_1 >>> 6 & 1;
+           return;
+          }
+          if (!(1 << $0 & 4144959)) {
+           break block1
+          }
+          $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;
+          HEAP8[$0 + 1043 | 0] = $1_1 & 15;
+          HEAP8[$0 + 1042 | 0] = $1_1 >>> 4 & 1;
+          HEAP8[$0 + 1041 | 0] = $1_1 >>> 5 & 1;
+          HEAP8[$0 + 1040 | 0] = $1_1 >>> 6 & 1;
+          HEAP32[$0 + 1036 >> 2] = HEAP32[$0 + 1012 >> 2] + ($1_1 << 24 >> 24 >= 0 ? 3056 : 3049);
+          return;
+         }
+         if (!(1 << $0 & 4144959)) {
+          break block1
+         }
+         $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;
+         HEAP8[$0 + 1045 | 0] = $1_1 & 63;
+         HEAP8[$0 + 1044 | 0] = $1_1 >>> 6;
+         $1_1 = HEAP32[$0 + 1008 >> 2];
+         $1_1 = ((HEAPU8[(HEAPU16[$1_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$1_1 + 38 | 0] << 5) | 0) - 256 | 0;
+         HEAP8[$0 + 1033 | 0] = ($1_1 | 0) > 0 ? $1_1 : 0;
+         return;
+        }
+        if (!(1 << $0 & 4144959)) {
+         break block1
+        }
+        $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;
+        HEAP8[$0 + 1047 | 0] = $1_1 & 15;
+        HEAP8[$0 + 1046 | 0] = $1_1 >>> 4;
+        return;
+       }
+       if (!(1 << $0 & 4144959)) {
+        break block1
+       }
+       $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;
+       HEAP8[$0 + 1049 | 0] = $1_1 & 15;
+       $1_1 = $1_1 >>> 4 | 0;
+       HEAP8[$0 + 1048 | 0] = ($1_1 | 0) == 15 ? 31 : $1_1;
+       return;
+      }
+      if (!(1 << $0 & 4144959)) {
+       break block1
+      }
+      $0 = Math_imul(HEAP8[($0 & 31) + 16777248 | 0] + Math_imul($3_1, 18) | 0, 56) + 16778408 | 0;
+      HEAP8[$0 + 1050 | 0] = $1_1 & 7;
+      if (HEAPU8[HEAP32[$0 + 1012 >> 2] + 3044 | 0]) {
+       break block1
+      }
+      HEAP8[($0 + 1008 | 0) + 42 | 0] = $1_1 & 3;
+      return;
+     }
+     $0 = $0 & 15;
+     if ($0 >>> 0 > 8) {
+      break block1
+     }
+     $0 = Math_imul(Math_imul($3_1, 9) + $0 | 0, 56) + 16778408 | 0;
+     $1_1 = $1_1 | HEAPU16[$0 + 36 >> 1] & 768;
+     HEAP16[$0 + 36 >> 1] = $1_1;
+     $2_1 = HEAPU8[$0 + 32 | 0];
+     if (($2_1 | 0) == 2) {
+      break block1
+     }
+     $3_1 = HEAPU8[$0 + 39 | 0];
+     HEAP8[$0 + 38 | 0] = $3_1;
+     HEAP16[$0 + 34 >> 1] = $1_1;
+     $6 = HEAP32[$0 >> 2];
+     $4_1 = $6;
+     $6 = HEAP32[$6 >> 2];
+     $6 = ((HEAPU8[(HEAPU16[$6 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$6 + 38 | 0] << 5) | 0) - 256 | 0;
+     HEAP8[$4_1 + 25 | 0] = ($6 | 0) > 0 ? $6 : 0;
+     $8_1 = $3_1 << 1;
+     HEAP8[$0 + 43 | 0] = $8_1 | $1_1 >>> 9 - HEAPU8[HEAP32[$0 + 12 >> 2] + 3045 | 0] & 1;
+     $6 = HEAP32[$0 + 4 >> 2];
+     $4_1 = $6;
+     $6 = HEAP32[$6 >> 2];
+     $6 = ((HEAPU8[(HEAPU16[$6 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$6 + 38 | 0] << 5) | 0) - 256 | 0;
+     HEAP8[$4_1 + 25 | 0] = ($6 | 0) > 0 ? $6 : 0;
+     if (($2_1 | 0) != 1) {
+      break block1
+     }
+     $0 = HEAP32[$0 + 8 >> 2];
+     HEAP8[$0 + 38 | 0] = $3_1;
+     HEAP16[$0 + 34 >> 1] = $1_1;
+     $2_1 = HEAP32[$0 >> 2];
+     $4_1 = $2_1;
+     $2_1 = HEAP32[$2_1 >> 2];
+     $2_1 = ((HEAPU8[(HEAPU16[$2_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$2_1 + 38 | 0] << 5) | 0) - 256 | 0;
+     HEAP8[$4_1 + 25 | 0] = ($2_1 | 0) > 0 ? $2_1 : 0;
+     HEAP8[$0 + 43 | 0] = $8_1 | $1_1 >>> 9 - HEAPU8[HEAP32[$0 + 12 >> 2] + 3045 | 0] & 1;
+     $0 = HEAP32[$0 + 4 >> 2];
+     $1_1 = $0;
+     $0 = HEAP32[$0 >> 2];
+     $0 = ((HEAPU8[(HEAPU16[$0 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$0 + 38 | 0] << 5) | 0) - 256 | 0;
+     HEAP8[$1_1 + 25 | 0] = ($0 | 0) > 0 ? $0 : 0;
+     return;
+    }
+    block13 : {
+     if (($0 | 0) != 189) {
+      break block13
+     }
+     if ($3_1) {
+      break block13
+     }
+     HEAP8[16781454] = $1_1 & 63;
+     $0 = $1_1 >>> 6 ^ -1;
+     HEAP8[16781456] = $0 & 1;
+     HEAP8[16781459] = ($0 & 2) + 2;
+     if (!($1_1 & 32)) {
+      HEAP8[16778776] = 0;
+      $10(16778744);
+      $0 = HEAP32[4194686];
+      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;
+      HEAP8[16778832] = 0;
+      $0 = HEAP32[4194687];
+      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;
+      $10(16778800);
+      $0 = HEAP32[4194700];
+      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;
+      HEAP8[16778888] = 0;
+      $0 = HEAP32[4194701];
+      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;
+      $10(16778856);
+      $0 = HEAP32[4194714];
+      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;
+      $0 = HEAP32[4194715];
+      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;
+      return;
+     }
+     HEAP8[16778888] = 3;
+     HEAP8[16778832] = 3;
+     HEAP8[16778776] = 3;
+     HEAP32[4194693] = 16781464;
+     HEAP32[4194692] = 16781464;
+     $0 = HEAP32[4194687] + 8 | 0;
+     HEAP32[4194691] = $0;
+     HEAP32[4194690] = $0;
+     $0 = HEAP32[4194700] + 8 | 0;
+     HEAP32[4194705] = $0;
+     HEAP32[4194704] = $0;
+     $0 = HEAP32[4194701] + 8 | 0;
+     HEAP32[4194707] = $0;
+     HEAP32[4194706] = $0;
+     $0 = HEAP32[4194714] + 8 | 0;
+     HEAP32[4194719] = $0;
+     HEAP32[4194718] = $0;
+     $0 = HEAP32[4194715] + 8 | 0;
+     HEAP32[4194721] = $0;
+     HEAP32[4194720] = $0;
+     $10(16778744);
+     $10(16778800);
+     $10(16778856);
+     $0 = HEAP32[4194700];
+     $1_1 = $0;
+     $2_1 = HEAPU8[$0 + 43 | 0] & 253;
+     $0 = HEAPU8[16781454];
+     HEAP8[$1_1 + 43 | 0] = $2_1 | $0 << 1 & 2;
+     $1_1 = HEAP32[4194715];
+     HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 253 | $0 & 2;
+     $1_1 = HEAP32[4194714];
+     HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 253 | $0 >>> 1 & 2;
+     $1_1 = HEAP32[4194701];
+     HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 253 | $0 >>> 2 & 2;
+     $1_1 = HEAP32[4194686];
+     $3_1 = HEAPU8[$1_1 + 43 | 0];
+     if ($0 & 16) {
+      HEAP8[$1_1 + 43 | 0] = $3_1 | 2;
+      $0 = HEAP32[4194687];
+      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] | 2;
+      return;
+     }
+     HEAP8[$1_1 + 43 | 0] = $3_1 & 253;
+     $0 = HEAP32[4194687];
+     HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 253;
+     return;
+    }
+    $0 = $0 & 15;
+    if ($0 >>> 0 > 8) {
+     break block1
+    }
+    $0 = Math_imul(Math_imul($3_1, 9) + $0 | 0, 56) + 16778408 | 0;
+    $3_1 = $1_1 >>> 2 & 7;
+    HEAP8[$0 + 39 | 0] = $3_1;
+    $2_1 = HEAPU8[$0 + 36 | 0] | $1_1 << 8 & 768;
+    HEAP16[$0 + 36 >> 1] = $2_1;
+    $8_1 = HEAPU8[$0 + 32 | 0];
+    block14 : {
+     if (($8_1 | 0) == 2) {
+      break block14
+     }
+     HEAP8[$0 + 38 | 0] = $3_1;
+     HEAP16[$0 + 34 >> 1] = $2_1;
+     $4_1 = HEAP32[$0 >> 2];
+     $5_1 = $4_1;
+     $4_1 = HEAP32[$4_1 >> 2];
+     $4_1 = ((HEAPU8[(HEAPU16[$4_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$4_1 + 38 | 0] << 5) | 0) - 256 | 0;
+     HEAP8[$5_1 + 25 | 0] = ($4_1 | 0) > 0 ? $4_1 : 0;
+     $6 = $3_1 << 1;
+     HEAP8[$0 + 43 | 0] = $6 | $2_1 >>> 9 - HEAPU8[HEAP32[$0 + 12 >> 2] + 3045 | 0] & 1;
+     $4_1 = HEAP32[$0 + 4 >> 2];
+     $5_1 = $4_1;
+     $4_1 = HEAP32[$4_1 >> 2];
+     $4_1 = ((HEAPU8[(HEAPU16[$4_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$4_1 + 38 | 0] << 5) | 0) - 256 | 0;
+     HEAP8[$5_1 + 25 | 0] = ($4_1 | 0) > 0 ? $4_1 : 0;
+     if (($8_1 | 0) != 1) {
+      break block14
+     }
+     $5_1 = HEAP32[$0 + 8 >> 2];
+     HEAP8[$5_1 + 38 | 0] = $3_1;
+     HEAP16[$5_1 + 34 >> 1] = $2_1;
+     $3_1 = HEAP32[$5_1 >> 2];
+     $4_1 = $3_1;
+     $3_1 = HEAP32[$3_1 >> 2];
+     $3_1 = ((HEAPU8[(HEAPU16[$3_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$3_1 + 38 | 0] << 5) | 0) - 256 | 0;
+     HEAP8[$4_1 + 25 | 0] = ($3_1 | 0) > 0 ? $3_1 : 0;
+     HEAP8[$5_1 + 43 | 0] = $6 | $2_1 >>> 9 - HEAPU8[HEAP32[$5_1 + 12 >> 2] + 3045 | 0] & 1;
+     $5_1 = HEAP32[$5_1 + 4 >> 2];
+     $2_1 = $5_1;
+     $5_1 = HEAP32[$5_1 >> 2];
+     $5_1 = ((HEAPU8[(HEAPU16[$5_1 + 34 >> 1] >>> 6 | 0) + 16778384 | 0] << 2) + (HEAPU8[$5_1 + 38 | 0] << 5) | 0) - 256 | 0;
+     HEAP8[$2_1 + 25 | 0] = ($5_1 | 0) > 0 ? $5_1 : 0;
+    }
+    if ($1_1 & 32) {
+     block215 : {
+      switch (HEAPU8[$0 + 32 | 0]) {
+      case 1:
+       $1_1 = HEAP32[$0 >> 2];
+       HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] | 1;
+       $1_1 = HEAP32[$0 + 4 >> 2];
+       HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] | 1;
+       $0 = HEAP32[$0 + 8 >> 2];
+      case 0:
+      case 3:
+       $1_1 = HEAP32[$0 >> 2];
+       HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] | 1;
+       $0 = HEAP32[$0 + 4 >> 2];
+       HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] | 1;
+       break;
+      default:
+       break block215;
+      };
+     }
+     return;
+    }
+    block218 : {
+     switch (HEAPU8[$0 + 32 | 0]) {
+     case 1:
+      $1_1 = HEAP32[$0 >> 2];
+      HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 254;
+      $1_1 = HEAP32[$0 + 4 >> 2];
+      HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 254;
+      $0 = HEAP32[$0 + 8 >> 2];
+     case 0:
+     case 3:
+      $1_1 = HEAP32[$0 >> 2];
+      HEAP8[$1_1 + 43 | 0] = HEAPU8[$1_1 + 43 | 0] & 254;
+      $0 = HEAP32[$0 + 4 >> 2];
+      HEAP8[$0 + 43 | 0] = HEAPU8[$0 + 43 | 0] & 254;
+      break;
+     default:
+      break block218;
+     };
+    }
+    return;
+   }
+   $0 = $0 & 15;
+   if ($0 >>> 0 > 8) {
+    break block1
+   }
+   $0 = Math_imul(Math_imul($3_1, 9) + $0 | 0, 56) + 16778408 | 0;
+   $3_1 = $1_1 & 1;
+   HEAP8[$0 + 42 | 0] = $3_1;
+   HEAP8[$0 + 41 | 0] = $3_1;
+   HEAP8[$0 + 40 | 0] = $1_1 >>> 1 & 7;
+   $2_1 = $0;
+   block1921 : {
+    block18 : {
+     switch (HEAPU8[$0 + 32 | 0] - 1 | 0) {
+     case 0:
+      $2_1 = HEAP32[$0 + 8 >> 2];
+      HEAP8[$2_1 + 42 | 0] = HEAPU8[$2_1 + 41 | 0] | $3_1 << 1 | 4;
+      HEAP8[$0 + 42 | 0] = 8;
+      break block1921;
+     case 1:
+      break block18;
+     default:
+      break block1921;
+     };
+    }
+    $2_1 = HEAP32[$0 + 8 >> 2];
+    HEAP8[$0 + 42 | 0] = $3_1 | HEAPU8[$2_1 + 41 | 0] << 1 | 4;
+    HEAP8[$2_1 + 42 | 0] = 8;
+    $2_1 = $0;
+   }
+   $10($2_1);
+   block21 : {
+    if (!HEAPU8[HEAP32[$0 + 12 >> 2] + 3044 | 0]) {
+     $2_1 = 0;
+     $3_1 = 65535;
+     $1_1 = 65535;
+     break block21;
+    }
+    $2_1 = $1_1 << 24 >> 24 >> 7;
+    $6 = $1_1 << 25 >> 31;
+    $3_1 = $1_1 << 26 >> 31;
+    $1_1 = $1_1 << 27 >> 31;
+   }
+   HEAP16[$0 + 50 >> 1] = $2_1;
+   HEAP16[$0 + 44 >> 1] = $1_1;
+   HEAP16[$0 + 46 >> 1] = $3_1;
+   HEAP16[$0 + 48 >> 1] = $6;
+  }
+ }
+ 
+ function $10($0) {
+  var $1_1 = 0, $2_1 = 0, $3_1 = 0, $4_1 = 0;
+  if (HEAPU8[$0 + 32 | 0] == 3) {
+   $1_1 = HEAP32[$0 >> 2];
+   if ((HEAPU8[$0 + 52 | 0] - 7 & 255) >>> 0 <= 1) {
+    $2_1 = HEAP32[$0 + 12 >> 2] + 3056 | 0;
+    HEAP32[$1_1 + 12 >> 2] = $2_1;
+    HEAP32[HEAP32[$0 + 4 >> 2] + 12 >> 2] = $2_1;
+    return;
+   }
+   HEAP32[$1_1 + 12 >> 2] = $1_1 + 10;
+   if (!(HEAP8[$0 + 42 | 0] & 1)) {
+    HEAP32[HEAP32[$0 + 4 >> 2] + 12 >> 2] = $1_1 + 8;
+    return;
+   }
+   HEAP32[HEAP32[$0 + 4 >> 2] + 12 >> 2] = HEAP32[$0 + 12 >> 2] + 3056;
+   return;
+  }
+  $1_1 = HEAPU8[$0 + 42 | 0];
+  if (!($1_1 & 8)) {
+   if ($1_1 & 4) {
+    $3_1 = HEAP32[$0 + 8 >> 2];
+    $2_1 = HEAP32[$0 + 12 >> 2] + 3056 | 0;
+    HEAP32[$3_1 + 28 >> 2] = $2_1;
+    HEAP32[$3_1 + 24 >> 2] = $2_1;
+    HEAP32[$3_1 + 20 >> 2] = $2_1;
+    HEAP32[$3_1 + 16 >> 2] = $2_1;
+    $4_1 = HEAP32[$3_1 >> 2];
+    HEAP32[$4_1 + 12 >> 2] = $4_1 + 10;
+    block8 : {
+     switch (($1_1 & 3) - 1 | 0) {
+     default:
+      $1_1 = HEAP32[$3_1 + 4 >> 2];
+      HEAP32[$1_1 + 12 >> 2] = $4_1 + 8;
+      $3_1 = HEAP32[$0 >> 2];
+      HEAP32[$3_1 + 12 >> 2] = $1_1 + 8;
+      $1_1 = HEAP32[$0 + 4 >> 2];
+      HEAP32[$1_1 + 12 >> 2] = $3_1 + 8;
+      HEAP32[$0 + 28 >> 2] = $2_1;
+      HEAP32[$0 + 24 >> 2] = $2_1;
+      HEAP32[$0 + 20 >> 2] = $2_1;
+      HEAP32[$0 + 16 >> 2] = $1_1 + 8;
+      return;
+     case 0:
+      $1_1 = HEAP32[$3_1 + 4 >> 2];
+      HEAP32[$1_1 + 12 >> 2] = $4_1 + 8;
+      $3_1 = HEAP32[$0 >> 2];
+      HEAP32[$3_1 + 12 >> 2] = $2_1;
+      $4_1 = HEAP32[$0 + 4 >> 2];
+      HEAP32[$4_1 + 12 >> 2] = $3_1 + 8;
+      HEAP32[$0 + 28 >> 2] = $2_1;
+      HEAP32[$0 + 24 >> 2] = $2_1;
+      HEAP32[$0 + 20 >> 2] = $4_1 + 8;
+      HEAP32[$0 + 16 >> 2] = $1_1 + 8;
+      return;
+     case 1:
+      $1_1 = HEAP32[$3_1 + 4 >> 2];
+      HEAP32[$1_1 + 12 >> 2] = $2_1;
+      $3_1 = HEAP32[$0 >> 2];
+      HEAP32[$3_1 + 12 >> 2] = $1_1 + 8;
+      $1_1 = HEAP32[$0 + 4 >> 2];
+      HEAP32[$1_1 + 12 >> 2] = $3_1 + 8;
+      HEAP32[$0 + 28 >> 2] = $2_1;
+      HEAP32[$0 + 24 >> 2] = $2_1;
+      HEAP32[$0 + 20 >> 2] = $1_1 + 8;
+      HEAP32[$0 + 16 >> 2] = $4_1 + 8;
+      return;
+     case 2:
+      break block8;
+     };
+    }
+    $1_1 = HEAP32[$3_1 + 4 >> 2];
+    HEAP32[$1_1 + 12 >> 2] = $2_1;
+    $3_1 = HEAP32[$0 >> 2];
+    HEAP32[$3_1 + 12 >> 2] = $1_1 + 8;
+    $1_1 = HEAP32[$0 + 4 >> 2];
+    HEAP32[$1_1 + 12 >> 2] = $2_1;
+    HEAP32[$0 + 28 >> 2] = $2_1;
+    HEAP32[$0 + 24 >> 2] = $1_1 + 8;
+    HEAP32[$0 + 20 >> 2] = $3_1 + 8;
+    HEAP32[$0 + 16 >> 2] = $4_1 + 8;
+    return;
+   }
+   $2_1 = HEAP32[$0 >> 2];
+   HEAP32[$2_1 + 12 >> 2] = $2_1 + 10;
+   if (!($1_1 & 1)) {
+    $1_1 = HEAP32[$0 + 4 >> 2];
+    HEAP32[$1_1 + 12 >> 2] = $2_1 + 8;
+    HEAP32[$0 + 16 >> 2] = $1_1 + 8;
+    $1_1 = HEAP32[$0 + 12 >> 2] + 3056 | 0;
+    HEAP32[$0 + 20 >> 2] = $1_1;
+    HEAP32[$0 + 24 >> 2] = $1_1;
+    HEAP32[$0 + 28 >> 2] = $1_1;
+    return;
+   }
+   $3_1 = HEAP32[$0 + 4 >> 2];
+   $1_1 = HEAP32[$0 + 12 >> 2] + 3056 | 0;
+   HEAP32[$3_1 + 12 >> 2] = $1_1;
+   HEAP32[$0 + 28 >> 2] = $1_1;
+   HEAP32[$0 + 24 >> 2] = $1_1;
+   HEAP32[$0 + 20 >> 2] = $3_1 + 8;
+   HEAP32[$0 + 16 >> 2] = $2_1 + 8;
+  }
+ }
+ 
+ function $18($0, $1_1) {
+  $0 = $0 | 0;
+  $1_1 = $1_1 | 0;
+  var $2_1 = 0;
+  $2_1 = $1_1 << 3;
+  $1_1 = $0 & 255;
+  $1_1 = $2_1 + HEAPU16[(($0 & 256 ? $1_1 ^ 255 : $1_1) << 1) + 16777360 >> 1] | 0;
+  $1_1 = $1_1 >>> 0 >= 8191 ? 8191 : $1_1;
+  return (HEAPU16[(($1_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($1_1 >>> 8) ^ (($0 & 1023) >>> 0 > 511 ? -1 : 0)) << 16 >> 16;
+ }
+ 
+ function $19($0, $1_1) {
+  $0 = $0 | 0;
+  $1_1 = $1_1 | 0;
+  var $2_1 = 0;
+  $2_1 = 4096;
+  $0 = $0 & 1023;
+  if ($0 >>> 0 <= 511) {
+   $2_1 = HEAPU16[(($0 >>> 0 < 256 ? $0 : ($0 ^ -1) & 255) << 1) + 16777360 >> 1]
+  }
+  $2_1 = $2_1 + ($1_1 << 3) | 0;
+  $2_1 = $2_1 >>> 0 >= 8191 ? 8191 : $2_1;
+  return HEAPU16[(($2_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($2_1 >>> 8) << 16 >> 16;
+ }
+ 
+ function $20($0, $1_1) {
+  $0 = $0 | 0;
+  $1_1 = $1_1 | 0;
+  var $2_1 = 0;
+  $2_1 = $1_1 << 3;
+  $1_1 = $0 & 255;
+  $0 = $2_1 + HEAPU16[(($0 & 256 ? $1_1 ^ 255 : $1_1) << 1) + 16777360 >> 1] | 0;
+  $0 = $0 >>> 0 >= 8191 ? 8191 : $0;
+  return HEAPU16[(($0 & 255) << 1) + 16777872 >> 1] << 1 >>> ($0 >>> 8) << 16 >> 16;
+ }
+ 
+ function $21($0, $1_1) {
+  $0 = $0 | 0;
+  $1_1 = $1_1 | 0;
+  var $2_1 = 0;
+  $2_1 = 4096;
+  if (!($0 & 256)) {
+   $2_1 = HEAPU16[(($0 & 255) << 1) + 16777360 >> 1]
+  }
+  $0 = $2_1 + ($1_1 << 3) | 0;
+  $0 = $0 >>> 0 >= 8191 ? 8191 : $0;
+  return HEAPU16[(($0 & 255) << 1) + 16777872 >> 1] << 1 >>> ($0 >>> 8) << 16 >> 16;
+ }
+ 
+ function $22($0, $1_1) {
+  $0 = $0 | 0;
+  $1_1 = $1_1 | 0;
+  var $2_1 = 0;
+  $2_1 = 4096;
+  $0 = $0 & 1023;
+  if ($0 >>> 0 <= 511) {
+   $2_1 = $0 << 1 & 254;
+   $2_1 = HEAPU16[(($0 & 128 ? $2_1 ^ 254 : $2_1) << 1) + 16777360 >> 1];
+  }
+  $2_1 = $2_1 + ($1_1 << 3) | 0;
+  $2_1 = $2_1 >>> 0 >= 8191 ? 8191 : $2_1;
+  return (HEAPU16[(($2_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($2_1 >>> 8) ^ (($0 & 768) == 256 ? -1 : 0)) << 16 >> 16;
+ }
+ 
+ function $23($0, $1_1) {
+  $0 = $0 | 0;
+  $1_1 = $1_1 | 0;
+  var $2_1 = 0;
+  $2_1 = 4096;
+  $0 = $0 & 1023;
+  if ($0 >>> 0 <= 511) {
+   $2_1 = $0 << 1 & 254;
+   $2_1 = HEAPU16[(($0 & 128 ? $2_1 ^ 254 : $2_1) << 1) + 16777360 >> 1];
+  }
+  $2_1 = $2_1 + ($1_1 << 3) | 0;
+  $2_1 = $2_1 >>> 0 >= 8191 ? 8191 : $2_1;
+  return HEAPU16[(($2_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($2_1 >>> 8) << 16 >> 16;
+ }
+ 
+ function $24($0, $1_1) {
+  $0 = $0 | 0;
+  $1_1 = $1_1 | 0;
+  $1_1 = $1_1 << 3;
+  $1_1 = $1_1 >>> 0 >= 8191 ? 8191 : $1_1;
+  return ($0 << 6 << 16 >> 16 >>> 15 ^ HEAPU16[(($1_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($1_1 >>> 8)) << 16 >> 16;
+ }
+ 
+ function $25($0, $1_1) {
+  $0 = $0 | 0;
+  $1_1 = $1_1 | 0;
+  var $2_1 = 0, $3_1 = 0;
+  $2_1 = ($0 ^ -1) & 511;
+  $0 = $0 & 1023;
+  $3_1 = $0;
+  $0 = $0 >>> 0 > 511;
+  $1_1 = ($1_1 << 3) + (($0 ? $2_1 : $3_1) << 3) | 0;
+  $1_1 = $1_1 >>> 0 >= 8191 ? 8191 : $1_1;
+  return (HEAPU16[(($1_1 & 255) << 1) + 16777872 >> 1] << 1 >>> ($1_1 >>> 8) ^ ($0 ? -1 : 0)) << 16 >> 16;
+ }
+ 
+ bufferView = HEAPU8;
+ initActiveSegments(imports);
+ var FUNCTION_TABLE = [null, $18, $19, $20, $21, $22, $23, $24, $25];
+ function __wasm_memory_size() {
+  return buffer.byteLength / 65536 | 0;
+ }
+ 
+ function __wasm_memory_grow(pagesToAdd) {
+  pagesToAdd = pagesToAdd | 0;
+  var oldPages = __wasm_memory_size() | 0;
+  var newPages = oldPages + pagesToAdd | 0;
+  if ((oldPages < newPages) && (newPages < 65536)) {
+   var newBuffer = new ArrayBuffer(Math_imul(newPages, 65536));
+   var newHEAP8 = new Int8Array(newBuffer);
+   newHEAP8.set(HEAP8);
+   HEAP8 = new Int8Array(newBuffer);
+   HEAP16 = new Int16Array(newBuffer);
+   HEAP32 = new Int32Array(newBuffer);
+   HEAPU8 = new Uint8Array(newBuffer);
+   HEAPU16 = new Uint16Array(newBuffer);
+   HEAPU32 = new Uint32Array(newBuffer);
+   HEAPF32 = new Float32Array(newBuffer);
+   HEAPF64 = new Float64Array(newBuffer);
+   buffer = newBuffer;
+   bufferView = HEAPU8;
+  }
+  return oldPages;
+ }
+ 
+ return {
+  "memory": Object.create(Object.prototype, {
+   "grow": {
+    "value": __wasm_memory_grow
+   }, 
+   "buffer": {
+    "get": function () {
+     return buffer;
+    }
+    
+   }
+  }), 
+  "_initialize": $1, 
+  "opl_reset": $2, 
+  "opl_write": $3, 
+  "opl_render": $4, 
+  "opl_capacity": $5
+ };
+}
+
+return asmFunc;
+})();
+</script>
+<script>
+// Runs one emulated chip: the Nuked OPL3 WebAssembly module, or, where a page's
+// security policy refuses WebAssembly, the same module translated to
+// JavaScript by Binaryen's wasm2js (oplAsmFunc; bit-identical output).
+// Shared by the AudioWorklet and the page's main-thread fallback.
+class OplEngine {
+  constructor(wasmBytes, rate, post, forceJs) {
+    this.rate = rate;
+    this.post = post;
+    this.chip = null;
+    this.pending = [];
+    this.gain = 0.5;
+    this.scope = new Float32Array(2048);
+    this.scopeAt = 0;
+    // Deferred so the caller can attach its message handler first.
+    const useJs = (why) => Promise.resolve().then(() => this.start(oplAsmFunc({}), 'JavaScript (wasm2js)', why));
+    if (forceJs) {
+      useJs('forced');
+      return;
+    }
+    try {
+      WebAssembly.instantiate(wasmBytes, {}).then(
+        ({ instance }) => this.start(instance.exports, 'WebAssembly'),
+        (error) => useJs(String(error)),
+      );
+    } catch (error) {
+      useJs(String(error));
+    }
+  }
+
+  start(exports, engine, why) {
+    if (exports._initialize) exports._initialize();
+    exports.opl_reset(this.rate);
+    this.chip = exports;
+    const queued = this.pending;
+    this.pending = [];
+    queued.forEach((msg) => this.receive(msg));
+    this.post({ ready: true, sampleRate: this.rate, engine, why });
+  }
+
+  receive(msg) {
+    if (!this.chip) {
+      this.pending.push(msg);
+      return;
+    }
+    if (msg.reset) this.chip.opl_reset(this.rate);
+    if (msg.gain !== undefined) this.gain = msg.gain;
+    if (msg.writes) {
+      const w = msg.writes;
+      for (let i = 0; i < w.length; i += 2) this.chip.opl_write(w[i], w[i + 1]);
+    }
+  }
+
+  render(left, right) {
+    const n = left.length;
+    if (!this.chip) {
+      left.fill(0);
+      right.fill(0);
+      return;
+    }
+    const ptr = this.chip.opl_render(n);
+    const pcm = new Int16Array(this.chip.memory.buffer, ptr, n * 2);
+    const g = this.gain / 32768;
+    for (let i = 0; i < n; i++) {
+      left[i] = pcm[i * 2] * g;
+      right[i] = pcm[i * 2 + 1] * g;
+    }
+    // Oscilloscope feed: about 41 ms of mono output at a time.
+    for (let i = 0; i < n && this.scopeAt < this.scope.length; i++) {
+      this.scope[this.scopeAt++] = (pcm[i * 2] + pcm[i * 2 + 1]) / 65536;
+    }
+    if (this.scopeAt === this.scope.length) {
+      this.post({ scope: this.scope }, [this.scope.buffer]);
+      this.scope = new Float32Array(2048);
+      this.scopeAt = 0;
+    }
+  }
+}
+</script>
+<script>
+'use strict';
+// DOScraft FM Lab: patch editor and player for the Nuked OPL3 AudioWorklet.
+// The page keeps a shadow copy of every chip register and sends only changes.
+(() => {
+  // ------------------------------------------------------------------ data
+  // Same rows as PATCHES in tools/build_music_pack.py: modulator then carrier
+  // registers 20h, 40h, 60h, 80h, E0h, then C0h (feedback << 1 | connection).
+  const GAME_PRESETS = [
+    ['piano',  [0x01, 0x18, 0xF2, 0x54, 0x00], [0x01, 0x00, 0xF2, 0x37, 0x00], 0x06],
+    ['epiano', [0x01, 0x1A, 0xF3, 0x35, 0x00], [0x01, 0x04, 0xF2, 0x24, 0x00], 0x06],
+    ['bell',   [0x07, 0x18, 0xF5, 0x55, 0x00], [0x01, 0x00, 0xF3, 0x45, 0x00], 0x02],
+    ['pad',    [0x21, 0x1E, 0x62, 0x14, 0x00], [0x21, 0x00, 0x52, 0x15, 0x00], 0x08],
+    ['bass',   [0x01, 0x14, 0xF4, 0x56, 0x00], [0x01, 0x00, 0xF5, 0x58, 0x00], 0x06],
+    ['organ',  [0x22, 0x0A, 0xF0, 0x0F, 0x00], [0x21, 0x00, 0xF0, 0x0F, 0x00], 0x01],
+    ['pluck',  [0x01, 0x1C, 0xF6, 0x57, 0x00], [0x01, 0x00, 0xF6, 0x58, 0x00], 0x06],
+    ['lead',   [0x21, 0x16, 0xF1, 0x16, 0x00], [0x21, 0x00, 0xF1, 0x16, 0x00], 0x0A],
+    // A plain held sine: silent modulator, carrier on full.
+    ['blank',  [0x21, 0x3F, 0xF0, 0x0F, 0x00], [0x21, 0x00, 0xF0, 0x07, 0x00], 0x00],
+  ];
+  const OP_OFFSET = [0, 1, 2, 8, 9, 10, 16, 17, 18];
+  // F-numbers of C..B at block 4, as in src/platform/dos/opl_music.c.
+  const FNUM = [345, 365, 387, 410, 435, 460, 488, 517, 547, 580, 615, 651];
+  const MULT_X = [0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 12, 12, 15, 15];
+  const KSL_OPTIONS = [[0, 'Off'], [2, '1.5 dB per octave'], [1, '3 dB per octave'], [3, '6 dB per octave']];
+  const FB_TEXT = ['off', 'π/16', 'π/8', 'π/4', 'π/2', 'π', '2π', '4π'];
+  // Approximate envelope times near middle C with KSR off (YM3812 manual tables).
+  const ATTACK_MS = [Infinity, 2826, 1413, 707, 353, 177, 88.3, 44.2, 22.1, 11.0, 5.52, 2.76, 1.38, 0.69, 0.34, 0];
+  const DECAY_MS = [Infinity, 39281, 19640, 9820, 4910, 2455, 1228, 614, 307, 153, 76.7, 38.4, 19.2, 9.59, 4.79, 2.40];
+  const WAVE_NAMES = ['Sine', 'Half sine', 'Abs sine', 'Pulse sine', 'Alternating sine', 'Camel sine', 'Square', 'Log saw'];
+  const OP_NAMES = ['Modulator', 'Carrier', 'Operator 3', 'Operator 4'];
+  const ALG4_CHAINS = [[[1, 2, 3, 4]], [[1], [2, 3, 4]], [[1, 2], [3, 4]], [[1], [2, 3], [4]]];
+  const ALG4_OUTPUTS = [[3], [0, 3], [1, 3], [0, 2, 3]];
+  const STORE_PATCHES = 'doscraft-fm-lab:patches:v1';
+  const STORE_CURRENT = 'doscraft-fm-lab:current:v1';
+  const CHIP_RATE = 49716;
+
+  const $ = (id) => document.getElementById(id);
+  const hex2 = (n) => n.toString(16).toUpperCase().padStart(2, '0');
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+
+  // ------------------------------------------------------------ patch model
+  function opFromBytes(b20, b40, b60, b80, bE0) {
+    return {
+      am: (b20 >> 7) & 1, vib: (b20 >> 6) & 1, egt: (b20 >> 5) & 1, ksr: (b20 >> 4) & 1, mult: b20 & 15,
+      ksl: (b40 >> 6) & 3, tl: b40 & 63, ar: b60 >> 4, dr: b60 & 15, sl: b80 >> 4, rr: b80 & 15, wf: bE0 & 7,
+    };
+  }
+  const r20 = (o) => (o.am << 7) | (o.vib << 6) | (o.egt << 5) | (o.ksr << 4) | o.mult;
+  const r40 = (o, extra = 0) => (o.ksl << 6) | Math.min(63, o.tl + extra);
+  const r60 = (o) => (o.ar << 4) | o.dr;
+  const r80 = (o) => (o.sl << 4) | o.rr;
+
+  function defaultExtras() {
+    return {
+      opl3: false, fourOp: false, pan: 48, deepTrem: false, deepVib: false, wfx: [0, 0], alg4: 0,
+      ops34: [opFromBytes(0x21, 0x3F, 0xF0, 0x0F, 0), opFromBytes(0x21, 0x3F, 0xF0, 0x0F, 0)],
+    };
+  }
+
+  function patchFromBytes(name, bytes, extras) {
+    return {
+      name,
+      ops: [opFromBytes(...bytes.slice(0, 5)), opFromBytes(...bytes.slice(5, 10))],
+      fb: (bytes[10] >> 1) & 7,
+      con: bytes[10] & 1,
+      x: extras ? clone(extras) : defaultExtras(),
+    };
+  }
+
+  // The 11 bytes the game would load. OPL2 only has waveforms 0-3.
+  function gameBytes(p) {
+    const [m, c] = p.ops;
+    return [r20(m), r40(m), r60(m), r80(m), m.wf & 3, r20(c), r40(c), r60(c), r80(c), c.wf & 3, (p.fb << 1) | p.con];
+  }
+
+  function attenuation(velocity) {
+    // build_music_pack.py's attenuation() with channel volume 100, expression 127.
+    const level = (velocity / 127) * (100 / 127);
+    if (level <= 0) return 63;
+    return Math.max(0, Math.min(63, Math.round((-20 * Math.log10(level)) / 0.75)));
+  }
+
+  // ------------------------------------------------------------------ state
+  let patch = patchFromBytes('piano', [...GAME_PRESETS[0][1], ...GAME_PRESETS[0][2], GAME_PRESETS[0][3]]);
+  let loadedFrom = { name: 'piano', bytes: JSON.stringify([gameBytes(patch), patch.x]) };
+  let octave = 3;
+  let sustain = false;
+  let velocity = 100;
+  let master = 60;
+  let serial = 0;
+  let voices = [];
+
+  // ------------------------------------------------------------- audio/chip
+  let ctx = null;
+  let node = null;
+  let starting = null;
+  let ready = false;
+  const shadow = new Int16Array(0x200).fill(-1);
+  let queue = [];
+  let flushQueued = false;
+  let wasmBytes = null;
+  let latestScope = null;
+
+  function decodeWasm() {
+    const bin = atob(WASM_BASE64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function write(reg, value, force) {
+    if (!force && shadow[reg] === value) return;
+    shadow[reg] = value;
+    queue.push(reg, value);
+    if (!flushQueued) {
+      flushQueued = true;
+      queueMicrotask(flush);
+    }
+  }
+
+  function flush() {
+    flushQueued = false;
+    if (!node || !queue.length) return;
+    node.port.postMessage({ writes: queue });
+    queue = [];
+  }
+
+  function setStatus(text, isError) {
+    const el = $('status');
+    el.textContent = text;
+    el.classList.toggle('err', !!isError);
+  }
+
+  function startAudio() {
+    if (starting) return starting;
+    starting = (async () => {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) throw new Error('This browser has no Web Audio support.');
+      try {
+        ctx = new AC({ sampleRate: CHIP_RATE, latencyHint: 'interactive' });
+      } catch (e) {
+        ctx = new AC({ latencyHint: 'interactive' });
+      }
+      wasmBytes = wasmBytes || decodeWasm();
+      let where = 'in an AudioWorklet';
+      // Test switches: #js forces the wasm2js engine, #main the main-thread fallback.
+      const force = location.hash.slice(1);
+      if (force !== 'main' && await loadWorklet()) {
+        node = new AudioWorkletNode(ctx, 'opl-processor', {
+          numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2],
+          processorOptions: { wasm: wasmBytes.buffer.slice(0), forceJs: force === 'js' },
+        });
+      } else {
+        node = mainThreadNode();
+        where = 'on the main thread (no AudioWorklet here)';
+      }
+      node.port.onmessage = (event) => {
+        const msg = event.data;
+        if (msg.scope) latestScope = msg.scope;
+        else if (msg.ready) {
+          ready = true;
+          const native = Math.round(msg.sampleRate) === CHIP_RATE;
+          $('rateText').textContent = (native
+            ? 'Output rate: 49 716 Hz, the chip’s own'
+            : `Output rate: ${Math.round(msg.sampleRate)} Hz (resampled by Nuked OPL3)`)
+            + ` · ${msg.engine} ${where}`;
+          setStatus('Sound is on. Play with the letter keys or the keyboard below.');
+        } else if (msg.error) setStatus('The emulator failed to load: ' + msg.error, true);
+      };
+      node.connect(ctx.destination);
+      if (ctx.state !== 'running') await ctx.resume();
+      node.port.postMessage({ gain: gainValue() });
+      shadow.fill(-1);
+      queue = [];
+      applyAll();
+      flush();
+      $('start').textContent = 'Sound on';
+      $('start').setAttribute('aria-pressed', 'true');
+      requestAnimationFrame(drawScope);
+    })();
+    starting.catch((e) => {
+      setStatus('Could not start sound: ' + (e && e.message ? e.message : e), true);
+      starting = null;
+    });
+    return starting;
+  }
+
+  async function loadWorklet() {
+    if (!ctx.audioWorklet || !window.AudioWorkletNode) return false;
+    const blobUrl = URL.createObjectURL(new Blob([WORKLET_SOURCE], { type: 'application/javascript' }));
+    const dataUrl = 'data:application/javascript;base64,' + btoa(unescape(encodeURIComponent(WORKLET_SOURCE)));
+    for (const url of [blobUrl, dataUrl]) {
+      try {
+        await ctx.audioWorklet.addModule(url);
+        return true;
+      } catch (e) {
+        // Some pages allow only one of these URL forms; try the next.
+      }
+    }
+    return false;
+  }
+
+  // Fallback when no AudioWorklet module can load: the same engine on the
+  // main thread through a ScriptProcessorNode, behind a port-like interface.
+  function mainThreadNode() {
+    const sp = ctx.createScriptProcessor(2048, 0, 2);
+    const port = { onmessage: null, postMessage: (msg) => engine.receive(msg) };
+    const engine = new OplEngine(wasmBytes.buffer.slice(0), ctx.sampleRate,
+      (msg) => { if (port.onmessage) port.onmessage({ data: msg }); }, location.hash === '#js');
+    sp.onaudioprocess = (e) => engine.render(e.outputBuffer.getChannelData(0), e.outputBuffer.getChannelData(1));
+    sp.port = port;
+    return sp;
+  }
+
+  function gainValue() {
+    return (master / 100) * 2;
+  }
+
+  // ------------------------------------------------------------- voices
+  function buildVoices() {
+    const x = patch.x;
+    const four = x.opl3 && x.fourOp;
+    const list = four
+      ? [[0, 0], [0, 1], [0, 2], [0x100, 0], [0x100, 1], [0x100, 2]]
+      : [0, 1, 2, 3, 4, 5, 6, 7, 8].map((c) => [0, c]);
+    voices = list.map(([bank, ch]) => ({ bank, ch, note: -1, keyed: false, sustained: false, att: 0, src: null, started: 0, released: 0, b0: 0 }));
+    $('polyText').textContent = four ? '6 four-operator voices (OPL3 only)' : '9 voices, as in the game';
+    const leds = $('voiceLeds');
+    leds.textContent = '';
+    voices.forEach(() => {
+      const led = document.createElement('span');
+      led.className = 'voice-led';
+      leds.appendChild(led);
+    });
+    updateLeds();
+  }
+
+  function updateLeds() {
+    const leds = $('voiceLeds').children;
+    let used = 0;
+    voices.forEach((v, i) => {
+      leds[i].className = 'voice-led' + (v.keyed ? (v.sustained ? ' sus' : ' on') : '');
+      if (v.keyed) used++;
+    });
+    $('voiceLeds').setAttribute('aria-label', `Voices in use: ${used} of ${voices.length}`);
+  }
+
+  function effectiveWave(i) {
+    const x = patch.x;
+    if (i >= 2) return patch.x.ops34[i - 2].wf;
+    const op = patch.ops[i];
+    return x.opl3 && x.wfx[i] ? x.wfx[i] : op.wf & 3;
+  }
+
+  function writeVoicePatch(v) {
+    const x = patch.x;
+    const four = x.opl3 && x.fourOp;
+    const ops = four ? [...patch.ops, ...x.ops34] : patch.ops;
+    const slots = [OP_OFFSET[v.ch], OP_OFFSET[v.ch] + 3];
+    if (four) slots.push(OP_OFFSET[v.ch + 3], OP_OFFSET[v.ch + 3] + 3);
+    // Velocity attenuates the operators that reach the output. In two-operator
+    // mode only the carrier, as the game does even for additive patches.
+    const outputs = four ? ALG4_OUTPUTS[x.alg4] : [1];
+    ops.forEach((op, i) => {
+      const base = v.bank + slots[i];
+      write(base + 0x20, r20(op));
+      write(base + 0x40, r40(op, outputs.includes(i) ? v.att : 0));
+      write(base + 0x60, r60(op));
+      write(base + 0x80, r80(op));
+      write(base + 0xE0, effectiveWave(i));
+    });
+    const pan = x.opl3 ? x.pan : 0;
+    if (four) {
+      write(v.bank + 0xC0 + v.ch, (patch.fb << 1) | (x.alg4 & 1) | pan);
+      write(v.bank + 0xC0 + v.ch + 3, (x.alg4 >> 1) | pan);
+    } else {
+      write(v.bank + 0xC0 + v.ch, (patch.fb << 1) | patch.con | pan);
+    }
+  }
+
+  function applyAll() {
+    const x = patch.x;
+    write(0x01, 0x20);
+    write(0x08, 0x00);
+    write(0x105, x.opl3 ? 1 : 0);
+    write(0x104, x.opl3 && x.fourOp ? 0x3F : 0);
+    write(0xBD, (x.deepTrem ? 0x80 : 0) | (x.deepVib ? 0x40 : 0));
+    voices.forEach(writeVoicePatch);
+  }
+
+  function keyOff(v) {
+    if (!v.keyed) return;
+    v.keyed = false;
+    v.sustained = false;
+    v.src = null;
+    v.released = ++serial;
+    write(v.bank + 0xB0 + v.ch, v.b0 & ~0x20, true);
+  }
+
+  async function noteOn(midi, vel, src) {
+    let shortNote = false;
+    if (!node) {
+      try { await startAudio(); } catch (e) { return; }
+      shortNote = src && !held.has(src); // released while sound was starting
+    }
+    noteOffSrc(src);
+    let note = midi;
+    while (note < 12) note += 12;
+    while (note > 107) note -= 12;
+    // A note still ringing under the sustain pedal is retriggered in place.
+    const same = voices.find((x) => x.keyed && x.sustained && x.note === note);
+    const free = voices.filter((x) => !x.keyed);
+    const v = same || (free.length
+      ? free.reduce((a, b) => (a.released <= b.released ? a : b))
+      : voices.reduce((a, b) => (a.started <= b.started ? a : b)));
+    v.note = note;
+    v.att = attenuation(vel);
+    v.src = src;
+    v.keyed = true;
+    v.sustained = false;
+    v.started = ++serial;
+    let block = Math.floor(note / 12) - 1;
+    const fnum = FNUM[note % 12];
+    block = Math.max(0, Math.min(7, block));
+    const lo = v.bank + v.ch;
+    // Same order as the game: key off, carrier level, F-number, key on.
+    write(lo + 0xB0, (block << 2) | (fnum >> 8), true);
+    writeVoicePatch(v);
+    write(lo + 0xA0, fnum & 255);
+    v.b0 = 0x20 | (block << 2) | (fnum >> 8);
+    write(lo + 0xB0, v.b0, true);
+    pianoMark(midi, true);
+    updateLeds();
+    if (shortNote) {
+      setTimeout(() => {
+        if (held.has(src)) return;
+        pianoMark(midi, false);
+        noteOffSrc(src);
+      }, 250);
+    }
+  }
+
+  function noteOffSrc(src) {
+    if (!src) return;
+    voices.forEach((v) => {
+      if (v.src !== src || !v.keyed) return;
+      if (sustain) {
+        v.sustained = true;
+        v.src = null;
+      } else keyOff(v);
+    });
+    updateLeds();
+  }
+
+  function setSustain(on) {
+    sustain = on;
+    $('sustain').setAttribute('aria-pressed', String(on));
+    if (!on) voices.forEach((v) => { if (v.sustained) keyOff(v); });
+    updateLeds();
+  }
+
+  function panic() {
+    held.clear();
+    pointerNotes.clear();
+    document.querySelectorAll('.piano .down').forEach((k) => k.classList.remove('down'));
+    buildVoices();
+    if (node) {
+      // Reset the chip: release tails stop at once.
+      node.port.postMessage({ reset: true });
+      shadow.fill(-1);
+      queue = [];
+      applyAll();
+      flush();
+    }
+    setSustain(false);
+  }
+
+  // ------------------------------------------------------------- patch edits
+  function patchChanged(opts = {}) {
+    if (opts.rebuild) panic();
+    else applyAll();
+    renderHex();
+    renderAlgo();
+    renderEdited();
+    renderExtrasState();
+    for (let i = 0; i < 4; i++) drawEnvelope(i);
+    saveCurrent();
+  }
+
+  function loadPatch(p, from) {
+    const modeBefore = JSON.stringify([patch.x.opl3, patch.x.fourOp]);
+    patch = clone(p);
+    if (!patch.x) patch.x = defaultExtras();
+    loadedFrom = { name: from || patch.name, bytes: JSON.stringify([gameBytes(patch), patch.x]) };
+    refreshControls();
+    $('patchName').value = patch.name || '';
+    patchChanged({ rebuild: modeBefore !== JSON.stringify([patch.x.opl3, patch.x.fourOp]) });
+    renderPresetButtons();
+  }
+
+  function loadGameBytes(name, bytes) {
+    // Game patches keep the chip mode but drop per-operator OPL3 waveforms.
+    const x = clone(patch.x);
+    x.wfx = [0, 0];
+    loadPatch(patchFromBytes(name, bytes, x), name);
+  }
+
+  // ----------------------------------------------------------- UI builders
+  const controls = [];
+
+  function msText(ms) {
+    if (ms < 1) return `${ms.toFixed(2)} ms`;
+    if (ms < 1000) return `${Math.round(ms)} ms`;
+    return `${(ms / 1000).toFixed(1)} s`;
+  }
+
+  const FORMATS = {
+    mult: (v) => `×${MULT_X[v]}`,
+    tl: (v) => v === 0 ? '0 dB' : `−${(v * 0.75).toFixed(2).replace(/\.?0+$/, '')} dB`,
+    ar: (v) => (v === 0 ? 'never' : v === 15 ? 'instant' : `≈${msText(ATTACK_MS[v])}`),
+    dr: (v) => (v === 0 ? 'hold' : `≈${msText(DECAY_MS[v])}`),
+    sl: (v) => (v === 15 ? '−93 dB' : v === 0 ? '0 dB' : `−${v * 3} dB`),
+    rr: (v) => (v === 0 ? 'hold' : `≈${msText(DECAY_MS[v])}`),
+    fb: (v) => FB_TEXT[v],
+  };
+  const SPOKEN = {
+    mult: 'times', tl: 'attenuation', ar: 'attack time', dr: 'time to fall 96 decibels', sl: 'sustain level',
+    rr: 'time to fall 96 decibels', fb: 'feedback',
+  };
+
+  function makeSlider(host, id, label, max, get, set, fmtKey) {
+    host.classList.add('slider');
+    const lab = document.createElement('label');
+    lab.htmlFor = id;
+    lab.textContent = label;
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.id = id;
+    input.min = 0;
+    input.max = max;
+    input.step = 1;
+    const out = document.createElement('output');
+    out.htmlFor = id;
+    host.append(lab, input, out);
+    const show = () => {
+      const v = get();
+      input.value = v;
+      const text = FORMATS[fmtKey](v);
+      out.innerHTML = `${text} <span class="raw">(${v})</span>`;
+      input.setAttribute('aria-valuetext', `${v}, ${text.replace('≈', 'about ').replace('−', 'minus ')}`);
+    };
+    input.addEventListener('input', () => {
+      set(Number(input.value));
+      show();
+      patchChanged();
+    });
+    controls.push(show);
+    return input;
+  }
+
+  function makeToggle(host, id, label, hint, get, set) {
+    const lab = document.createElement('label');
+    lab.className = 'toggle';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = id;
+    const span = document.createElement('span');
+    span.innerHTML = `${label}<small>${hint}</small>`;
+    lab.append(input, span);
+    host.appendChild(lab);
+    input.addEventListener('change', () => {
+      set(input.checked ? 1 : 0);
+      patchChanged();
+    });
+    controls.push(() => { input.checked = !!get(); });
+    return input;
+  }
+
+  function waveSvg(w) {
+    const pts = [];
+    for (let i = 0; i <= 64; i++) {
+      const p = i / 64;
+      const s = Math.sin(2 * Math.PI * p);
+      let y;
+      switch (w) {
+        case 0: y = s; break;
+        case 1: y = p < 0.5 ? s : 0; break;
+        case 2: y = Math.abs(s); break;
+        case 3: y = (p % 0.5) < 0.25 ? Math.abs(s) : 0; break;
+        case 4: y = p < 0.5 ? Math.sin(4 * Math.PI * p) : 0; break;
+        case 5: y = p < 0.5 ? Math.abs(Math.sin(4 * Math.PI * p)) : 0; break;
+        case 6: y = p < 0.5 ? 1 : -1; break;
+        default: y = p < 0.5 ? Math.exp(-5 * p * 2) : -Math.exp(-5 * (1 - p) * 2);
+      }
+      pts.push(`${(4 + p * 64).toFixed(1)},${(17 - y * 13).toFixed(1)}`);
+    }
+    return `<svg viewBox="0 0 72 34" aria-hidden="true"><line x1="2" y1="17" x2="70" y2="17"></line><path d="M${pts.join('L')}"></path></svg>`;
+  }
+
+  function makeWaves(host, name, choices, get, set, labelFor) {
+    const box = document.createElement('div');
+    box.className = 'waves';
+    box.setAttribute('role', 'radiogroup');
+    const inputs = [];
+    choices.forEach((w) => {
+      const cell = document.createElement('div');
+      cell.className = 'wave';
+      const id = `${name}-${w}`;
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = name;
+      input.id = id;
+      input.value = w;
+      const lab = document.createElement('label');
+      lab.htmlFor = id;
+      lab.innerHTML = labelFor(w);
+      cell.append(input, lab);
+      box.appendChild(cell);
+      input.addEventListener('change', () => {
+        if (input.checked) {
+          set(w);
+          patchChanged();
+        }
+      });
+      inputs.push(input);
+    });
+    host.appendChild(box);
+    controls.push(() => {
+      const v = get();
+      inputs.forEach((inp) => { inp.checked = Number(inp.value) === v; });
+    });
+    return { box, inputs };
+  }
+
+  function buildOperator(host, i, op, waveChoices) {
+    const id = (f) => `op${i}-${f}`;
+    const board = document.createElement('section');
+    board.className = 'op-board';
+    board.setAttribute('aria-labelledby', id('title'));
+    const slotNote = i < 2 ? `20h–E0h + ${i === 0 ? '0' : '3'} (channel 0 slots ${i === 0 ? '00' : '03'})` : '';
+    const blurb = [
+      'Shapes the tone. Lower total level number = more modulation = brighter.',
+      'The operator you hear. Its envelope is the note’s volume shape.',
+      'Second pair, first operator.',
+      'Second pair, second operator.',
+    ][i];
+    board.innerHTML = `
+      <div class="op-title"><h2 id="${id('title')}">${OP_NAMES[i]}${i < 2 ? ` <span class="small muted">operator ${i + 1}</span>` : ''}</h2><span class="regs">${slotNote}</span></div>
+      <p class="small muted">${blurb}</p>
+      <fieldset class="group" data-g="level"><legend class="label-caps">Level and tuning · 20h 40h</legend></fieldset>
+      <fieldset class="group" data-g="env"><legend class="label-caps">Envelope · 60h 80h</legend></fieldset>
+      <fieldset class="group" data-g="wave"><legend class="label-caps">Waveform · E0h</legend></fieldset>
+      <fieldset class="group" data-g="mod"><legend class="label-caps">Scaling and modulation · 20h 40h</legend></fieldset>`;
+    const g = (k) => board.querySelector(`[data-g="${k}"]`);
+    const row = (k) => { const d = document.createElement('div'); g(k).appendChild(d); return d; };
+    const o = () => op();
+    makeSlider(row('level'), id('mult'), 'Multiplier', 15, () => o().mult, (v) => { o().mult = v; }, 'mult');
+    makeSlider(row('level'), id('tl'), 'Total level', 63, () => o().tl, (v) => { o().tl = v; }, 'tl');
+    makeSlider(row('env'), id('ar'), 'Attack', 15, () => o().ar, (v) => { o().ar = v; }, 'ar');
+    makeSlider(row('env'), id('dr'), 'Decay', 15, () => o().dr, (v) => { o().dr = v; }, 'dr');
+    makeSlider(row('env'), id('sl'), 'Sustain level', 15, () => o().sl, (v) => { o().sl = v; }, 'sl');
+    makeSlider(row('env'), id('rr'), 'Release', 15, () => o().rr, (v) => { o().rr = v; }, 'rr');
+    const envToggles = row('env');
+    envToggles.className = 'toggles';
+    makeToggle(envToggles, id('egt'), 'Sustain hold (EG type)', 'Hold at the sustain level while the key is down', () => o().egt, (v) => { o().egt = v; });
+    const canvas = document.createElement('canvas');
+    canvas.className = 'env-canvas';
+    canvas.id = id('env');
+    canvas.width = 600;
+    canvas.height = 140;
+    canvas.setAttribute('role', 'img');
+    g('env').appendChild(canvas);
+    const envNote = document.createElement('p');
+    envNote.className = 'small muted';
+    envNote.textContent = 'Decay and release times are for a full 96 dB fall. The graph shows a key held for one second.';
+    g('env').appendChild(envNote);
+    makeWaves(g('wave'), id('wf'), waveChoices, () => o().wf, (v) => { o().wf = v; },
+      (w) => `${waveSvg(w)}<span>${w} · ${WAVE_NAMES[w]}</span>`);
+    const mod = row('mod');
+    mod.className = 'toggles';
+    makeToggle(mod, id('ksr'), 'KSR', 'Faster envelope on higher notes', () => o().ksr, (v) => { o().ksr = v; });
+    makeToggle(mod, id('am'), 'Tremolo (AM)', 'Volume wobble, 3.7 Hz', () => o().am, (v) => { o().am = v; });
+    makeToggle(mod, id('vib'), 'Vibrato (VIB)', 'Pitch wobble, 6.1 Hz', () => o().vib, (v) => { o().vib = v; });
+    const kslRow = document.createElement('div');
+    kslRow.className = 'select-row';
+    kslRow.innerHTML = `<label for="${id('ksl')}">KSL</label><select id="${id('ksl')}">${KSL_OPTIONS.map(([v, t]) => `<option value="${v}">${t} quieter going up</option>`).join('')}</select>`;
+    g('mod').appendChild(kslRow);
+    const ksl = kslRow.querySelector('select');
+    ksl.addEventListener('change', () => { o().ksl = Number(ksl.value); patchChanged(); });
+    controls.push(() => { ksl.value = String(o().ksl); });
+    host.appendChild(board);
+  }
+
+  function buildChannel() {
+    makeSlider(document.querySelector('[data-ctl="fb"]'), 'fb', 'Feedback', 7, () => patch.fb, (v) => { patch.fb = v; }, 'fb');
+    ['conFm', 'conAdd'].forEach((id) => {
+      $(id).addEventListener('change', () => { patch.con = Number($(id).value); patchChanged(); });
+    });
+    controls.push(() => { $('conFm').checked = patch.con === 0; $('conAdd').checked = patch.con === 1; });
+  }
+
+  function buildExtras() {
+    const x = () => patch.x;
+    $('opl3Mode').addEventListener('change', () => {
+      x().opl3 = $('opl3Mode').checked;
+      if (!x().opl3) x().fourOp = false;
+      patchChanged({ rebuild: true });
+    });
+    $('fourOp').addEventListener('change', () => { x().fourOp = $('fourOp').checked; patchChanged({ rebuild: true }); });
+    $('pan').addEventListener('change', () => { x().pan = Number($('pan').value); patchChanged(); });
+    $('deepTrem').addEventListener('change', () => { x().deepTrem = $('deepTrem').checked; patchChanged(); });
+    $('deepVib').addEventListener('change', () => { x().deepVib = $('deepVib').checked; patchChanged(); });
+    $('alg4').addEventListener('change', () => { x().alg4 = Number($('alg4').value); patchChanged(); });
+    controls.push(() => {
+      $('opl3Mode').checked = x().opl3;
+      $('fourOp').checked = x().fourOp;
+      $('pan').value = String(x().pan);
+      $('deepTrem').checked = x().deepTrem;
+      $('deepVib').checked = x().deepVib;
+      $('alg4').value = String(x().alg4);
+    });
+    [0, 1].forEach((i) => {
+      const box = document.createElement('div');
+      box.className = 'subpanel';
+      box.innerHTML = `<p class="label-caps">${OP_NAMES[i]}</p>`;
+      $('wfxTwo').appendChild(box);
+      const made = makeWaves(box, `wfx${i}`, [0, 4, 5, 6, 7], () => x().wfx[i], (v) => { x().wfx[i] = v; },
+        (w) => (w === 0 ? `<svg viewBox="0 0 72 34" aria-hidden="true"><line x1="2" y1="17" x2="70" y2="17"></line></svg><span>Main (0–3)</span>` : `${waveSvg(w)}<span>${w} · ${WAVE_NAMES[w]}</span>`));
+      made.box.classList.add('wfx');
+    });
+    [0, 1].forEach((k) => buildOperator($('ops34'), k + 2, () => x().ops34[k], [0, 1, 2, 3, 4, 5, 6, 7]));
+  }
+
+  function renderExtrasState() {
+    const x = patch.x;
+    $('fourOp').disabled = !x.opl3;
+    $('pan').disabled = !x.opl3;
+    $('fourOpPanel').disabled = !(x.opl3 && x.fourOp);
+    document.querySelectorAll('.wfx input').forEach((inp) => { inp.disabled = !x.opl3; });
+  }
+
+  function refreshControls() {
+    controls.forEach((show) => show());
+    renderExtrasState();
+  }
+
+  // --------------------------------------------------------- renderers
+  function renderHex() {
+    const b = gameBytes(patch).map(hex2);
+    $('hexLine').innerHTML = `<span class="op">${b.slice(0, 5).join(' ')}</span><span class="sep">/</span><span class="op">${b.slice(5, 10).join(' ')}</span><span class="sep">/</span><span class="c0">${b[10]}</span>`;
+    const x = patch.x;
+    const notes = [];
+    if (x.opl3) {
+      [0, 1].forEach((i) => {
+        if (x.wfx[i]) notes.push(`${OP_NAMES[i].toLowerCase()} uses OPL3 waveform ${x.wfx[i]}; the game plays waveform ${patch.ops[i].wf & 3}`);
+      });
+      if (x.fourOp) notes.push('four-operator voices are on; the game plays only the modulator and carrier');
+      if (x.pan !== 48) notes.push('stereo pan is set; the game is mono');
+    }
+    if (x.deepTrem || x.deepVib) notes.push('deep tremolo or vibrato is on; the game keeps the shallow depths');
+    let text = notes.length ? `What you hear is not what the game plays: ${notes.join('; ')}. The hex line shows the game's version.` : '';
+    if (patch.ops[1].ksl) {
+      text += (text ? ' ' : '') + 'Carrier KSL is set, but DOScraft’s player rewrites the carrier’s 40h on every note without the KSL bits, so the game currently plays it with KSL off.';
+    }
+    $('gameWarn').hidden = !text;
+    $('gameWarn').textContent = text;
+  }
+
+  function renderEdited() {
+    const now = JSON.stringify([gameBytes(patch), patch.x]);
+    $('editedTag').hidden = now === loadedFrom.bytes;
+  }
+
+  function renderPresetButtons() {
+    const host = $('presets');
+    host.querySelectorAll('button').forEach((btn) => {
+      btn.setAttribute('aria-pressed', String(btn.dataset.name === loadedFrom.name));
+    });
+  }
+
+  function renderAlgo() {
+    const svg = $('algo');
+    const four = patch.x.opl3 && patch.x.fourOp;
+    const chains = four ? ALG4_CHAINS[patch.x.alg4] : patch.con ? [[1], [2]] : [[1, 2]];
+    const label = (n) => (four ? String(n) : n === 1 ? 'MOD' : 'CAR');
+    const bw = four ? 34 : 50;
+    const gap = four ? 14 : 26;
+    const rowH = 32;
+    const top = 26;
+    const outX = 210;
+    let s = '';
+    const ends = [];
+    chains.forEach((chain, r) => {
+      const y = top + r * rowH + (3 - chains.length) * rowH / 2;
+      chain.forEach((n, k) => {
+        const x = 8 + k * (bw + gap);
+        s += `<rect class="box" x="${x}" y="${y - 11}" width="${bw}" height="22" rx="3"></rect><text x="${x + bw / 2}" y="${y + 4.5}" text-anchor="middle">${label(n)}</text>`;
+        if (k > 0) s += `<path class="wire" d="M${x - gap} ${y}H${x - 2}"></path><path class="wire" d="M${x - 6} ${y - 4}L${x - 2} ${y}L${x - 6} ${y + 4}"></path>`;
+        if (n === 1) {
+          s += `<path class="fb" d="M${x + bw} ${y - 4}h6v-12h-${bw + 12}v12h6"></path><text class="fbtext" x="${x + bw / 2}" y="${y - 19}" text-anchor="middle">FB ${patch.fb}</text>`;
+        }
+      });
+      const endX = 8 + (chain.length - 1) * (bw + gap) + bw;
+      ends.push([endX, y]);
+    });
+    const sumY = top + rowH;
+    ends.forEach(([x, y]) => { s += `<path class="wire" d="M${x} ${y}H${outX - 24}V${sumY}"></path>`; });
+    s += `<circle class="box" cx="${outX - 14}" cy="${sumY}" r="10"></circle><text x="${outX - 14}" y="${sumY + 4.5}" text-anchor="middle">+</text>`;
+    s += `<path class="wire" d="M${outX - 4} ${sumY}H${outX + 10}"></path><text x="${outX + 14}" y="${sumY + 4.5}">OUT</text>`;
+    svg.innerHTML = s;
+    const desc = four
+      ? $('alg4').selectedOptions[0].textContent
+      : patch.con ? 'Additive: modulator and carrier both heard' : 'FM: modulator feeds the carrier';
+    svg.setAttribute('aria-label', `Operator wiring. ${desc}. Feedback ${FB_TEXT[patch.fb]}.`);
+  }
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  // Match the drawing buffer to the displayed size so lines and text stay crisp.
+  function fitCanvas(canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+    const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    return canvas.getContext('2d');
+  }
+
+  function envelopeLevels(op, holdMs, totalMs, steps) {
+    // dB below full (0..96) at each step; key down for holdMs.
+    const out = [];
+    let level = 96;
+    let phase = op.ar === 0 ? 'off' : 'attack';
+    const slDb = op.sl === 15 ? 93 : op.sl * 3;
+    const dt = totalMs / steps;
+    for (let i = 0; i <= steps; i++) {
+      const t = i * dt;
+      if (t >= holdMs && phase !== 'release') phase = 'release';
+      if (phase === 'attack') {
+        const ta = ATTACK_MS[op.ar];
+        const f = ta === 0 ? 1 : Math.min(1, t / ta);
+        level = 96 * Math.pow(1 - f, 3);
+        if (f >= 1) { level = 0; phase = 'decay'; }
+      } else if (phase === 'decay') {
+        if (op.dr) level = Math.min(slDb, level + (96 / DECAY_MS[op.dr]) * dt);
+        if (level >= slDb) phase = op.egt ? 'sustain' : 'fade';
+      } else if (phase === 'fade') {
+        if (op.rr) level = Math.min(96, level + (96 / DECAY_MS[op.rr]) * dt);
+      } else if (phase === 'release') {
+        if (op.rr) level = Math.min(96, level + (96 / DECAY_MS[op.rr]) * dt);
+      }
+      out.push(level);
+    }
+    return out;
+  }
+
+  function drawEnvelope(i) {
+    const canvas = $(`op${i}-env`);
+    if (!canvas) return;
+    const op = i < 2 ? patch.ops[i] : patch.x.ops34[i - 2];
+    const c = fitCanvas(canvas);
+    const W = canvas.width;
+    const H = canvas.height;
+    const px = W / canvas.clientWidth || 1;
+    const hold = 1000;
+    const total = 2000;
+    const lv = envelopeLevels(op, hold, total, 400);
+    c.clearRect(0, 0, W, H);
+    c.strokeStyle = cssVar('--line');
+    c.lineWidth = 1;
+    c.font = `${Math.round(11 * px)}px ${cssVar('--font-mono') || 'monospace'}`;
+    c.fillStyle = cssVar('--muted');
+    [0, 48, 96].forEach((db) => {
+      const y = 8 + (db / 96) * (H - 16);
+      c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
+    });
+    const offX = (hold / total) * W;
+    c.setLineDash([6, 6]);
+    c.beginPath(); c.moveTo(offX, 0); c.lineTo(offX, H); c.stroke();
+    c.setLineDash([]);
+    c.fillText('key up', offX + 6 * px, H - 8 * px);
+    c.fillText('0 dB', 6 * px, 20 * px);
+    c.strokeStyle = cssVar('--accent');
+    c.lineWidth = 2.5 * px;
+    c.beginPath();
+    lv.forEach((l, k) => {
+      const x = (k / (lv.length - 1)) * W;
+      const y = 8 + (l / 96) * (H - 16);
+      if (k) c.lineTo(x, y); else c.moveTo(x, y);
+    });
+    c.stroke();
+    const slDb = op.sl === 15 ? 93 : op.sl * 3;
+    canvas.setAttribute('aria-label', `${OP_NAMES[i]} envelope: attack ${FORMATS.ar(op.ar)}, decay ${FORMATS.dr(op.dr)} toward minus ${slDb} dB, ${op.egt ? 'held while the key is down' : 'keeps fading while the key is down'}, release ${FORMATS.rr(op.rr)}.`);
+  }
+
+  function drawScope() {
+    const canvas = $('scope');
+    const c = fitCanvas(canvas);
+    const W = canvas.width;
+    const H = canvas.height;
+    c.clearRect(0, 0, W, H);
+    c.strokeStyle = cssVar('--line');
+    c.lineWidth = 1;
+    c.beginPath(); c.moveTo(0, H / 2); c.lineTo(W, H / 2); c.stroke();
+    const s = latestScope;
+    if (s) {
+      // Trigger on a rising zero crossing so the trace stands still.
+      let start = 0;
+      for (let i = 1; i < s.length - 1024; i++) {
+        if (s[i - 1] < 0 && s[i] >= 0) { start = i; break; }
+      }
+      const n = 1024;
+      c.strokeStyle = cssVar('--trace');
+      c.lineWidth = 2 * (W / canvas.clientWidth || 1);
+      c.beginPath();
+      for (let i = 0; i < n; i++) {
+        const x = (i / (n - 1)) * W;
+        const y = H / 2 - s[start + i] * (H / 2) * 3.2;
+        if (i) c.lineTo(x, y); else c.moveTo(x, y);
+      }
+      c.stroke();
+    }
+    requestAnimationFrame(drawScope);
+  }
+
+  // ----------------------------------------------------------- presets
+  function buildPresets() {
+    const host = $('presets');
+    GAME_PRESETS.forEach(([name, mod, car, c0]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.dataset.name = name;
+      btn.textContent = name === 'blank' ? 'blank (sine)' : name;
+      btn.title = [...mod, ...car, c0].map(hex2).join(' ');
+      btn.addEventListener('click', () => loadGameBytes(name, [...mod, ...car, c0]));
+      host.appendChild(btn);
+    });
+  }
+
+  // ------------------------------------------------------ hex in and out
+  function parseHex(text) {
+    const quoted = text.match(/['"]([^'"]*)['"]/);
+    const stripped = text.replace(/'[^']*'|"[^"]*"/g, ' ');
+    const tokens = stripped.match(/\b(?:0[xX])?[0-9a-fA-F]{1,2}\b/g) || [];
+    if (tokens.length !== 11) {
+      throw new Error(`Found ${tokens.length} bytes. A patch is 11 hex bytes: modulator 20 40 60 80 E0, carrier 20 40 60 80 E0, then C0.`);
+    }
+    const bytes = tokens.map((t) => parseInt(t.replace(/^0x/i, ''), 16));
+    return { name: quoted ? quoted[1] : null, bytes };
+  }
+
+  function pyName(name) {
+    const n = (name || 'patch').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'patch';
+    return n;
+  }
+
+  function pythonRow() {
+    const b = gameBytes(patch).map((v) => '0x' + hex2(v));
+    const head = `('${pyName(patch.name)}',`;
+    return `    ${head.padEnd(10)} (${b.slice(0, 5).join(', ')}), (${b.slice(5, 10).join(', ')}), ${b[10]}),`;
+  }
+
+  async function copyText(text, button) {
+    const old = button.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = 'Copied';
+    } catch (e) {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents($('hexLine'));
+      sel.removeAllRanges();
+      sel.addRange(range);
+      button.textContent = 'Select and copy';
+      $('pasteMsg').textContent = `Copying is blocked here. The text is: ${text}`;
+    }
+    setTimeout(() => { button.textContent = old; }, 1600);
+  }
+
+  function loadPasted() {
+    const msg = $('pasteMsg');
+    try {
+      const { name, bytes } = parseHex($('pasteHex').value);
+      loadGameBytes(name || patch.name || 'pasted', bytes);
+      msg.classList.remove('err');
+      msg.textContent = `Loaded ${bytes.map(hex2).join(' ')}${name ? ` as ${name}` : ''}.`;
+    } catch (e) {
+      msg.classList.add('err');
+      msg.textContent = e.message;
+    }
+  }
+
+  // ------------------------------------------------------------- SBI files
+  // 52 bytes: "SBI" 1Ah, 32-byte name, then modulator/carrier pairs of 20h,
+  // 40h, 60h, 80h, E0h, then C0h and 5 unused bytes.
+  function sbiToBytes(buf) {
+    const b = new Uint8Array(buf);
+    const magic = String.fromCharCode(...b.slice(0, 4));
+    if (magic === '4OP\x1A') throw new Error('four-operator SBI files are not supported');
+    if (magic !== 'SBI\x1A') throw new Error('not an SBI file (it should start with "SBI" and 1Ah)');
+    if (b.length < 47) throw new Error(`only ${b.length} bytes; an SBI instrument needs at least 47`);
+    let name = '';
+    for (let i = 4; i < 36 && b[i]; i++) name += String.fromCharCode(b[i]);
+    const r = b.slice(36, 47);
+    return { name: name.trim(), bytes: [r[0], r[2], r[4], r[6], r[8], r[1], r[3], r[5], r[7], r[9], r[10]] };
+  }
+
+  function bytesToSbi(name, g) {
+    const out = new Uint8Array(52);
+    out.set([0x53, 0x42, 0x49, 0x1A]);
+    const n = (name || 'patch').replace(/[^\x20-\x7E]/g, '?').slice(0, 31);
+    for (let i = 0; i < n.length; i++) out[4 + i] = n.charCodeAt(i);
+    out.set([g[0], g[5], g[1], g[6], g[2], g[7], g[3], g[8], g[4], g[9], g[10]], 36);
+    return out;
+  }
+
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+
+  function crc32(data) {
+    let c = 0xFFFFFFFF;
+    for (const byte of data) c = CRC_TABLE[(c ^ byte) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  // One stored (uncompressed) file in a zip archive.
+  function zipOne(filename, data) {
+    const name = new TextEncoder().encode(filename);
+    const crc = crc32(data);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint16(12, 0x21, true);
+    local.setUint32(14, crc, true); local.setUint32(18, data.length, true); local.setUint32(22, data.length, true);
+    local.setUint16(26, name.length, true);
+    const central = new DataView(new ArrayBuffer(46));
+    central.setUint32(0, 0x02014b50, true); central.setUint16(4, 20, true); central.setUint16(6, 20, true);
+    central.setUint16(14, 0x21, true); central.setUint32(16, crc, true); central.setUint32(20, data.length, true);
+    central.setUint32(24, data.length, true); central.setUint16(28, name.length, true);
+    const localSize = 30 + name.length + data.length;
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, 1, true); end.setUint16(10, 1, true);
+    end.setUint32(12, 46 + name.length, true); end.setUint32(16, localSize, true);
+    return new Blob([local, name, data, central, name, end]);
+  }
+
+  const hostDownloads = window.claude && typeof window.claude.use === 'function'
+    ? window.claude.use('downloads').catch(() => null)
+    : null;
+
+  async function saveSbi() {
+    const msg = $('sbiMsg');
+    msg.classList.remove('err');
+    const base = pyName(patch.name);
+    const data = bytesToSbi(patch.name, gameBytes(patch));
+    if (hostDownloads) {
+      // The hosted page can only hand out a few file types, so the SBI goes in a zip.
+      const dl = await hostDownloads;
+      if (!dl) {
+        msg.classList.add('err');
+        msg.textContent = 'Saving files is not available in this view. Copy the hex line instead.';
+        return;
+      }
+      try {
+        await dl.save({ filename: `${base}.zip`, data: zipOne(`${base}.sbi`, data) });
+        msg.textContent = `Saved ${base}.zip with ${base}.sbi inside.`;
+      } catch (e) {
+        if (e && e.code === 'declined') msg.textContent = 'Save cancelled.';
+        else {
+          msg.classList.add('err');
+          msg.textContent = `Could not save the file (${(e && (e.message || e.code)) || e}). Copy the hex line instead.`;
+        }
+      }
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([data], { type: 'application/octet-stream' }));
+    a.download = `${base}.sbi`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    msg.textContent = `Saved ${base}.sbi.`;
+  }
+
+  async function importSbi(files) {
+    const msg = $('sbiMsg');
+    const done = [];
+    const failed = [];
+    for (const file of files) {
+      try {
+        const { name, bytes } = sbiToBytes(await file.arrayBuffer());
+        done.push({ name: name || file.name.replace(/\.[^.]*$/, ''), bytes });
+      } catch (e) {
+        failed.push(`${file.name}: ${e.message}`);
+      }
+    }
+    done.forEach((d) => addMine(patchFromBytes(d.name, d.bytes)));
+    if (done.length) loadGameBytes(done[0].name, done[0].bytes);
+    msg.classList.toggle('err', failed.length > 0);
+    msg.textContent = [
+      done.length ? `Imported ${done.map((d) => d.name).join(', ')}.` : '',
+      failed.length ? `Skipped ${failed.join('; ')}.` : '',
+    ].join(' ').trim();
+  }
+
+  // ------------------------------------------------------- my patches
+  let mine = [];
+  let storageOk = true;
+
+  function readStore(key) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      storageOk = false;
+      return null;
+    }
+  }
+
+  function writeStore(key, value) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      storageOk = false;
+    }
+  }
+
+  let saveTimer = 0;
+  function saveCurrent() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => writeStore(STORE_CURRENT, { patch, loadedFrom }), 400);
+  }
+
+  function addMine(p) {
+    mine.push(clone(p));
+    writeStore(STORE_PATCHES, mine);
+    renderMine();
+  }
+
+  function renderMine() {
+    const list = $('mine');
+    list.textContent = '';
+    mine.forEach((p, i) => {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = p.name || `patch ${i + 1}`;
+      const load = document.createElement('button');
+      load.type = 'button';
+      load.textContent = 'Load';
+      load.setAttribute('aria-label', `Load ${name.textContent}`);
+      load.addEventListener('click', () => loadPatch(p, `mine:${i}`));
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'danger';
+      del.textContent = 'Delete';
+      del.setAttribute('aria-label', `Delete ${name.textContent}`);
+      let armed = false;
+      del.addEventListener('click', () => {
+        if (!armed) {
+          armed = true;
+          del.textContent = 'Confirm delete';
+          setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 4000);
+          return;
+        }
+        mine.splice(i, 1);
+        writeStore(STORE_PATCHES, mine);
+        renderMine();
+      });
+      const hex = document.createElement('span');
+      hex.className = 'hex';
+      hex.textContent = gameBytes(p).map(hex2).join(' ') + (p.x && p.x.opl3 ? ' · OPL3 extras' : '');
+      li.append(name, load, del, hex);
+      list.appendChild(li);
+    });
+    $('mineEmpty').hidden = mine.length > 0;
+    if (!storageOk) {
+      $('mineEmpty').hidden = false;
+      $('mineEmpty').textContent = 'This browser is not keeping saved data here, so saved patches last only until you close the page.';
+    }
+  }
+
+  // --------------------------------------------------------- keyboards
+  const LOWER = ['KeyZ', 'KeyS', 'KeyX', 'KeyD', 'KeyC', 'KeyV', 'KeyG', 'KeyB', 'KeyH', 'KeyN', 'KeyJ', 'KeyM', 'Comma', 'KeyL', 'Period', 'Semicolon', 'Slash'];
+  const UPPER = ['KeyQ', 'Digit2', 'KeyW', 'Digit3', 'KeyE', 'KeyR', 'Digit5', 'KeyT', 'Digit6', 'KeyY', 'Digit7', 'KeyU', 'KeyI', 'Digit9', 'KeyO', 'Digit0', 'KeyP'];
+  const LOWER_CAP = 'Z S X D C V G B H N J M , L . ; /'.split(' ');
+  const UPPER_CAP = 'Q 2 W 3 E R 5 T 6 Y 7 U I 9 O 0 P'.split(' ');
+  const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+  const held = new Set();
+  const keyNotes = new Map();
+
+  function keyOffset(code) {
+    let i = UPPER.indexOf(code);
+    if (i >= 0) return 12 + i;
+    i = LOWER.indexOf(code);
+    return i >= 0 ? i : -1;
+  }
+
+  const baseMidi = () => (octave + 1) * 12;
+
+  function setOctave(o) {
+    octave = Math.max(0, Math.min(6, o));
+    $('octOut').textContent = `C${octave}`;
+    buildPiano();
+  }
+
+  function isTextField(el) {
+    if (!el || el === document.body) return false;
+    if (el.isContentEditable) return true;
+    const tag = el.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (tag === 'INPUT') return !['range', 'checkbox', 'radio', 'button', 'submit', 'file'].includes(el.type);
+    return false;
+  }
+
+  // Controls that use Space, Enter or Page keys themselves.
+  function usesKeys(el) {
+    if (!el || el === document.body) return false;
+    return ['INPUT', 'BUTTON', 'SUMMARY', 'A', 'LABEL'].includes(el.tagName);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const target = e.target;
+    if (isTextField(target)) {
+      if (target.id === 'pasteHex' && e.key === 'Enter') loadPasted();
+      return;
+    }
+    const off = keyOffset(e.code);
+    if (off >= 0) {
+      e.preventDefault();
+      if (e.repeat || held.has('k:' + e.code)) return;
+      const midi = baseMidi() + off;
+      held.add('k:' + e.code);
+      keyNotes.set(e.code, midi);
+      noteOn(midi, velocity, 'k:' + e.code);
+      return;
+    }
+    if (e.code === 'Minus' || e.code === 'Equal') {
+      e.preventDefault();
+      setOctave(octave + (e.code === 'Equal' ? 1 : -1));
+      return;
+    }
+    if (e.key === 'Escape') {
+      panic();
+      return;
+    }
+    if (usesKeys(target)) return;
+    if (e.code === 'PageUp' || e.code === 'PageDown') {
+      e.preventDefault();
+      setOctave(octave + (e.code === 'PageUp' ? 1 : -1));
+    } else if (e.code === 'Space') {
+      e.preventDefault();
+      if (!e.repeat) setSustain(!sustain);
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    const src = 'k:' + e.code;
+    if (!held.has(src)) return;
+    held.delete(src);
+    pianoMark(keyNotes.get(e.code), false);
+    keyNotes.delete(e.code);
+    noteOffSrc(src);
+  });
+
+  window.addEventListener('blur', () => {
+    [...held].forEach((src) => {
+      if (!src.startsWith('k:')) return;
+      held.delete(src);
+      const code = src.slice(2);
+      pianoMark(keyNotes.get(code), false);
+      keyNotes.delete(code);
+      noteOffSrc(src);
+    });
+  });
+
+  // On-screen piano.
+  const pointerNotes = new Map();
+
+  function pianoKeyCount() {
+    return window.innerWidth < 600 ? 17 : 29;
+  }
+
+  function buildPiano() {
+    const piano = $('piano');
+    piano.textContent = '';
+    const count = pianoKeyCount();
+    const base = baseMidi();
+    const isBlack = (m) => [1, 3, 6, 8, 10].includes(m % 12);
+    const whites = [];
+    for (let i = 0; i < count; i++) if (!isBlack(base + i)) whites.push(i);
+    const ww = 100 / whites.length;
+    let whiteIndex = 0;
+    for (let i = 0; i < count; i++) {
+      const midi = base + i;
+      const key = document.createElement('div');
+      key.dataset.midi = midi;
+      const cap = i < 12 ? LOWER_CAP[i] : UPPER_CAP[i - 12];
+      key.setAttribute('aria-label', `${NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`);
+      if (isBlack(midi)) {
+        key.className = 'black';
+        key.style.left = `calc(${whiteIndex * ww}% - ${ww * 0.3}%)`;
+        key.style.width = `${ww * 0.6}%`;
+      } else {
+        key.className = 'white';
+        whiteIndex++;
+        if (midi % 12 === 0) {
+          const c = document.createElement('span');
+          c.className = 'c-label';
+          c.textContent = `C${Math.floor(midi / 12) - 1}`;
+          key.appendChild(c);
+        }
+      }
+      key.appendChild(document.createTextNode(cap));
+      piano.appendChild(key);
+    }
+    voices.forEach((v) => { if (v.keyed && !v.sustained) pianoMark(v.note, true); });
+  }
+
+  function pianoMark(midi, on) {
+    if (midi === undefined) return;
+    const key = document.querySelector(`.piano [data-midi="${midi}"]`);
+    if (key) key.classList.toggle('down', on);
+  }
+
+  function keyAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const key = el && el.closest('.piano [data-midi]');
+    return key ? Number(key.dataset.midi) : null;
+  }
+
+  function pointerPlay(e) {
+    const midi = keyAt(e.clientX, e.clientY);
+    const src = 'p:' + e.pointerId;
+    const prev = pointerNotes.get(e.pointerId);
+    if (midi === prev) return;
+    if (prev !== undefined && prev !== null) {
+      pianoMark(prev, false);
+      held.delete(src);
+      noteOffSrc(src);
+    }
+    pointerNotes.set(e.pointerId, midi);
+    if (midi !== null) {
+      held.add(src);
+      noteOn(midi, velocity, src);
+    }
+  }
+
+  function pointerStop(e) {
+    if (!pointerNotes.has(e.pointerId)) return;
+    const prev = pointerNotes.get(e.pointerId);
+    pointerNotes.delete(e.pointerId);
+    const src = 'p:' + e.pointerId;
+    held.delete(src);
+    if (prev !== null) pianoMark(prev, false);
+    noteOffSrc(src);
+  }
+
+  function bindPiano() {
+    const piano = $('piano');
+    piano.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (piano.releasePointerCapture && piano.hasPointerCapture && piano.hasPointerCapture(e.pointerId)) piano.releasePointerCapture(e.pointerId);
+      pointerPlay(e);
+    });
+    window.addEventListener('pointermove', (e) => { if (pointerNotes.has(e.pointerId)) pointerPlay(e); });
+    window.addEventListener('pointerup', pointerStop);
+    window.addEventListener('pointercancel', pointerStop);
+    let resizeTimer = 0;
+    let lastCount = pianoKeyCount();
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (pianoKeyCount() !== lastCount) { lastCount = pianoKeyCount(); buildPiano(); }
+        for (let i = 0; i < 4; i++) drawEnvelope(i);
+      }, 150);
+    });
+  }
+
+  // ------------------------------------------------------------- MIDI
+  let midiAccess = null;
+
+  function bindMidiInput(input) {
+    if (!midiAccess) return;
+    midiAccess.inputs.forEach((inp) => { inp.onmidimessage = null; });
+    if (!input) return;
+    input.onmidimessage = (ev) => {
+      const [status, a, b] = ev.data;
+      const kind = status & 0xF0;
+      const ch = status & 0x0F;
+      const src = `m:${ch}:${a}`;
+      if (kind === 0x90 && b > 0) {
+        held.add(src);
+        noteOn(a, b, src);
+      } else if (kind === 0x80 || (kind === 0x90 && b === 0)) {
+        held.delete(src);
+        pianoMark(a, false);
+        noteOffSrc(src);
+      } else if (kind === 0xB0 && a === 64) {
+        setSustain(b >= 64);
+      } else if (kind === 0xB0 && (a === 120 || a === 123)) {
+        panic();
+      }
+    };
+  }
+
+  async function connectMidi() {
+    const msg = $('midiMsg');
+    msg.classList.remove('err');
+    if (!navigator.requestMIDIAccess) {
+      msg.classList.add('err');
+      msg.textContent = 'This browser has no Web MIDI. Chrome and Edge support it; Firefox asks for an add-on.';
+      return;
+    }
+    try {
+      midiAccess = await navigator.requestMIDIAccess();
+    } catch (e) {
+      msg.classList.add('err');
+      msg.textContent = 'MIDI access was refused here. Embedded pages often cannot use MIDI; open the lab file from tools/fm_lab/ in Chrome or Edge instead.';
+      return;
+    }
+    const sel = $('midiIn');
+    const fill = () => {
+      const inputs = [...midiAccess.inputs.values()];
+      sel.textContent = '';
+      inputs.forEach((inp) => {
+        const o = document.createElement('option');
+        o.value = inp.id;
+        o.textContent = inp.name || inp.id;
+        sel.appendChild(o);
+      });
+      sel.hidden = inputs.length === 0;
+      msg.textContent = inputs.length ? `Listening to ${inputs[0].name || 'MIDI input'}.` : 'MIDI is on, but no input is connected. Plug one in and it will appear here.';
+      bindMidiInput(inputs[0] || null);
+    };
+    sel.onchange = () => {
+      const inp = midiAccess.inputs.get(sel.value);
+      bindMidiInput(inp);
+      msg.textContent = `Listening to ${inp ? inp.name : 'nothing'}.`;
+    };
+    midiAccess.onstatechange = fill;
+    fill();
+  }
+
+  // ------------------------------------------------------------- wiring
+  function init() {
+    buildPresets();
+    buildChannel();
+    [0, 1].forEach((i) => buildOperator($('ops'), i, () => patch.ops[i], [0, 1, 2, 3]));
+    buildExtras();
+
+    mine = readStore(STORE_PATCHES) || [];
+    if (!Array.isArray(mine)) mine = [];
+    const saved = readStore(STORE_CURRENT);
+    if (saved && saved.patch && saved.patch.ops) {
+      patch = saved.patch;
+      if (!patch.x) patch.x = defaultExtras();
+      loadedFrom = saved.loadedFrom || loadedFrom;
+    }
+    $('patchName').value = patch.name || '';
+
+    buildVoices();
+    refreshControls();
+    renderHex();
+    renderAlgo();
+    renderEdited();
+    renderPresetButtons();
+    renderMine();
+    for (let i = 0; i < 4; i++) drawEnvelope(i);
+    buildPiano();
+    bindPiano();
+
+    $('start').addEventListener('click', () => startAudio());
+    $('panic').addEventListener('click', panic);
+    $('panic2').addEventListener('click', panic);
+    $('sustain').addEventListener('click', () => setSustain(!sustain));
+    $('octDown').addEventListener('click', () => setOctave(octave - 1));
+    $('octUp').addEventListener('click', () => setOctave(octave + 1));
+    const showVel = () => {
+      const att = attenuation(velocity);
+      $('velOut').textContent = `${velocity} · −${(att * 0.75).toFixed(2).replace(/\.?0+$/, '')} dB`;
+      $('velocity').setAttribute('aria-valuetext', `${velocity}, carrier ${att} steps quieter`);
+    };
+    $('velocity').addEventListener('input', () => { velocity = Number($('velocity').value); showVel(); });
+    showVel();
+    const showMaster = () => {
+      $('masterOut').textContent = `${master}%`;
+      if (node) node.port.postMessage({ gain: gainValue() });
+    };
+    $('master').addEventListener('input', () => { master = Number($('master').value); showMaster(); });
+    showMaster();
+    $('copyHex').addEventListener('click', (e) => copyText($('hexLine').textContent.replace(/\//g, ' / ').replace(/\s+/g, ' '), e.currentTarget));
+    $('copyPy').addEventListener('click', (e) => copyText(pythonRow(), e.currentTarget));
+    $('loadHex').addEventListener('click', loadPasted);
+    $('patchName').addEventListener('input', () => { patch.name = $('patchName').value.trim(); saveCurrent(); });
+    $('savePatch').addEventListener('click', () => {
+      const name = $('patchName').value.trim() || `patch ${mine.length + 1}`;
+      patch.name = name;
+      addMine(patch);
+      loadedFrom = { name: `mine:${mine.length - 1}`, bytes: JSON.stringify([gameBytes(patch), patch.x]) };
+      renderEdited();
+      renderPresetButtons();
+    });
+    $('sbiFile').addEventListener('change', () => {
+      const files = [...$('sbiFile').files];
+      if (files.length) importSbi(files);
+      $('sbiFile').value = '';
+    });
+    $('sbiSave').addEventListener('click', saveSbi);
+    $('midiBtn').addEventListener('click', connectMidi);
+    $('drawer').addEventListener('toggle', () => { drawEnvelope(2); drawEnvelope(3); });
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { for (let i = 0; i < 4; i++) drawEnvelope(i); });
+    }
+    new MutationObserver(() => { for (let i = 0; i < 4; i++) drawEnvelope(i); })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    // Test hooks for automated checks; not used by the page itself.
+    window.fmLab = { parseHex, gameBytes: () => gameBytes(patch), sbiToBytes, bytesToSbi, pythonRow, loadGameBytes, noteOn, noteOffSrc, shadow, voices: () => voices, scope: () => latestScope, startAudio, panic };
+  }
+
+  init();
+})();
+</script>
+
+</body></html>
