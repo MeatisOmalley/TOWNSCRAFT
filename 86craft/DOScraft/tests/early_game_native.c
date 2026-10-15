@@ -2,7 +2,20 @@
 #include "early_game.h"
 #include "player.h"
 
+#include "world.h"
+#include "gfx.h"
+
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x); return 1; } } while(0)
+
+/* A 16x16 world in the flat (non-column) layout. */
+int g_W=16,g_NC=1;
+u8 *g_blocks;
+int *g_zOff;
+short *g_columnMap;
+static u8 cells[16*16*WH];
+static int zOff[16];
+void world_set(int x,int y,int z,u8 b) { g_blocks[widx(x,y,z)]=b; }
+void gfx_text_shadow(u8 *fb,int x,int y,const char *s,u8 c,u8 shadow) { (void)fb;(void)x;(void)y;(void)s;(void)c;(void)shadow; }
 
 Player g_player;
 static char lastMessage[64];
@@ -91,5 +104,45 @@ int main(void)
         CHECK(I_CLAY_LUMP==dos_break_drop(B_CLAY,B_CLAY,I_CLAY_LUMP) && 3==inv_count(I_CLAY_LUMP));
     }
     printf("PASS: early-game materials\n");
+    /* Stations: lists show only their own recipes; grids add the hand's. */
+    CHECK(recipe_available(&g_recipes[RC_FIRE_BRICK],ST_FIRE) && !recipe_available(&g_recipes[RC_FIRE_BRICK],ST_FURNACE));
+    CHECK(!recipe_available(&g_recipes[RC_PLANKS],ST_FIRE) && recipe_available(&g_recipes[RC_PLANKS],ST_ANVIL));
+    CHECK(recipe_available(&g_recipes[RC_STONE_PICK],ST_ANVIL) && !recipe_available(&g_recipes[RC_STONE_PICK],ST_TABLE));
+    CHECK(!recipe_available(&g_recipes[RC_IRON_INGOT],ST_FURNACE) && recipe_available(&g_recipes[RC_IRON_INGOT],ST_BLOOMERY));
+    CHECK(g_recipes[RC_BRONZE].outCount==11 && g_recipes[RC_BRONZE].in[0][1]==10 && g_recipes[RC_BRONZE].in[1][0]==I_TIN);
+    /* Campfire: lit on placing, burns down, refuels, relights with a stick. */
+    for(i=0;i<16;++i) zOff[i]=i*16*WH;
+    g_zOff=zOff; g_blocks=cells;
+    dos_extras_clear(); inv_clear();
+    world_set(3,5,4,B_FIRE); dos_block_placed(B_FIRE,3,5,4);
+    dos_fire_open(3,5,4);
+    CHECK(g_fireLit && recipe_can_craft(&g_recipes[RC_FIRE_CHARCOAL])==0);
+    inv_add(B_LOG,1);
+    CHECK(recipe_can_craft(&g_recipes[RC_FIRE_CHARCOAL]));
+    for(i=0;i<1799;++i) dos_fires_tick();
+    CHECK(B_FIRE==wget(3,5,4) && g_fireLit);
+    dos_fires_tick();
+    CHECK(B_FIRE_OUT==wget(3,5,4) && !g_fireLit && !recipe_can_craft(&g_recipes[RC_FIRE_CHARCOAL]));
+    inv_clear(); inv_add(I_STICK,1);
+    dos_fire_add_fuel();
+    CHECK(B_FIRE_OUT==wget(3,5,4) && inv_count(I_STICK)==1);   /* One stick cannot light and burn */
+    inv_add(I_STICK,1);
+    dos_fire_add_fuel();
+    CHECK(B_FIRE==wget(3,5,4) && !inv_count(I_STICK) && g_fireLit);
+    inv_add(B_LOG,10);
+    for(i=0;i<10;++i) dos_fire_add_fuel();
+    CHECK(inv_count(B_LOG)==7);   /* Full after three logs on top of a stick */
+    /* Fires survive a save; breaking one forgets it. */
+    count=position=0;
+    inv_clear(); chests_clear();
+    dos_extras_save(put);
+    dos_extras_clear();
+    CHECK(dos_extras_load(get) && position==count);
+    dos_fire_open(3,5,4);
+    CHECK(g_fireLit);
+    world_set(3,5,4,B_AIR); dos_block_removed(B_FIRE,3,5,4);
+    count=position=0; dos_extras_save(put);
+    CHECK(count==2+INV_SLOTS);   /* Magic, wear, end: no fires left */
+    printf("PASS: stations and campfires\n");
     return 0;
 }

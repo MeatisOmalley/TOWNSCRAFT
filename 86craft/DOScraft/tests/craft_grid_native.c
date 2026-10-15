@@ -38,30 +38,39 @@ int main(void)
         CHECK(dos_craft_grid_take(&output,r->station,r->station==ST_HAND ? 2 : 3));
         CHECK(output.item==r->out && output.count==r->outCount);
         for(k=0;k<9;++k) CHECK(dos_craft_grid[k].item==0);
-        if(r->station==ST_TABLE) {
+        if(r->station!=ST_HAND) {
             fill_pattern(i);
             CHECK(dos_craft_grid_match(ST_HAND,2)!=r);
         }
     }
+    /* Every grid recipe has exactly one pattern; list stations have none. */
+    for(j=0;j<NUM_RECIPES;++j) {
+        int seen=0,grid=g_recipes[j].station==ST_HAND || g_recipes[j].station==ST_TABLE || g_recipes[j].station==ST_ANVIL;
+        for(i=0;i<sizeof(patterns)/sizeof(patterns[0]);++i) seen+=patterns[i].recipe==j;
+        CHECK(seen==grid);
+    }
+    CHECK(NUM_RECIPES==g_numRecipes);
     fill_pattern(0);
     CHECK(dos_craft_grid_match(ST_HAND,2));
     dos_craft_grid[1].item=B_COBBLE;
     dos_craft_grid[1].count=1;
     CHECK(dos_craft_grid_match(ST_HAND,2)==0);
-    fill_pattern(5);
+    for(i=0;i<sizeof(patterns)/sizeof(patterns[0]) && patterns[i].recipe!=RC_STONE_PICK;++i);
+    fill_pattern(i);
     {
-        Slot full={I_WOOD_PICK,64};
-        CHECK(!dos_craft_grid_take(&full,ST_TABLE,3));
+        Slot full={I_WOOD_PICK,64,0};
+        CHECK(!dos_craft_grid_take(&full,ST_ANVIL,3));
         CHECK(dos_craft_grid[0].count==1 && dos_craft_grid[4].count==1);
     }
     dos_craft_grid_clear();
     /* A horizontally mirrored, shifted axe should still be recognized. */
-    dos_craft_grid[1].item=B_PLANKS; dos_craft_grid[1].count=1;
-    dos_craft_grid[2].item=B_PLANKS; dos_craft_grid[2].count=1;
-    dos_craft_grid[5].item=B_PLANKS; dos_craft_grid[5].count=1;
+    dos_craft_grid[1].item=B_COBBLE; dos_craft_grid[1].count=1;
+    dos_craft_grid[2].item=B_COBBLE; dos_craft_grid[2].count=1;
+    dos_craft_grid[5].item=B_COBBLE; dos_craft_grid[5].count=1;
     dos_craft_grid[4].item=I_STICK; dos_craft_grid[4].count=1;
     dos_craft_grid[7].item=I_STICK; dos_craft_grid[7].count=1;
-    CHECK(dos_craft_grid_match(ST_TABLE,3)==&g_recipes[11]);
+    CHECK(dos_craft_grid_match(ST_ANVIL,3)==&g_recipes[RC_STONE_AXE]);
+    CHECK(dos_craft_grid_match(ST_TABLE,3)==0);
     inv_clear();
     dos_craft_grid_clear();
     dos_craft_grid[0].item=B_LOG;

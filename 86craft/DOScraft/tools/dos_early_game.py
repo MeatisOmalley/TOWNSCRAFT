@@ -236,6 +236,144 @@ def materials(name, one):
             '\tcase B_BED_FOOT:\n\tcase B_BED_HEAD:\n\t\t{\n\t\t\tstatic const u8 lo[3]={0,0,0},hi[3]={16,9,16};')
 
 
+# (key, station, output, count, inputs). Grid recipes (hand, table, anvil) get
+# patterns in src/platform/dos/craft_grid.c by key; the others are station lists.
+RECIPES = (
+    ('RC_PLANKS', 'ST_HAND', 'B_PLANKS', 4, (('B_LOG', 1),)),
+    ('RC_STICKS', 'ST_HAND', 'I_STICK', 4, (('B_PLANKS', 2),)),
+    ('RC_CRAFT_TABLE', 'ST_HAND', 'B_CRAFT_TABLE', 1, (('B_PLANKS', 4),)),
+    ('RC_TORCH', 'ST_HAND', 'B_TORCH', 4, (('I_COAL', 1), ('I_STICK', 1))),
+    ('RC_TORCH_CHARCOAL', 'ST_HAND', 'B_TORCH', 4, (('I_CHARCOAL', 1), ('I_STICK', 1))),
+    ('RC_CAMPFIRE', 'ST_HAND', 'B_FIRE', 1, (('I_STICK', 2),)),
+    ('RC_ANVIL', 'ST_HAND', 'B_ANVIL', 1, (('B_COBBLE', 4),)),
+    ('RC_FLINT_TIP', 'ST_HAND', 'I_FLINT_SPEAR', 1, (('I_STICK_SPEAR', 1), ('I_FLINT', 1))),
+    ('RC_CLAY_BLOCK', 'ST_HAND', 'B_CLAY', 1, (('I_CLAY_LUMP', 4),)),
+    ('RC_BRICK_BLOCK', 'ST_HAND', 'B_BRICKS', 1, (('I_BRICK', 4),)),
+    ('RC_DOOR', 'ST_TABLE', 'I_DOOR', 3, (('B_PLANKS', 6),)),
+    ('RC_CHEST', 'ST_TABLE', 'B_CHEST', 1, (('B_PLANKS', 8),)),
+    ('RC_BED', 'ST_TABLE', 'I_BED', 1, (('B_WOOL', 3), ('B_PLANKS', 3))),
+    ('RC_STONEBRICK', 'ST_TABLE', 'B_STONEBRICK', 4, (('B_STONE', 4),)),
+    ('RC_TNT', 'ST_TABLE', 'B_TNT', 1, (('I_GUNPOWDER', 5), ('B_SAND', 4))),
+    ('RC_GOLDEN_APPLE', 'ST_TABLE', 'I_GOLDEN_APPLE', 1, (('I_APPLE', 1), ('I_GOLD_INGOT', 4))),
+    ('RC_STICK_SPEAR', 'ST_ANVIL', 'I_STICK_SPEAR', 1, (('I_STICK', 3),)),
+    ('RC_FLINT_SPEAR', 'ST_ANVIL', 'I_FLINT_SPEAR', 1, (('I_FLINT', 1), ('I_STICK', 2))),
+    ('RC_STONE_AXE', 'ST_ANVIL', 'I_STONE_AXE', 1, (('B_COBBLE', 3), ('I_STICK', 2))),
+    ('RC_STONE_PICK', 'ST_ANVIL', 'I_STONE_PICK', 1, (('B_COBBLE', 3), ('I_STICK', 2))),
+    ('RC_WOOD_SHOVEL', 'ST_ANVIL', 'I_WOOD_SHOVEL', 1, (('B_PLANKS', 1), ('I_STICK', 2))),
+    ('RC_CLAY_FURNACE', 'ST_ANVIL', 'B_CLAY_FURNACE', 1, (('I_BRICK', 8),)),
+    ('RC_BELLOWS', 'ST_ANVIL', 'I_BELLOWS', 1, (('B_PLANKS', 4), ('B_WOOL', 2))),
+    ('RC_BLOOMERY', 'ST_ANVIL', 'B_BLOOMERY', 1, (('I_BRICK', 8), ('I_BELLOWS', 1))),
+) + tuple(
+    (f'RC_{metal}_{tool}', 'ST_ANVIL', f'I_{metal}_{tool}', 1, ((ingot, n), ('I_STICK', sticks)))
+    for metal, ingot in (('COPPER', 'I_COPPER_INGOT'), ('BRONZE', 'I_BRONZE_INGOT'),
+                         ('IRON', 'I_IRON_INGOT'), ('DIAMOND', 'I_DIAMOND'))
+    for tool, n, sticks in (('PICK', 3, 2), ('AXE', 3, 2), ('SHOVEL', 1, 2), ('SWORD', 2, 1), ('SPEAR', 1, 2))
+    if not (metal == 'COPPER' and tool == 'SWORD') and not (metal == 'DIAMOND' and tool == 'SPEAR')
+) + (
+    ('RC_FIRE_PORK', 'ST_FIRE', 'I_COOKED_PORK', 1, (('I_RAW_PORK', 1),)),
+    ('RC_FIRE_MUTTON', 'ST_FIRE', 'I_COOKED_MUTTON', 1, (('I_RAW_MUTTON', 1),)),
+    ('RC_FIRE_CHICKEN', 'ST_FIRE', 'I_COOKED_CHICKEN', 1, (('I_RAW_CHICKEN', 1),)),
+    ('RC_FIRE_BRICK', 'ST_FIRE', 'I_BRICK', 1, (('I_CLAY_LUMP', 1),)),
+    ('RC_FIRE_CHARCOAL', 'ST_FIRE', 'I_CHARCOAL', 1, (('B_LOG', 1),)),
+    ('RC_COPPER_INGOT', 'ST_FURNACE', 'I_COPPER_INGOT', 1, (('B_COPPER_ORE', 1),)),
+    ('RC_BRONZE', 'ST_FURNACE', 'I_BRONZE_INGOT', 11, (('I_COPPER_INGOT', 10), ('I_TIN', 1))),
+    ('RC_GLASS', 'ST_FURNACE', 'B_GLASS', 1, (('B_SAND', 1),)),
+    ('RC_STONE', 'ST_FURNACE', 'B_STONE', 1, (('B_COBBLE', 1),)),
+    ('RC_GOLD_INGOT', 'ST_FURNACE', 'I_GOLD_INGOT', 1, (('B_GOLD_ORE', 1),)),
+    ('RC_FURNACE_PORK', 'ST_FURNACE', 'I_COOKED_PORK', 1, (('I_RAW_PORK', 1),)),
+    ('RC_FURNACE_MUTTON', 'ST_FURNACE', 'I_COOKED_MUTTON', 1, (('I_RAW_MUTTON', 1),)),
+    ('RC_FURNACE_CHICKEN', 'ST_FURNACE', 'I_COOKED_CHICKEN', 1, (('I_RAW_CHICKEN', 1),)),
+    ('RC_FURNACE_CHARCOAL', 'ST_FURNACE', 'I_CHARCOAL', 1, (('B_LOG', 1),)),
+    ('RC_FURNACE_BRICK', 'ST_FURNACE', 'I_BRICK', 1, (('I_CLAY_LUMP', 1),)),
+    ('RC_IRON_INGOT', 'ST_BLOOMERY', 'I_IRON_INGOT', 1, (('B_IRON_ORE', 1),)),
+    ('RC_BLOOMERY_GOLD', 'ST_BLOOMERY', 'I_GOLD_INGOT', 1, (('B_GOLD_ORE', 1),)),
+)
+GRID_STATIONS = ('ST_HAND', 'ST_TABLE', 'ST_ANVIL')
+
+
+def recipe_table():
+    lines = []
+    for key, station, out, count, inputs in RECIPES:
+        cells = ','.join(f'{{{item},{n}}}' for item, n in inputs)
+        pad = ',{0,0}' * (3 - len(inputs))
+        lines.append(f'\t{{{station},{out},{count},{{{cells}{pad}}}}},   /* {key} */\n')
+    return 'const Recipe g_recipes[]=\n{\n' + ''.join(lines) + '};\n'
+
+
+def recipes(name, one, every, between):
+    if name == 'inventory.h':
+        one('enum\n{\n\tST_HAND,ST_TABLE,ST_FURNACE\n};',
+            'enum\n{\n\tST_HAND,ST_TABLE,ST_FURNACE,ST_ANVIL,ST_FIRE,ST_BLOOMERY\n};\n'
+            '/* Recipe positions in g_recipes, for crafting-grid patterns. */\nenum\n{\n\t' +
+            ','.join(key for key, *_ in RECIPES) + ',\n\tNUM_RECIPES\n};\n'
+            'extern int g_fireLit;                 /* The open campfire is burning */')
+    elif name == 'inventory.c':
+        start = '#define R1(st,out,n,a,an)'
+        end = 'const int g_numRecipes='
+        old = between(start, end)
+        one(old, recipe_table())
+        one('int g_furnaceFuel;\n', 'int g_furnaceFuel;\nint g_fireLit;\n')
+        one('int recipe_available(const Recipe *r,int station)\n{\n'
+            '\tif(ST_FURNACE==station)\n\t{\n\t\treturn ST_FURNACE==r->station;\n\t}\n'
+            '\treturn r->station==ST_HAND || (ST_TABLE==station && ST_TABLE==r->station);\n}',
+            'int recipe_available(const Recipe *r,int station)\n{\n'
+            '\t/* Fires and furnaces list their own recipes; grids add theirs to the hand\'s. */\n'
+            '\tif(ST_FURNACE==station || ST_FIRE==station || ST_BLOOMERY==station)\n'
+            '\t\treturn station==r->station;\n'
+            '\treturn r->station==ST_HAND || r->station==station;\n}')
+        every('static const u8 fuels[]={I_COAL,B_LOG,B_PLANKS,I_STICK};',
+              'static const u8 fuels[]={I_COAL,I_CHARCOAL,B_LOG,B_PLANKS,I_STICK};', 2)
+        one('\tcase I_COAL: return 8;\n', '\tcase I_COAL: return 8;\n\tcase I_CHARCOAL: return 8;\n')
+        one('\tif(ST_FURNACE!=r->station || g_furnaceFuel>0)',
+            '\t/* A campfire burns on its own fuel; it only has to be lit. */\n'
+            '\tif(ST_FIRE==r->station)\n\t{\n\t\treturn g_fireLit;\n\t}\n'
+            '\tif((ST_FURNACE!=r->station && ST_BLOOMERY!=r->station) || g_furnaceFuel>0)')
+        one('\tif(ST_FURNACE==r->station && g_furnaceFuel<=0)',
+            '\tif((ST_FURNACE==r->station || ST_BLOOMERY==r->station) && g_furnaceFuel<=0)')
+        one('\tif(ST_FURNACE==r->station)\n\t{\n\t\t--g_furnaceFuel;',
+            '\tif(ST_FURNACE==r->station || ST_BLOOMERY==r->station)\n\t{\n\t\t--g_furnaceFuel;')
+    elif name == 'game.c':
+        one('\tcase B_FURNACE:\n\t\tstate=GS_CRAFT;\n\t\tcraftStation=ST_FURNACE;',
+            '\tcase B_ANVIL:\n\t\topen_inventory(ST_ANVIL,1);\n\t\treturn 1;\n'
+            '\tcase B_FIRE:\n\tcase B_FIRE_OUT:\n'
+            '\t\tdos_fire_open(tX,tY,tZ);\n\t\tstate=GS_CRAFT;\n\t\tcraftStation=ST_FIRE;\n'
+            '\t\tcraftSel=craftScroll=0;\n\t\treturn 1;\n'
+            '\tcase B_BLOOMERY:\n\t\tstate=GS_CRAFT;\n\t\tcraftStation=ST_BLOOMERY;\n'
+            '\t\tcraftSel=craftScroll=0;\n\t\treturn 1;\n'
+            '\tcase B_CLAY_FURNACE:\n'
+            '\tcase B_FURNACE:\n\t\tstate=GS_CRAFT;\n\t\tcraftStation=ST_FURNACE;')
+        one('static int menu_grid_width(void) { return craftStation==ST_TABLE ? 3 : 2; }',
+            'static int menu_grid_width(void) { return craftStation==ST_TABLE || craftStation==ST_ANVIL ? 3 : 2; }')
+        one('craftStation==ST_TABLE ? "CRAFTING TABLE" : "CRAFTING"',
+            'craftStation==ST_ANVIL ? "STONE ANVIL" : craftStation==ST_TABLE ? "CRAFTING TABLE" : "CRAFTING"')
+        one('\tconst char *title=(ST_FURNACE==craftStation) ? "FURNACE" : '
+            '(ST_TABLE==craftStation ? "CRAFTING TABLE" : "CRAFTING");',
+            '\tconst char *title=dos_station_title(craftStation);')
+        one('\tif(ST_FURNACE==craftStation)\n\t{\n\t\tmemcpy(buf,"Fuel: ",7);',
+            '\tif(ST_FIRE==craftStation)\n\t{\n\t\tdos_fire_draw_status(g_fb);\n\t}\n'
+            '\telse if(ST_FURNACE==craftStation || ST_BLOOMERY==craftStation)\n\t{\n\t\tmemcpy(buf,"Fuel: ",7);')
+        one('"Burns coal, logs, planks, sticks"', '"Burns coal, charcoal, wood, sticks"')
+        one('\t\t\t\tgame_message(ST_FURNACE==craftStation && recipe_available(r,ST_FURNACE) ? '
+            '"Missing items or fuel" : "Missing items");',
+            '\t\t\t\tgame_message(ST_FIRE==craftStation && !g_fireLit ? "The fire is out" :\n'
+            '\t\t\t\t\t(ST_FURNACE==craftStation || ST_BLOOMERY==craftStation) ? '
+            '"Missing items or fuel" : "Missing items");')
+        one('\tcase KEY_ESC: case KEY_TAB: case KEY_C:\n\t\tstate=GS_PLAY;\n\t\tbreak;\n\t}\n\tcraftSel=CLAMP(craftSel,0,n-1);',
+            '\tcase KEY_F:\n\t\tif(ST_FIRE==craftStation) dos_fire_add_fuel();\n\t\tbreak;\n'
+            '\tcase KEY_ESC: case KEY_TAB: case KEY_C:\n\t\tstate=GS_PLAY;\n\t\tbreak;\n\t}\n\tcraftSel=CLAMP(craftSel,0,n-1);')
+        one('\t\t"Table: 3x3 grid. Furnace: smelt.",',
+            '\t\t"Anvil: tools. Table: carpentry.",')
+        one('\tworld_set(px,py,pz,(u8)block);\n\tblock_sfx((u8)block,px,py,pz,220,200);\n',
+            '\tworld_set(px,py,pz,(u8)block);\n\tdos_block_placed(block,px,py,pz);\n'
+            '\tblock_sfx((u8)block,px,py,pz,220,200);\n')
+        one('\tworld_set(x,y,z,B_AIR);\n\tremove_unsupported_above(x,y,z);\n',
+            '\tworld_set(x,y,z,B_AIR);\n\tdos_block_removed(id,x,y,z);\n\tremove_unsupported_above(x,y,z);\n')
+        one('\tmobs_tick(g_skyDarken);\n', '\tmobs_tick(g_skyDarken);\n\tdos_fires_tick();\n')
+        one('\tinv_clear();\n\tchests_clear();\n\tmobs_clear();\n',
+            '\tinv_clear();\n\tchests_clear();\n\tmobs_clear();\n\tdos_extras_clear();\n')
+        one('\terr=load_world();\n', '\tdos_extras_clear();\n\terr=load_world();\n')
+
+
 def adapt(name, data):
     if name not in NAMES:
         return data, []
@@ -259,4 +397,5 @@ def adapt(name, data):
     durability(name, one)
     textures(name, one, every)
     materials(name, one)
+    recipes(name, one, every, lambda start, end: text[text.index(start):text.index(end)])
     return text.encode(), recipe
