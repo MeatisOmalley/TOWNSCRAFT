@@ -234,8 +234,10 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
   measurement and acceptance all run in a pinned ares build, as DOScraft
   targets pinned 86Box VMs. High-level emulators give misleading
   performance and are not used for numbers. ares v148 has no Randnet
-  keyboard (N1 finding; ares issue #1482), so a pinned ares fork with a
-  keyboard device is required before the official controls can be tested.
+  keyboard (N1 finding; ares issue #1482), so the official controls are
+  tested in a pinned ares fork with a keyboard device (built 2026-10-15,
+  [research/randnet-keyboard-2026-10-15.md](research/randnet-keyboard-2026-10-15.md));
+  stock v148 stays the default until the fork is in regular use.
 - **Real hardware:** not an acceptance gate. Only period hardware features
   are used (no flashcart SD/USB/extra RAM), so the ROM should still run on
   a console, but this is not verified.

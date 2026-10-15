@@ -1,0 +1,383 @@
+From 2284c77f28537740565614ae8a3361d7cef59552 Mon Sep 17 00:00:00 2001
+From: MeatisOmalley <58967626+MeatisOmalley@users.noreply.github.com>
+Date: Thu, 15 Oct 2026 06:03:01 -0400
+Subject: [PATCH 1/2] ymfm: include <cstdlib> for std::abs
+
+Build-only fix: MSYS2 CLANG64 clang 23 no longer pulls in <cstdlib>
+transitively, so ymfm_opq.cpp fails on std::abs. No behaviour change.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ thirdparty/ymfm/src/ymfm_opq.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/thirdparty/ymfm/src/ymfm_opq.cpp b/thirdparty/ymfm/src/ymfm_opq.cpp
+index 78ae1616..90340b69 100644
+--- a/thirdparty/ymfm/src/ymfm_opq.cpp
++++ b/thirdparty/ymfm/src/ymfm_opq.cpp
+@@ -29,6 +29,7 @@
+ // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
+ #include "ymfm_opq.h"
++#include <cstdlib>
+ #include "ymfm_fm.ipp"
+ 
+ #define TEMPORARY_DEBUG_PRINTS (0)
+-- 
+2.56.0.windows.2
+
+
+From a69c076b5b7c74cf03bad23018f0cb29ec534cb1 Mon Sep 17 00:00:00 2001
+From: MeatisOmalley <58967626+MeatisOmalley@users.noreply.github.com>
+Date: Thu, 15 Oct 2026 06:03:02 -0400
+Subject: [PATCH 2/2] N64: Randnet keyboard controller-port device
+
+Adds "Randnet Keyboard" (RND-001) to the N64 controller ports, after the
+Console Protocols bus captures (fraser125) cited in ares issue #1482:
+- info (0x00/0xFF) answers identifier 0x0002, third byte 0x00;
+- 0x13 takes one LED byte (bit 0 Num Lock, 1 Caps Lock, 2 Power) and
+  returns three 16-bit key matrix positions plus a status byte (bit 0
+  Home, bit 4 more than three keys held, with all slots cleared);
+- no reply to 0x01 or other commands.
+Key slot order (press order, gaps closed on release, as the MiSTer core
+does) and whether Home counts toward the three-key limit are not
+verified against hardware. LED changes are shown as status messages.
+
+desktop-ui maps host keys onto the keyboard by position while keyboard
+capture is on: a JIS keyboard maps one to one; on a US keyboard the
+JIS-only keys use spare keys (Ro: RightControl, Yen: Delete, Muhenkan:
+Insert, Henkan: RightAlt, Katakana: RightSuper; Num Lock and the three
+keys below the LEDs: PrintScreen, ScrollLock, PageUp, PageDown).
+The Windows raw-input keyboard gains Katakana, Ro, Henkan, Muhenkan and
+Yen, appended so existing bindings keep their indices.
+
+New settings Nintendo64/ControllerPort1..4 (default Gamepad) pick the
+device connected at load: Gamepad, Mouse or Randnet Keyboard. A keyboard
+connected this way turns keyboard capture on.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ares/n64/controller/controller.cpp            |   1 +
+ ares/n64/controller/controller.hpp            |   1 +
+ ares/n64/controller/port.cpp                  |   3 +-
+ .../randnet-keyboard/randnet-keyboard.cpp     | 115 ++++++++++++++++++
+ .../randnet-keyboard/randnet-keyboard.hpp     |  23 ++++
+ desktop-ui/emulator/nintendo-64.cpp           |  48 ++++++++
+ desktop-ui/settings/settings.cpp              |   4 +
+ desktop-ui/settings/settings.hpp              |   1 +
+ ruby/input/keyboard/rawinput.cpp              |   7 ++
+ 9 files changed, 202 insertions(+), 1 deletion(-)
+ create mode 100644 ares/n64/controller/randnet-keyboard/randnet-keyboard.cpp
+ create mode 100644 ares/n64/controller/randnet-keyboard/randnet-keyboard.hpp
+
+diff --git a/ares/n64/controller/controller.cpp b/ares/n64/controller/controller.cpp
+index 9e0fdc7d..a57d8222 100644
+--- a/ares/n64/controller/controller.cpp
++++ b/ares/n64/controller/controller.cpp
+@@ -5,6 +5,7 @@ namespace ares::Nintendo64 {
+ #include "port.cpp"
+ #include "gamepad/gamepad.cpp"
+ #include "mouse/mouse.cpp"
++#include "randnet-keyboard/randnet-keyboard.cpp"
+ #include "aleck64/aleck64.cpp"
+ 
+ }
+diff --git a/ares/n64/controller/controller.hpp b/ares/n64/controller/controller.hpp
+index fe8ec7ba..7eff9631 100644
+--- a/ares/n64/controller/controller.hpp
++++ b/ares/n64/controller/controller.hpp
+@@ -12,4 +12,5 @@ struct Controller {
+ #include "port.hpp"
+ #include "gamepad/gamepad.hpp"
+ #include "mouse/mouse.hpp"
++#include "randnet-keyboard/randnet-keyboard.hpp"
+ #include "aleck64/aleck64.hpp"
+diff --git a/ares/n64/controller/port.cpp b/ares/n64/controller/port.cpp
+index 1bb03704..b3820c3f 100644
+--- a/ares/n64/controller/port.cpp
++++ b/ares/n64/controller/port.cpp
+@@ -16,7 +16,7 @@ auto ControllerPort::load(Node::Object parent) -> void {
+     port->setSupported({"Aleck64"});
+   } else {
+     port->setHotSwappable(true);
+-    port->setSupported({"Gamepad", "Mouse"});
++    port->setSupported({"Gamepad", "Mouse", "Randnet Keyboard"});
+   }
+ 
+   port->setAllocate([&](auto name) { return allocate(name); });
+@@ -35,6 +35,7 @@ auto ControllerPort::save() -> void {
+ auto ControllerPort::allocate(string name) -> Node::Peripheral {
+   if(name == "Gamepad") device = std::make_unique<Gamepad>(port);
+   if(name == "Mouse"  ) device = std::make_unique<Mouse>(port);
++  if(name == "Randnet Keyboard") device = std::make_unique<RandnetKeyboard>(port);
+   if(name == "Aleck64") device = std::make_unique<Aleck64Controls>(port);
+   if(device) return device->node;
+   return {};
+diff --git a/ares/n64/controller/randnet-keyboard/randnet-keyboard.cpp b/ares/n64/controller/randnet-keyboard/randnet-keyboard.cpp
+new file mode 100644
+index 00000000..32c85a25
+--- /dev/null
++++ b/ares/n64/controller/randnet-keyboard/randnet-keyboard.cpp
+@@ -0,0 +1,115 @@
++//Randnet Keyboard protocol, as far as it is documented:
++//  fraser125, "Randnet Keyboard", Console Protocols (bus captures of a real
++//    RND-001 on a 64DD running the Randnet disk): identifier 00 02 00, command
++//    0x13 with one LED byte (bit 0 Num Lock, 1 Caps Lock, 2 Power), 7-byte
++//    reply of three 16-bit matrix positions and a status byte (bit 0 Home,
++//    bit 4 "too many keys": a fourth key clears all key slots), no reply to 0x01.
++//  N64brew wiki "Keyboard": the same matrix positions.
++//  usb64 and the MiSTer N64 core: device-side reimplementations.
++//Not verified against hardware here: the order of keys within the three slots
++//(this keeps press order and closes gaps on release, as MiSTer does), whether
++//Home counts toward the three-key limit (it does not here), whether 0xFF
++//resets the LEDs (it does not here), and replies to short or unknown commands
++//(none here).
++
++RandnetKeyboard::RandnetKeyboard(Node::Port parent) {
++  node = parent->append<Node::Peripheral>("Randnet Keyboard");
++  portName = parent->name();
++
++  //key names follow the Console Protocols key table (rows top to bottom, left to right)
++  static const struct { const char* name; u16 matrix; } layout[] = {
++    {"Escape", 0x0a08}, {"F1", 0x0b01}, {"F2", 0x0a01}, {"F3", 0x0b08}, {"F4", 0x0a07},
++    {"F5", 0x0b07}, {"F6", 0x0a02}, {"F7", 0x0b02}, {"F8", 0x0a03}, {"F9", 0x0b03},
++    {"F10", 0x0a04}, {"F11", 0x0203}, {"F12", 0x0b06}, {"Num Lock", 0x0a05},
++    {"Below Num Lock LED", 0x0b05}, {"Below Caps Lock LED", 0x0208}, {"Below Power LED", 0x0207},
++
++    {"Hankaku/Zenkaku", 0x0d05}, {"1", 0x0c05}, {"2", 0x0505}, {"3", 0x0605}, {"4", 0x0705},
++    {"5", 0x0805}, {"6", 0x0905}, {"7", 0x0906}, {"8", 0x0806}, {"9", 0x0706}, {"0", 0x0606},
++    {"-", 0x0506}, {"^", 0x0c06}, {"Backspace", 0x0d06},
++
++    {"Tab", 0x0d01}, {"Q", 0x0c01}, {"W", 0x0501}, {"E", 0x0601}, {"R", 0x0701}, {"T", 0x0801},
++    {"Y", 0x0901}, {"U", 0x0904}, {"I", 0x0804}, {"O", 0x0704}, {"P", 0x0604}, {"'", 0x0504},
++    {"{", 0x0c04}, {"}", 0x0406},
++
++    {"Caps Lock", 0x0f05}, {"A", 0x0d07}, {"S", 0x0c07}, {"D", 0x0507}, {"F", 0x0607},
++    {"G", 0x0707}, {"H", 0x0807}, {"J", 0x0907}, {"K", 0x0903}, {"L", 0x0803}, {"+", 0x0703},
++    {"*", 0x0603}, {"Enter", 0x0d04},
++
++    {"Left Shift", 0x0e01}, {"Z", 0x0d08}, {"X", 0x0c08}, {"C", 0x0508}, {"V", 0x0608},
++    {"B", 0x0708}, {"N", 0x0808}, {"M", 0x0908}, {"<", 0x0902}, {">", 0x0802}, {"?", 0x0702},
++    {"Long Dash", 0x1004}, {"Up", 0x0204}, {"Right Shift", 0x0e06},
++
++    {"Ctrl", 0x1107}, {"Opt", 0x0f07}, {"|", 0x1105}, {"Alt", 0x1008}, {"Eisu", 0x1002},
++    {"Space", 0x0602}, {"Kana", 0x0e02}, {"Japanese Character", 0x1006}, {"Home", 0x0000},
++    {"End", 0x0206}, {"Left", 0x0205}, {"Down", 0x0305}, {"Right", 0x0405},
++  };
++  for(auto& key : layout) {
++    keys.push_back({node->append<Node::Input::Button>(key.name), key.matrix});
++  }
++
++  leds = 0;
++  home = 0;
++}
++
++RandnetKeyboard::~RandnetKeyboard() {
++}
++
++auto RandnetKeyboard::comm(n8 send, n8 recv, n8 input[], n8 output[]) -> n2 {
++  b1 valid = 0;
++  b1 over = 0;
++
++  //status
++  if(input[0] == 0x00 || input[0] == 0xff) {
++    output[0] = 0x00;  //0x0002 = Randnet keyboard
++    output[1] = 0x02;
++    output[2] = 0x00;
++    valid = 1;
++  }
++
++  //read keypress; the second byte sets the LEDs
++  if(input[0] == 0x13 && send >= 2) {
++    setLeds(input[1]);
++    poll();
++    n8 status = 0;
++    status.bit(0) = home;
++    for(u32 slot : range(3)) {
++      u16 matrix = held.size() <= 3 && slot < held.size() ? held[slot] : 0;
++      output[slot * 2 + 0] = matrix >> 8;
++      output[slot * 2 + 1] = matrix >> 0;
++    }
++    if(held.size() > 3) status.bit(4) = 1;
++    output[6] = status;
++    over = recv > 7;
++    valid = 1;
++  }
++
++  n2 result = 0;
++  result.bit(0) = valid;
++  result.bit(1) = over;
++  return result;
++}
++
++auto RandnetKeyboard::poll() -> void {
++  for(auto& key : keys) {
++    platform->input(key.button);
++    bool pressed = key.button->value();
++    if(!key.matrix) { home = pressed; continue; }
++    auto position = std::find(held.begin(), held.end(), key.matrix);
++    if(pressed && position == held.end()) held.push_back(key.matrix);
++    if(!pressed && position != held.end()) held.erase(position);
++  }
++}
++
++auto RandnetKeyboard::setLeds(n8 data) -> void {
++  if(data == leds) return;
++  leds = data;
++  string message{
++    portName, " keyboard LEDs: Power ", leds.bit(2) ? "on" : "off",
++    ", Caps Lock ", leds.bit(1) ? "on" : "off", ", Num Lock ", leds.bit(0) ? "on" : "off"
++  };
++  platform->status(message);
++}
++
++auto RandnetKeyboard::serialize(serializer& s) -> void {
++  s(leds);
++}
+diff --git a/ares/n64/controller/randnet-keyboard/randnet-keyboard.hpp b/ares/n64/controller/randnet-keyboard/randnet-keyboard.hpp
+new file mode 100644
+index 00000000..bcc75f57
+--- /dev/null
++++ b/ares/n64/controller/randnet-keyboard/randnet-keyboard.hpp
+@@ -0,0 +1,23 @@
++//Randnet Keyboard (RND-001): the Japanese 64DD keyboard used by the Randnet disk.
++//Joybus identifier 0x0002; command 0x13 sends one LED byte and returns three
++//2-byte key matrix positions plus a status byte. See randnet-keyboard.cpp for
++//sources and the details that are not verified against hardware.
++struct RandnetKeyboard : Controller {
++  struct Key {
++    Node::Input::Button button;
++    u16 matrix;  //0x0000 = reported in the status byte instead (Home)
++  };
++  std::vector<Key> keys;
++  std::vector<u16> held;  //matrix positions in press order
++  string portName;
++  n8 leds;
++  b1 home;
++
++  RandnetKeyboard(Node::Port);
++  ~RandnetKeyboard();
++
++  auto comm(n8 send, n8 recv, n8 input[], n8 output[]) -> n2 override;
++  auto poll() -> void;
++  auto setLeds(n8 data) -> void;
++  auto serialize(serializer&) -> void override;
++};
+diff --git a/desktop-ui/emulator/nintendo-64.cpp b/desktop-ui/emulator/nintendo-64.cpp
+index 27022727..13cca10d 100644
+--- a/desktop-ui/emulator/nintendo-64.cpp
++++ b/desktop-ui/emulator/nintendo-64.cpp
+@@ -6,6 +6,7 @@ struct Nintendo64 : Emulator {
+   auto unload() -> void override;
+   auto save() -> bool override;
+   auto pak(ares::Node::Object) -> std::shared_ptr<vfs::directory> override;
++  auto input(ares::Node::Input::Input) -> void override;
+ 
+   std::shared_ptr<mia::Pak> disk;
+   u32 regionID = 0;
+@@ -136,6 +137,14 @@ auto Nintendo64::load() -> LoadResult {
+ 
+   for(auto id : range(controllers)) {
+     if(auto port = root->find<ares::Node::Port>({"Controller Port ", 1 + id})) {
++      string device = settings.nintendo64.controllerPort[id];
++      if(device == "Mouse" || device == "Randnet Keyboard") {
++        port->allocate(device);
++        port->connect();
++        //the Randnet keyboard reads the host keyboard only while it is captured
++        if(device == "Randnet Keyboard") program.keyboardCaptured = true;
++        continue;
++      }
+       auto peripheral = port->allocate("Gamepad");
+       port->connect();
+       bool transferPakConnected = false;
+@@ -409,3 +418,42 @@ auto Nintendo64::pak(ares::Node::Object node) -> std::shared_ptr<vfs::directory>
+   if(node->name() == "Gamepad") return gamepad->pak;
+   return {};
+ }
++
++//Randnet Keyboard keys follow host keys by position: a JIS host keyboard maps
++//one to one; on a US keyboard the keys it lacks use spare keys instead.
++auto Nintendo64::input(ares::Node::Input::Input input) -> void {
++  auto device = ares::Node::parent(input);
++  if(!device) return;
++
++  if(device->name() != "Randnet Keyboard") return Emulator::input(input);
++
++  if(!program.keyboardCaptured) return;
++  auto button = input->cast<ares::Node::Input::Button>();
++  if(!button) return;
++
++  static const struct { const char* name; const char* host[2]; } hostKeys[] = {
++    {"Num Lock", {"PrintScreen"}}, {"Below Num Lock LED", {"ScrollLock"}},
++    {"Below Caps Lock LED", {"PageUp"}}, {"Below Power LED", {"PageDown"}},
++    {"Hankaku/Zenkaku", {"Tilde"}},
++    {"1", {"Num1"}}, {"2", {"Num2"}}, {"3", {"Num3"}}, {"4", {"Num4"}}, {"5", {"Num5"}},
++    {"6", {"Num6"}}, {"7", {"Num7"}}, {"8", {"Num8"}}, {"9", {"Num9"}}, {"0", {"Num0"}},
++    {"-", {"Dash"}}, {"^", {"Equal"}},
++    {"'", {"LeftBracket"}}, {"{", {"RightBracket"}}, {"}", {"Backslash"}},
++    {"Caps Lock", {"CapsLock"}}, {"+", {"Semicolon"}}, {"*", {"Apostrophe"}},
++    {"Enter", {"Return", "Enter"}},
++    {"Left Shift", {"LeftShift"}}, {"<", {"Comma"}}, {">", {"Period"}}, {"?", {"Slash"}},
++    {"Long Dash", {"Ro", "RightControl"}}, {"Right Shift", {"RightShift"}},
++    {"Ctrl", {"LeftControl"}}, {"Opt", {"LeftSuper"}}, {"|", {"Yen", "Delete"}},
++    {"Alt", {"LeftAlt"}}, {"Eisu", {"Muhenkan", "Insert"}}, {"Space", {"Spacebar"}},
++    {"Kana", {"Henkan", "RightAlt"}}, {"Japanese Character", {"Katakana", "RightSuper"}},
++  };
++
++  for(auto& keys : hostKeys) {
++    if(input->name() != keys.name) continue;
++    bool pressed = false;
++    for(auto key : keys.host) if(key) pressed |= inputKeyboard(key);
++    return button->setValue(pressed);
++  }
++  //letters, F-keys, Escape, Tab, Backspace, Home, End and arrows share their host names
++  button->setValue(inputKeyboard(input->name()));
++}
+diff --git a/desktop-ui/settings/settings.cpp b/desktop-ui/settings/settings.cpp
+index adb061a7..e0290ed5 100644
+--- a/desktop-ui/settings/settings.cpp
++++ b/desktop-ui/settings/settings.cpp
+@@ -131,6 +131,10 @@ auto Settings::process(bool load) -> void {
+ 
+   bind(boolean, "Nintendo64/ExpansionPak", nintendo64.expansionPak);
+   bind(string, "Nintendo64/ControllerPakBankString", nintendo64.controllerPakBankString);
++  for(u32 id : range(4)) {
++    string path{"Nintendo64/ControllerPort", 1 + id};
++    bind(string, path, nintendo64.controllerPort[id]);
++  }
+ 
+   bind(boolean, "GameBoyAdvance/Player", gameBoyAdvance.player);
+ 
+diff --git a/desktop-ui/settings/settings.hpp b/desktop-ui/settings/settings.hpp
+index db32b01b..22dc23a4 100644
+--- a/desktop-ui/settings/settings.hpp
++++ b/desktop-ui/settings/settings.hpp
+@@ -117,6 +117,7 @@ struct Settings : Markup::Node {
+     bool expansionPak = true;
+     u8 controllerPakBankCount = 1;
+     string controllerPakBankString = "32KiB (Default)";
++    string controllerPort[4] = {"Gamepad", "Gamepad", "Gamepad", "Gamepad"};  //device connected at load
+   } nintendo64;
+ 
+   struct GameBoyAdvance {
+diff --git a/ruby/input/keyboard/rawinput.cpp b/ruby/input/keyboard/rawinput.cpp
+index 3f5eec07..3b1b5279 100644
+--- a/ruby/input/keyboard/rawinput.cpp
++++ b/ruby/input/keyboard/rawinput.cpp
+@@ -163,6 +163,13 @@ struct InputKeyboardRawInput {
+     keys.push_back({0x005c, 2, "RightSuper"});
+     keys.push_back({0x005d, 2, "Menu"});
+ 
++    //Japanese (JIS) keys, appended so that existing bindings keep their indices
++    keys.push_back({0x0070, 0, "Katakana"});
++    keys.push_back({0x0073, 0, "Ro"});
++    keys.push_back({0x0079, 0, "Henkan"});
++    keys.push_back({0x007b, 0, "Muhenkan"});
++    keys.push_back({0x007d, 0, "Yen"});
++
+     kb.hid->setVendorID(HID::Keyboard::GenericVendorID);
+     kb.hid->setProductID(HID::Keyboard::GenericProductID);
+     kb.hid->setPathID(0);
+-- 
+2.56.0.windows.2
+

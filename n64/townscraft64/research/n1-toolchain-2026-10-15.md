@@ -67,7 +67,7 @@ default.
 | Device | ares v148 | libdragon `39d0d609` | Result |
 | --- | --- | --- | --- |
 | N64 Mouse | Supported: controller port device "Mouse" (`ares/n64/controller/mouse`) | `JOYPAD_STYLE_MOUSE`; deltas in `stick_x/stick_y`, left/right buttons as A/B | **Works.** User-verified 2026-10-15 in ares v148: P2 reports Mouse, motion and buttons reach the ROM. |
-| Randnet keyboard | **Not supported.** Ports offer only Gamepad, Mouse (and Aleck64). Open request: ares issue #1482. | Only the raw Joybus command ID (`0x13`) and identifier (`0x0002`) are defined; no driver. | Needs an **ares fork** with a keyboard device, and our own keyboard driver. |
+| Randnet keyboard | **Not supported.** Ports offer only Gamepad, Mouse (and Aleck64). Open request: ares issue #1482. | Only the raw Joybus command ID (`0x13`) and identifier (`0x0002`) are defined; no driver. | Needs an **ares fork** with a keyboard device, and our own keyboard driver. Fork done 2026-10-15: [keyboard report](randnet-keyboard-2026-10-15.md). |
 | 64DD | Emulated (`ares/n64/dd`, "Nintendo 64DD" system). Needs the 64DD IPL firmware, which is not downloaded here (it must come from the user's own hardware, like DOScraft's ROMs). | Detection, ASIC register access and the 64DD RTC only (`include/dd.h`); **no disk read/write driver**. | Emulator side available; we write the disk driver at N8. |
 
 ### Using the mouse in ares

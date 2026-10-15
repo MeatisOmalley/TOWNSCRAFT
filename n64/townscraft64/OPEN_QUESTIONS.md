@@ -97,6 +97,8 @@ Implementation notes (verify at N1/N3):
 - Emulator support for the Randnet keyboard is unconfirmed. If ares lacks
   it, plan either an emulator patch (as DOScraft patched 86Box) or
   real-hardware testing. Mouse support in ares also needs checking.
+  *2026-10-15: ares v148 lacks it; a pinned ares fork adds it — see
+  research/randnet-keyboard-2026-10-15.md.*
 
 Fallback controller mapping (Turok-style):
 
