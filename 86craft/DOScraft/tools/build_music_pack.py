@@ -8,8 +8,13 @@ judgment happens here, offline, so the game only replays timed register work:
   quantized to the game's 100 Hz timer.
 - Voices are allocated to the 9 OPL2 channels ahead of time. When more notes
   sound than there are channels, the oldest note is taken over ("steal").
-- The sustain pedal (CC 64) holds note releases. Volume (CC 7), expression
-  (CC 11) and velocity become carrier attenuation in 0.75 dB steps.
+- The sustain pedal (CC 64) holds note releases. On channels without any
+  pedal data, notes on fading instruments (piano, electric piano, bell,
+  pluck) ring for at least --hold seconds (default 1), but never past the
+  next strike of the same key; many MIDI files have clipped, staccato notes.
+  Sustained instruments keep their written lengths.
+- Volume (CC 7), expression (CC 11) and velocity become carrier attenuation
+  in 0.75 dB steps.
 - General MIDI programs map to a few FM patches stored in the pack, so patches
   can be retuned without rebuilding the game. The drum channel (MIDI 10) is
   dropped; pitch bend and other controllers are ignored; notes outside the
@@ -44,7 +49,10 @@ NOTE_OFF, NOTE_ON, PATCH, WAIT = range(4)
 # Two-operator patches: modulator then carrier registers 20h, 40h, 60h, 80h,
 # E0h, then C0h. 20h bit 5 holds the note at its sustain level while keyed.
 PATCHES = (
-    ('piano',  (0x01, 0x18, 0xF2, 0x54, 0x00), (0x01, 0x00, 0xF2, 0x37, 0x00), 0x06),
+    # Piano carrier: sustain level -6 dB, release 4 (about 2 s to -40 dB). These
+    # patches do not hold at the sustain level, so the release rate also sets
+    # how long a held note rings.
+    ('piano',  (0x01, 0x18, 0xF2, 0x54, 0x00), (0x01, 0x00, 0xF2, 0x24, 0x00), 0x06),
     ('epiano', (0x01, 0x1A, 0xF3, 0x35, 0x00), (0x01, 0x04, 0xF2, 0x24, 0x00), 0x06),
     ('bell',   (0x07, 0x18, 0xF5, 0x55, 0x00), (0x01, 0x00, 0xF3, 0x45, 0x00), 0x02),
     ('pad',    (0x21, 0x1E, 0x62, 0x14, 0x00), (0x21, 0x00, 0x52, 0x15, 0x00), 0x08),
@@ -54,6 +62,10 @@ PATCHES = (
     ('lead',   (0x21, 0x16, 0xF1, 0x16, 0x00), (0x21, 0x00, 0xF1, 0x16, 0x00), 0x0A),
 )
 PATCH_INDEX = {name: i for i, (name, *_rest) in enumerate(PATCHES)}
+# Instruments that fade on their own, like a struck or plucked string. Without
+# pedal data, their short notes ring for at least DEFAULT_HOLD seconds.
+DECAYING = {'piano', 'epiano', 'bell', 'pluck'}
+DEFAULT_HOLD = 1.0
 
 
 def program_patch(program):
@@ -177,106 +189,146 @@ def attenuation(velocity, volume, expression):
     return max(0, min(63, round(-20 * math.log10(level) / 0.75)))
 
 
-def convert_song(data):
-    """MIDI bytes -> (events [(tick, type, channel, a, b)], report)."""
+def read_notes(data):
+    """MIDI bytes -> (notes, info). Notes are dicts with on/off in game ticks,
+    MIDI channel, key, attenuation and patch; the pedal (CC 64) is applied."""
     division, midi = parse_midi(data)
     if not division:
         raise ValueError('MIDI division is zero')
     to_seconds = seconds_function(division, midi)
-    # Note offs sort before note ons at the same tick, so repeated notes retrigger.
     midi.sort(key=lambda e: (e[0], 0 if e[2] == 'off' else 1, e[1]))
-    report = dict(notes=0, max_polyphony=0, steals=0, drum_notes=0, octave_moves=0,
-                  pitch_bends=0, patches_used=set())
+    info = dict(drum_notes=0, pitch_bends=0, pedal_channels=set())
     program = [0] * 16
     volume = [100] * 16
     expression = [127] * 16
     pedal = [False] * 16
-    held = [set() for _ in range(16)]      # Notes released while the pedal is down
-    voice = {}                              # (midi channel, note) -> OPL channel
-    owner = [None] * CHANNELS               # OPL channel -> (midi channel, note)
-    started = [0] * CHANNELS
-    last_used = [0] * CHANNELS
-    patch = [None] * CHANNELS
-    out = []
-    serial = 0
+    held = [set() for _ in range(16)]      # Keys released while the pedal is down
+    active = {}                             # (midi channel, key) -> sounding note
+    notes = []
+    tick = 0
 
-    def release(key, tick):
-        ch = voice.pop(key, None)
-        if ch is not None:
-            owner[ch] = None
-            last_used[ch] = serial
-            out.append((tick, NOTE_OFF, ch, 0, 0))
+    def close(key, at):
+        note = active.pop(key, None)
+        if note is not None:
+            note['off'] = at
 
     for tick_midi, _order, kind, mch, a, b in midi:
         tick = round(to_seconds(tick_midi) * TICK_HZ)
         if kind == 'program':
             program[mch] = a
         elif kind == 'bend':
-            report['pitch_bends'] += 1
+            info['pitch_bends'] += 1
         elif kind == 'cc':
             if a == 7:
                 volume[mch] = b
             elif a == 11:
                 expression[mch] = b
             elif a == 64:
+                info['pedal_channels'].add(mch)
                 pedal[mch] = b >= 64
                 if not pedal[mch]:
-                    for note in sorted(held[mch]):
-                        release((mch, note), tick)
+                    for key in sorted(held[mch]):
+                        close((mch, key), tick)
                     held[mch].clear()
             elif a in (120, 123):               # All sound / notes off
-                for key in [k for k in voice if k[0] == mch]:
-                    release(key, tick)
+                for key in [k for k in active if k[0] == mch]:
+                    close(key, tick)
                 held[mch].clear()
+        elif mch == 9:
+            info['drum_notes'] += kind == 'on'
         elif kind == 'off':
-            if mch == 9:
-                continue
-            if pedal[mch] and (mch, a) in voice:
+            if pedal[mch] and (mch, a) in active:
                 held[mch].add(a)
             else:
-                release((mch, a), tick)
+                close((mch, a), tick)
         elif kind == 'on':
-            if mch == 9:
-                report['drum_notes'] += 1
-                continue
-            serial += 1
-            key = (mch, a)
             held[mch].discard(a)
-            release(key, tick)
-            free = [c for c in range(CHANNELS) if owner[c] is None]
-            want = program_patch(program[mch])
-            if free:
-                # Prefer a free channel that already has this patch, then the
-                # one idle longest (its release tail has faded most).
-                ch = min(free, key=lambda c: (patch[c] != want, last_used[c]))
-            else:
-                ch = min(range(CHANNELS), key=lambda c: started[c])
-                report['steals'] += 1
-                stolen = owner[ch]
-                voice.pop(stolen, None)
-                held[stolen[0]].discard(stolen[1])
-            note = a
-            while note < 12:
-                note += 12
-            while note > 107:
-                note -= 12
-            if note != a:
-                report['octave_moves'] += 1
-            if patch[ch] != want:
-                out.append((tick, PATCH, ch, want, 0))
-                patch[ch] = want
-            report['patches_used'].add(PATCHES[want][0])
-            out.append((tick, NOTE_ON, ch, note, attenuation(b, volume[mch], expression[mch])))
-            owner[ch] = key
-            voice[key] = ch
-            started[ch] = serial
-            report['notes'] += 1
-            report['max_polyphony'] = max(report['max_polyphony'], len(voice))
-    end = out[-1][0] if out else 0
-    for key in list(voice):
-        release(key, end)
+            close((mch, a), tick)               # Striking a sounding key restarts it
+            note = dict(on=tick, off=None, channel=mch, key=a, patch=program_patch(program[mch]),
+                        attenuation=attenuation(b, volume[mch], expression[mch]))
+            active[(mch, a)] = note
+            notes.append(note)
+    for key in list(active):
+        close(key, tick)
+    for note in notes:
+        note['off'] = max(note['off'], note['on'] + 1)
+    return notes, info
+
+
+def apply_hold(notes, pedal_channels, hold):
+    """Let short notes on decaying instruments ring for at least hold seconds,
+    on channels without pedal data, never past the next strike of that key.
+    Returns how many notes were lengthened."""
+    hold_ticks = round(hold * TICK_HZ)
+    if hold_ticks <= 0:
+        return 0
+    next_strike = {}
+    longer = 0
+    for note in sorted(notes, key=lambda n: n['on'], reverse=True):
+        key = (note['channel'], note['key'])
+        if (note['channel'] not in pedal_channels and PATCHES[note['patch']][0] in DECAYING and
+                note['off'] < note['on'] + hold_ticks):
+            target = min(note['on'] + hold_ticks, next_strike.get(key, note['on'] + hold_ticks))
+            if target > note['off']:
+                note['off'] = target
+                longer += 1
+        next_strike[key] = note['on']
+    return longer
+
+
+def convert_song(data, hold=DEFAULT_HOLD):
+    """MIDI bytes -> (events [(tick, type, channel, a, b)], report)."""
+    notes, info = read_notes(data)
+    report = dict(notes=len(notes), max_polyphony=0, steals=0, drum_notes=info['drum_notes'],
+                  octave_moves=0, pitch_bends=info['pitch_bends'], patches_used=set(),
+                  pedal=bool(info['pedal_channels']),
+                  sustained_notes=apply_hold(notes, info['pedal_channels'], hold))
+    # Releases sort before strikes at the same tick, so voices free up first.
+    timeline = sorted([(n['on'], 1, i) for i, n in enumerate(notes)] +
+                      [(n['off'], 0, i) for i, n in enumerate(notes)])
+    voice = {}                              # note index -> OPL channel
+    owner = [None] * CHANNELS               # OPL channel -> note index
+    started = [0] * CHANNELS
+    last_used = [0] * CHANNELS
+    patch = [None] * CHANNELS
+    out = []
+    for serial, (tick, strike, index) in enumerate(timeline, 1):
+        if not strike:
+            ch = voice.pop(index, None)
+            if ch is not None:
+                owner[ch] = None
+                last_used[ch] = serial
+                out.append((tick, NOTE_OFF, ch, 0, 0))
+            continue
+        note = notes[index]
+        want = note['patch']
+        free = [c for c in range(CHANNELS) if owner[c] is None]
+        if free:
+            # Prefer a free channel that already has this patch, then the one
+            # idle longest (its release tail has faded most).
+            ch = min(free, key=lambda c: (patch[c] != want, last_used[c]))
+        else:
+            ch = min(range(CHANNELS), key=lambda c: started[c])
+            report['steals'] += 1
+            voice.pop(owner[ch], None)
+        key = note['key']
+        while key < 12:
+            key += 12
+        while key > 107:
+            key -= 12
+        if key != note['key']:
+            report['octave_moves'] += 1
+        if patch[ch] != want:
+            out.append((tick, PATCH, ch, want, 0))
+            patch[ch] = want
+        report['patches_used'].add(PATCHES[want][0])
+        out.append((tick, NOTE_ON, ch, key, note['attenuation']))
+        owner[ch] = index
+        voice[index] = ch
+        started[ch] = serial
+        report['max_polyphony'] = max(report['max_polyphony'], len(voice))
     report['patches_used'] = sorted(report['patches_used'])
-    report['seconds'] = round(end / TICK_HZ, 2)
+    report['seconds'] = round((out[-1][0] if out else 0) / TICK_HZ, 2)
     return out, report
 
 
@@ -297,7 +349,7 @@ def encode_events(events):
     return bytes(data), count
 
 
-def build_pack(songs, include_builtin=True):
+def build_pack(songs, include_builtin=True, hold=DEFAULT_HOLD):
     """songs: [(name, midi bytes)] -> (pack bytes, reports)."""
     if not songs or len(songs) > MAX_SONGS:
         raise ValueError(f'Need 1 to {MAX_SONGS} songs')
@@ -306,7 +358,7 @@ def build_pack(songs, include_builtin=True):
     events = bytearray()
     reports = []
     for name, data in songs:
-        timed, report = convert_song(data)
+        timed, report = convert_song(data, hold)
         encoded, count = encode_events(timed)
         if not count or count > MAX_EVENTS:
             raise ValueError(f'{name}: {count} events (1 to {MAX_EVENTS} allowed)')
@@ -320,12 +372,12 @@ def build_pack(songs, include_builtin=True):
     return header + payload, reports
 
 
-def build(output, midi_dir=MIDI_DIR, include_builtin=True):
+def build(output, midi_dir=MIDI_DIR, include_builtin=True, hold=DEFAULT_HOLD):
     """Build MUSIC.PAK from every .mid in midi_dir; None when there are none."""
     files = sorted(p for p in Path(midi_dir).glob('*') if p.suffix.lower() in ('.mid', '.midi'))
     if not files:
         return None
-    pack, reports = build_pack([(p.stem, p.read_bytes()) for p in files], include_builtin)
+    pack, reports = build_pack([(p.stem, p.read_bytes()) for p in files], include_builtin, hold)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(pack)
@@ -342,13 +394,19 @@ def main():
     parser.add_argument('--input', type=Path, default=MIDI_DIR)
     parser.add_argument('--output', type=Path, default=ROOT / 'build/assets/music/MUSIC.PAK')
     parser.add_argument('--no-builtin', action='store_true', help='Leave the Towns piece out of the rotation')
+    parser.add_argument('--hold', type=float, default=DEFAULT_HOLD,
+                        help=f'Minimum ring time in seconds for fading instruments without pedal data '
+                             f'(default {DEFAULT_HOLD}; 0 keeps written lengths)')
     args = parser.parse_args()
-    report = build(args.output, args.input, not args.no_builtin)
+    if args.hold < 0:
+        parser.error('--hold cannot be negative')
+    report = build(args.output, args.input, not args.no_builtin, args.hold)
     if report is None:
         parser.error(f'No .mid files in {args.input}')
     for song in report['songs']:
-        notes = [f'{song["max_polyphony"]} voices max']
-        for key, label in (('steals', 'notes cut for polyphony'), ('drum_notes', 'drum notes dropped'),
+        notes = [f'{song["max_polyphony"]} voices max', 'pedal' if song['pedal'] else 'no pedal data']
+        for key, label in (('sustained_notes', 'short notes held longer'),
+                           ('steals', 'notes cut for polyphony'), ('drum_notes', 'drum notes dropped'),
                            ('octave_moves', 'notes moved by octaves'), ('pitch_bends', 'pitch bends ignored')):
             if song[key]:
                 notes.append(f'{song[key]} {label}')

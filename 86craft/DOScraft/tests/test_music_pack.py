@@ -61,7 +61,7 @@ class ConverterTests(unittest.TestCase):
     def test_tempo_map_and_quantization(self):
         # 120 BPM: an eighth (240 of 480) is 0.25 s; then 60 BPM doubles it.
         events = [(0, tempo(120))] + scale(notes=(60, 62)) + [(0, tempo(60))] + scale(notes=(64, 65))
-        out, report = music.convert_song(midi([track(events)]))
+        out, report = music.convert_song(midi([track(events)]), hold=0)
         ons = [(t, a) for t, kind, ch, a, b in out if kind == music.NOTE_ON]
         self.assertEqual(ons, [(0, 60), (25, 62), (50, 64), (100, 65)])
         self.assertEqual(report['seconds'], 1.5)
@@ -69,7 +69,7 @@ class ConverterTests(unittest.TestCase):
     def test_running_status_and_format_one_tracks_merge(self):
         a = track([(0, tempo(120))] + scale(notes=(60, 64)), running=True)
         b = track(scale(channel=1, notes=(48, 52)), running=True)
-        out, report = music.convert_song(midi([a, b]))
+        out, report = music.convert_song(midi([a, b]), hold=0)
         self.assertEqual(report['notes'], 4)
         self.assertEqual(report['max_polyphony'], 2)
         ons = sorted(a for t, kind, ch, a, b in out if kind == music.NOTE_ON)
@@ -81,6 +81,34 @@ class ConverterTests(unittest.TestCase):
         offs = [t for t, kind, *_ in out if kind == music.NOTE_OFF]
         self.assertEqual(offs, [100, 100, 100])     # All at pedal release, 1.0 s
         self.assertEqual(report['max_polyphony'], 3)
+
+    def test_short_piano_notes_ring_without_pedal_data(self):
+        # 60 BPM: staccato 0.1 s notes, a quarter second apart, then a repeat of
+        # the first key 0.5 s in. Each rings 1 s or until its key is struck again.
+        events = [(0, tempo(60))]
+        for n in (60, 64, 67):
+            events += [(0, (0x90, n, 100)), (48, (0x80, n, 0)), (72, (0xB0, 1, 0))]
+        events += [(0, (0x90, 60, 100)), (48, (0x80, 60, 0))]
+        out, report = music.convert_song(midi([track(events)]))
+        ons = {(t, a): ch for t, kind, ch, a, b in out if kind == music.NOTE_ON}
+        offs = sorted((t, ch) for t, kind, ch, a, b in out if kind == music.NOTE_OFF)
+        first = ons[(0, 60)]
+        self.assertIn((75, first), offs)            # Cut short by the repeat at 0.75 s
+        self.assertIn((125, ons[(25, 64)]), offs)   # 1 s after 0.25 s
+        self.assertIn((150, ons[(50, 67)]), offs)
+        self.assertEqual((report['pedal'], report['sustained_notes']), (False, 4))
+        # hold=0 keeps the written 0.1 s lengths.
+        out, report = music.convert_song(midi([track(events)]), hold=0)
+        self.assertEqual(report['sustained_notes'], 0)
+        self.assertEqual(sorted(t for t, kind, *_ in out if kind == music.NOTE_OFF), [10, 35, 60, 85])
+
+    def test_pedal_channels_and_sustained_instruments_keep_written_lengths(self):
+        pedal = [(0, tempo(60)), (0, (0xB0, 64, 0))] + [(0, (0x90, 60, 100)), (48, (0x80, 60, 0))]
+        pad = [(0, tempo(60)), (0, (0xC0, 48))] + [(0, (0x90, 60, 100)), (48, (0x80, 60, 0))]
+        for events in (pedal, pad):
+            out, report = music.convert_song(midi([track(events)]))
+            self.assertEqual(report['sustained_notes'], 0)
+            self.assertEqual([t for t, kind, *_ in out if kind == music.NOTE_OFF], [10])
 
     def test_steals_oldest_when_more_than_nine(self):
         events = [(0, (0x90, 48 + i, 90)) for i in range(11)] + [(480, (0x80, 48 + i, 0)) for i in range(11)]
@@ -153,7 +181,7 @@ class SequencerTests(unittest.TestCase):
         song = midi([track([(0, tempo(60))] + notes)])
         with tempfile.TemporaryDirectory(prefix='dos-music-pack-') as folder:
             p = Path(folder)
-            pack, _ = music.build_pack([('test', song)], include_builtin=False)
+            pack, _ = music.build_pack([('test', song)], include_builtin=False, hold=0)
             (p / 'MUSIC.PAK').write_bytes(pack)
             bad = bytearray(pack)
             bad[-1] ^= 1
