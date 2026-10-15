@@ -289,7 +289,7 @@ static inline int name(int x,int z,u8 *b) \
             int cell=((z&15)<<4)+(x&15),h=g_height[s*256+cell]; \
             const u8 *p=g_blocks+s*12288+cell*48; \
             while(h && !dos_far_cube(p[h-1])) --h; \
-            *b=h ? BLK_ID(p[h-1]) : B_AIR; return h; \
+            *b=h ? dos_far_id(p[h-1]) : B_AIR; return h; \
         } \
     } \
     return lookup(x,z,b); \

@@ -12,7 +12,8 @@ u32 g_ramMB=8;
 int dos_cpu386;
 volatile u32 g_ticks;
 static const char *terrain_path;
-static u32 directory[3+4096*4],pos;
+/* Header, four words per column, then the per-block edit records. */
+static u32 directory[3+4096*4+1+4096],pos;
 static void check(int ok,const char *msg) { if(!ok) { fprintf(stderr,"FAIL: %s\n",msg); exit(1); } }
 void fatal(const char *msg) { check(0,msg); }
 u32 render_mem_needed(int w) { (void)w; return 0; }

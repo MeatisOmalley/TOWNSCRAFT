@@ -9,7 +9,9 @@ import struct
 from bake_large_world import checksum
 from large_world_media import check_terrain,LIT_BYTES,FAR_MAP_BYTES,FAR_MAGIC
 
-CUBES=frozenset([*range(1,16),21,22,*range(25,30)])
+CUBES=frozenset([*range(1,16),21,22,*range(25,30),33,34])
+# Newer cubes show as an older material (runtime: far_field.h dos_far_id).
+FAR_REMAP={33:3,34:1}
 COMPACT_MAGIC=0x3946414c
 LEAF_FLAGS_MAGIC=0x3246414c
 LEAF_RIM=64
@@ -17,7 +19,7 @@ LEAF_RIM=64
 
 def root_heights(blocks):
     """Highest real log in each vertical stack, ignoring unused metadata bits."""
-    variants=tuple(bytes([6|(m<<5)]) for m in range(8))
+    variants=tuple(bytes([6|(m<<6)]) for m in range(4))
     return bytes(max(blocks[c*48:(c+1)*48].rfind(v) for v in variants)+1 for c in range(256))
 
 
@@ -57,7 +59,7 @@ def surface(blocks,leaves=True,roots=None):
                         block=blocks[p+y]&63
                         if block not in CUBES or blocks[p+y]==(7|LEAF_RIM):continue
                         if block==7 and (not leaves or roots is not None and not keep_leaf(roots,x+dx,y,z+dz)):continue
-                        h,b=y+1,block;break
+                        h,b=y+1,FAR_REMAP.get(block,block);break
             at=(z//2*8+x//2)*2
             result[at:at+2]=bytes((h,b))
     return result

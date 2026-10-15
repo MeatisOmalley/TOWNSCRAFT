@@ -52,7 +52,7 @@ static int far_world_cell(int cx,int cz,int lx,int lz,const u8 *blocks)
     for(int dz=0;dz<2;++dz) for(int dx=0;dx<2;++dx) {
         const u8 *p=blocks+((lz+dz)*CS+lx+dx)*WH;
         for(int y=WH-1;y>=h;--y) if(dos_far_cube(p[y])) {
-            h=y+1; b=BLK_ID(p[y]); break;
+            h=y+1; b=dos_far_id(p[y]); break;
         }
     }
     int mx=(cx*CS+lx)>>1,mz=(cz*CS+lz)>>1;
@@ -255,7 +255,7 @@ int dos_far_sample(int x,int z,int detailed,u8 *block)
             int cell=(z&15)*CS+(x&15),h=g_height[s*CS*CS+cell];
             const u8 *p=g_blocks+s*COLUMN_CELLS+cell*WH;
             while(h && !dos_far_cube(p[h-1])) --h;
-            *block=h ? BLK_ID(p[h-1]) : B_AIR;
+            *block=h ? dos_far_id(p[h-1]) : B_AIR;
             return h;
         }
     }

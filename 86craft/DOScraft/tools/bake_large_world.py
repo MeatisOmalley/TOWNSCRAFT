@@ -211,7 +211,113 @@ def carve_underground(image, heights, spawn_x, spawn_z, seed):
     return count
 
 
-def bake(seed, *, style='legacy', report=None):
+COBBLE, LOG, LEAVES = 4, 6, 7
+CLAY, COPPER = 33, 34          # 6-bit block IDs (tools/dos_early_game.py)
+TIN_BIT = 64                   # Gravel metadata bit 0: tin country
+HIGHLAND = SEA + 6
+TIN_CLEAR = 96                 # No tin country this close to spawn
+
+
+def box_min(heights, radius):
+    """Lowest height within a (2r+1)-square of every column."""
+    rows = bytearray(WIDTH * WIDTH)
+    for z in range(WIDTH):
+        row = heights[z * WIDTH:(z + 1) * WIDTH]
+        for x in range(WIDTH):
+            rows[z * WIDTH + x] = min(row[max(0, x - radius):x + radius + 1])
+    out = bytearray(WIDTH * WIDTH)
+    for x in range(WIDTH):
+        column = rows[x::WIDTH]
+        for z in range(WIDTH):
+            out[z * WIDTH + x] = min(column[max(0, z - radius):z + radius + 1])
+    return out
+
+
+def early_materials(image, heights, biomes, seed, spawn):
+    """Overlay the early-game materials (EARLY_GAME.md, Where materials
+    generate) after all other generation, so terrain, trees, caves and the
+    other ores stay exactly as before. Only listed blocks are replaced."""
+    from terrain_biomes import FOREST, DESERT
+    near_water = box_min(heights, 3)
+    sx, sz = spawn
+    counts = dict(clay=0, gravel=0, tin_gravel=0, cobble=0, copper=0, boulders=0)
+
+    def put(at, block, name):
+        image[at] = block
+        counts[name] += 1
+
+    for z in range(1, WIDTH - 1):
+        for x in range(1, WIDTH - 1):
+            h = heights[z * WIDTH + x]
+            col = base_offset(x, z)
+            top = col + h - 1
+            biome = biomes[z * WIDTH + x] if biomes is not None else None
+            forest = biome == FOREST if biomes is not None else noise(x, z, 5, seed + 5) > 150
+            slope = max(abs(h - heights[(z + dz) * WIDTH + x + dx]) for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            if h < SEA:
+                # Lake and river beds: more gravel, and clay settled in still water.
+                if image[top] in (SAND, GRAVEL):
+                    n = noise(x, z, 3, seed + 50)
+                    if n > 160:
+                        put(top, GRAVEL, 'gravel')
+                    elif n < 75:
+                        put(top, CLAY, 'clay')
+                        if image[top - 1] == SAND:
+                            put(top - 1, CLAY, 'clay')
+            elif h <= SEA + 1:
+                # Shores: cobble beds and gravel bars.
+                if image[top] == SAND:
+                    n = noise(x, z, 3, seed + 52)
+                    if n > 175:
+                        put(top, COBBLE, 'cobble')
+                    elif n < 50:
+                        put(top, GRAVEL, 'gravel')
+            else:
+                # Banks: a clay layer under the soil near water.
+                if h <= SEA + 6 and near_water[z * WIDTH + x] < SEA and noise(x, z, 3, seed + 53) > 105:
+                    for y in (h - 3, h - 4):
+                        if image[col + y] in (DIRT, STONE):
+                            put(col + y, CLAY, 'clay')
+                # Forest subsoil lenses.
+                if forest and noise(x, z, 3, seed + 54) > 200:
+                    for y in (h - 3, h - 4):
+                        if image[col + y] in (DIRT, STONE):
+                            put(col + y, CLAY, 'clay')
+                # Rare dry lakebeds in the desert.
+                if biome == DESERT and image[top] == SAND and noise(x, z, 4, seed + 55) > 215:
+                    put(top, CLAY, 'clay')
+                above = image[top + 1]
+                # Talus on steep slopes, with copper showing in the highlands.
+                if slope >= 3 and image[top] in (GRASS, STONE, DIRT, GRAVEL) and above == AIR:
+                    if h >= HIGHLAND and noise(x, z, 2, seed + 57) > 220:
+                        put(top, COPPER, 'copper')
+                    elif noise(x, z, 2, seed + 56) > 105:
+                        put(top, COBBLE, 'cobble')
+                # A few loose boulders on open ground.
+                elif image[top] == GRASS and above == AIR and hash3(x, z, 91, seed) % 1000 < 3:
+                    put(top + 1, COBBLE, 'boulders')
+                    if hash3(x, z, 92, seed) & 1 and image[top + 2] == AIR:
+                        put(top + 2, COBBLE, 'boulders')
+                # Shallow copper veins under the highlands.
+                if h >= HIGHLAND:
+                    for y in range(max(3, h - 10), h - 2):
+                        if image[col + y] == STONE and hash3(x, y, z, seed ^ 0xC0) % 70 == 0:
+                            put(col + y, COPPER, 'copper')
+                            for dx, dy, dz in ((1, 0, 0), (0, 1, 0), (0, 0, 1)):
+                                at = base_offset(x + dx, z + dz, y + dy)
+                                if image[at] == STONE and hash3(x + dx, y + dy, z + dz, seed ^ 0xC1) & 1:
+                                    put(at, COPPER, 'copper')
+            # Tin country: a few regions' gravel carries tin, never near spawn
+            # (finding it is the bronze-age search).
+            if max(abs(x - sx), abs(z - sz)) >= TIN_CLEAR and noise(x, z, 7, seed + 60) > 180:
+                for y in range(1, min(WH, h + 1)):
+                    if image[col + y] == GRAVEL:
+                        image[col + y] = GRAVEL | TIN_BIT
+                        counts['tin_gravel'] += 1
+    return counts
+
+
+def bake(seed, *, style='legacy', report=None, early=True):
     if style not in ('legacy','biomes'): raise ValueError('Unknown terrain style')
     from terrain_biomes import sample, surface, vegetation, NAMES
     image = bytearray(IMAGE_BYTES)
@@ -325,6 +431,7 @@ def bake(seed, *, style='legacy', report=None):
     entrances = carve_underground(image, heights, spawn_x, spawn_z, seed)
     if entrances < 2:
         raise ValueError('Prebaked world has fewer than two cave entrances')
+    materials = early_materials(image, heights, biomes, seed, (spawn_x, spawn_z)) if early else None
 
     sums = bytearray(COLUMNS * 4)
     for column in range(COLUMNS):
@@ -335,7 +442,7 @@ def bake(seed, *, style='legacy', report=None):
                      BASE_SECTOR, seed, spawn_x, spawn_z, checksum(sums))
     image[512:512 + len(sums)] = sums
     if report is not None:
-        report.update(seed=seed,style=style,spawn=[spawn_x,spawn_z],cave_entrances=entrances,
+        report.update(seed=seed,style=style,spawn=[spawn_x,spawn_z],cave_entrances=entrances,early_materials=materials,
             height_min=min(heights),height_max=max(heights))
         if biomes is not None:
             report['biome_cells']={name:biomes.count(i) for i,name in enumerate(NAMES)}
@@ -350,10 +457,11 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--style',choices=('legacy','biomes'),default='legacy')
     parser.add_argument('--report',type=Path)
+    parser.add_argument('--no-early',action='store_true',help='Bake the world as it was before the early-game materials')
     args = parser.parse_args()
     report={}
     with args.output.open('xb') as file:
-        file.write(bake(args.seed,style=args.style,report=report))
+        file.write(bake(args.seed,style=args.style,report=report,early=not args.no_early))
     if args.report:
         import json
         with args.report.open('x') as file: file.write(json.dumps(report,indent=2)+'\n')
