@@ -208,5 +208,22 @@ int main(void)
     CHECK(dos_sprint_tap(1));
     g_player.body.inWater=1; CHECK(!dos_sprint_tap(1));
     printf("PASS: sprint\n");
+    /* Water fills a cell broken beside it and drops, bounded, through air. */
+    memset(cells,B_STONE,sizeof(cells));
+    for(i=0;i<16;++i) world_set(i,0,0,B_STONE);
+    world_set(5,10,5,B_WATER);
+    world_set(6,10,5,B_AIR);
+    for(i=1;i<=9;++i) world_set(6,10-i,5,B_AIR);
+    dos_block_removed(B_STONE,6,10,5);
+    CHECK(B_WATER==wget(6,10,5));
+    for(i=1;i<=8;++i) CHECK(B_WATER==wget(6,10-i,5));
+    CHECK(B_AIR==wget(6,1,5));                 /* No further than eight cells */
+    world_set(9,10,9,B_AIR);
+    dos_block_removed(B_STONE,9,10,9);
+    CHECK(B_AIR==wget(9,10,9));                /* Nothing to draw from */
+    world_set(5,11,6,B_WATER); world_set(5,10,6,B_AIR);
+    dos_block_removed(B_DIRT,5,10,6);
+    CHECK(B_WATER==wget(5,10,6) && B_STONE==wget(5,9,6));   /* From above; stops on stone */
+    printf("PASS: water\n");
     return 0;
 }

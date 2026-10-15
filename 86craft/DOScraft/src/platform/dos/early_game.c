@@ -78,8 +78,28 @@ void dos_block_placed(int id,int x,int y,int z)
 	}
 }
 
+#define WATER_FALL 8
+
+static int is_water(int x,int y,int z)
+{
+	return B_WATER==BLK_ID(wget(x,y,z));
+}
+
+/* Water never flows on its own; a cell the player empties next to water
+   fills, and the water drops through air below it (bounded). */
+static void fill_with_water(int x,int y,int z)
+{
+	int k;
+	if(!is_water(x-1,y,z) && !is_water(x+1,y,z) && !is_water(x,y,z-1) &&
+	   !is_water(x,y,z+1) && !is_water(x,y+1,z)) return;
+	world_set(x,y,z,B_WATER);
+	for(k=0; k<WATER_FALL && y-1-k>0 && B_AIR==wget(x,y-1-k,z); ++k)
+		world_set(x,y-1-k,z,B_WATER);
+}
+
 void dos_block_removed(int id,int x,int y,int z)
 {
+	if(B_AIR==wget(x,y,z)) fill_with_water(x,y,z);
 	if(B_FIRE==id || B_FIRE_OUT==id)
 	{
 		int i=fire_find(x,y,z);
