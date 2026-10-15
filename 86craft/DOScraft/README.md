@@ -68,6 +68,13 @@ The separate [local 386SX-25 VM](HARDWARE_386.md) uses
 `ISO/Launch-DOScraft-386.cmd`, 4 MiB RAM, Trident VGA, a 40 MB IDE disk and
 the merged shared 386/486 executable with compact V2 world storage.
 
+A [1996 port](HARDWARE_1996.md) targets a Pentium 200 with an optional 3dfx
+Voodoo Graphics. `tools/build_1996.py` builds the shipping renderer as a
+baseline (`D96REF.EXE`), a Pentium software renderer with Quake-style
+perspective spans (`D96SOFT.EXE`) and a Voodoo renderer with its own SST-1
+driver (`D963DFX.EXE`). They are tested natively but have not yet run in the
+pending 1996 VM.
+
 The shared ISO now includes the first restrained block-texture pass. A separate
 prebaked biome world adds plains, forests, deserts and rocky highlands; its
 preview launcher keeps a separate save so existing terrain edits are preserved.

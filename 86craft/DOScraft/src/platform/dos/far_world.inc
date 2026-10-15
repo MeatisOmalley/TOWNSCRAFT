@@ -1,5 +1,10 @@
 /* Optional visual-only map. Base/edit/save offsets stay fixed. */
+#ifdef DOS_R96
+/* 1996 build: the largest distant terrain the map allows (clamped at load). */
+int dos_far_enabled=DOS_FAR_HIGH;
+#else
 int dos_far_enabled;
+#endif
 u32 dos_far_version,dos_far_boundary_version;
 u8 *dos_far_map;
 static u32 farMapSector,farMapSum;
