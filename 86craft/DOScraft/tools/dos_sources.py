@@ -215,6 +215,9 @@ def adapt(name, data, *, graphics=False, raster_zero_dx=False, camera_reuse=Fals
         import dos_crafting
         data,steps=dos_crafting.adapt(name,data)
         recipe.extend(steps)
+    import dos_early_game
+    data,steps=dos_early_game.adapt(name,data)
+    recipe.extend(steps)
     if hud_proof and name in ('game.c','ui.c'):
         import dos_hud_proof
         data,steps=dos_hud_proof.adapt(name,data)

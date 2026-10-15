@@ -21,7 +21,7 @@ On a V3 medium each V5 save directory entry (16 bytes per column) is
                 knows both banks' records: 0 for none/base, else sector<<5|count
 The game never writes into a record that either committed bank references.
 
-Version 7 saves (the current game) follow the directory with the per-block
+Version 8 saves (the current game) follow the directory with the per-block
 edits of columns whose record is still the base:
   u32 columns   then per column, in increasing id order:
   u32 id | count << 16   count 1..DELTA_COLUMN_MAX distinct cells
@@ -35,7 +35,7 @@ import struct
 
 from bake_large_world import checksum
 from convert_large_v2 import V2_MAGIC, COLUMNS, CELLS, check_v2, decode, sectors
-from leaf_flags_media import SAVE_VERSIONS
+from leaf_flags_media import SAVE_VERSION, SAVE_VERSIONS  # noqa: F401 - SAVE_VERSION for callers
 
 V3_MAGIC = b'DOSCRAFT-1024-V3'
 SECTOR = 512
@@ -152,8 +152,8 @@ def committed_banks(save):
 
 
 def save_deltas(save, start):
-    """{column: {cell: block}} of a committed version 7 bank; {} before that."""
-    if struct.unpack_from('<I', save, start + 4)[0] < 7:
+    """{column: {cell: block}} of a committed version 8 bank; {} before that."""
+    if struct.unpack_from('<I', save, start + 4)[0] < 8:
         return {}
     at = start + DIRECTORY_END
     columns = struct.unpack_from('<I', save, at)[0]

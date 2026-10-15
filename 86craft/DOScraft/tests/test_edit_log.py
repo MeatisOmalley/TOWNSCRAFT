@@ -117,6 +117,7 @@ class EditLogTests(unittest.TestCase):
             cls.run_cmd([*flags, '-Dopen=world_test_open', '-c', ROOT / f'src/platform/dos/{name}.c', '-o', obj])
         cls.exe = folder / 'edit-log.exe'
         cls.run_cmd([*flags, ROOT / 'tests/edit_log_native.c', ROOT / 'src/platform/dos/heap.c',
+                     ROOT / 'src/platform/dos/early_game.c',
                      *(src / s for s in ('inventory.c', 'blocks.c', 'fmath.c', 'libc.c')),
                      tables, *objects, '-o', cls.exe])
         cls.v2 = synthetic_v2()
@@ -267,7 +268,7 @@ class EditLogTests(unittest.TestCase):
         save.write_bytes(data)
         self.assertIn('refused', self.game('fail', terrain, save).stdout)
 
-    # Per-block edits (save version 7), with the game's own limit of 512.
+    # Per-block edits (save version 8), with the game's own limit of 512.
 
     def test_per_block_edits_need_no_log_records(self):
         terrain, save = self.media(log_sectors=v3.DEFAULT_LOG_BYTES // 512)
@@ -316,32 +317,21 @@ class EditLogTests(unittest.TestCase):
         self.assertEqual(self.stat(out, 'live_records'), self.stat(out, 'switched'))
         self.game('cellcheck', terrain, save, 0, 9, 1, 500)
 
-    def test_version_6_saves_load_and_version_5_does_not(self):
+    def test_only_the_current_save_version_loads(self):
         terrain, save = self.media(log_sectors=v3.DEFAULT_LOG_BYTES // 512)
         self.game('edit', terrain, save, 0, 6, 1, 6)  # log records; no per-block edits
         written = bytearray(save.read_bytes())
         start, records = self.banks(terrain, save)[0]  # newest
         self.assertEqual(len(records), 6)
-        at = start + v3.DIRECTORY_END
-        self.assertEqual(struct.unpack_from('<I', written, start + 4)[0], 7)
-        self.assertEqual(struct.unpack_from('<I', written, at)[0], 0)
-        length = struct.unpack_from('<I', written, start + 12)[0]
-        old = written[start + 20:start + 20 + length]
-        cut = at - start - 20
-        for version in (6, 5):
-            # The same bank without the per-block section, as that version wrote it.
+        self.assertEqual(struct.unpack_from('<I', written, start + 4)[0], v3.SAVE_VERSION)
+        self.game('check', terrain, save, 0, 6, 1)
+        for version in (7, 6, 5):
+            # Older banks hold other item IDs or another layout: the game skips
+            # them and loads the older bank, which lacks these edits.
             data = bytearray(written)
-            data[start + 20:start + 20 + length] = old[:cut] + old[cut + 4:] + bytes(4)
             struct.pack_into('<I', data, start + 4, version)
-            struct.pack_into('<I', data, start + 12, length - 4)
-            reseal(data, start)
             save.write_bytes(data)
-            if version == 6:
-                self.game('check', terrain, save, 0, 6, 1)
-            else:
-                # Version 5 holds pre-block-ID items: the game skips that bank
-                # and loads the older one, which lacks these edits.
-                self.assertNotEqual(self.game('check', terrain, save, 0, 6, 1, ok=False).returncode, 0)
+            self.assertNotEqual(self.game('check', terrain, save, 0, 6, 1, ok=False).returncode, 0, version)
 
     def test_corrupt_per_block_edits_are_refused(self):
         terrain, save = self.media(log_sectors=v3.DEFAULT_LOG_BYTES // 512)

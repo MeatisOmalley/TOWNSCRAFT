@@ -104,3 +104,11 @@ cache, distant terrain, chickens, menus and presets all PASS. The full test
 suite passes except the Pillow-dependent texture test (Pillow is not
 installed on this machine). The renderer and storage paths the benchmark measured are
 unchanged by the merge, so it was not repeated.
+
+## Save version 8 (integration, same day)
+
+The early-game branch had independently made version 7 its own format (an
+early-game section after the mobs, loading only that version). Neither
+version 7 reached a player disk, so the merged format is version 8: per-block
+edits after the column directory and the early-game section after the mobs.
+The game writes and loads only 8; media tools read 5, 6 and 8 and never 7.

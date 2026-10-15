@@ -34,6 +34,9 @@ def generate(output):
         (src/'texture_far_refresh.inc').write_text(far[start:end])
         for mode in ('before','after'):
             data=original if mode=='before' else dos_block_textures.adapt('textures.c',original)[0]
+            # The game palette (olive becomes terracotta) under both art sets.
+            import dos_early_game
+            data=dos_early_game.swap_palette(data.decode()).encode()
             (src/'textures.c').write_bytes(data)
             exe=folder/(mode+'.exe'); raw=output/(mode+'.bin')
             subprocess.run(list(map(str,[ZIG,'cc','-target','x86-windows-gnu','-O2','-std=gnu99',

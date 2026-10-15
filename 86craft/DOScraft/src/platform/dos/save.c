@@ -9,6 +9,7 @@
 #include "inventory.h"
 #include "game.h"
 #include "mobs.h"
+#include "early_game.h"
 #include "save_backend.h"
 #include "file_commit.h"
 #include <errno.h>
@@ -29,9 +30,12 @@ void world_commit_large_columns(void);
 #define NUM_TRACKS (77*2)
 #define SAVE_MAGIC 0x46435354
 #ifdef DOS_LARGE_WORLD
-/* 6: 6-bit block IDs, items from 64. Version 5 saves hold old item IDs. */
-/* 7: version 6 plus per-block edits after the column directory. */
-#define SAVE_VERSION 7
+/* 6: 6-bit block IDs, items from 64 (version 5 saves hold old item IDs).
+   7: two development formats that never reached a player disk: per-block
+      edits, or the early-game section; retired.
+   8: per-block edits after the column directory and the early-game
+      section after the mobs. Only version 8 loads. */
+#define SAVE_VERSION 8
 #else
 #define SAVE_VERSION 4
 #endif

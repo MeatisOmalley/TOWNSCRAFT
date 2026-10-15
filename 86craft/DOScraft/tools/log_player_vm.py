@@ -23,7 +23,7 @@ from fat_image import FatImage
 from large_world_media import disk_log_sectors, replace_world_files
 from publish_game import atomic_write
 
-# Per-block edits (save version 7) keep most edits out of the log; a 4 MiB
+# Per-block edits (save version 8) keep most edits out of the log; a 4 MiB
 # log needs an executable built from this commit or a descendant.
 PER_BLOCK_EDITS_COMMIT = 'b4cc3d1d2fd77ccd7c5c01ee9935d7c824354622'
 

@@ -10,11 +10,12 @@ BANK=77*8192
 DIRECTORY=20+64+72
 DIRECTORY_END=DIRECTORY+12+4096*16
 # Large-world save versions. 6 is the 6-bit block-ID layout (items from 64);
-# its bytes are laid out like 5. 7 adds per-block edits after the column
-# directory (tools/convert_large_v3.py). Media tools read all three; the game
-# writes 7 and loads 6 and 7.
-SAVE_VERSION=7
-SAVE_VERSIONS=(5,6,7)
+# its bytes are laid out like 5. 8 adds per-block edits after the column
+# directory (tools/convert_large_v3.py) and the early-game section after the
+# mobs. 7 was two incompatible development formats and is never read. Media
+# tools read 5, 6 and 8; the game writes and loads only 8.
+SAVE_VERSION=8
+SAVE_VERSIONS=(5,6,8)
 
 def offset(column,slot=0):return (33+column*72+slot*24)*512
 
@@ -64,8 +65,8 @@ def upgrade(previous,terrain,save):
         start=bank*BANK
         magic,version,total,length,generation=struct.unpack_from('<5I',save,start)
         if magic!=0x46435354:continue
-        # Version 7 adds per-block edits, which V1/V2 media never hold.
-        if version not in SAVE_VERSIONS or (version>=7 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or length<DIRECTORY_END-20 or length>BANK-20:
+        # Version 8 adds per-block edits, which V1/V2 media never hold.
+        if version not in SAVE_VERSIONS or (version>=8 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or length<DIRECTORY_END-20 or length>BANK-20:
             raise ValueError('Unsupported player save for leaf migration')
         if save_sum(save[start+20:start+20+length])!=total:
             raise ValueError('Invalid save payload checksum')
@@ -138,8 +139,8 @@ def upgrade_v2(previous,terrain,save):
         start=bank*BANK
         magic,version,total,length,generation=struct.unpack_from('<5I',save,start)
         if magic!=0x46435354:continue
-        # Version 7 adds per-block edits, which V1/V2 media never hold.
-        if version not in SAVE_VERSIONS or (version>=7 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
+        # Version 8 adds per-block edits, which V1/V2 media never hold.
+        if version not in SAVE_VERSIONS or (version>=8 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
             raise ValueError('Invalid V2 save payload')
         seed,index,count=struct.unpack_from('<3I',save,start+DIRECTORY)
         if (seed,index,count)!=(struct.unpack_from('<I',previous,36)[0],old_sum,4096):

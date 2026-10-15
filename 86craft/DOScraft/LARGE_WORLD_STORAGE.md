@@ -177,7 +177,7 @@ launcher unless asked. Sizes, pause measurements and limits are in
 Most edits no longer reach the edit log. While a column's record is still
 its base, its changed cells stay in RAM as (cell, block) pairs: evicting the
 column writes nothing, and reloading it decodes the base and applies them.
-Saves store them in `WORLD.SAV` after the column directory (save version 7;
+Saves store them in `WORLD.SAV` after the column directory (save version 8;
 the format is in `tools/convert_large_v3.py`), so the two-bank commit covers
 them and a crash loses only unsaved work, as before. A column with more than
 512 changed cells, or one edited while the 4,096-entry pool is full, switches

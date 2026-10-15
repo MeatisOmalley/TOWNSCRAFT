@@ -37,8 +37,8 @@ def convert_player(previous,save,pool_pairs=DEFAULT_POOL_PAIRS):
         start=bank*BANK
         magic,version,total,length,generation=struct.unpack_from('<5I',save,start)
         if magic!=0x46435354:continue
-        # Version 7 adds per-block edits, which V1/V2 media never hold.
-        if version not in SAVE_VERSIONS or (version>=7 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
+        # Version 8 adds per-block edits, which V1/V2 media never hold.
+        if version not in SAVE_VERSIONS or (version>=8 and struct.unpack_from('<I',save,start+DIRECTORY_END)[0]) or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
             raise ValueError('Invalid committed V1 save bank')
         seed,index,count=struct.unpack_from('<3I',save,start+DIRECTORY)
         if (seed,index,count)!=(struct.unpack_from('<I',previous,36)[0],struct.unpack_from('<I',previous,48)[0],4096):
