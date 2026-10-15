@@ -159,6 +159,8 @@ def smoke():
               'mixed frames', s.read_symbol('dos_audio_mixed_frames', 'I')[0],
               'voice drops', s.read_symbol('dos_audio_voice_drops', 'I')[0],
               'backend', s.read_symbol('backend', 'i')[0])
+        print('music playing', s.read_symbol('playing', 'i')[0], 'piece', s.read_symbol('stream_piece', 'i')[0],
+              'decoded', s.read_symbol('decoded', 'I')[0], 'wait', s.read_symbol('music_wait', 'i')[0])
     finally:
         s.close()
 

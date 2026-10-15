@@ -36,6 +36,13 @@ def main():
         sys.exit(f'{bank} is not the pinned sound bank')
     shutil.copy(bank, OUTPUT / 'SOUND.PAK')
     print(f'romfs: SOUND.PAK ({bank.stat().st_size} bytes)')
+    # DOScraft's music, rendered by tools/render_music.py (OPL2 -> ADPCM).
+    music = ROOT / 'build/romfs-src/MUSIC.N64'
+    if music.is_file():
+        shutil.copy(music, OUTPUT / 'MUSIC.N64')
+        print(f'romfs: MUSIC.N64 ({music.stat().st_size} bytes)')
+    else:
+        print('romfs: no MUSIC.N64 (run tools/render_music.py); the game plays without music')
 
 
 if __name__ == '__main__':
