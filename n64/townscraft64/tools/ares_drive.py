@@ -30,16 +30,27 @@ KEYS = dict(esc=0x01, tab=0x0F, q=0x10, w=0x11, e=0x12, enter=0x1C, ctrl=0x1D, a
 
 
 class Session:
-    def __init__(self, rom=ROM, elf=ELF, expansion_pak=True, name='drive'):
+    def __init__(self, rom=ROM, elf=ELF, expansion_pak=True, name='drive', devices=None):
         self.sym = ares_gdb.symbols(elf)
         self.inject = self.sym['g_n64_inject']
         self.out = OUT / name
         self.out.mkdir(parents=True, exist_ok=True)
         settings = ROOT / 'build/ares-drive/settings.bml'
-        self.process = ares_gdb.launch(rom, settings, expansion_pak)
-        self.gdb = ares_gdb.Gdb(ares_gdb.PORT, time.monotonic() + 30)
+        self.process = ares_gdb.launch(rom, settings, expansion_pak, devices=devices)
+        # ares reopens its debug server when the ROM finishes loading, which can
+        # drop an early connection: reconnect until the game presents a frame.
         deadline = time.monotonic() + 60
-        while self.state()[0] != INJECT_MAGIC:
+        self.gdb = None
+        while True:
+            try:
+                if self.gdb is None:
+                    self.gdb = ares_gdb.Gdb(ares_gdb.PORT, time.monotonic() + 30)
+                if self.state()[0] == INJECT_MAGIC:
+                    break
+            except (ConnectionError, OSError):
+                if self.gdb:
+                    self.gdb.close()
+                self.gdb = None
             if time.monotonic() > deadline:
                 raise TimeoutError('game did not present a frame')
             time.sleep(0.25)
@@ -182,5 +193,21 @@ def save():
         s.close(graceful=True)
 
 
+def keyboard():
+    """Forked ares with a Randnet keyboard on port 2 and a mouse on port 1:
+    the game must find the keyboard and keep running."""
+    s = Session(name='keyboard', devices={1: 'Mouse', 2: 'Randnet Keyboard'})
+    try:
+        s.frames(150)
+        port, = s.read_symbol('keyboard_port', 'i')
+        print('keyboard_port', port, '(expected 1 = controller port 2)')
+        s.tap('space')
+        s.wait_world(240)
+        s.screenshot('world-with-keyboard')
+        print(f'fps: {s.fps(120):.1f}')
+    finally:
+        s.close()
+
+
 if __name__ == '__main__':
-    {'smoke': smoke, 'save': save}[sys.argv[1] if len(sys.argv) > 1 else 'smoke']()
+    {'smoke': smoke, 'save': save, 'keyboard': keyboard}[sys.argv[1] if len(sys.argv) > 1 else 'smoke']()

@@ -2,7 +2,8 @@
 
 Shared by run_tests.py (test results) and ares_drive.py (scripted play).
 ares drops any client whose first byte is not '+' (nall/tcptext-server.cpp),
-and memory reads/writes do not pause emulation.
+and memory reads/writes do not pause emulation. The server is bound to IPv6
+loopback only, so nothing listens on the network.
 """
 from pathlib import Path
 import socket
@@ -21,7 +22,7 @@ class Gdb:
     def __init__(self, port, deadline):
         while True:
             try:
-                self.sock = socket.create_connection(('127.0.0.1', port), timeout=5)
+                self.sock = socket.create_connection(('::1', port), timeout=5)
                 break
             except OSError:
                 if time.monotonic() > deadline:
@@ -78,16 +79,24 @@ def symbols(elf):
     return table
 
 
-def launch(rom, settings, expansion_pak=True, port=PORT):
+ARES_RANDNET = ROOT / 'build/deps/ares-randnet/ares.exe'
+
+
+def launch(rom, settings, expansion_pak=True, port=PORT, devices=None):
     """Start ares on a ROM with its GDB server enabled and a private settings file."""
     saves = settings.parent / 'saves'
     saves.mkdir(parents=True, exist_ok=True)
-    args = [str(ARES), '--system', 'Nintendo 64', '--no-file-prompt', '--settings-file', str(settings),
+    # devices: {port: 'Randnet Keyboard' | 'Mouse' | 'Gamepad'} needs the ares fork.
+    exe = ARES_RANDNET if devices else ARES
+    args = [str(exe), '--system', 'Nintendo 64', '--no-file-prompt', '--settings-file', str(settings),
             '--setting', f'Nintendo64/ExpansionPak={"true" if expansion_pak else "false"}',
             '--setting', 'Input/Defocus=Allow',
             '--setting', 'DebugServer/Enabled=true',
-            '--setting', 'DebugServer/UseIPv4=true',
+            # IPv6 mode binds [::1] only (IPv4 mode listens on every interface).
+            '--setting', 'DebugServer/UseIPv4=false',
             '--setting', f'DebugServer/Port={port}',
-            '--setting', f'Paths/Saves={saves.as_posix()}/',
-            str(rom)]
+            '--setting', f'Paths/Saves={saves.as_posix()}/']
+    for p in range(1, 5) if devices else ():
+        args += ['--setting', f'Nintendo64/ControllerPort{p}={devices.get(p, "Gamepad")}']
+    args.append(str(rom))
     return subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

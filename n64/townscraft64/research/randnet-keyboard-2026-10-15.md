@@ -223,3 +223,28 @@ Not tested: Escape, F-keys and Alt/Win (they can trigger ares hotkeys or
 Windows menus during injection), the menu-driven connection path with the
 capture hotkey, save states with the keyboard connected, a physical JIS
 keyboard, and the mouse inputs in the fork.
+
+## In the game (2026-10-15, later)
+
+`src/n64/input.c` reads the keyboard in the game: about once a second it
+looks for identifier `0x0002` on ports libdragon does not recognize, then
+reads `0x13` (LED byte: Power on) every frame and turns the three slots and
+Home into AT set-1 make/break scancodes by key position (`E0` prefix for
+arrows, Home, End) for DOScraft's unchanged `keyboard.c`. A frame with the
+error bit keeps the previous key state, as recommended above.
+
+Checked in the fork with a mouse on port 1 and the keyboard on port 2: the
+game finds the keyboard (`keyboard_port` = 1). Not checked: typed keys in
+the game (needs host key injection into a focused window).
+
+**Fork problems found while doing so** (emulator side, not the game):
+
+- The fork runs the game very slowly: with plain gamepads and no keyboard,
+  fewer than 60 frames in 40 s, where stock v148 shows 60 VPS and presents
+  the first frame in about 3 s. The fork build (MSYS2 clang 23,
+  RelWithDebInfo) needs investigating before it is used for play.
+- Its GDB server drops the connection a few seconds into a run (stock v148
+  keeps it for minutes), with the debug server on IPv4 or IPv6 loopback.
+- With `DebugServer/UseIPv4=true` the fork's unsigned `ares.exe` raised a
+  Windows Firewall prompt (it listens on all interfaces). It was left
+  unanswered. Tools now use IPv6 mode, which binds `[::1]` only.
