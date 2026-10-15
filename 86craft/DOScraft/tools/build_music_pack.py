@@ -376,6 +376,12 @@ def apply_hold(notes, pedal_channels, hold):
     return longer
 
 
+def is_third(key, others):
+    """True when key lies a minor or major third (plus any octaves) above
+    one of the other keys."""
+    return any(key > other and (key - other) % 12 in (3, 4) for other in others)
+
+
 def check_settings(settings):
     """Validate a song's settings; returns them with defaults filled in."""
     settings = dict(settings or {})
@@ -405,7 +411,7 @@ def convert_song(data, hold=DEFAULT_HOLD, settings=None):
         n['patch'] = swaps.get(n['patch'], n['patch'])
         n['on'] -= start
         n['off'] -= start
-    report = dict(notes=len(notes), max_polyphony=0, steals=0, drum_notes=info['drum_notes'],
+    report = dict(notes=len(notes), max_polyphony=0, steals=0, thirds_dropped=0, drum_notes=info['drum_notes'],
                   octave_moves=0, pitch_bends=info['pitch_bends'], patches_used=set(),
                   pedal=bool(info['pedal_channels']), repaired_tracks=info['repaired_tracks'],
                   sustained_notes=apply_hold(notes, info['pedal_channels'], hold),
@@ -435,8 +441,21 @@ def convert_song(data, hold=DEFAULT_HOLD, settings=None):
             # idle longest (its release tail has faded most).
             ch = min(free, key=lambda c: (patch[c] != want, last_used[c]))
         else:
-            ch = min(range(CHANNELS), key=lambda c: started[c])
-            report['steals'] += 1
+            # Over 9 voices: give up a third first (a note 3 or 4 semitones,
+            # or that plus octaves, above another sounding note); the chord
+            # keeps its root and fifth. Only then cut the oldest note.
+            keys = {c: notes[owner[c]]['key'] for c in range(CHANNELS)}
+            if is_third(note['key'], keys.values()):
+                report['thirds_dropped'] += 1
+                continue
+            thirds = [c for c in range(CHANNELS)
+                      if is_third(keys[c], [k for o, k in keys.items() if o != c] + [note['key']])]
+            if thirds:
+                ch = min(thirds, key=lambda c: started[c])
+                report['thirds_dropped'] += 1
+            else:
+                ch = min(range(CHANNELS), key=lambda c: started[c])
+                report['steals'] += 1
             voice.pop(owner[ch], None)
         key = note['key']
         while key < 12:
@@ -546,6 +565,7 @@ def main():
                  f'raised {song["gain_db"]} dB' if song['gain_db'] >= 0.5 else 'at full level']
         for key, label in (('repaired_tracks', 'tracks repaired from an Online Sequencer export'),
                            ('sustained_notes', 'short notes held longer'),
+                           ('thirds_dropped', 'thirds dropped for polyphony'),
                            ('steals', 'notes cut for polyphony'), ('drum_notes', 'drum notes dropped'),
                            ('octave_moves', 'notes moved by octaves'), ('pitch_bends', 'pitch bends ignored')):
             if song[key]:

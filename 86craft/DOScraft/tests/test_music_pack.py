@@ -110,8 +110,28 @@ class ConverterTests(unittest.TestCase):
             self.assertEqual(report['sustained_notes'], 0)
             self.assertEqual([t for t, kind, *_ in out if kind == music.NOTE_OFF], [10])
 
+    def test_thirds_go_first_when_more_than_nine(self):
+        stack = (36, 43, 48, 55, 60, 67, 72, 79, 84)          # Roots and fifths: no thirds
+        held = [(0, (0x90, n, 90)) for n in stack]
+        release = [(0, (0x80, n, 0)) for n in stack]
+        # A new third above a sounding note is the one left out.
+        events = held + [(10, (0x90, 64, 90)), (470, (0x80, 64, 0))] + release
+        out, report = music.convert_song(midi([track(events)]), hold=0)
+        self.assertEqual((report['thirds_dropped'], report['steals']), (1, 0))
+        self.assertNotIn(64, [a for t, kind, ch, a, b in out if kind == music.NOTE_ON])
+        # A sounding third gives way to a new non-third note (D above all).
+        with_third = (36, 43, 48, 52, 55, 60, 67, 72, 79)       # 52 is a third above 48
+        events = ([(0, (0x90, n, 90)) for n in with_third] + [(10, (0x90, 86, 90)), (470, (0x80, 86, 0))] +
+                  [(0, (0x80, n, 0)) for n in with_third])
+        out, report = music.convert_song(midi([track(events)]), hold=0)
+        self.assertEqual((report['thirds_dropped'], report['steals']), (1, 0))
+        ons = {a: ch for t, kind, ch, a, b in out if kind == music.NOTE_ON}
+        self.assertEqual(ons[86], ons[52])
+        self.assertTrue(music.is_third(64, [60]) and music.is_third(63, [48]) and not music.is_third(67, [60]))
+
     def test_steals_oldest_when_more_than_nine(self):
-        events = [(0, (0x90, 48 + i, 90)) for i in range(11)] + [(480, (0x80, 48 + i, 0)) for i in range(11)]
+        stack = (24, 31, 36, 43, 48, 55, 60, 67, 72, 79, 84)   # Roots and fifths only: nothing is a third
+        events = [(0, (0x90, n, 90)) for n in stack] + [(480, (0x80, n, 0)) for n in stack]
         out, report = music.convert_song(midi([track(events)]))
         self.assertEqual(report['steals'], 2)
         self.assertEqual(report['max_polyphony'], 9)
