@@ -1,0 +1,1867 @@
+# DOS performance checkpoints
+
+The user authorized optimization work on 2026-10-10, including independent
+prioritization beyond the supplied list. This supersedes the old Phase B timing
+restriction, **not** the unresolved full gameplay-parity acceptance. Audio is
+still deliberately silent. No UI, quality, mob-rule or save-format changes are
+authorized as incidental optimizations. The subsequent explicit request permits
+grouping graphics options into Low/Medium/High and modest visual tradeoffs, with
+adaptive subdivision in all three. Substantial visual/gameplay changes still
+require approval before experimentation. See the preset table in README.md.
+
+Current published release: accepted ET4000 transport plus direct pitched rows,
+word-wise chunky HUD comparison and four-texel opaque loops. Low/Medium retain
+planar broadcast; losing wall/coverage/gradient/reuse probes remain disabled.
+See the final release section below; intermediate paragraphs are chronological
+checkpoints, not the current adoption state.
+
+## Automated guest benchmark
+
+Run `tools/benchmark.py --bios <known-good isa486.nvr> --label baseline` with
+Python. The existing diagnostic CMOS seed is
+`runtime/platform-486dx25-xecixfz2/nvr/isa486.nvr`. Dependencies must already be
+installed. It builds separately in `build/bench`, creates a **new** private VM,
+boots its ISO-extracted floppy, runs three fresh DOS processes, reads each
+`C:\BENCHn.TXT` from the private HDD and closes only its own completed emulator.
+No Windows keyboard, focus, capture, BIOS interaction or player save is needed.
+A timeout leaves the test open for diagnosis rather than killing active I/O.
+
+Benchmark-only builds now ignore live keyboard scan codes and mouse motion/
+buttons. The interrupt handler still drains and acknowledges keyboard bytes;
+normal gameplay and scripted gameplay smoke retain the real input backend.
+A native test feeds all 256 byte values repeatedly and verifies no events or
+held keys; existing keyboard/mouse parity tests also pass. A normal isolated
+rebuild remains byte-identical (`4d2ef66520e55f19cbfc43f5b4fe5f65a57460ee5a3ffbd25609e8cda62b4bdb`).
+This closes a diagnostic hole where host input could open inventory and pause
+the supposedly unattended replay. The interrupted private run is not evidence.
+New renderer comparisons use input-isolated baseline and candidate alike.
+
+Results: `build/bench/486dx25/<label>/latest-report.txt` points to the complete
+JSON, including compiler commands, executable/source/ROM/emulator hashes and
+all raw samples. Guest PIT channel 2 measures microseconds; unchanged 100 Hz
+IRQ0 resolves counter wraps. A native test covers wrap recovery and IRQ-phase
+uncertainty. This uses neither host wall-time FPS nor unavailable 486 RDTSC.
+
+Version 1 is a **frozen-simulation graphics/world-update replay**, not full
+gameplay FPS. It uses procedural seed 4242, half-resolution view, eight-block
+distance, inherited adaptive subdivision and occlusion-off. Six scenes each
+have six warm frames then 32 samples: stationary, moving camera, moving full
+down, moving full up, a 7x7 stone-house interior and alternating block edits.
+Camera positions advance by frame, not elapsed time, for equivalent workloads.
+Game physics/mob simulation is frozen; meshes/streaming/raycast/render/HUD and
+real VGA upload remain live. Edit calls and initial house construction are
+outside frame timing; resulting mesh/light work is inside. This limitation must
+be fixed before ranking edit-latency/simulation changes. Native transport tests
+and existing real-input gameplay smoke supplement, not replace, this replay.
+
+Stage totals distinguish game/raycast, world updates, collection, entity sort,
+page wait, sky, drawing, finishing/doubling, HUD and presentation. Presentation
+also separates packing, ISA upload and retrace waits/timeouts. Last-frame VGA
+readback and image hashing are outside timed frames. Three repeats expose
+variance; compare each scene, p95/max and frame samples, not just aggregate FPS.
+Readback proves all four VGA planes match RAM, not renderer visibility itself.
+
+## FPS and slow-frame reporting
+
+Reports and comparisons include average FPS, 1% low and 0.1% low, per repeat,
+per scene pooled across repeats, and across the full measured replay. Average
+FPS is measured frame count divided by total frame duration, not the average
+of individual instantaneous FPS values. Each low is the reciprocal of the mean
+duration of the slowest `ceil(N * fraction)` frames. This is distinct from the
+also-reported nearest-rank p99/p99.9 frame-time percentiles.
+
+Every FPS summary includes sample count, tail-frame count, whether there are
+at least 100/1000 samples for the respective low, and whether its tail contains
+at least ten frames. Short default runs (32 frames/scene/repeat, 96 pooled)
+remain useful regression checks but their lows are effectively worst-frame
+indicators, **not reliable tail statistics**. Existing evidence is not rewritten;
+comparison tools can derive the added metrics from its retained raw frames.
+
+Use `--frames 1000` for a longer screening run or `--frames 10000` for ten
+0.1%-tail frames per scene per repeat. These runs can take hours on the emulated
+CPU; the default host timeout increases automatically, or use `--timeout`.
+Measured movement repeats the same bounded 32-pose route rather than drifting
+into unrelated terrain. Long runs use wide PIT/stage accumulators and are
+compared only with matching sample counts and movement policy. They remain
+frozen-simulation replays: repeated routes warm caches, and combined metrics
+exclude generation, warmup, inter-scene construction and report writing. Use
+individual scene metrics to avoid hiding a building slowdown behind easy views.
+The long-run plumbing requires guest acceptance; adding the metrics does not
+claim a completed long-run benchmark or full-game 0.1% low measurement.
+Verification: all 16 focused metric/parser/comparison tests pass, including
+nonuniform frames, tail averaging, rounding, sample-support flags, long-run
+units and mismatched-workload rejection. The real DJGPP i486 10,000-frame
+benchmark links successfully; no long emulator run was started at this checkpoint.
+
+## Initial independent priority
+
+One preliminary run measured about 22 ms packing + 31 ms upload per frame;
+retrace was 6–10 ms and **no 100 ms timeout fired**. Drawing was roughly 33 ms
+stationary, 41 ms inside the house and 83 ms while looking straight down. These
+are diagnostic replay results, not a claim to reproduce every player's scene.
+
+1. Measure one-pass all-plane conversion against four strided framebuffer
+   passes. Exact pixels, no gameplay/quality change; additional 57,600 B scratch.
+2. Measure exact per-VGA-page unchanged-HUD upload avoidance. Existing HUD
+   caching stops RAM drawing, but currently not packing/ISA writes. Comparison
+   overhead might erase the gain: keep only measured successes.
+3. Investigate draw/setup cost: exact camera setup reuse, remaining signed edge
+   divisions, repeated clipping/subdivision setup. Existing shared transforms,
+   reciprocal spans, greedy/cached meshes and assembly are already implemented.
+4. Then assess conservative occlusion/front-to-back rewrite against house/down
+   worst cases. It needs an independent visibility/order reference for cutouts
+   and models, not just faster frames. Do not reduce visible content.
+
+Atlas cache conflicts are another code/hardware-specific hypothesis, but
+86Box cache fidelity needs checking before treating emulator timing as proof.
+HDD/FPU/RAM changes are not automatically helpful: select measured bottlenecks.
+Retain unsuccessful candidates as explicitly selectable experiment checkpoints;
+never silently leave an unproven candidate in the default playable build.
+
+## Retained first experiment
+
+`--candidate pack-all` selects a single-pass, four-way unrolled converter;
+`--candidate reference` keeps the original presenter. Neither changes gameplay
+or quality. Its first guest attempt preserved at `runtime/game-play-12ipn3km`
+failed the **diagnostic verifier**, not the image hash: the expanded scratch
+buffer accidentally made `memcmp` read four planes against a one-plane readback
+buffer. The verifier now explicitly compares 19,200 bytes. A native test runs
+the actual presenter against an independent four-plane VGA model, checking
+every pixel across 18 flips with odd pitches/unaligned source. The separate
+converter tests check 448 frames and invalid-input guards. A fresh three-run
+guest retest is required before adopting this candidate.
+
+## Accepted optimization 1: all-plane packing
+
+The corrected three-run test passed VGA readback and all six scene image hashes
+matched the original baseline in every repeat. Packing fell from approximately
+22.0 to 8.7 ms. The default full-game builder now selects this converter; the
+benchmark retains `--candidate reference` as the untouched transport baseline.
+No renderer, gameplay, resolution, view distance or graphics-option change.
+
+| Replay scene | Original mean ms | One-pass mean ms | Frame-time reduction |
+| --- | ---: | ---: | ---: |
+| Stationary | 101.142 | 84.278 | 16.7% |
+| Moving | 91.092 | 75.282 | 17.4% |
+| Moving/down | 164.345 | 152.224 | 7.4% |
+| Moving/up | 76.335 | 67.376 | 11.7% |
+| House interior | 120.641 | 109.045 | 9.6% |
+| Edit aftermath | 138.184 | 125.714 | 9.0% |
+
+Raw samples, repeat means, p95, hashes and pinned hardware/binary evidence are
+tracked in `tests/benchmarks/2026-10-10/pack-all.json`. Three repeats are strongly
+consistent, but this frozen replay is not a promise of the same live-play FPS.
+ISA upload remains roughly 31 ms; dense geometry remains expensive.
+
+## Accepted optimization 2: exact unchanged HUD upload avoidance
+
+Three further guest runs and the independent presenter model pass. A separate
+shadow of each actual VGA page's HUD is compared byte-for-byte, using safe
+unaligned word comparisons. Identical HUD plane bytes need not cross ISA again.
+Changed bytes are copied/uploaded; titles, menus, loading/dimming, sharp text,
+palette changes and all three pages remain correct. Cache initialization tracks
+the VGA clear. This is not a probabilistic hash or gameplay dirty-flag shortcut.
+Extra scratch: 38,400 B. Native tests also exercise the byte-only fallback.
+
+Compared with accepted optimization 1, upload **including comparison overhead**
+falls from about 30.7 to 27.1 ms. Stationary frames are neutral because retrace
+absorbs the saving; moving improves 1.4%, down 3.1%, up 11.7%, house 4.8% and edit
+aftermath 3.8%. No measured primary-scene regression. The default builder now
+keeps both optimizations. `--candidate hud-cache` selects this checkpoint;
+`--candidate pack-all` still tests the first change independently. Raw evidence
+is `tests/benchmarks/2026-10-10/hud-cache.json`.
+
+## Next independent candidate
+
+VGA plane-map masks can broadcast one byte write to multiple planes. Exact
+row comparisons can exploit doubled world pixels (and uniform sky) without
+assuming all pixels match: outlines, HUD, text and full-resolution differences
+must retain separate writes. Coalesced matching row runs may save more ISA
+traffic than further CPU setup changes. Measure planning overhead, full-resolution
+regressions and actual framebuffer equality before selecting it. This is a
+system/code-specific priority, not simply following the supplied list.
+
+The selectable `--candidate broadcast` experiment now implements exact per-row
+pair/all-plane equality and coalesces runs using map masks 3, 12 or 15. It
+includes sharp single-pixel differences rather than assuming a doubled picture.
+Planning is disabled by the game-facing adapter when the existing full-resolution
+option is active; that path retains optimization 2. Both paths have independent
+native VGA-model coverage; the planner additionally has word/portable-path and
+randomized byte-oracle tests. Extra persistent run scratch: 5,760 B.
+
+The user also explicitly authorizes a 13h/chunky backend experiment if it shows
+a major benefit, while retaining Mode X as an option. Standard 13h is 320x200;
+our current display is 320x240 including its HUD. An isolated transport probe
+may compare bandwidth/conversion, but cropping/rearranging the UI is not implied
+permission. Also investigate ET4000 banked chunky 320x240 for a like-for-like
+layout. Do not retire the working Mode X/reference path.
+
+## Accepted optimization 3: exact plane broadcast
+
+All three guest runs pass, with every scene's image hash matching both earlier
+checkpoints and the original. `tests/benchmarks/2026-10-10/broadcast.json` retains
+the incremental comparison against optimization 2. Upload plus planning falls
+to about 15–19 ms. The default game builder enables broadcast for the doubled
+view; existing full-resolution rendering takes the earlier exact upload path.
+
+| Replay scene | Original mean ms | All three optimizations mean ms |
+| --- | ---: | ---: |
+| Stationary | 101.142 | 71.806 |
+| Moving | 91.092 | 59.471 |
+| Moving/down | 164.345 | 138.521 |
+| Moving/up | 76.335 | 54.201 |
+| House interior | 120.641 | 98.506 |
+| Edit aftermath | 138.184 | 115.175 |
+
+These are approximately 16–35% shorter replay frames, including an 18% house
+improvement, not an assertion of identical live-play FPS. The architectural
+house/down drawing problem remains. Next: expand timing to include real
+simulation/edit-call latency, then profile raster setup/spans/overdraw and
+compare chunky transport (keeping Mode X). The current replay deliberately
+cannot rank AI or full block-edit latency. Existing fixed math, shared axis
+transforms, greedy meshes, shade LUTs, division reciprocals and assembly are
+retained rather than reimplemented or converted to x87 on speculation.
+
+## Playable release checkpoint
+
+The normal game executable (not the frozen benchmark) passed the automated
+new-world and fresh-process reload tests. Both exercised actual guest AT input,
+walking, full down/up look, torch placement/breaking, inventory/crafting
+snapshots, VGA readback and the full-resolution toggle. Saving and reloading
+returned success. Images were inspected; evidence is tracked in
+`tests/baselines/2026-10-10-optimized-game/`. This is a smoke test, not exhaustive
+gameplay acceptance or a live FPS measurement. All completed test VMs closed.
+The host suite passed 184 tests (two dependency-dependent skips).
+
+`tools/publish_game.py` published the smoke-verified normal executable into
+`ISO/DOSCRAFT.ISO`. The existing `.cmd` validated successfully from `C:\Windows`,
+without depending on its working directory. Player VM:
+`runtime/game-play-ac_jv6sq`. Previous VM `runtime/game-play-hmcctnfd` remains
+untouched, and its entire HDD was copied exactly into the new VM. The previous
+ISO is preserved as `ISO/DOSCRAFT.before-471a1a8d4b54.ISO`.
+
+Verified SHA-256 fingerprints:
+
+- Normal executable: `a191bb04a312123d09c96e519062c84fd51b3cfe943059f021564df3dbabfc9f`
+- Published ISO: `f48ffba45f14e774c2d96769fdca6e80390c2ba2f0aa89897263ff47e2bd9bfc`
+- Previous ISO/backup: `4c837427b13597b903452b3b454b0a749334c26d85b7c1f2ed83f8c789f7fd08`
+- Old and new player HDD: `8efe8c1f4ee321145c47db730832868bb59332a4d5ac10f935730a72fd3ffda5`
+
+Generated ISOs and private HDDs remain local/ignored; source, launchers, tests,
+benchmark evidence and smoke screenshots are committed. No gameplay/UI/layout,
+graphics-quality or default-budget changes are included in this checkpoint.
+
+## Follow-up experiments: keep evidence, not losing defaults
+
+The existing optional single-patch occlusion prepass was tested independently
+with all three accepted transport changes. Three repeats passed and the six
+last-frame image hashes matched. It was slower: stationary 1.2%, walking 4.4%,
+down 2.7%, house 2.1%, and edit aftermath 1.4%; up was neutral. Evidence:
+`tests/benchmarks/2026-10-10/occlusion.json`. Occlusion remains off. This does not
+rule out a front-to-back renderer: the existing prepass does not stop general
+pixel overdraw or combine arbitrary opaque coverage into a complete proof.
+
+The selectable `--candidate zero-dx` skips signed edge division when its
+numerator is exactly zero. A native test compares the real original/candidate
+rasterizers and real assembly across 24,000 polygons, both scales, winding,
+clipping, cutout zeros, wrapping, flat spans, guards and occlusion queries.
+Guest pixels also match in three repeats, but there is no meaningful repeatable
+gain in house/down/edit scenes. Walking's third repeat contains a preserved
+5.042-second outlier in presentation; its raw results are not discarded or
+used as optimization evidence. The candidate is not enabled by default.
+Evidence: `tests/benchmarks/2026-10-10/zero-dx.json`. A live FAT snapshot briefly
+caught an in-progress directory/FAT update; the runner now retries such snapshots
+without accepting corrupt/incomplete reports. The completed VM was collected
+and only its identity-verified emulator process closed.
+
+Priority shifts to geometry/setup elimination and ordered opaque coverage,
+not more small arithmetic shortcuts. Cube terrain gives a useful ordering
+structure, but merged face scheduling, cutout holes, models/mob parts and near
+clipping must be proven rather than hidden by a blanket block-center sort.
+The original painter remains the image reference and safe fallback. Introduce
+an independent coverage/depth reference before enabling a larger renderer
+rewrite, and test buildings/doorways, seams, moving models, transparent texels
+and edits. Substantial changes to visible geometry or gameplay need approval.
+
+The next-step design is `FRONT_TO_BACK.md`. Coverage tests are a correctness
+scaffold, not enabled gameplay code or a measured speedup. Replay version 2
+records `EDIT_CALLS` and call-plus-following-frame summaries. `--quality
+low|medium|high` uses the normal game's adaptive preset table. Compare version 2
+only with fresh version-2 baselines at the same profile; version-1 evidence
+remains historical, not silently rewritten.
+
+## Adaptive graphics-preset release acceptance
+
+The normal game passed new-world and fresh-process reload smoke with real AT
+input cycling Low → Medium → High → Low, including VGA readback at each profile.
+All profiles retained adaptive subdivision; walking, full pitch, torch edits,
+menus and save/reload also passed. Inspected snapshots and reports are tracked
+in `tests/baselines/2026-10-10-graphics-presets/`. The host suite ran 201 tests,
+passing with two dependency-dependent skips. Completed diagnostic VMs closed.
+
+The preset ISO was published through the save-preserving workflow to the existing
+launcher. Normal EXE SHA-256:
+`4d2ef66520e55f19cbfc43f5b4fe5f65a57460ee5a3ffbd25609e8cda62b4bdb`.
+ISO SHA-256: `2f5ab9c8ba1a2c0921c3c9a93cf8626de09ba2ce27c9c2e42529afb9b9fed9dd`.
+Player VM `runtime/game-play-ns_83t_k` retained the byte-identical HDD hash
+`8efe8c1f4ee321145c47db730832868bb59332a4d5ac10f935730a72fd3ffda5`.
+Previous VM and `ISO/DOSCRAFT.before-a191bb04a312.ISO` remain available.
+Launcher `-ValidateOnly` passed. No experimental occlusion, edge division,
+camera reuse or front-to-back code is enabled in that release.
+
+## Retained experiment: exact camera-table reuse, not a default
+
+Reuse the camera/frustum axis tables only when all five camera coordinates,
+view distance, world width and render scale match exactly. Initialization
+invalidates reuse. Mesh edits, lighting and entities still update normally;
+there is no approximate pose matching or change to fixed-point arithmetic.
+The independent native test compares the actual original and candidate tables
+over 12,000 poses, world widths, both scales, key changes and reinitialization.
+
+Three fresh version-2 guest repeats per profile passed with all six scene image
+hashes matching. Low stationary mean falls from 71.981 to 67.415 ms (6.3%);
+High stationary falls from 152.788 to 152.262 ms (0.3%). Moving, down/up, house
+and edit aftermath are effectively unchanged at both profiles. Retrace affects
+the total-frame benefit; this is not a house-overdraw fix or a live FPS promise.
+Raw comparisons and build provenance are retained in
+`tests/benchmarks/2026-10-10/camera-low.json` and `camera-high.json`.
+The user prioritizes moving/house gains over stationary-only improvements.
+Consequently this candidate remains independently selectable, not enabled in
+the normal builder or published ISO. The benchmark's `broadcast` candidate
+remains the independent baseline.
+Occlusion and zero-dx remain selectable losing experiments, not defaults.
+
+## Retained experiment: compact logical raster
+
+`--candidate packed-raster` draws clouds/geometry/outlines into a 16,000-byte
+logical buffer for the doubled view, then expands once at finish. It preserves
+the actual sky image, Mode X, sharp HUD and the full-resolution reference path.
+Native comparisons exercise 24,000 polygons against the actual original assembly
+with cutouts, wrap, clipping, colors including opaque zero, both scales, sky
+bands/points, outlines, padding and guards. The portable renderer overlay is
+explicit and provenance-recorded; no vendor changes are needed.
+
+All three Low guest runs pass and all scene hashes match, but total frames are
+slower in every scene: walking 59.120 → 72.118 ms, house 98.506 → 103.777 ms,
+down 138.521 → 145.898 ms. House drawing itself falls about 41.0 → 38.1 ms,
+but sky-copy and final expansion add roughly 11 ms before retrace effects.
+The net result is a loss, not an optimization. Keep the selectable checkpoint
+and `tests/benchmarks/2026-10-10/packed-raster-low.json`, not a normal-build
+default. Stationary camera reuse also remains experimental, per user priority.
+
+## Retained experiment: rejection before adaptive subdivision
+
+`--candidate early-split-cull` rejects an invisible merged face before creating
+its adaptive child faces, retaining all original per-child rejection. Visible
+subdivision, UVs, lighting and gameplay are unchanged. Weighted fixed-point
+frustum values are not necessarily monotonic between grid lines, so an endpoint
+test alone is insufficient. The final gate checks included interior grid lines
+only when the endpoint check suggests rejection. Native tests cover 120,000
+actual parent cases against original child bounds at both scales, including a
+negative control that demonstrates the endpoint-only hazard.
+
+Three final Low guest runs match every image hash. Walking mean falls from
+59.120 to 58.768 ms (0.6%), but house/down/edit means are effectively unchanged;
+stationary changes by +0.2%. This is a small moving-view result, not a meaningful
+dense-scene solution, and is not enabled by default. Evidence:
+`tests/benchmarks/2026-10-10/early-split-cull-exact-low.json`. The earlier endpoint
+prototype's raw recipe/results remain in `early-split-cull-endpoints-low.json`
+for recovery, not as proof of general image correctness or an adopted variant.
+
+Priority is exact front-to-back coverage that can skip complete hidden polygons
+and covered scanlines BEFORE edge/gradient/texture work. The bounded capture
+and actual-assembly image oracle are development scaffolding, not shipping
+renderer integration or a measured speedup. Avoid spending further iterations
+on stationary-only caches or sub-percent arithmetic tweaks.
+
+## Front-to-back correctness checkpoint
+
+The next architecture now has tested per-item primitive capture and exact
+texture-state jumps across covered gaps, alongside the existing bounded
+coverage bitset. Capture owns its projected vertices and refuses an overflowing
+prefix; it is intended to reverse each item's actual emitted primitives while
+the existing global painter merge is reversed with its exact tie rules.
+
+The actual rasterizer/assembly serves as an independent image oracle for 48
+overlapping forward-capture/reverse-first-opaque scenes. The gap kernel matches
+20,480 actual assembly rows across all eight textured paths, every width 1–320,
+clipping, wrapping, negative steps, byte rollover and cutout holes. DJGPP i486
+object checks confirm no added divide/FPU/helper instructions in the gap kernel.
+See `FRONT_TO_BACK.md` for the specific integration gates.
+
+These modules are not connected to the playable renderer yet and have no guest
+performance claim. The current ISO remains the tested adaptive-preset release;
+none of the stationary reuse, compact raster, parent-culling or front-to-back
+experiments is enabled. Rebuilding the normal default still produces the exact
+same EXE hash `4d2ef66520e55f19cbfc43f5b4fe5f65a57460ee5a3ffbd25609e8cda62b4bdb`.
+The final host suite ran 210 tests successfully with two dependency-dependent
+skips. The pinned Towns import independently verified all 50 files unchanged;
+the existing launcher validated from `C:\Windows`. All diagnostic VMs closed.
+
+## Integrated coverage renderer: retained, not adopted
+
+The exact reverse-painter renderer is now integrated in an opt-in diagnostic
+build, with opaque ADD/ADC spans, cutout-aware coverage, conservative primitive
+queries and original full-frame fallback. All 684 Low guest verification frames
+match the original painter. Independent actual-raster/native-assembly tests
+and the full 220-test host suite pass (two dependency skips). The Towns pin
+still verifies all 50 files. See `FRONT_TO_BACK.md` and its raw reports.
+
+Three input-isolated timed repeats nevertheless regress: walking 58.422 to
+71.069 ms, down 137.999 to 166.984 ms, house 98.513 to 110.456 ms, edit aftermath
+115.159 to 125.520 ms; up is neutral. Thus it is not a playable default. This
+implementation's coverage/capture costs exceed the eliminated work; larger
+scenes or a cheaper reverse traversal remain separate hypotheses, not gains.
+
+## Independent candidate: exact edge reciprocal division
+
+`--candidate edge-recip` changes only three edge divisions in the original
+painter's `pedge_init`, plus one-time table initialization. It does not combine
+with the losing coverage candidate or alter subdivision, UVs, material behavior,
+clipping, resolution, view distance, UI or gameplay. A 32,772-byte reciprocal
+table covers positive edge heights 1..8192. For bounded shifted magnitudes,
+high-half unsigned multiplication followed by an exact correction reproduces
+original signed division/truncation. Negative or oversized divisors/numerators
+and other shifts retain original IDIV. No approximation or FPU conversion.
+
+Native proofs cover 7,501,146 original x86 IDIV comparisons, all supported
+divisors, both signs, boundaries and fallback inputs; 32,192 actual raster/
+assembly polygon comparisons preserve pixels, guards, counters and occlusion.
+DJGPP audits show the fast core is inline MULL/correction with no divide,
+function/helper call, FPU or SIMD. Explicit source recipes replay exactly and
+fail closed on upstream changes.
+
+Three input-isolated Low guest repeats pass every image hash/readback but do
+not improve performance: walking 58.422 -> 59.478 ms, looking down 137.999 ->
+141.690 ms, house 98.513 -> 99.040 ms, stationary 67.421 -> 72.690 ms; up/edit
+aftermath are neutral. Evidence: `tests/benchmarks/2026-10-10/edge-recip-low.json`.
+This rejects the candidate as a default. A multiplication/table access plus
+exact correction is not inherently cheaper on this target than the original
+division. High is not used to excuse a Low regression. Preserve the selectable
+implementation and tests; default flags and the playable ISO remain unchanged.
+
+## Independent candidate: i486 word transpose packing
+
+`--candidate pack-words` changes only RAM-to-planar conversion, keeping the
+accepted HUD cache, exact repeated-pixel upload planner, Mode X timing,
+three hidden pages, all 320x240 pixels and the original renderer. Its i386
+kernel loads four adjacent source dwords, transposes the bytes using register
+rotates/exchanges, and writes four plane dwords. The original byte packer
+remains independently selectable. GNU alias/alignment annotations permit
+unaligned buffers; byte-only C fallback is independently tested.
+
+Native parity checks 25,900 frames across i386/x86-64 and default/portable
+paths against an independent pixel reference, original all-plane packing and
+plane extraction. Tests cover pitches, all offset pairs modulo 16, all short
+capacities/pitches, null inputs and inaccessible-page exact boundaries. Actual
+DJGPP i486 objects have 31 versus 42 inner-loop instructions per 16 pixels,
+four versus sixteen source loads/stores, and no helper/FPU/SIMD/newer ISA.
+Instruction counts alone do not establish a speedup; Low guest timing and
+image/readback checks are the adoption gate. The normal executable rebuilt
+byte-identically after both new experimental backends; the launcher validates
+from `C:\Windows`. No playable ISO/default flag changes at this checkpoint.
+
+Three Low guest repeats match all images/readbacks but regress: packing grows
+from about 8.72 to 14.28 ms; walking 58.422 -> 64.924 ms, down 137.999 ->
+143.270 ms, house 98.513 -> 101.675 ms, up 54.208 -> 57.369 ms. The actual
+rotates/exchanges cost more on this target despite the lower instruction count.
+Evidence is retained in `tests/benchmarks/2026-10-10/pack-words-low.json`.
+Keep the experiment disabled; no High justification for a clear Low loss.
+
+`--candidate pack-words-c` independently retains dword memory accesses but uses
+C XOR/shift swaps instead of register exchanges. It additionally passes all
+i386 native parity/boundary tests. The DJGPP loop has 51 instructions and 11
+stack accesses per 16 pixels: register spills are a concern, not a demonstrated
+improvement. Guest performance remains unmeasured; this is a recoverable probe.
+
+## Independent candidate: release the frame register
+
+`--candidate omit-frame` adds only `-fomit-frame-pointer` to portable C and DOS
+adapter compilation. The existing DJGPP i486 `-O2` configuration explicitly
+reports this option disabled. Freeing EBP is a register-allocation/codegen
+experiment, not a renderer, world, floating-point, resolution or UI change.
+All integer/i486/FPU-SIMD restrictions remain. Compiler commands and resulting
+object hashes are retained in the benchmark's manifest; defaults remain unchanged
+until measured acceptance and real-game smoke testing.
+
+Target object checks confirm removal of the frame setup while retaining the
+callee-save EBP push/pop ABI. Native presenter tests pass with the option.
+IRQ entries save the complete register context and inspect an explicitly
+identified interrupt frame through saved SS:ESP; they do not walk a C EBP
+frame chain. Diagnostic C stack backtraces may be less informative with the
+option, which is distinct from gameplay correctness. Low and High guest builds
+are prepared, and the isolated Low comparison is underway.
+
+Three Low guest repeats match all six hashes/readbacks: walking/up/static are
+neutral, looking down 137.999 -> 136.422 ms (1.1%), house 98.513 -> 96.933 ms
+(1.6%), edit aftermath 115.159 -> 112.525 ms (2.3%). Edit-call time is neutral;
+mean call-plus-frame falls from 115.366 to 112.731 ms. P95 tails remain essentially
+unchanged; do not characterize this as a hitch fix or a large FPS improvement.
+Raw evidence: `tests/benchmarks/2026-10-10/omit-frame-low.json`.
+
+Independent native codegen comparisons preserve all 24,000 original-raster/
+assembly polygons. Explicit no-frame IRQ mock variants pass lifecycle, failure
+unwind, keyboard, timer wrap and profiling/cadence checks. Real world/cache/
+lighting/mob/save/cold-reload tests also pass with the compiler option and
+preserve the complete save byte oracle. High timing and real-game smoke are
+still required before adoption.
+
+## Accepted optimization 4: frame-register codegen release
+
+High also passes three input-isolated repeats, with unchanged scene hashes and
+VGA readback. Mean improvements are small: walking 111.124 -> 110.598 ms (0.5%),
+down 253.941 -> 252.361 ms (0.6%), up 67.383 -> 66.330 ms (1.6%), house
+177.036 -> 175.983 ms (0.6%), edits 194.030 -> 193.154 ms (0.5%); static is
+neutral. Evidence: `tests/benchmarks/2026-10-10/omit-frame-high.json`.
+Together with the Low improvements above, this supports adoption without
+reducing quality or changing gameplay. It does not fix worst-frame tails or
+the architectural dense-building slowdown.
+
+Normal-game smoke passes new-world and fresh-process reload, actual guest AT
+movement, full down/up look, torch placement/breaking, inventory/crafting,
+Low/Medium/High VGA readback and saving/loading. Evidence and inspected snapshots:
+`tests/baselines/2026-10-10-omit-frame-game/`. The earlier complete host suite
+passed 246 tests with two dependency skips; the release additionally checks the
+exact accepted default flags. A fresh isolated build with the new defaults
+reproduced the smoke-verified normal EXE byte-for-byte. Benchmark-only long-run
+changes are excluded from this executable. All experimental renderers/culling/
+packing variants and stationary camera reuse remain off. No graphics, UI,
+mob policy, save format or FPU conversion accompanies this release.
+
+Save-preserving publication updates the existing `ISO/Launch-DOScraft.cmd` path
+to `runtime/game-play-zv5p5p7p`. The launcher validates from `C:\Windows`.
+The previous `runtime/game-play-ns_83t_k` and its HDD remain untouched; the new
+VM received its entire current HDD, including the user's intervening play/save
+changes. The previous ISO is backed up as
+`ISO/DOSCRAFT.before-4d2ef66520e5.ISO`. The embedded boot executable is checked
+against the tested executable; media and HDD hashes are independently verified.
+
+- Normal executable: `13803b3fa72128babd8be97c3b73a904e6891d2b6e80bfbd3d529764a8177a69`
+- Published ISO: `edaa0c5c0a213effcbd283cf2f0b59452b5df9741708760d12e4c5c297c20686`
+- Previous ISO/backup: `2f5ab9c8ba1a2c0921c3c9a93cf8626de09ba2ce27c9c2e42529afb9b9fed9dd`
+- Preserved current player HDD: `c785fc4e3684c055d11c85928a8186d998a477ba4c122919ad09ba7ac98927b6`
+
+Generated media/disks remain local and ignored; sources, tests, launchers and
+release evidence are tracked. Audio remains deliberately deferred.
+
+## Independent experiment: ET4000 banked chunky upload
+
+`--candidate et4000-chunky` keeps all four accepted optimizations, adding only
+an opt-in ET4000 CPU-access path when the repeated-pixel hint is off (High).
+Low/Medium remain planar/broadcast. It gathers the existing pitched image into
+consecutive bytes, temporarily enables CPU chain-4 and selects 64 KiB write
+banks at 3CD, then restores bank zero/unchained access before the original page
+flip or planar readback. Three 76,800-byte physical pages fit in 230,400 bytes.
+The display stays 320x240 Mode X; HUD, palette, renderer and timing are unchanged.
+
+The [Tseng ET4000 data book](https://manuals.plus/m/db23f00af4e83256d746dbcb9869926ed1e4e0dbde40e21a9b338e43038f9304)
+documents linear-byte CPU access, segment pointers and chain-4 (sections 3.2,
+4.2 and 4.4). The local emulator independently has bank selection and packed
+chain-4 address handling, with a separate bulk-write fast path. That supports
+the hypothesis; it does not prove hardware speed or physical display behavior.
+No emulator source/configuration/timing patch is part of this experiment.
+
+Exact per-destination-page HUD caches have explicit cross-path invalidation;
+unchanged RAM shadows must not stand in for bytes written by the other path.
+Native tests use an independent four-plane/banked model, all actual presenter
+paths, 180 flips, unaligned source and both odd/standard pitches, all bank
+boundaries, seven-flip path switching (every page crosses), full pixel checks,
+unmodified other pages/unused VRAM and a deliberately corrupted readback.
+An isolated normal rebuild is byte-identical to the published EXE. Guest Low/
+High comparisons against a fresh current-codegen baseline remain required.
+Do not enable this candidate or claim a gain from native speed/instruction counts.
+
+## Finer attribution from existing original-painter samples
+
+Read-only analysis of `broadcast-low-draw-profile.json` uses its exact matching
+EXE (`99e2e43f30c9bcec7147dcc365b4c2601d408fc2bd766ab13a404fe34c9ec2b1`),
+SHA-checked before disassembly. All three probes already satisfy the corrected
+post-generation sampling/range gate. For each of eight original trap entry
+points, identify the unique backwards pair-loop `JAE` and backwards row-loop
+`JNE`; their targets delimit entry, row setup, texel loop, row advancement and
+exit. Reject ambiguous/nonmonotonic boundaries rather than guessing.
+
+Across 2,344 drawing samples: row setup 593 (25.3%), texel loops 677 (28.9%),
+row advancement 94 (4.0%), entry/exit 7 (0.3%), other drawing 973 (41.5%).
+These trap categories include opaque and cutout paths, not opaque alone.
+
+| Scene | Drawing samples | Trap row setup | Trap texel loops |
+| --- | ---: | ---: | ---: |
+| Walking | 117 | 26 (22.2%) | 33 (28.2%) |
+| Moving/down | 946 | 208 (22.0%) | 217 (22.9%) |
+| House | 450 | 130 (28.9%) | 151 (33.6%) |
+| Edit aftermath | 454 | 123 (27.1%) | 142 (31.3%) |
+
+The original trap bodies are unchanged by the accepted C frame-register flag.
+Nevertheless these are old-codegen, 100 Hz EIP samples including warm frames;
+sampling/interrupt-boundary bias remains, not exact instruction cycles.
+Setup deserves investigation alongside texel-loop/visibility improvements.
+One invisible hypothesis is reusing row gradients only when their **exact**
+rounded span width and shifted U/V deltas match; projected-row widths/UVs can
+change, so a blanket once-per-face gradient is a distinct visual tradeoff, not
+an exact reuse. It may be investigated under the user's visual-tolerance policy.
+Any cache checks, spills and code footprint must earn their cost on moving/
+house/down scenes. This is prioritization evidence, not an implemented gain.
+
+### Low gate failure retained before High testing
+
+Historical checkpoint: the exact-image hold described below was subsequently
+lifted by the user's visual-tolerance clarification. See the updated policy below.
+
+The fresh `codegen-current-low-v1` and `et4000-chunky-low-v1` runs both complete
+three PASS repeats with VGA readback and essentially identical timings. However,
+the down scene's RAM-image hashes differ consistently: baseline `cccac37c`,
+candidate `e76ff760`. All five other final scene hashes match. The comparator
+correctly refuses this pair; these timings cannot establish adoption. High VMs
+are prepared but the queue stopped before launching them. The accepted game
+and ISO remain unchanged, with the experimental compile flag off.
+
+Preserved full raw/provenance reports: `et4000-low-mismatch-baseline.json` and
+`et4000-low-mismatch-candidate.json` under `tests/benchmarks/2026-10-10/`.
+The host suite passes 254 tests with two dependency skips. `--dump-frames`
+now captures palette/indexed final images after the timing boundary to each
+private HDD. Its timings are explicitly diagnostic and rejected by the
+performance comparator, because added disk time can perturb later scheduling.
+`bench_frame_report.py` checks completion and captured FNV hashes, compares
+view/HUD/palette bytes, and renders unchanged frame dumps into a NEW directory.
+Hash/region tests and diagnostic-timing rejection pass. This infrastructure
+investigates the mismatch; it neither relaxes image gates nor changes gameplay.
+
+### Image mismatch localization (checkpoint, not a fix)
+
+Hash-checked disk dumps from all three fresh-process repeats give the same
+result: only `walk_down` differs, by 20 physical pixels (five doubled logical
+pixels), within x=8..31, y=54..77. All other scene pixels, the complete HUD and
+all palette bytes match. Both VGA readbacks match their respective RAM image.
+The first-repeat images and exact differences are retained in
+`tests/baselines/2026-10-10-et4000-low-frame-diff/`; repeat 2/3 analyses remain
+in the ignored private diagnostic outputs. This localizes a reproducible
+world-image discrepancy, not an upload-only error or a demonstrated cause.
+
+An independent native original-raster probe tests identical texture
+neighborhoods relocated to different 64 KiB address phases, covering 24,000
+polygons, both scales, clipping, subpixel edges, wrapping and cutout paths.
+`tools/audit_atlas_relocation.py` passes with the original pinned C/assembly;
+the address-phase hypothesis was **not reproduced**. This does not cover
+every game-emitted polygon or rule out invalid texture coordinates, layout
+sensitivity elsewhere or other scene state. No raster/game fix is inferred.
+The tool preserves its source pin, compiler command, executable hash and
+stdout in `build/audit/atlas-relocation/report.json`. It is a correctness
+diagnostic, not 486 performance evidence.
+
+At this checkpoint the ET4000 candidate stayed disabled and High testing was
+held at this gate. The published game/ISO and player's disks are unchanged. Continue
+independent row-setup/early-rejection work rather than treating this backend
+experiment as the only optimization avenue.
+
+## Optional zero-gradient multiply probe
+
+`--candidate trap-zero-gradient` adds a replayable assembly-only overlay to
+the accepted transport/codegen baseline. When the original arithmetic's
+**shifted** U or V delta is exactly zero, skip its multiply and final shift;
+all nonzero cases keep the original operations. No UV precision, wrapping,
+clipping or quality change. Each row pays two added tests/branches, so a
+speedup is not assumed. Independently linked original/candidate trap objects
+pass 24,000 full polygon images and 16,000 direct trapezoids, including signed
+deltas, zero/nonzero quantized gradients, skip rows, both scales, clipping,
+cutouts, buffer guards and final mutated Trap state. Low now completes three
+PASS repeats with all six image hashes matching: house 96.932 -> 96.405 ms
+(0.5% gain), down 136.420 -> 136.596 ms and up 54.033 -> 54.209 ms slightly
+slower; other scenes effectively neutral. No meaningful tail improvement.
+Evidence: `tests/benchmarks/2026-10-10/trap-zero-gradient-low.json`. The flag
+stays off; this small mixed result is checkpointed rather than adopted.
+
+## Independent row-setup experiment: destination register reuse
+
+`--candidate trap-destination` is separate from both ET4000 and zero-gradient
+probes. Form the accepted row's destination in EDI immediately; the original
+gradient and clipped-prestep code never touches EDI. Remove the later duplicate
+destination setup and the `rowX` store/load. In the left-clipped branch, the
+already-clamped row X is necessarily zero, so use the identical `0x8000`
+pixel-center offset directly. No new branches, cache keys, stack slots, UV
+arithmetic, texture addressing, visibility policy or quality changes.
+
+Actual i486 DJGPP COFF disassembly confirms early destination setup and the
+unchanged multiply/prestep/texel operations. The original 72-byte Trap ABI,
+callee saves and eight entry points remain. Keep the unused four-byte `rowX`
+BSS slot for now, avoiding an unrelated scratch-layout change. This removes
+two/three instructions per visible scale-1/scale-2 row and two additional
+instructions when left-clipped, but instruction counts are not a speed result.
+
+Separately linked original/candidate assembly passes 24,000 full polygon
+images and 16,000 direct trapezoids, comparing every framebuffer byte, guards,
+pixel counters and final Trap state. Direct cases also vary shaded tile
+offsets, signed UVs, zero/nonzero quantized gradients, widths, clipped/empty
+rows and both scales. Native tests cover each probe independently. An automated
+actual DJGPP object gate verifies smaller text, identical BSS size, all eight
+exports/callee-save prologues and unchanged multiply counts with no FPU/SIMD.
+Defaults and published ISO remain unchanged pending target measurements.
+
+Low completes three PASS repeats with all six image hashes/readbacks matching:
+house 96.932 -> 96.405 ms (0.5%), walking/down/static/edits effectively neutral,
+up 54.033 -> 54.208 ms (0.3% slower; baseline repeat/retrace variability remains).
+P95/worst tails are unchanged. Draw-stage means decrease slightly: down
+81.914 -> 81.582 ms, house 40.713 -> 40.531 ms, edits 41.215 -> 41.030 ms.
+Much of this saving is absorbed by presentation waits; it is not a house-hitch
+fix or a broad FPS gain. Raw comparison, recipes, repeat/tail samples and hashes:
+`tests/benchmarks/2026-10-10/trap-destination-low.json`. Fresh High reference
+and candidate also complete three PASS repeats with matching images: house
+175.982 -> 175.631 ms (0.2%), down 252.361 -> 252.185 ms (0.07%), and the other
+four scenes effectively neutral. No meaningful tail improvement. High evidence:
+`tests/benchmarks/2026-10-10/trap-destination-high.json`. These tiny improvements
+do not justify adoption; retain the independently selectable checkpoint off.
+
+Experimental real-game smoke can now use `--build-output` with
+`--trap-destination`, so testing a candidate need not overwrite the released
+build's manifest or VM pointers. Default invocation is unchanged. Mocked
+recipe/failure tests verify both selections and owned-process cleanup; they
+are infrastructure tests, not actual guest acceptance. The complete host
+suite passes 260 tests with two Windows symlink-permission skips; the two new
+smoke-recipe tests pass separately. An isolated ordinary default build remains
+byte-identical to the published executable after both trap overlays were added.
+
+## Visual tolerance and graphics-quality gates (2026-10-10 clarification)
+
+The user explicitly permits small image changes, including slightly noticeable
+quality reductions. Low/Medium are appropriate gates for useful visual tradeoffs;
+High can preserve the cleaner rendering. Bit-identical output is not a blanket
+adoption requirement. Adaptive subdivision remains enabled in all profiles;
+substantial visual/gameplay changes still need approval. Hardware readback,
+memory safety, saves and gameplay correctness are not image-quality settings.
+
+`performance_compare.py --image-review PATH` permits a specific reviewed pair
+of scene hashes with a note and retained visual evidence. It reports both hashes
+and marks differing images as reviewed, never matching. Repeat instability,
+unreviewed differences, hardware/settings mismatches, failed runs and diagnostic
+dump/profiling timings remain rejected. The default exact oracle is retained for
+invisible changes, not imposed on all optimization candidates.
+
+`tests/benchmarks/2026-10-10/et4000-low-image-review.json` documents the five
+logical texture-edge pixels already localized across three repeats. Their small
+extent permits timing comparison and proceeding with High testing; it does not
+diagnose the unexplained layout-sensitive difference or adopt the backend.
+Low/Medium still use the accepted planar transport. ET4000 High testing resumed;
+no graphics menu, default backend or published ISO changed here.
+The updated host suite runs 264 tests successfully, with two Windows
+symlink-permission skips. Comparison tests cover reviewed hash pairs, retained
+review metadata, repeat instability and unchanged failure/hardware guards.
+
+### ET4000 High result after lifting the exact-image hold
+
+Fresh accepted High reference and banked-chunky candidate complete all three
+fresh-process repeats with PASS VGA readbacks and matching final images in all
+six scenes. Full raw recipes, hashes and repeat/tail samples are retained in
+`tests/benchmarks/2026-10-10/et4000-chunky-high.json`.
+
+| Scene | Reference ms | Candidate ms | Frame-time reduction |
+| --- | ---: | ---: | ---: |
+| Static | 152.268 | 152.268 | neutral |
+| Walk | 110.597 | 107.962 | 2.4% |
+| Walk down | 252.361 | 250.253 | 0.8% |
+| Walk up | 66.330 | 59.479 | 10.3% |
+| House | 175.982 | 173.347 | 1.5% |
+| Block-edit following frame | 193.154 | 193.152 | neutral |
+
+The first repeat's pack/upload stage falls from about 8.52/26.92 ms to
+7.91/25.58 ms; retrace quantization changes how much becomes total-frame gain.
+The larger looking-up reduction is not an equivalent reduction in upload CPU
+time, and dense-house drawing remains the dominant unresolved problem.
+Worst-frame/tail FPS is essentially unchanged; 96 samples/scene remain too few
+for trustworthy 1%/0.1% low claims. This is the frozen simulation replay, not
+complete gameplay FPS. Low's reviewed comparison is effectively neutral.
+
+Decision: retain this candidate for an isolated real-game smoke/save test before
+production adoption. It meets the user's neutral-Low/useful-High investigation
+criterion and should not be discarded over the tiny Low texture-edge difference.
+The compile flag remains off in the published executable/ISO for now; the user's
+HDD was not touched. The completed private diagnostic emulator was closed.
+
+## Shared-edge projection reuse checkpoint
+
+`--candidate split-reuse` enables an independent DOS-only renderer overlay.
+Within one subdivided parent, exactly adjacent children of equal shared-edge
+extent may reuse the previous child's two camera/projected positions. Each
+child keeps its own UVs, texture, lighting, primitive order and bounds. Store
+positions before guard clipping mutates the temporary polygon; reset at each
+parent and on near-plane/box rejection. Occlusion capture/query use the original
+path. No persistent camera/world cache or quality change.
+
+The native oracle extracts actual camera setup, adaptive subdivision, clipping
+and quad code, then uses the pinned rasterizer and trap assembly. Across 24,000
+parents, six directions, both scales, adaptive/full/off, near/guard clipping,
+opaque/cutout/flat textures and occlusion fallbacks, every submitted polygon
+packet, image byte, framebuffer guard and pixel/face counter matches. Synthetic
+projection calls fall from 282,424 to 218,688; this is eligibility evidence, not
+a 486 speed claim. Guest Low now completes three PASS repeats with matching
+images: down 136.420 -> 137.475 ms (0.8% worse), up 54.033 -> 54.209 ms
+(0.3% worse), and house/walk/static/edits effectively neutral. Draw-stage costs
+increase slightly (down 81.914 -> 82.982 ms, house 40.713 -> 40.972 ms).
+Cache bookkeeping outweighs saved work on the targeted Low workload. Retain
+the checkpoint off; do not spend High testing on this unchanged losing version.
+Evidence: `tests/benchmarks/2026-10-10/split-reuse-low.json`.
+
+### ET4000 gameplay smoke
+
+The isolated candidate also passes two real game-loop smoke runs, new game and
+save reload: AT input, walking, full down/up looking, torch placement/breaking,
+streaming, preset transitions, full-resolution selection, VGA readback and
+save/reload all pass. Evidence: `tests/baselines/2026-10-10-et4000-game/report.json`.
+The private emulator was closed; audio stays deliberately silent. This is
+scripted gameplay evidence, not full feature parity or Windows input proof.
+
+## Depth-aware adaptive leaves: independent quality probe
+
+`--candidate depth-adaptive` retains adaptive subdivision but permits an opaque
+node of at most 2x2 cells to stop splitting when its four actual corner depths
+are all at/above the near plane and spread by no more than 1/16 of minimum
+depth. Only the doubled Low/Medium view uses this rule; High, cutouts, occlusion
+capture/query, Full and Off keep their original decisions. Texture sampling and
+the inset/wrap path may differ: this is explicitly a quality tradeoff, not an
+image-exact optimization. No geometry removal, render-radius or gameplay change.
+
+Native actual-frontend/raster tests cover 24,000 parents with untouched High/
+cutout/occlusion/full/off packets and images, and buffer guards/reduced submission
+counts on eligible Low opaque cases. Only 24 random synthetic cases coarsen:
+282,424 -> 281,820 projection calls. This sparse random-camera result is not
+performance evidence; the straight-down replay is the targeted workload.
+Guest timing and visual review are required before deciding. Keep this probe
+separate from shared-corner reuse and disabled in production.
+
+The independent Low guest run now completes all three repeats with VGA PASS:
+down 136.420 -> 136.421 ms, house 96.932 -> 96.932 ms, other scenes neutral
+except the same small up/retrace shift to 54.208 ms. Down drawing saves only
+about 0.10 ms; eligibility checks erase much of the intended setup saving.
+Only the down final image hash changes (`cccac37c` -> `2de599c8`), as expected
+for the changed affine leaf mapping; its precise visual extent is not reviewed.
+There is no useful frame/tail gain to justify adopting that quality tradeoff.
+Retain the probe off with raw evidence in
+`tests/benchmarks/2026-10-10/depth-adaptive-low-raw.json`. A dump VM is prepared
+but unused; its diagnostic timings would not be optimization evidence.
+
+## ET4000 transport adoption
+
+After the independent native bank/plane/page-switch tests, three-repeat High
+timing/readback comparison, neutral Low timing with reviewed tiny texture-edge
+differences, and actual game-loop preset/save/reload smoke, the banked CPU path
+is enabled in normal build defaults. Only High uses it; Low/Medium retain the
+accepted planar/broadcast transport. No renderer precision, layout, resolution,
+view distance, subdivision, palette, HUD or gameplay setting changes.
+Run the exact default executable through the release smoke/publication workflow
+before replacing the player's ISO. The two new subdivision probes stay off.
+
+### Save-preserving ET4000 release
+
+The exact default executable passes another new-game/save-reload/preset/VGA
+smoke in `tests/baselines/2026-10-10-et4000-release/report.json`. Publication
+and `ISO/Launch-DOScraft.ps1 -ValidateOnly` succeed; neither launches or changes
+the old player's VM. The ISO now contains the verified High transport change.
+
+- EXE: `f92eb4c1a257b283f83eee252ea31391c690c141eb2aa4795c2c93e5dc6dcfd7`.
+- ISO: `ebf95e4e292802fc8e04ca5e984f865d4d892d412ac818ddcc8db6c9ac58332c`.
+- New player VM: `runtime/game-play-_qx41hi7`.
+- Preserved source VM: `runtime/game-play-zv5p5p7p`.
+- Preserved current HDD: `e726a563eac98e3e996ae7ead2c5da3c01069edc9021595c615147075f498591`.
+- Previous ISO retained as `ISO/DOSCRAFT.before-13803b3fa721.ISO`.
+
+## Independent trap specializations under test
+
+`--candidate trap-stable` specializes only opaque doubled-resolution
+trapezoids with at least four rows and equal left/right X, U and V increments.
+Those equal increments preserve the raw span width and both UV differences
+exactly, including the original rounded/clamped reciprocal. An entry dispatcher
+chooses the original loop or a loop with the identical gradient computed once.
+There is no per-row cache test, new scratch memory or precision change. High
+and transparent loops retain the original path. Code footprint increases from
+3,584 to 4,560 bytes; the 976-byte cost must earn its place in the 8 KiB L1.
+
+`--candidate trap-four` independently processes four opaque texels per loop
+iteration instead of two. Partial first groups enter the required store without
+extra texel reads or writes; all transparent loops remain original. This targets
+the measured texel-loop hotspot rather than another stationary/frame cache.
+Row setup, clipping, UV stepping, texture wrapping, counters and output remain
+unchanged. The extra unrolled code can lose instruction-cache locality.
+
+Both pass independently linked original/candidate assembly and raster oracles:
+24,000 polygon images plus 16,000 direct trapezoids, all eight variants, signed/
+zero UV gradients, slanted/stable edges, clipping, empty/short rows, pixel/frame
+guards and final Trap state. Actual DJGPP COFF checks preserve ABI/callee saves,
+scratch size and integer instructions. These probes cannot be combined with
+other trap probes before independent measurement; neither is a release default.
+
+Stable-gradient Low completes three PASS repeats with matching final images:
+down 136.420 -> 136.421 ms, house 96.932 -> 96.931 ms, other scenes essentially
+neutral except up 54.033 -> 54.209 ms (the recurring small retrace shift).
+Draw-stage means are also nearly neutral; the 976-byte specialization is not
+justified. Retain it off. Raw paired evidence:
+`tests/benchmarks/2026-10-10/trap-stable-low.json`.
+
+Four-texel COFF code is 3,872 bytes (288-byte increase), with unchanged 32-byte
+BSS and eight original callee-save functions. Low and High each complete three
+PASS repeats with matching final scene images. Low house 96.932 -> 95.878 ms
+(1.1% reduction); other Low scenes essentially neutral. High walk 110.597 ->
+109.017 ms (1.4%), down 252.361 -> 248.145 ms (1.7%), house 175.982 -> 171.239 ms
+(2.7%), edits 193.154 -> 188.412 ms (2.5%); static/up neutral. Each was isolated
+against the pre-ET four-flag codegen baseline, not combined transport timings.
+Paired raw evidence: `tests/benchmarks/2026-10-10/trap-four-low.json` and
+`trap-four-high.json`. Tail metrics are retained, but 96 samples per scene do
+not establish reliable 0.1% lows. Normal-game combined-transport verification
+is required before enabling this small invisible gain in production.
+The updated full host suite runs 271 tests successfully with two Windows
+symlink-permission skips. An isolated default rebuild remains byte-identical to
+the published ET4000 executable after all four renderer probes were added.
+
+## Directional wall rejection prototype (not a release default)
+
+The user prioritizes the unchanged house with its open doorway, not a modified
+sealed-room performance fixture. The incomplete sealed-room draft was rejected
+before integration; its known missing safety obligations are preserved under
+`research/sealed_room/`. No benchmark geometry was changed.
+
+`--candidate wall-visibility` instead constructs a bounded set of shadow cones
+from opaque quads already present in the collected painter list. Exact
+rectangular unions may join coplanar patches, never bridge a doorway. Texture
+zeros, models, dirty/unready/trimmed sources and near-clipped patches are not
+proof sources. Sources are rechecked each frame against publication readiness.
+Only farther terrain boxes wholly within one inset wall cone may skip projection,
+subdivision and raster setup; models/entities and the unculled painter list stay
+original. It does NOT yet skip collection or claim general portal connectivity.
+
+The core uses bounded 32-bit products, no screen mask, strict painter
+key ordering, inset patch edges and expanded target boxes. Native tests compare
+100,000 boxes against an independent double-precision ray/plane oracle, covering
+all wall axes/sides and a visible doorway. That proves the world-space predicate,
+not actual fixed-point raster coverage. `--verify-wall` redraws EVERY guest frame
+with rejection disabled and compares framebuffer bytes. Verification timings are
+explicitly invalid performance evidence and rejected by the comparison tool.
+Per-frame source/test/rejection counters are reported without changing the route.
+Guest verification, independent timing and normal gameplay gates remain pending;
+there is no measured wall speedup or production adoption yet.
+
+The first union-only prototype passes all 684 guest double-render frames on the
+unchanged Low replay, but a stronger native actual-render oracle finds a crack
+between wall rows (case 11177, camera 25708/5211/25726, yaw 59, pitch 21, +Z wall
+at cell 104). Four physical pixels (one doubled logical pixel) differ because
+the mathematical union is not always raster-opaque. This is not accepted as a
+visibility proof. Raw diagnostic evidence is retained in
+`tests/benchmarks/2026-10-10/wall-low-verify-v1-raw.json`; its timings are invalid.
+
+Revision 2 requires every target-box ray to intersect the inset interior of ONE
+wall grid cell, conservatively avoiding shared-face/subdivision seams. Only a
+box already passing the coarse cone incurs two seam-cell selection divisions;
+bounded product tests then certify all corners. This adds cost and reduces
+eligibility, so timing may reject the approach. Native independent ray/plane
+tests pass 100,000 boxes, source-selection tests keep doorway gaps and reject
+dirty/unknown/trimmed/alpha/model sources, and 3,647 actual raster cases from
+100,000 generated scenes preserve complete images and guards on both scales,
+all axes/sides and moving/rotating cameras. The original seam case is retained
+as a regression. Low revision-2 guest timing completes three PASS repeats with
+matching final images, but loses badly: static 67.421 -> 84.283 ms (+25.0%),
+walk 58.425 -> 66.854 (+14.4%), down 136.420 -> 188.592 (+38.2%), house
+96.932 -> 108.525 (+12.0%), edits 112.521 -> 123.590 (+9.8%); up mostly neutral.
+Paired raw evidence: `tests/benchmarks/2026-10-10/wall-low-seam.json`.
+On the first house repeat, each frame performs 628-2,642 cone tests and rejects
+zero or one terrain item. Checks/setup outweigh almost nonexistent avoided work.
+Do not adopt or retry this unchanged on High. Leave it off. Any successor needs
+much cheaper batch-level rejection before per-item iteration and measured
+eligibility, not just additional conservative tests. This result does not prove
+that the house has no overdraw or that all earlier visibility approaches fail.
+
+## Optional direct pitched ET4000 upload
+
+`--candidate et4000-strided` is a separate follow-up to the already accepted
+High banked path. It uploads the pitched system-RAM framebuffer directly,
+row-by-row, instead of gathering all 240 rows into a contiguous staging buffer.
+Only an actual 64 KiB crossing changes banks (including an inside-row crossing);
+CPU chain-4 state is set/restored once per frame. Unchanged per-page HUD rows are
+not uploaded; changed HUD rows refresh the shadow exactly. Low/Medium retain
+their original planar/broadcast path. No Mode X timing, view/HUD geometry,
+palette, graphics-preset or gameplay changes.
+
+Native actual-presenter tests pass all pages and bytes against an independent
+four-plane/banked memory model, unaligned sources with pitches 331/512, alternating
+access paths, changed/unchanged HUDs, visible/other-page guards and bank restoration.
+At most three bank writes occur on a chunky frame, not one per row. More small
+`dosmemput` calls may erase the saved RAM-copy cost; guest High timing/readback,
+Low regression screening and combined normal-game smoke are required. The
+candidate is prepared but not a production default or a measured speedup yet.
+
+The independent High three-repeat comparison now passes with matching images:
+walk 107.962 -> 107.436 ms (0.5%), down 250.253 -> 248.672 (0.6%), up
+59.479 -> 58.601 (1.5%), house 173.347 -> 172.293 (0.6%), edits
+193.152 -> 189.993 (1.6%); static neutral. The staged-copy baseline is the
+accepted five-flag ET4000 path, without four-texel unrolling. Raw paired evidence:
+`tests/benchmarks/2026-10-10/et4000-strided-high.json`. Pack/HUD drops about
+7.9 -> 5.2 ms, while the many small DOS-memory calls raise upload cost about
+25.6 -> 27.0 ms. Net gains are modest and retrace-quantized, not a bandwidth
+breakthrough. Low regression screening is running; adoption remains gated by
+that result and normal-game verification with the accepted raster change.
+
+Low screening is now complete: three PASS repeats, all six images matching
+the accepted ET4000 Low build, and essentially unchanged timings (house
+96.932 -> 96.932 ms, walking 58.425 -> 58.425). Paired evidence:
+`tests/benchmarks/2026-10-10/et4000-strided-low.json`. This qualifies the
+direct-row path for adoption under the neutral-Low/useful-High criterion,
+subject to combined normal-game verification; isolated gains are not additive.
+
+## Independent word-wise chunky HUD probe
+
+`et4000-hud-words` and `et4000-strided-hud-words` retain independently selectable
+staged/direct upload paths. `DOS_ET4000_HUD_WORDS` reuses the already tested
+word-wise HUD identity/copy helper, four 3,200-byte segments when staged or
+40 pitched 320-byte rows when direct. Page-invalid state still forces a full
+HUD upload. Low/Medium planar broadcast is unchanged. Native actual-presenter
+tests pass both additions, including pitched/unaligned sources, preset changes,
+all pages, changed/stable HUDs and independent VGA byte/readback checks.
+The staged probe is undergoing independent High guest timing against the
+accepted five-flag ET4000 baseline, without raster unrolling or direct rows.
+Neither HUD probe is a production default yet.
+
+`--candidate production` benchmarks the current normal-build flag tuple on
+the same frozen six-scene route and quality settings. Independent variants
+remain unchanged. A recipe test covers all three quality levels and forbids
+an emulator launch during preparation. Use this for the final combined
+regression screen rather than adding isolated percentage gains together.
+
+The independent staged word-HUD High probe now completes three PASS repeats
+with matching images: static 152.268 -> 138.037 ms (9.3% time reduction),
+walk 107.962 -> 104.273 (3.4%), down 250.253 -> 246.564 (1.5%),
+up 59.479 -> 57.371 (3.5%), house 173.347 -> 170.185 (1.8%),
+edits 193.152 -> 186.831 (3.3%). Pack/HUD on the first repeat falls about
+7.9 -> 4.05 ms; actual VGA upload is unchanged, around 25.6 ms. Retrace
+quantizes the full frame gains, including the larger static step. Evidence:
+`tests/benchmarks/2026-10-10/et4000-hud-words-high.json`. This is independent
+of four-texel unrolling and direct-row upload. The combined proposed default
+is now undergoing Low/High production replay and normal-game verification;
+the published ISO remains unchanged until those checks pass.
+
+Combined Low production screening completes three PASS repeats with all
+images matching the accepted ET4000 build: house 96.932 -> 95.878 ms (1.1%),
+walking 58.425 -> 58.424, down 136.421 -> 136.422, edits 112.526 -> 112.527,
+static neutral; up 54.208 -> 53.858 is a small retrace-quantized shift.
+Evidence: `tests/benchmarks/2026-10-10/combined-release-low.json`.
+This is the actual combined eight-flag build, not a sum of independent gains.
+High combined timing and the exact normal executable's smoke remain pending.
+
+Combined High production screening also completes three PASS repeats with all
+images matching the current ET4000 release. Static 152.268 -> 136.458 ms
+(10.4% time reduction), walking 107.962 -> 102.692 (4.9%), down
+250.253 -> 240.241 (4.0%), up 59.479 -> 55.790 (6.2%), house
+173.347 -> 163.861 (5.5%), edits 193.152 -> 181.560 (6.0%).
+Evidence: `tests/benchmarks/2026-10-10/combined-release-high.json`.
+First-repeat pack/HUD drops roughly 7.9 -> 1.4 ms; upload rises 25.6 -> 27.0
+due to pitched row calls. Combined gains are measured, not added predictions.
+Low house average replay FPS is only 10.32 -> 10.43; High house is
+5.77 -> 6.10. These modest improvements do not resolve the user's building
+slowdown. Frozen replay averages are not full simulation/play FPS, and 96
+samples per scene do not support strong 1%/0.1% low claims.
+The doorway, house layout, camera route and all other fixtures remain unchanged.
+
+## Verified combined release (2026-10-10 local date)
+
+All eight proposed normal flags are now accepted. The exact executable passes
+new-world and fresh-process save reload, actual AT movement/full down/up look,
+torch place/break, stream error zero, High/Medium/Low transitions, full-resolution
+option and VGA readback. The saved v3 checksum is independently parsed. Evidence
+and ten unedited framebuffer PNGs: `tests/baselines/2026-10-10-combined-release/`.
+High doorway and torch snapshots were inspected. Final full suite: 278 tests,
+two Windows symlink-permission skips, no failures. Audio remains deliberately
+silent; this is not comprehensive feature-parity acceptance.
+
+Published through the existing save-preserving workflow; launcher validation
+passes. All owned diagnostic emulator processes are closed. No gameplay/UI,
+mob spawning, save format, world storage, resolution or subdivision-policy changes.
+
+- EXE: `b366a4da0e4bb6ec33507c6daff9433f7fa1dac543f482f024f2ae2f149afa13`.
+- ISO: `37dc703776a574b6dad1db87af55151c13203444d4190060d8fa515e06108fd6`.
+- New player VM: `runtime/game-play-r8bo9zf9`.
+- Previous player VM retained untouched: `runtime/game-play-_qx41hi7`.
+- Actual current player HDD copied byte-for-byte, SHA256:
+  `752258afab47330814718fc950e2df855a7942c72050b34f12f689d550ef05e7`.
+- Previous ISO retained as `ISO/DOSCRAFT.before-f92eb4c1a257.ISO`.
+
+Next: independently test fused Low packing/broadcast classification, and design
+cheap group-level visibility rejection only with measured eligibility and a
+doorway-aware correctness/fallback strategy. Do not retry the losing per-item
+wall checks or change the benchmark fixture to create an artificial win.
+
+## Fused Low packing/broadcast checkpoint (not adopted)
+
+`--candidate fused-low` adds only `DOS_VGA_FUSED` to the current eight-flag
+release. One input pass packs view owner planes 0/2 and accumulates exact
+0/1, 2/3 and cross-pair equality; unequal pairs fill their missing plane in
+row-local byte fallbacks. It then coalesces the same exact masks/runs as the
+accepted planner. Unreferenced duplicate view planes are intentionally not
+authoritative; all four sharp HUD planes are complete. No skipped source
+pixels, trusted doubling assumption, vertical-row approximation or ISA byte
+reduction. High retains its existing pitched chunky path. The hypothesis is
+avoiding redundant stores and the separate equality scan, not faster VRAM.
+
+Independent input-to-VGA reconstruction passes 448 pattern/pitch/alignment
+images and 2,560 individual sharp pixel/bit exceptions per implementation,
+on x86/x64 native word loads and a byte fallback; invalid arguments preserve
+outputs/guards. The actual-presenter matrix additionally verifies all three
+pages, changing HUDs, access-path transitions and sharp overlays. DJGPP i486
+COFF exports the helper with no external helpers/FPU/SIMD. Guest Low timing
+against the current combined release is the next gate; it remains disabled
+in normal defaults and the published ISO.
+
+Fused v1 completes three Low PASS repeats with matching images, but loses:
+walking 58.424 -> 62.115 ms (+6.3% time), down 136.422 -> 139.056 (+1.9%),
+house 95.878 -> 99.568 (+3.8%), edits 112.527 -> 116.038 (+3.1%),
+static 67.420 -> 84.286 (+25.0%), up 53.858 -> 55.263 (+2.6%).
+Evidence: `tests/benchmarks/2026-10-10/fused-low-v1.json`. First-repeat fused
+pack/classification is about 16.6 ms; the old pack is 8.5 ms plus classification
+inside upload. The candidate upload section falls about 18.1 -> 14.4 ms because
+classification moved, not because ISA traffic decreased. Total CPU work rises.
+Source-word equality takes more arithmetic than comparing packed plane words,
+and actual i486 code has numerous temporary/accumulator/pointer stack accesses.
+Keep v1 off; do not pursue High to excuse the clear Low loss. Protected-memory
+tests additionally pass each source row ending at an inaccessible page, read-only
+source pages, exact destination/run end bounds and inaccessible invalid arguments.
+
+## Independent group-facing checkpoint
+
+The group audit in `research/group_visibility/FEASIBILITY.md` finds existing
+group frustum/distance rejection and very poor same-cone occlusion eligibility.
+Do not build a larger wall-check loop just to run fewer instances of a weak
+proof. `--candidate group-facing` instead moves the existing first-quad
+backface test before group box decoding/distance/frustum work. Published
+group planes already sort facing-first, and the original inner loop already
+stops at that first backface. Painter order, models, the cached-list reuse
+policy, opacity and drawing are unchanged. This is collection-cost rejection,
+not a new overdraw/occlusion renderer or a promise to fix the house.
+
+Both actual original and overlaid collector bodies pass 6,000 independently
+generated scenes with identical complete Items/keys/capacity tails: all six
+directions, ordered planes, sub-cell camera positions, loose partial-rebuild
+boxes, floors/sealed chunks, both nesting axes, view 8/12, frustum/distance
+paths, model cells, remapped/missing residency and truncated Item capacity.
+Recipe replay preserves the immutable pin. Guest Low timing is the next gate;
+this candidate is separate from fused VGA and remains off in normal defaults.
+
+Three unchanged Low guest repeats pass all images/readbacks. Walking and house
+are unchanged (58.424 and 95.878 ms); down improves 136.422 -> 135.894 ms,
+up 53.858 -> 53.681 ms, edits 112.527 -> 111.995 ms. Evidence:
+`tests/benchmarks/2026-10-10/group-facing-low-v1.json`. This is at most a small
+collection saving, not a demonstrated house/overdraw improvement. Keep the
+checkpoint independently selectable and off while screening larger candidates;
+no production/ISO change or strong tail-FPS claim follows from this short run.
+
+## Fused packing revision 2 (experimental)
+
+`--candidate fused-words` adds `DOS_VGA_FUSED_TRANSPOSE` to fused v1. It reuses
+the independently validated 16-pixel integer transpose, stores owner plane
+words 0/2, and compares four packed bytes at once while registers are live.
+The original v1 remains independently available. Sharp row exceptions, full
+HUD planes, exact masks/runs and arbitrary pitches retain their checked paths.
+This changes neither the image nor ISA transfer volume. Fewer source-word
+comparisons/spills is a hypothesis, not evidence of a 486 gain; the standalone
+transpose was previously unhelpful.
+
+Seven native x86/x64, assembly/C and byte-fallback variants pass the pattern,
+single-bit exception, invalid-argument and protected-memory suites. Actual
+presenter tests pass changing sharp overlays/HUDs and page/path transitions.
+Both i486 COFF variants have no external helper/FPU/SIMD use. The actual
+transpose loop has two owner DWORD stores and three equality accumulators,
+but its rotate/exchange cost still requires unchanged Low guest timing.
+Neither fused flag is enabled in the production defaults or published ISO.
+
+Revision 2 also completes three Low PASS repeats with matching images/readbacks,
+but loses against the accepted release: walking 58.424 -> 62.115 ms (+6.3%),
+down 136.422 -> 139.057 (+1.9%), house 95.878 -> 99.568 (+3.8%),
+edits 112.527 -> 115.685 (+2.8%), up 53.858 -> 54.736 (+1.6%),
+static 67.420 -> 84.286 (+25.0%). Evidence:
+`tests/benchmarks/2026-10-10/fused-words-low-v2.json`. Pack/classification is
+about 16.0 ms rather than v1's 16.6; that small CPU reduction does not rescue
+the whole frame, which also includes retrace waiting. The owner transpose and
+equality work still cost more than the accepted separate packing/planning.
+Reject revision 2 as a default; do not use High to justify a clear Low loss.
+
+Final validation: the 285-test full suite passes with two existing Windows
+symlink-permission skips. The eight benchmark tests also pass separately after
+adding explicit independence/default-off checks for all three new probes.
+All owned diagnostic VMs are closed, reports/disks retained, and the playable
+ISO SHA256 remains `37dc703776a574b6dad1db87af55151c13203444d4190060d8fa515e06108fd6`.
+No player disk, game/UI logic, benchmark doorway/route or production flag changed.
+
+## Producer-proven Low/Medium VGA rows
+
+The renderer's scale-2 view writes doubled horizontal pixels and copies each
+even view row to its odd partner. The DOS-only gameplay overlay now marks only
+those rows as proven for the next presentation. Crosshair, mining, item-name,
+message and debug overlays remove their affected rows from that proof; rain,
+other screens and full-resolution views use the existing complete path. The
+packer reads owner pixels into planes 0/2 for proven rows and broadcasts each
+exact pair. Sharp rows and the 40-row HUD retain all four planes. No pixels are
+approximated, and the proof is consumed after each presentation.
+
+The final `proven-rows-low-v2.json` replay has three PASS repeats and VGA
+readback. Relative to the published combined release, static is neutral
+(67.420 -> 67.421 ms); walking improves 58.424 -> 54.209 ms (7.2% frame-time
+reduction), full-down 136.422 -> 130.098 (4.6%), full-up 53.858 -> 42.616
+(20.9%, retrace-quantized), house 95.878 -> 86.921 (9.3%), and edits 112.527
+-> 103.566 (8.0%). High's three PASS repeats have exact matching images and
+essentially neutral times; its full-resolution transport does not use the new
+proof. Evidence: `tests/benchmarks/2026-10-10/proven-rows-{low-v2,high}.json`
+and their comparison JSONs.
+
+Low `walk_down` has the already reviewed ET4000 texture-edge image difference
+in reverse: 20 doubled physical pixels, five logical samples, with identical
+HUD/palette bytes. All six raw candidate scenes match the preserved pre-ET4000
+diagnostic byte-for-byte in all three repeats. The review and PNGs are in
+`tests/baselines/2026-10-10-proven-rows-frame-diff/`. Native helper and actual
+presenter parity tests pass, and the real-game new-world/fresh-process reload
+smoke passes with graphics presets and VGA readback. The full 287-test host
+suite reports three persistent Windows access-violation failures in older
+native raster parity executables; the isolated rerun reproduces them, while
+the new VGA tests pass. This is a remaining host-suite limitation, not a
+passing full-suite claim.
+
+The exact smoke-verified executable is now the playable build. EXE SHA256:
+`bbbeacf3f1e370a6f760f7c94542b43404b1871fca5bcab3553e11bc879cd168`;
+ISO SHA256: `1cb93ea7a05c485fe1ade840cbd091acf9e4c544ed7eab768aec697e625f384e`.
+The save-preserving publication copied the current player HDD byte-for-byte
+(SHA256 `9ae1e5d033fda32bd5cb73cf715a56023735e822b43aaa93f9770e21f7f1b4b7`)
+to `runtime/game-play-0lp6w98j`, retained the prior VM, and saved the prior ISO
+as `ISO/DOSCRAFT.before-b366a4da0e4b.ISO`. Launcher validation passes. No
+gameplay, UI, save-format or Towns vendor source change was made.
+
+## Exact vertical row reuse after the proven-row release
+
+The first producer-proven release still gathered both source rows of each
+scale-2 pair. `DOS_VGA_PROVEN_VERTICAL` now marks the odd row only when the
+renderer copied its even predecessor and both survived sharp-overlay
+exclusions. The packer gathers one source row and writes both packed rows.
+An overlay invalidates its pair proof, so that row uses the ordinary complete
+path. The feature is compiled into the Low/Medium production path; High uses
+the existing full-resolution transport.
+
+Against the preceding proven-row executable, three Low guest repeats pass
+with all six image hashes exactly matching. Packing falls about 1.0–1.4 ms
+per frame. Total frame time: walking 54.209 -> 52.629 ms (2.9% reduction),
+down 130.098 -> 129.044 (0.8%), up 42.616 -> 41.561 (2.5%), edits 103.566
+-> 103.036 (0.5%); static and house remain neutral because retrace waiting
+absorbs the pack saving. Three High repeats pass with matching images and
+effectively unchanged frame time. The isolated real-game smoke passes graphics
+presets, VGA readback and new-world/fresh-process reload. Native helper tests
+cover byte and word comparisons, paired and unpaired rows, and the actual
+presenter across page and overlay transitions. Evidence:
+`tests/benchmarks/2026-10-11/proven-vertical-{low,high}*.json` and
+`tests/baselines/2026-10-11-proven-vertical-smoke/`.
+
+The production-default build is byte-identical to that isolated smoke build.
+Its own release smoke also passes. The save-preserving publication verifies
+EXE SHA256 `658afdf13a4d3cc84c73c4c3a3bd982f7f3f32bb981d21afd3b0cbe91b7c5b08`
+and ISO SHA256 `d2d68ab687344bd761ddae4db7d345c8f67ab3af774d017b283e58b549c847d5`.
+The current player HDD was copied byte-for-byte (SHA256
+`616357f0efc938478b8e4219cd5417dc4c0ebea51b599232f5464c0a9e14d7c7`)
+to `runtime/game-play-6kvsljso`; the previous VM remains intact and its ISO
+is retained as `ISO/DOSCRAFT.before-bbbeacf3f1e3.ISO`. Launcher validation
+passes. The earlier full-suite raster parity access violations remain an
+unresolved host-test limitation; focused VGA and recipe tests pass.
+The 289-test full run also exposed one stale expected-flags assertion, now
+updated and passing in isolation; the other three failures are the same
+unchanged native raster parity crashes, with two symlink-permission skips.
+
+## Sub-tick flip guard, Very Low isolation and planar Low (2026-10-11)
+
+Short three-repeat Low replays (32 frames per scene); every candidate keeps
+all six scene hashes identical to the preceding build.
+
+- **Flip guard.** The async flip waited for retrace whenever fewer than three
+  100 Hz ticks had passed since the latest flip. It now reads PIT channel 2
+  (speaker gate on, output off; the benchmark clock's setup) and checks the
+  second most recent flip, which is the one that freed the page about to be
+  written. walk 41.9 -> 38.2 ms, walk_up 37.2 -> 30.8 ms, retrace wait 0 in
+  every scene. Native tests cover gaps around the 17.5 ms threshold, tick
+  phases and channel-2 wraps. PC-speaker audio would need a different clock.
+- **Very Low isolation.** The Very Low texel skip had been inserted into the
+  shared scale-2 trapezoid loops, costing Low/Medium a load, compare and
+  increment per scanline (Low still 62.1 -> 62.7 ms). It now uses separate
+  entry points selected once per frame; Low drawing returns to 32.3 ms and
+  Very Low hashes are unchanged.
+- **Planar Low (DOS_LOW_PLANAR, now default).** Scale-2 play frames render
+  straight into the presenter's Mode X plane rows. Against the isolated
+  production build: still 62.1 -> 58.2, walk 38.1 -> 35.6, down 116.7 ->
+  111.8, walk_up 30.8 -> 28.9, house 75.1 -> 70.6, edits 81.2 -> 76.6 ms.
+  Pack falls 3.5 -> 1.8 ms and drawing about 2 ms. Native presenter tests
+  scramble the chunky rows of planar frames to prove they are not read.
+
+Evidence: `tests/benchmarks/2026-10-11/flip-fine-v2-low.json`,
+`vl-isolated-low.json`, `low-planar-low.json`, `very-low-planar-build.json`.
+Medium uses the same scale-2 path but was not benchmarked separately. The
+real-input gameplay smoke has not been rerun on the planar build.
+
+## 486DX/33 target and the 86Box VGA-timing hypothesis (2026-10-11)
+
+The hardware cutoff moved to June 30, 1990, so the primary VM now runs the
+same ASUS ISA-486 proxy at 33.33 MHz (`profiles/486dx25-platform.cfg`; the
+build target name is unchanged because it selects i486 code generation).
+Short three-repeat Low replay, production flags, all six scene hashes
+identical to the 25 MHz build:
+
+| Scene | 486DX/25 | 486DX/33 | Upload 25 -> 33 |
+| --- | ---: | ---: | ---: |
+| still | 58.2 ms | 46.6 ms | 13.1 -> 12.9 |
+| walk | 35.6 | 28.9 | 9.5 -> 9.3 |
+| looking down | 111.8 | 86.8 | 13.1 -> 12.9 |
+| clouds (walk_up) | 28.9 | 24.4 | 12.2 -> 11.9 |
+| house | 70.6 | 55.9 | 13.1 -> 12.9 |
+| edits | 76.6 | 60.4 | 13.1 -> 12.9 |
+
+Draw, world update, collect and pack scale with the clock (draw 30.3 -> 22.7
+ms still); the VGA upload stays almost constant in emulated time.
+
+**VGA timing hypothesis: first test inconclusive (superseded below).** Source reading showed 86Box's SVGA slow
+path (unchained Mode X) splitting each 32-bit write into four byte writes,
+each charged the ET4000 ISA byte timing. A locally built v6.0 that charges
+the word/dword timing once (fork branch `doscraft-isa-timing`, kept local)
+was compiled, its disassembly verified, and benchmarked against the official
+runtime at 33 MHz: **every frame, stage and upload mean was identical** to
+the reported precision. The ET4000 timing table therefore does not determine
+the emulated upload cost in this CPU configuration; the ~1.6 us per uploaded
+dword comes from another part of 86Box's timing model, not yet identified.
+Do not assume real hardware is 2x faster at uploads on this evidence.
+
+**Correction, same day:** the patch above sat on a path the ET4000 never used. v6.0 registers the ET4000AX ISA as an 8-bit `DEVICE_ISA` card, so its memory mapping has byte handlers only and 86Box splits every 32-bit CPU write into four 8-bit transfers before the SVGA code sees it. See the next section.
+
+Evidence: `tests/benchmarks/2026-10-11/dx33-official-low.json`,
+`dx33-isa-timing-low.json`.
+
+## DOScraft 86Box runtime: 16-bit ET4000 and 11.1 MHz ISA (2026-10-11)
+
+Root cause of the slow emulated upload: v6.0 flags the ET4000AX ISA as an
+8-bit card (`DEVICE_ISA`), giving it byte-only memory handlers. Every 32-bit
+`rep movsd` store to VGA became four 8-bit ISA transfers at 3 ISA clocks each,
+~12 ISA clocks per dword. The real board is a 16-bit ISA card: two 16-bit
+cycles, ~6 ISA clocks. The fork branch `doscraft-isa-timing` (v6.0 plus four
+commits) registers it as `DEVICE_ISA16`, keeps the single word/dword charge
+in planar paths, and runs the i486DX/33 ISA bus at 11.1 MHz (divider 3; the
+requested 12 MHz is not an integer division of 33.33 MHz). VMs now launch this
+runtime from `build/deps/86box-doscraft`.
+
+Short three-repeat Low replays at 486DX/33, production flags, all six scene
+hashes identical in every run:
+
+| Scene | Official v6.0 | + ISA 11.1 MHz | + 16-bit ET4000 | Upload (ms) |
+| --- | ---: | ---: | ---: | --- |
+| still | 46.6 ms | 43.5 | 39.0 | 12.9 -> 9.8 -> 5.3 |
+| walk | 28.9 | 26.7 | 23.4 | 9.3 -> 7.1 -> 3.9 |
+| looking down | 86.8 | 83.7 | 79.2 | 12.9 -> 9.8 -> 5.3 |
+| clouds (walk_up) | 24.4 | 21.6 | 17.5 | 11.9 -> 9.1 -> 5.0 |
+| house | 55.9 | 52.8 | 48.3 | 12.9 -> 9.8 -> 5.3 |
+| edits | 60.4 | 57.4 | 52.9 | 12.9 -> 9.8 -> 5.3 |
+
+Video memory was already the ET4000AX maximum (1 MB). BIOS shadow RAM was not
+changed: 86Box charges ROM and RAM reads alike, so shadowing cannot change
+emulated timing (on real hardware it would only speed up BIOS calls, which
+this game makes for disk I/O and the 18.2 Hz timer chain).
+
+Evidence: `tests/benchmarks/2026-10-11/dx33-official-low.json`,
+`dx33-isa11-low.json`, `dx33-isa11-16bit-low.json`. The benchmarked binary
+differs from the pinned runtime only in its embedded build tag.
+
+## 486DX/40 overclock with patched 16-bit ET4000 (2026-10-11)
+
+The custom 86Box runtime adds a 40 MHz setting for the period i486DX/33 part.
+It uses a 10 MHz ISA bus (divider 4) and seven modeled memory cycles, versus
+11.1 MHz ISA (divider 3) and six memory cycles at 33 MHz. This is an overclock
+profile, not a claim that a factory DX/40 was available by June 1990. The
+40 MHz emulator was rebuilt separately in `build/deps/86box-doscraft-40`;
+the 33 MHz runtime was retained while the old player VM was active.
+
+Three-repeat Low replay with the same game EXE and identical image hashes in
+all six scenes, compared with the preceding 33 MHz/16-bit-card report:
+
+| Scene | 33 MHz | 40 MHz | Saved |
+| --- | ---: | ---: | ---: |
+| Still | 39.03 ms | 33.75 ms | 5.27 ms (13.5%) |
+| Walk | 23.42 | 20.41 | 3.01 (12.8%) |
+| Looking down | 79.20 | 67.20 | 12.00 (15.1%) |
+| Clouds/up | 17.51 | 15.73 | 1.78 (10.2%) |
+| House | 48.32 | 41.49 | 6.83 (14.1%) |
+| Edits | 52.85 | 45.27 | 7.58 (14.4%) |
+
+Dense-scene VGA upload rises from about 5.3 to 5.7 ms because the selected
+ISA clock is slower; CPU-side work still improves enough to lower total frame
+time. These are frozen-simulation guest PIT measurements, not live-play FPS.
+The comparison changes CPU and ISA timing together and uses separate emulator
+builds, so it does not isolate the CPU clock alone. Raw evidence:
+`tests/benchmarks/2026-10-11/dx33-isa11-16bit-low.json` and
+`dx40-16bit-low.json`.
+
+The rebuilt normal game passed private new-world and fresh-process reload
+smoke at 40 MHz, including AT input, torch placement/removal, graphics presets,
+VGA readback and save/reload (`build/smoke-dx40-20261011/report.json`). It was
+published via a byte-for-byte player-HDD copy; the prior ISO and VM remain
+available. The playable launcher now selects the 40 MHz patched runtime from
+the published manifest.
+
+## Collect, sort, and world-update profile on June 1990 VM (2026-10-12)
+
+Benchmark-only PIT timers and invalidation counters were added without changing
+the normal game renderer or simulation. The test used three Low replays in one
+generated world on the upgraded 8 MiB 486DX/40, ISA ET4000AX, SCSI profile.
+Means below are milliseconds per measured frame across 96 frames per scene.
+The `world` and `collect stage` columns are parent timings; the remaining
+columns are suboperations and should not be added to those parent timings.
+
+| Scene | Frame | World | Dirty mesh | Streaming | Collect stage | Actual collect | Sort |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Still | 33.85 | 4.69 | 4.62 | 0.05 | 1.82 | 0.67 | 0.18 |
+| Walk | 20.55 | 4.59 | 1.35 | 3.21 | 2.53 | 1.25 | 0.28 |
+| Walk, down | 67.34 | 5.39 | 1.77 | 3.59 | 4.31 | 2.25 | 0.93 |
+| Walk, up | 15.86 | 4.21 | 4.14 | 0.05 | 1.48 | 0.37 | 0.11 |
+| House | 41.66 | 4.15 | 1.55 | 2.58 | 5.26 | 3.33 | 0.92 |
+| Block edits | 45.45 | 7.67 | 7.55 | 0.10 | 5.25 | 3.33 | 0.92 |
+
+In the still scene, dirty-mesh scanning is 4.11 ms/frame. The benchmark's
+post-generation mesh queue is still being drained: the global mesh version
+invalidates the draw list on 24 of 96 frames; 72 frames hit the cache. This
+is **not** the cost of a fully settled still world. Walking spends 3.19 ms
+inside cache streaming, of which 2.64 ms is light pumping (sky initialization
+0.45, seeding 1.17, flood fill 1.00). These light subtimings overlap the
+streaming total. The six column-load calls add only 0.50 ms/frame, and the
+replay issued no disk-write polls, so this does not establish real disk-I/O
+cost. Walking recollects on 54/96 frames (42 yaw-threshold, 12 X-cell, three
+Y-cell and six mesh-version triggers, with overlaps). In the house scene the
+scripted yaw step exceeds the eight-unit threshold every frame, causing
+96/96 recollects. Actual collect plus sort there costs 4.25 ms/frame. Block
+edits spend 4.78 ms/frame in mesh scans and 2.55 ms in mesh publication;
+their separate edit call adds about 1.93 ms outside the reported frame.
+
+The first optimization targets from this profile are dirty-mesh scan work
+during queue drain and incremental lighting during column streaming. Cache
+invalidation itself is cheap, but avoiding needless global-version-triggered
+recollects could save work when the changed mesh is outside the camera's
+visible set. Any such change needs image/correctness verification. Raw
+evidence: `tests/benchmarks/2026-10-12/cw-profile-1990-scsi.json` and the
+full guest report in `runtime/game-play-ilia272v/performance.json`. These are
+frozen-simulation graphics/update replays, not live-play FPS.
+
+"Flatter distant faces" means replacing a distant opaque textured quad with
+one light-adjusted average color for that texture. The game already does this
+for opaque faces that project under six logical pixels in both dimensions;
+Medium/High also flatten faces beyond ten blocks, while Low currently has its
+distance threshold disabled. Flattening keeps the same face geometry, filled
+pixels, painter ordering and VGA upload, but avoids per-pixel texture lookup
+and some texture span setup. A shorter threshold on Low could save raster time
+at a visible quality cost. The current distance rule also turns leaves solid,
+so any Low-preset experiment needs image comparison; no distance-LOD change
+was made during this profiling work.
+
+## Large-world FAT-seek hitch fix (2026-10-12)
+
+The 151,011,840-byte `TERRAIN.TMP` exposed a different cost from the earlier
+RAM/cache replay. FreeDOS's [FAT cluster mapper](https://github.com/FDOS/kernel/blob/master/kernel/fatfs.c)
+walks backward seeks from the start of the file. Neighboring world columns
+often request such seeks. A dedicated PIT-timed DOS probe on the June 1990
+DX/40, 8 MB, SCSI VM measured 12 KB column transfers on a private disk copy:
+
+| Request | File transport | Validated sector transport |
+| --- | ---: | ---: |
+| Backward read near spawn | 585.89 ms | 1.42 ms |
+| Cold read of last column | 1150.29 ms | 1.38 ms |
+| Largest read in the 16-request probe | 1150.29 ms | 1.48 ms |
+
+The new path verifies the FAT16 directory, complete contiguous file chain,
+file size, and terrain header once at startup. It then uses DOS INT 25h/26h
+through the existing DOS block driver and SCSI BIOS. It never accesses the
+controller directly. Writes are confined to the two edit slots; the base
+terrain, terrain header, FAT, directory and save file are excluded. Existing
+checksums, alternate-slot publication, and DOS commit errors remain enforced.
+Fragmented/unrecognized media keep the ordinary file transport. The additional
+DOS transfer buffer is 2,080 bytes. Transfers still progress in at most 2 KB
+slices per poll: this is synchronous I/O, not a background SCSI driver or a
+hard mechanical-latency guarantee.
+
+All sampled candidate reads took 1.38-1.48 ms; their largest individual poll
+took 0.321 ms. The edit-slot write/readback passed, with the write taking
+1.576 ms and its largest poll 0.362 ms. These are disk-request measurements,
+not whole-game frame times or promises that every remaining hitch is gone.
+Native fault tests cover malformed FAT extents, fragmentation, file identity,
+read errors and write bounds. The exact game executable passed new-world and
+fresh-process reload smoke on both 1990 and 1992 hardware, including torch
+edits, graphics presets, VGA readback, cold corner streaming, dirty eviction,
+and V5 edit persistence. The shared ISO was published with the 1990 player's
+existing disk copied exactly, and the 1992 boot floppy was synchronized without
+changing its disk or CMOS. Evidence:
+[`hdd-streaming-extents.json`](tests/benchmarks/2026-10-12/hdd-streaming-extents.json).
+
+## Orientation reuse and streamed lighting (2026-10-13)
+
+The initial shared release included the wider orientation cache, checked
+prebaked skylight, computed-light reuse, and the separately requested main/pause
+menus. The computed-light path was subsequently revised as described below.
+All measurements below use the June 1990 DX/40, 8 MB, SCSI profile. Low,
+Medium and High run in one process/world; no host key injection is used.
+
+Collection uses doubled frustum half-extents only when the mesh is stable;
+drawing retains the original tight planes and projection. The list may be
+reused across a combined yaw/pitch change of 32 angle units (11.25 degrees).
+Cell, mesh, floor, view, scale and painter-axis changes still invalidate it.
+A collect exactly on a grid boundary also invalidates on subsequent subcell
+movement: otherwise strict back-face tests omit a newly visible face. A full
+list falls back to original collection/margins. The first boundary-unsafe
+version failed pixel comparison and was discarded. Final comparison against
+a forced tight-frustum redraw passed 912 cumulative frames with zero pixel
+differences across Low, Medium and High. Diagnostic redraw timings are invalid.
+
+The bake appends a checksum index and 4-bit skylight/height records without
+changing base/edit offsets or the V5 save identity. Untouched columns restore
+their whole-world skylight solution. Edited computed light uses a 32-column
+RAM cache, captured at eviction, rather than copying nine affected columns
+after every edit. Edits invalidate a 3x3 revision neighborhood; dirty or
+uncached records use the exact existing relight path. Cached dirty borders
+reconcile both light channels with arriving neighbors, within the existing
+seeding budget. Fully clean baked neighborhoods need no new flood fill.
+Terrain remains checked once before installation; a separate pending light
+read no longer repeatedly hashes the same 12 KB terrain scratch buffer.
+
+| Low replay | Before | Combined release | Saving |
+| --- | ---: | ---: | ---: |
+| Standing | 23.49 ms | 21.96 ms | 1.53 ms |
+| Walking | 34.33 ms | 34.20 ms | 0.13 ms |
+| Walking, looking down | 43.56 ms | 42.78 ms | 0.78 ms |
+| Walking, looking up | 23.25 ms | 23.63 ms | -0.39 ms |
+| Turning in the house | 33.00 ms | 31.73 ms | 1.27 ms |
+| Edit frame, excluding edit call | 31.50 ms | 34.07 ms | -2.57 ms |
+
+The edit call itself fell from 2.90 to 1.56 ms. Including that call, mean
+edit-cycle cost increased 34.40 -> 35.63 ms, p95 increased 35.51 -> 58.79 ms,
+and the worst sampled cycle improved 106.76 -> 59.59 ms. Do not describe this
+as a uniform FPS win. The replay warmup builds and dismantles a house, so its
+walking phases reuse previously edited terrain and are not a fresh-bake test.
+Background lighting completion also changes when seam meshes become ready.
+
+A separate PIT-timed cache/light probe walks six fresh 16-block strips and
+then backtracks, requiring each 5x5 resident region to become ready. It does
+not render or simulate mobs. Fresh five-column strip preparation averaged
+313.67 -> 135.62 ms (57% less total work including terrain I/O), with 90 -> 45
+polls per strip. The largest poll across forward/backward travel fell from
+58.56 -> 18.56 ms. These are readiness and polling costs, not per-frame FPS
+or a guarantee of mechanical-disk latency. Initial lighting record I/O remains
+synchronous through DOS; cached backtracking avoids that read.
+
+The exact release passed new-world and fresh-process save/reload smoke on
+8 MB, including torches, full pitch, cold corners, edited-column persistence,
+all graphics presets, VGA readback and the new menus. Native tests compare
+baked/polled light with the pinned flood fill and cover seam torch removal,
+roof removal, and corrupt light records/index rejection. Migration checks
+retain every base/edit byte, save and root file; the previous player VM and
+ISO remain recovery copies. Evidence:
+[`collect-stream-light.json`](tests/benchmarks/2026-10-12/collect-stream-light.json).
+Two unrelated pre-existing native raster harness cases still exit with a
+Win32 access violation; they do not enable these overlays. The actual DOS
+renderer comparison and release smoke are the completed correctness gates.
+
+The final menu-integrated executable also passed new/reload, lighting, menus
+and VGA readback on the 1992 W32 VM. A diagnostic-only failure there was
+localized to `SAVED.RAW`: capture code completed the previous 3D raster's odd
+rows even when a new title/menu frame had just been uploaded, corrupting that
+RAM page according to its rotation timing. Source completion now checks the
+presenter's actual proven-upload flag. Reload smoke likewise waits for a
+rendered game frame before finishing, preventing completion inside a loading
+progress callback. The 20-variant native presenter matrix still passes.
+These are capture/acceptance fixes; normal game presentation is unchanged.
+
+## Edited-light cache revision (2026-10-13)
+
+A focused ablation attributed the edit regression to lighting, rather than
+collection. Computed edited-light capture/restore and its modified seam-seeding
+loop have been removed. Columns near an edit now use the original lighting
+initialization and flood fill. Baked light and pristine RAM backtracking reuse
+remain enabled only when the column and its neighbors have no dirty flags.
+Because an edit already marks a 3x3 neighborhood, this adds a conservative
+five-column-wide exclusion around edits. The HDD format, V5 saves, menus and
+collection optimization are unchanged.
+
+One June 1990 quality sweep confirmed the edit regression is removed:
+
+| Low edit cost | Previous release | Clean-only revision |
+| --- | ---: | ---: |
+| Frame excluding edit call | 34.07 ms | 31.42 ms |
+| Edit call | 1.56 ms | 2.91 ms |
+| Complete edit cycle, mean | 35.63 ms | 34.33 ms |
+| Complete edit cycle, p95 | 58.79 ms | 35.46 ms |
+| Complete edit cycle, maximum | 59.59 ms | 106.65 ms |
+| World update per frame | 5.94 ms | 3.29 ms |
+
+The original rare edit spike returns; this is not a maximum-latency improvement.
+Medium/High cycle means also return to 39.45/68.22 ms, versus 40.75/69.53 ms.
+Results closely match collection-only (Low 34.32 ms mean, 35.43 ms p95).
+Standing/walking/house cost is 23.48/34.76/32.06 ms on the already-edited replay,
+so the earlier combined-release scene savings must not be attributed to this
+revision. Pristine bake correctness and polled restore still pass byte-for-byte
+against canonical lighting; cold edited returns now explicitly exercise normal
+relighting, including torch removal and roof reopening. No new fresh-strip
+performance estimate was made. The exact rebuilt executable passed June 1990
+new-game and fresh-process reload smoke, including lighting, cold streaming,
+V5 persistence, menus and VGA readback. Evidence:
+[`clean-only-light.json`](tests/benchmarks/2026-10-13/clean-only-light.json).
+
+## Optional distant terrain, B8 (2026-10-13)
+
+Distant terrain is independent of the main graphics preset and defaults Off.
+Low/Medium/High distant levels extend the landscape to approximately 64/96/128
+blocks. The live heightmap starts behind the total textured-plus-flat polygon
+distance; the cached panorama is farther away. All main presets now default
+to eight blocks, with manual distance controls unchanged.
+
+The initial full-detail prototype cost 29–43 ms extra on Low main graphics.
+Wider strips, direct map lookup, incremental coordinates and cached color
+tables reduced the cost. A one-world sweep holds main graphics at Low:
+
+| Extra frame cost | Low distant | Medium distant | High distant |
+| --- | ---: | ---: | ---: |
+| Still | 6.67 ms | 14.60 ms | 33.78 ms |
+| Walking | 6.32 ms | 13.26 ms | 26.65 ms |
+
+For walking, separate PIT timings attribute 3.51/7.55/16.23 ms to the heightmap,
+2.42/4.78/9.24 ms to panorama drawing, and 0.42/0.96/1.11 ms to panorama
+preparation/setup. These instrumented deterministic graphics replays are not
+full simulation FPS. Up/down views skip the far field; Off retains the earlier
+Low timings. The earlier estimated 2–3 ms cost is not achieved.
+
+The implementation uses an extra 512 KB map and about 36 KB renderer metadata
+within the existing 8 MB arena sizes. No renderer disk traffic is added. Native
+tests cover actual map/edit/save reconstruction, corrupt data rejection, all
+levels and both raster layouts, plus cave/water/full-pitch guards. New/reload
+release smoke exercises the setting through guest AT input and checks VGA,
+lighting and persistent edits. [Implementation and limits](DISTANT_TERRAIN.md),
+[timing evidence](tests/benchmarks/2026-10-13/distant-terrain.json).
+
+## B8 fill/cache/detail revision (2026-10-13)
+
+On June 1990 DX/40, ET4000AX and 8 MB SCSI, distant Low/Medium/High at main
+Low/eight blocks costs 27.36/33.24/41.49 ms still and 40.07/46.28/56.27 ms
+walking. The checkpoint was 30.15/38.08/57.26 and 41.08/48.02/61.41 ms.
+High saves 15.77 ms still and 5.14 ms walking, including new Medium/High
+slope shading, colour variation and paired-row dithering.
+
+High panorama drawing drops 10.06→5.16 ms still and 9.24→1.73 ms walking.
+Heightmap caching cuts standing 23.11→12.15 ms; the detailed moving heightmap
+increases 16.23→18.58 ms, outweighed by panorama savings. The plain radial
+ablation was faster while moving (High 52.32 ms) but lacks requested terrain
+detail and stationary caching. Renderer disk traffic and the 512 KB map
+allocation are unchanged; bounded static renderer metadata grows from about
+36 to 60 KB. Unchanged coarse summaries no longer trigger rebakes.
+
+Skipping the first strip was rejected after DOS captures showed sky holes.
+It remains an explicitly selectable benchmark experiment only. Unstyled
+radial output matches the checkpoint over 432 native poses/cache repeats;
+styled/view-depth paths cover real chunky/planar fills, edits, residency and
+render guards. Four native tests, ten benchmark tests and exact-release
+June 1990 new/load smoke pass. These instrumented frozen PIT graphics replays
+are not full simulation FPS. [Details](DISTANT_TERRAIN.md),
+[evidence](tests/benchmarks/2026-10-13/distant-terrain-tweaks.json).
+
+## B8 material and eye-height second pass (2026-10-13)
+
+Main Low/eight blocks on June 1990 hardware: distant Low/Medium/High now
+costs 27.49/35.24/46.91 ms still and 40.04/47.93/61.12 ms walking. Medium/High
+replace generic checkerboarding with material-specific sparse patterns,
+green grass tops and brown exposed sides, and separate wood top/side colour.
+This visible treatment costs roughly 2 ms Medium and 5 ms High versus the
+prior release; Low stays nearly unchanged.
+
+Exact eye-height panorama reprojection is kept after a same-renderer ablation.
+Restoring the old one-block eye threshold produces 27.49/35.24/46.90 ms still
+and 40.08/48.17/61.39 ms walking. Continuous height projection adds essentially
+no standing cost and saves about 0.24-0.28 ms walking on Medium/High here.
+Absolute-height samples include previously occluded peaks; projected final
+colour/pattern runs merge and cache until eye/projection/sky or data changes.
+No renderer HDD reads, extra surface-map allocation or persistent format
+changes are added. Static renderer metadata is about 116 KB (previously 60).
+All results are frozen PIT replays, not full simulation FPS or a jump benchmark.
+[Details](DISTANT_TERRAIN.md),
+[evidence](tests/benchmarks/2026-10-13/distant-material-eye.json).
+
+## Exact world, stream and raster hot paths (2026-10-13)
+
+Twelve new adapter flags, each a separately selectable fail-closed overlay
+(or `#ifdef` in DOS-owned assembly), are now production defaults. None changes
+a picture: every scene hash matches the previous release on Low, Medium, High
+and Very Low. June 1990 DX/40, 8 MB, SCSI, frozen three-repeat replay with
+the release large-world flags and distant terrain off:
+
+| Scene | Low before | Low after | High before | High after | Very Low before | Very Low after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| still | 23.49 | 21.75 | 42.09 | 38.79 | 22.93 | 21.19 |
+| walk | 34.79 | 31.67 | 63.43 | 57.01 | 33.61 | 30.49 |
+| looking down | 43.90 | 40.10 | 79.37 | 71.52 | 43.04 | 39.41 |
+| clouds (walk_up) | 23.62 | 21.88 | 37.16 | 34.70 | 21.81 | 20.21 |
+| house | 32.08 | 29.42 | 58.38 | 52.53 | 31.03 | 28.39 |
+| edits | 31.45 | 29.44 | 58.34 | 53.02 | 30.44 | 28.44 |
+
+Low maximum frames fall 44.3→38.2, 57.7→44.4, 64.1→52.9, 42.1→32.4,
+54.6→47.6 and 34.8→32.4 ms. Medium matches Low in this replay. The scripted
+large-world smoke still passes with identical mesh-quad and light-cache
+counts; its new-world and reload sessions take 20.4 and 19.3 s of guest time
+instead of 26.9 and 25.5 s.
+
+World and streaming (single-flag Low savings in parentheses):
+
+- `DOS_STREAM_VALIDATE_ONCE` hashes a streamed 12 KiB column once, in
+  `cache_load()`, instead of also in `column_prepare()` (0.2-0.5 ms mean,
+  walk_down maximum 64.1→55.4 ms).
+- `DOS_MESH_EDGES` gives the 60 column-edge cells per layer the fast mesh
+  path; seam neighbors are resolved once per row (to 0.8 ms looking down).
+- `DOS_LIGHT_OFFSETS` steps the flood fill by in-column offsets and calls
+  `widx()` only at seams (0.1-0.3 ms).
+- `DOS_COLLECT_SWAP` keeps wide collection planes in separate arrays, so the
+  tight planes return by pointer swap (0.2 ms on re-collection frames).
+- `DOS_SORT_HISTOGRAMS` counts all three radix digits in one pass (to 0.12 ms).
+- `DOS_WORLD_SCANS` skips non-resident columns in the five whole-world load
+  scans without changing visit order, and uses row bases in the bottom-chunk
+  seal test. Mostly load time; not exercised by the replay.
+- `DOS_MEMMOVE_DWORDS` copies overlapping upward moves (mesh-pool compaction)
+  by dwords. Not exercised by the replay; host-tested against libc memmove.
+- `DOS_BAKED_LIGHT_FAST` no longer clears a light slot that a valid bake
+  overwrites (one 12 KiB clear per baked column install).
+
+Raster:
+
+- `DOS_TEXEL_EDX` steps the v fraction in EDX's upper half; the per-texel
+  `addw %bp,%cx` loses its operand-size prefix (0.2-1.2 ms; also faster on a
+  real 486).
+- `DOS_ROW_MUL` uses `mull` for the two row-gradient products (0.2-0.6 ms).
+  This is an 86Box-only gain: a real i486 times MUL and IMUL alike.
+- `DOS_ROW_POINTER` keeps `rpitch*rscale` per target and carries the row
+  pointer across trapezoids (about 0.1 ms).
+- `DOS_FLAT_INLINE` stores short flat spans inline instead of calling
+  out-of-line memset twice per planar row (to 0.4 ms).
+
+Rejected, still selectable: `DOS_MULSHIFT` (unsigned MUL plus sign fix-up;
+exact but slower, register spills) and `DOS_PLANAR_EXPAND_WORDS` (dword
+crosshair-row expansion; finish stage +0.15 ms). Not attempted: restricting
+column-arrival seam re-meshing to edge layers, because a partial republish can
+reorder coplanar quads and so cannot be shown pixel-identical.
+
+Base: commit e4e15ac (before the canopy/leaf-free checkpoints). These measurements come from a Linux build of the same pinned emulator
+revision (`af84c233`) with the same ROMs, profile and bit-identical baked seed
+(`4add439e…`); it reproduces the previous published Low still mean
+(23.487 ms) exactly, and repeated runs are bit-identical. Host tests:
+`tests/test_world_exact.py` and `tests/test_render_exact.py` (recipes, fail-closed
+text, host i386 trap/raster/sort/memmove parity).
+[Evidence](tests/benchmarks/2026-10-13/exact-hot-paths-comparison.json).
+
+## Visual-tier and presenter prototypes (2026-10-13)
+
+Measured as selectable prototypes on June 1990 DX/40, three-repeat replay,
+same release flags as above. Row fills and plant billboards were subsequently
+promoted; see the production tier audit below.
+
+**`DOS_PLANT_BILLBOARDS` (Very Low only).** Flowers and tall grass become one
+upright camera-facing quad instead of two crossed double-sided quads. Very Low
+mean frame: still 21.19→20.19, walk 30.49→28.98, looking down 39.41→38.96,
+clouds 20.21→19.94, house 28.39→28.26 ms. Images change only where plants are
+visible; at 80×100 output the difference is hard to see
+([before/after crops](tests/benchmarks/2026-10-13/prototypes/very-low-plant-billboards.png)).
+Plants no longer show crossed depth when circled. Enabled for 80x100/80x50
+after user acceptance; standard resolutions retain crossed plants.
+
+**Sky at half rate: not useful.** Cloud drift is one offset per frame; the
+framebuffer is redrawn every frame, so clouds must be rasterized every frame
+whatever their animation rate. Ablation of the sky stage (Low): background
+fill 0.79 ms in every scene, clouds 0.33 ms (1.30 ms looking up), sun/moon
+0.07-0.19 ms.
+
+**`DOS_FILL_ROWS` (invisible).** The background fill made two out-of-line
+80-byte memset calls per planar row (200 per frame). Inline dword stores write
+the same bytes: −0.31 ms in all six Low scenes (sky stage 1.19→0.87 ms), every
+scene hash identical. Now a production default (`--candidate pre-fill-rows`
+rebuilds the previous defaults).
+
+**`DOS_VGA_SCAN_QUAD` (A2, rejected for now).** Scale-2 play frames store the
+100 logical view rows once; CRTC max-scan 3 shows each four scanlines, a
+line-compare split at scanline 400 restarts at a shared HUD at VGA offset 0,
+and an interrupt near scanline 397 restores two scanlines per HUD row. PIT
+channel 0 runs one-shots that keep 100 Hz ticks and add retrace-synced raster
+events; page flips are written by the ISR together with the matching layout.
+Frames with sharp text overlays (messages, item names, mining progress, debug)
+keep the normal layout. Result (A/B both built without the startup help
+message, so play frames qualify):
+
+- VGA upload 5.6→4.1-4.3 ms (the bound after the 16-bit ET4000 fix is about
+  2.8 ms; per-run gathering already applied).
+- Mean frame −0.5 to +0.8 ms and higher maxima: interrupt and retrace
+  busy-wait overhead consumes most of the saving.
+- Retrace phase prediction from the one-shot PIT accounting drifts: 6-13% of
+  syncs missed. First run: about 12% of captured play frames showed the view
+  at half height with the next page below
+  ([screens](tests/benchmarks/2026-10-13/prototypes/scan-quad-run1-screens.png)).
+  After hardening, about 20% showed the HUD at quad scale with the hotbar cut
+  off ([screens](tests/benchmarks/2026-10-13/prototypes/scan-quad-run2-screens.png)).
+
+Not worth pursuing at the current upload cost. A retry would need a
+drift-free time base (PIT channel 2, with channel-2 readers made atomic)
+before any visual acceptance.
+
+## Low distant styling and selectable 80x50 (2026-10-13)
+
+Distant options are now Off / Very Low / Low / Medium / High. Very Low is the
+previous solid-colour Low renderer. Low gets the Medium material treatment
+without widening its 24-block heightmap band, 64-block panorama or eight-pixel
+strips. Native pose tests preserve Very Low and Medium/High images against
+be642145 at both scales and all existing detail/view-depth/reprojection builds.
+The earlier private styling ablation estimated +1.03 ms still / +2.07 ms walk;
+see research/merged-leaves-publication.md. These are not universal costs.
+
+Graphics -> View resolution now cycles 320x200 / 160x100 / 80x100 / 80x50
+(Potato), in either direction and independently of distant quality. Presets
+retain their old resolutions; choosing a preset clears Potato. Projection,
+FOV, distance, HUD and menu sharpness are preserved. Potato marks alternate
+logical rows in the existing Very Low row mask, skips their texture row setup
+and texels in assembly, skips flat fills while advancing edges, and repeats
+the retained rows before overlays. Sharp backgrounds are expanded where
+needed, including the weather/menu fallback. It adds no second row mask or
+terrain cache. Far-map setup/marching and VGA upload bytes versus 80x100 are
+unchanged; pixel output is sampled vertically by the common finish stage.
+
+Matched June 1990 DX/40 / 8 MiB / ET4000AX / SCSI frozen graphics replay,
+view8, distant Off, prebaked fixed-leaf world. Each build uses three passes in
+one world, including a 256-frame continuous diagonal horizon walk. Other
+scenes use 32 poses. These guest PIT timings are not full-simulation FPS.
+
+| Scene | 80x100 (ms) | 80x50 (ms) | Saved (ms) |
+| --- | ---: | ---: | ---: |
+| Standing | 21.257 | 19.665 | 1.592 |
+| Walking at horizon | 19.544 | 18.452 | 1.092 |
+| Looking down | 43.770 | 37.414 | 6.356 |
+| House / turning | 28.565 | 25.089 | 3.476 |
+| Edit following frame | 30.370 | 26.785 | 3.585 |
+
+Real native i386 raster/assembly tests cover textured, transparent and flat
+polygons, bounds, overlay backgrounds, fallback and resolution reset. Menu,
+graphics policy, codegen, benchmark and far-field tests pass. Two older test
+harnesses needed the existing texture-resolution callback declaration/stub;
+no game logic was changed to fix them. Host Linux GCC parity tests remain
+skipped on this Windows host; the new Potato raster test runs actual x86
+assembly as a native 32-bit Windows executable.
+
+Exact release smoke new/reload, V5 save, guest-driven menu selection,
+80x100/80x50 captures and VGA readback pass at 8 MiB. An initial additional
+quartet assertion incorrectly compared post-world crosshair rows; its scope
+now excludes the established sharp overlay bands. Actual VGA readback passed
+in that attempt. Completed diagnostic emulators are closed.
+
+Evidence: [research/potato-resolution.json](research/potato-resolution.json).
+
+## Claude production tier audit (2026-10-13)
+
+All fourteen successful Claude optimizations are now enabled in the release,
+including `DOS_FILL_ROWS` and `DOS_PLANT_BILLBOARDS`. The latest Claude row-fill
+default commit `da1d94b4` is merged. Twelve exact optimizations apply across
+graphics tiers; row fills optimize the planar 160x100 sky/fog target, and
+single facing plant quads apply at 80x100/80x50, independently of distant
+quality. Failed MULSHIFT, planar-expansion and scan-quad prototypes stay off.
+
+Full/small leaf pixels are opaque; the actual renderer transparency metadata
+and opaque block flags are checked after repeated resolution changes. Internal
+faces touching leaves are culled, including flagged leaves in the baked seed.
+No leaf art, gameplay, lighting or save changes were required. Native plant,
+row-fill/raster, texture switching, production-flag and benchmark tests pass.
+The exact combined release passes automated new/reload/V5 save/VGA smoke at
+8 MiB. After merging the newest Claude commit, a rebuild reproduces the exact
+smoke-tested executable. [Tier audit](research/claude-optimization-tier-audit.md).

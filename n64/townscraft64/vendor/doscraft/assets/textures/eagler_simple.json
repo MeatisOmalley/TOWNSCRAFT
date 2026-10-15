@@ -1,0 +1,205 @@
+{
+  "full_source_sha256": "189a5b69a64b055e05b6abc4c2ad1c5be91080ccde71845e478f07874817d5f8",
+  "tiles": [
+    {
+      "texture": "T_DOOR_BOTTOM",
+      "index": 22,
+      "rule": "light brown frame, dark inset panels; detailed window silhouette; gray hinges",
+      "sha256": "2a6810047e8104e8c003b016ddadd9ea2bec411b53000ea47df2ba7ca3d9cd9d",
+      "colors": 3,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_DOOR_TOP",
+      "index": 23,
+      "rule": "light brown frame, dark inset panels; detailed window silhouette; gray hinges",
+      "sha256": "dc8976d80d664a5f7636a786ff6dee08bd486a5436aace87869a32bc639a2ffc",
+      "colors": 4,
+      "transparent_pixels": 48
+    },
+    {
+      "texture": "T_STONEBRICK",
+      "index": 32,
+      "rule": "two colors only: flat bricks and staggered mortar",
+      "sha256": "a6212f71d6ab25530d51c5d92fcd71d8831d3599c0d96aeff43fe397050d0d83",
+      "colors": 2,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_CRAFT_TOP",
+      "index": 15,
+      "rule": "same inset 3x3 work grid and reinforced corners; solid fills",
+      "sha256": "b1c952b51a54a419670a7b9a1cbc8993c5e59470f30f56917d3226126c7457df",
+      "colors": 4,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_CRAFT_SIDE",
+      "index": 16,
+      "rule": "detailed plank/frame/tool placement, without wood grain or tool highlights",
+      "sha256": "7414a5254f1ecbfb5cc61299051483dcafecbc6131200391c9aa965bdc38c06f",
+      "colors": 5,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_CRAFT_FRONT",
+      "index": 17,
+      "rule": "detailed plank/frame/tool placement, without wood grain or tool highlights",
+      "sha256": "a63083e873fa423be06019b3d2c2c6c712927b75987a58c441e24cf9e3536356",
+      "colors": 5,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_BED_FOOT_TOP",
+      "index": 24,
+      "rule": "flat bright red blanket with one broad folded edge",
+      "sha256": "418e595c2e9db97946951a0383fabfc4dc77e42ca1733d94eb286ba32493b819",
+      "colors": 2,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_BED_HEAD_TOP",
+      "index": 25,
+      "rule": "same full-width white pillow and red blanket; no speckles",
+      "sha256": "48346f82f93adc63bc749979cfabe0821e515039c5e11e3ed71e0a15dac4ec4b",
+      "colors": 4,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_BED_SIDE",
+      "index": 26,
+      "rule": "same mattress/pillow/frame silhouette; flat red, white and wood",
+      "sha256": "381417fdfca1179dabe9afd6cfa28a8ed05c37fd61133666fdb0b2f19ddb991a",
+      "colors": 3,
+      "transparent_pixels": 133
+    },
+    {
+      "texture": "T_BED_END",
+      "index": 27,
+      "rule": "same mattress/pillow/frame silhouette; flat red, white and wood",
+      "sha256": "308eddee9ff63849ee5613fe1cad874a67f328940cc7995022bfea45a9cfb31b",
+      "colors": 3,
+      "transparent_pixels": 124
+    },
+    {
+      "texture": "T_BED_HEAD_SIDE",
+      "index": 35,
+      "rule": "same mattress/pillow/frame silhouette; flat red, white and wood",
+      "sha256": "fc7b67c1ed43e344ce472b30f5b37d2f859c1160249b08448ef7ceb5bdaffe99",
+      "colors": 4,
+      "transparent_pixels": 133
+    },
+    {
+      "texture": "T_FURNACE_TOP",
+      "index": 20,
+      "rule": "reference stone border/facets, smoothed offline to remove pixel grain",
+      "sha256": "f476a471fe88808442a1e6edbf18ff8981261a9011ce6f916f33add9a173883c",
+      "colors": 3,
+      "transparent_pixels": 0
+    },
+    {
+      "texture": "T_FLOWER",
+      "index": 30,
+      "rule": "same poppy silhouette, red petals and green stem/leaves",
+      "sha256": "d26f14532dd760439d0f7dd7e1bc377e38d804a5f5fdab4f89a95961d8299f12",
+      "colors": 4,
+      "transparent_pixels": 221
+    },
+    {
+      "texture": "T_I_WOOD_PICK",
+      "index": 57,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "9392975295dfce59aa99b17e5c898aaab700204d2163d14c1e3943d61ee0b9f7",
+      "colors": 3,
+      "transparent_pixels": 188
+    },
+    {
+      "texture": "T_I_STONE_PICK",
+      "index": 58,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "ccfbbae569bdcd2ceedc9c70d26b4c898e49dbc83ca90f306580a2941927ced5",
+      "colors": 5,
+      "transparent_pixels": 188
+    },
+    {
+      "texture": "T_I_IRON_PICK",
+      "index": 59,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "3a25a958629028da417b37ca86c9c685d514c02a0b454d48482fc282e325a835",
+      "colors": 5,
+      "transparent_pixels": 188
+    },
+    {
+      "texture": "T_I_WOOD_SWORD",
+      "index": 60,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "ffb64c96afa63bfc3e0938bc0543655d62a193660352c6ec1d05b7e6660d9f86",
+      "colors": 3,
+      "transparent_pixels": 172
+    },
+    {
+      "texture": "T_I_STONE_SWORD",
+      "index": 61,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "4d4a396e283e115ead78a5c3c35ffef3e3047cb553147857f187224dcc674bef",
+      "colors": 5,
+      "transparent_pixels": 172
+    },
+    {
+      "texture": "T_I_IRON_SWORD",
+      "index": 62,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "0970c4f5a549311cdffa6b50c5db9ac41869bece9be570dc8e21df0c52ad8881",
+      "colors": 5,
+      "transparent_pixels": 172
+    },
+    {
+      "texture": "T_I_WOOD_AXE",
+      "index": 63,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "fa720e5788cb223b303c1df9e112de1cb1b45c3cf7209da18ab3d1d2074551fa",
+      "colors": 3,
+      "transparent_pixels": 196
+    },
+    {
+      "texture": "T_I_STONE_AXE",
+      "index": 64,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "36f7a36f46e271d44912b54f932f4177b53c9375b8ce4de99d0fa296c77e7eeb",
+      "colors": 5,
+      "transparent_pixels": 196
+    },
+    {
+      "texture": "T_I_WOOD_SHOVEL",
+      "index": 65,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "466f304c5c0ab5ac2c256917d11a3eca6826021347e5851ae72ce31bbeca6448",
+      "colors": 3,
+      "transparent_pixels": 203
+    },
+    {
+      "texture": "T_I_STONE_SHOVEL",
+      "index": 66,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "b8f560dffa577a9bef5c29adc112b62c634a05d42282cd5813354862e1da771e",
+      "colors": 5,
+      "transparent_pixels": 203
+    },
+    {
+      "texture": "T_I_DIAMOND_PICK",
+      "index": 78,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "6cdff448c568faf826e33f2683c5a408ac8f4fbb07517d438f52bc25322f6070",
+      "colors": 5,
+      "transparent_pixels": 188
+    },
+    {
+      "texture": "T_I_DIAMOND_SWORD",
+      "index": 79,
+      "rule": "actual detailed/reference silhouette; two wood shades and two head shades",
+      "sha256": "a5454173abe4f7f155b6a09d4a770ab91abdf1da051a8262f37487932d1e267e",
+      "colors": 5,
+      "transparent_pixels": 172
+    }
+  ]
+}

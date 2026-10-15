@@ -1,3 +1,5 @@
+# Imported snapshots must stay byte-identical to their manifests.
+vendor/** -text
 Makefile text eol=lf
 *.mk text eol=lf
 *.sh text eol=lf
