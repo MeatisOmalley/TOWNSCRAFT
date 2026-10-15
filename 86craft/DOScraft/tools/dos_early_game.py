@@ -6,8 +6,31 @@ fields and hook calls that logic needs.
 """
 from build_imported import replace_once
 
-HEADERS = ('blocks.h', 'inventory.h')
-NAMES = HEADERS + ('blocks.c', 'inventory.c', 'game.c', 'ui.c')
+HEADERS = ('blocks.h', 'inventory.h', 'textures.h')
+NAMES = HEADERS + ('blocks.c', 'inventory.c', 'game.c', 'ui.c', 'textures.c')
+
+# The olive ramp becomes terracotta: red clay, bricks and copper (EARLY_GAME.md, Textures).
+OLIVE = (95, 155, 85)
+TERRACOTTA = (205, 112, 72)
+PALETTE = ('\t{%3d,%3d,%3d}, /* R_OLIVE  */' % OLIVE, '\t{%3d,%3d,%3d}, /* R_TERRA  */' % TERRACOTTA)
+
+
+def swap_palette(text):
+    """Only the palette change, for native builds of the unaltered art."""
+    if text.count(PALETTE[0]) != 1:
+        raise ValueError('Expected the pinned olive ramp')
+    return text.replace(*PALETTE)
+# Tiles from tools/early_game_textures.py. Shaded (world) tiles come before the
+# item icons, because every texture before T_I_STICK gets a lit atlas page.
+BLOCK_TEXTURES = ('T_CLAY', 'T_COPPER_ORE', 'T_FIRE_LOG', 'T_FIRE_FLAME', 'T_FIRE_ASH',
+                  'T_ANVIL_TOP', 'T_ANVIL_SIDE', 'T_CLAYF_FRONT', 'T_CLAYF_SIDE', 'T_CLAYF_TOP',
+                  'T_BRICKS', 'T_BLOOMERY_FRONT', 'T_BLOOMERY_SIDE')
+ITEM_TEXTURES = ('T_I_CLAY_LUMP', 'T_I_BRICK', 'T_I_FLINT', 'T_I_CHARCOAL', 'T_I_COPPER_INGOT',
+                 'T_I_TIN', 'T_I_BRONZE_INGOT', 'T_I_STICK_SPEAR', 'T_I_FLINT_SPEAR',
+                 'T_I_COPPER_SPEAR', 'T_I_BRONZE_SPEAR', 'T_I_IRON_SPEAR', 'T_I_COPPER_PICK',
+                 'T_I_COPPER_AXE', 'T_I_COPPER_SHOVEL', 'T_I_IRON_AXE', 'T_I_IRON_SHOVEL',
+                 'T_I_DIAMOND_AXE', 'T_I_DIAMOND_SHOVEL', 'T_I_FIRE', 'T_I_BELLOWS',
+                 'T_I_BRONZE_PICK', 'T_I_BRONZE_AXE', 'T_I_BRONZE_SHOVEL', 'T_I_BRONZE_SWORD')
 
 # Uses before a tool breaks (EARLY_GAME.md, Tools).
 DURABILITY = (
@@ -76,6 +99,32 @@ def durability(name, one):
             '\t\t}\n')
 
 
+def textures(name, one, every):
+    if name == 'blocks.h':
+        one('\tT_CHICKEN_SKIN,T_CHICKEN_FACE,T_CHICKEN_YELLOW,\n',
+            '\tT_CHICKEN_SKIN,T_CHICKEN_FACE,T_CHICKEN_YELLOW,\n\t' + ','.join(BLOCK_TEXTURES) + ',\n')
+        one('\tT_I_CHICKEN,T_I_COOKED_CHICKEN,T_I_FEATHER,\n',
+            '\tT_I_CHICKEN,T_I_COOKED_CHICKEN,T_I_FEATHER,\n\t' + ','.join(ITEM_TEXTURES) + ',\n')
+    elif name == 'textures.h':
+        one('#define P(ramp,shade) ((ramp)*16+(shade))',
+            '#define P(ramp,shade) ((ramp)*16+(shade))\n'
+            '#define R_TERRA R_OLIVE    /* The olive ramp holds terracotta */')
+    elif name == 'textures.c':
+        one(*PALETTE)
+        # Zombies and rotten flesh keep a green cast on the leaf ramp.
+        every('noisefill(R_OLIVE,11,2);', 'noisefill(R_LEAF,11,2);', 2)
+        one('P(R_OLIVE,8)', 'P(R_LEAF,8)')
+        one('P(R_OLIVE,6)', 'P(R_LEAF,6)')
+        one('gen_meat(R_OLIVE,10)', 'gen_meat(R_LEAF,10)')
+        one('#include "../../../assets/textures/eagler_simple.inc"\n',
+            '#include "../../../assets/textures/eagler_simple.inc"\n'
+            '#include "../../../assets/textures/early_game.inc"\n')
+        one('\tif(dos_texture_detail) dos_tex_import_full();\n\telse dos_tex_import_simple();\n',
+            '\tif(dos_texture_detail) dos_tex_import_full();\n\telse dos_tex_import_simple();\n'
+            '\t/* Early-game tiles have one style at every resolution. */\n'
+            '\tdos_tex_import_early();\n')
+
+
 def adapt(name, data):
     if name not in NAMES:
         return data, []
@@ -89,5 +138,13 @@ def adapt(name, data):
         nonlocal text
         text = replace_once(text, before, after, recipe)
 
+    def every(before, after, count):
+        nonlocal text
+        if text.count(before) != count:
+            raise ValueError(f'Expected {count} copies of {before!r}')
+        recipe.append(dict(operation='replace', before=before, after=after, count=count))
+        text = text.replace(before, after)
+
     durability(name, one)
+    textures(name, one, every)
     return text.encode(), recipe

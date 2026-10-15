@@ -45,5 +45,20 @@ class EarlyGameTests(unittest.TestCase):
                            'PASS: tool wear and save extension')
 
 
+class EarlyTextureTests(unittest.TestCase):
+    def test_tiles_match_the_texture_ids_and_regenerate(self):
+        import dos_early_game
+        import early_game_textures
+        self.assertEqual(sorted(early_game_textures.names()),
+                         sorted(dos_early_game.BLOCK_TEXTURES + dos_early_game.ITEM_TEXTURES))
+        inc = (ROOT / 'assets/textures/early_game.inc').read_text()
+        self.assertEqual(inc.count('    { /* '), len(early_game_textures.names()))
+        assets = ROOT / 'build/checks/biome-texture-study/assets-unpacked.bin'
+        if assets.exists():
+            with tempfile.TemporaryDirectory(prefix='doscraft-early-tex-') as directory:
+                early_game_textures.write(assets, directory)
+                self.assertEqual((Path(directory) / 'early_game.inc').read_text(), inc)
+
+
 if __name__ == '__main__':
     unittest.main()

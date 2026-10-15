@@ -32,6 +32,10 @@ def palette_bytes():
     colors=[tuple(map(int,m)) for m in re.findall(r'\{\s*(\d+),\s*(\d+),\s*(\d+)\s*\}',source[start:end])]
     bright=list(map(int,re.search(r'shadeBright\[16\]=\s*\{([^}]+)',source[start:end]).group(1).split(',')))
     assert len(colors)==len(bright)==16
+    # The game build replaces the olive ramp with terracotta (dos_early_game).
+    from dos_early_game import OLIVE,TERRACOTTA
+    assert colors[15]==OLIVE
+    colors[15]=TERRACOTTA
     return bytes(min(255,c*b//256) for color in colors for b in bright for c in color)
 
 
@@ -115,7 +119,9 @@ def convert(assets):
     for index,name in enumerate(ids):
         if name=='T_GRASS_TOP':continue
         image,record=source_tile(name,index,files)
-        candidates=[r*16+s for r in ramps_for(name) for s in range(1,16)]
+        # Ramp 15 is terracotta for the early-game tiles only; existing art
+        # keeps the colours it had (olive tiles move to the nearest other ramp).
+        candidates=[r*16+s for r in ramps_for(name) if r!=15 for s in range(1,16)]
         mapped={};tile=[]
         for r,g,b,a in image.get_flattened_data():
             if name=='T_LEAVES' and a<128:
