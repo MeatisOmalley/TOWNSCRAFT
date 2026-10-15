@@ -56,6 +56,8 @@ typedef struct {
     uint32_t head, tail;        /* codes[tail..head) pending */
     int32_t mouse_dx, mouse_dy;
     uint32_t mouse_buttons;     /* OR'd into the real buttons */
+    uint32_t frame_us;          /* last present-to-present time */
+    uint32_t frame_us_sum;      /* running sum, for averages over a window */
     uint8_t codes[256];
 } n64_inject_t;
 n64_inject_t g_n64_inject __attribute__((aligned(16)));
@@ -63,6 +65,13 @@ n64_inject_t g_n64_inject __attribute__((aligned(16)));
 static void inject_frame(void)
 {
     volatile n64_inject_t *in = (volatile n64_inject_t *)UncachedAddr(&g_n64_inject);
+    static uint32_t last;
+    uint32_t now = get_ticks();
+    if (last) {
+        in->frame_us = TICKS_TO_US(now - last);
+        in->frame_us_sum += in->frame_us;
+    }
+    last = now;
     in->magic = 0x54363449;
     in->frame++;
     while (in->tail != in->head) {

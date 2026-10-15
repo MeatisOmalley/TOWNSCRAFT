@@ -20,7 +20,7 @@ ROOT = ares_gdb.ROOT
 ROM = ROOT / 'townscraft64.z64'
 ELF = ROOT / 'build/rom/townscraft64.elf'
 OUT = ROOT / 'build/drive'
-INJECT = struct.Struct('>IIIIiiI')   # magic frame head tail mouse_dx mouse_dy mouse_buttons
+INJECT = struct.Struct('>IIIIiiIII')  # magic frame head tail mouse_dx/dy buttons frame_us frame_us_sum
 INJECT_MAGIC = 0x54363449
 
 # AT set-1 make codes (src/n64/input.c decodes through DOScraft keyboard.c).
@@ -85,6 +85,14 @@ class Session:
     def buttons(self, mask):
         self.gdb.write(self.inject + 24, struct.pack('>I', mask))
 
+    def fps(self, frames=60):
+        """Average presented frames per second over the next `frames` frames."""
+        f0, sum0 = self.state()[1], self.state()[8]
+        self.frames(frames)
+        st = self.state()
+        n, us = st[1] - f0, st[8] - sum0
+        return n * 1e6 / us if us else 0.0
+
     def read_symbol(self, name, fmt):
         size = struct.calcsize('>' + fmt)
         return struct.unpack('>' + fmt, self.gdb.read(self.sym[name], size))
@@ -96,10 +104,22 @@ class Session:
                         '-Out', str(path)], check=True, capture_output=True)
         return path
 
-    def close(self):
+    def close(self, graceful=False):
+        """Stop ares. graceful closes its window so it writes save files."""
         self.gdb.close()
+        if graceful:
+            subprocess.run(['taskkill', '/PID', str(self.process.pid)], capture_output=True)
+            try:
+                self.process.wait(timeout=20)
+                return
+            except subprocess.TimeoutExpired:
+                pass
         self.process.kill()
         self.process.wait()
+
+    def wait_world(self, frames=150):
+        """After New Game/Load: let generation/streaming settle."""
+        self.frames(frames)
 
 
 def smoke():
@@ -122,10 +142,45 @@ def smoke():
             s.mouse(40, 0)
         s.frames(10)
         s.screenshot('4-turned')
+        print(f'fps looking at terrain: {s.fps(120):.1f}')
         print('frames', s.frame(), 'ticks', s.read_symbol('g_ticks', 'I')[0])
     finally:
         s.close()
 
 
+def save():
+    """Place a torch, save (F9), restart ares, load: the torch must be back."""
+    saves = ROOT / 'build/ares-drive/saves'
+    for f in saves.glob('*'):
+        f.unlink()
+    s = Session(name='save')
+    try:
+        s.frames(30)
+        s.tap('space')                      # New Game
+        s.wait_world(240)
+        for _ in range(8):
+            s.mouse(0, 30)                  # look down at the ground
+        s.frames(10)
+        s.tap('e')                          # place the torch (hotbar slot 1)
+        s.frames(20)
+        s.screenshot('1-placed')
+        s.tap('f9')                         # save
+        s.frames(120)
+        s.screenshot('2-saved')
+    finally:
+        s.close(graceful=True)
+    print('save files:', [(f.name, f.stat().st_size) for f in saves.glob('*')])
+    s = Session(name='save')
+    try:
+        s.frames(30)
+        s.screenshot('3-menu-after-restart')
+        s.tap('s')                          # down to Load Game
+        s.tap('space')
+        s.wait_world(240)
+        s.screenshot('4-loaded')
+    finally:
+        s.close(graceful=True)
+
+
 if __name__ == '__main__':
-    {'smoke': smoke}[sys.argv[1] if len(sys.argv) > 1 else 'smoke']()
+    {'smoke': smoke, 'save': save}[sys.argv[1] if len(sys.argv) > 1 else 'smoke']()

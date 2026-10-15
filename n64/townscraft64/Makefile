@@ -41,6 +41,7 @@ $(BUILD_DIR)/game/n64/%.o: src/n64/%.c
 
 $(BUILD_DIR)/townscraft64.elf: $(GAME_OBJ)
 townscraft64.z64: N64_ROM_TITLE = "Townscraft64"
+townscraft64.z64: N64_ROM_SAVETYPE = flashram
 # The ROM's files: the 1024-world medium (build/romfs/terrain.bin, staged by
 # tools/stage_romfs.py from the pinned compact world).
 townscraft64.z64: $(BUILD_DIR)/townscraft64.dfs
