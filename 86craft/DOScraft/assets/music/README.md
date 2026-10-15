@@ -24,6 +24,23 @@ toggles music.
    into `MUSIC.PAK` and ships it next to `SOUND.PAK` on the boot floppy and
    ISO; the game reads `C:\MUSIC.PAK`, then `A:\MUSIC.PAK`.
 
+## Per-song settings
+
+A song can have a settings file with the same name and a `.json` extension
+next to its MIDI file, for example `My Song.json` beside `My Song.mid`:
+
+```json
+{"instruments": {"piano": "darkpiano"}, "hold": 1.5, "start": 4}
+```
+
+- `instruments` swaps one pack instrument for another throughout the song.
+  Names: piano, epiano, bell, pad, bass, organ, pluck, lead, darkpiano.
+- `hold` sets how long short notes on fading instruments ring, in seconds
+  (0 keeps the file's own note lengths).
+- `start` skips the first seconds of the song.
+
+Unknown keys or instrument names stop the build with an error.
+
 ## What the conversion does
 
 - Timing comes from the file's tempo map, rounded to the game's 100 Hz timer.
@@ -33,6 +50,10 @@ toggles music.
 - Sustain pedal, channel volume and expression are honored; velocity sets
   loudness. Pitch bend and other controllers are ignored.
 - The drum channel (MIDI channel 10) is dropped: OPL2 has no drum kit here.
+- Online Sequencer exports with more than 16 instruments write corrupted
+  status bytes from the 17th instrument on; the converter repairs them and
+  reports how many tracks it fixed. Notes written with velocity 0 stay silent,
+  as in the original (Online Sequencer uses them for visual note art).
 - Notes outside C1–B7 move by octaves.
 - General MIDI instruments map to eight FM patches: piano, electric piano,
   bell (celesta, music box, vibes), pad (strings, choir, synth pads), bass,

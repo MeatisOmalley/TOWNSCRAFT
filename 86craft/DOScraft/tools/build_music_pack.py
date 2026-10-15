@@ -36,6 +36,7 @@ Pack layout (little endian):
            2 patch (a index), 3 wait only.
 """
 import argparse
+import collections
 import json
 import math
 from pathlib import Path
@@ -65,18 +66,23 @@ PATCHES = (
     ('organ',  (0x22, 0x0A, 0xF0, 0x0F, 0x00), (0x21, 0x00, 0xF0, 0x0F, 0x00), 0x01),
     ('pluck',  (0x01, 0x1C, 0xF6, 0x57, 0x00), (0x01, 0x00, 0xF6, 0x58, 0x00), 0x06),
     ('lead',   (0x21, 0x16, 0xF1, 0x16, 0x00), (0x21, 0x00, 0xF1, 0x16, 0x00), 0x0A),
+    # Darker, longer piano for per-song use: less modulation and feedback, a
+    # slow decay and a long release tail standing in for reverb.
+    ('darkpiano', (0x01, 0x22, 0xF1, 0x43, 0x00), (0x01, 0x00, 0xF1, 0x13, 0x00), 0x04),
 )
 PATCH_INDEX = {name: i for i, (name, *_rest) in enumerate(PATCHES)}
 # Instruments that fade on their own, like a struck or plucked string. Without
 # pedal data, their short notes ring for at least DEFAULT_HOLD seconds.
-DECAYING = {'piano', 'epiano', 'bell', 'pluck'}
+DECAYING = {'piano', 'epiano', 'bell', 'pluck', 'darkpiano'}
+# Keys a song's optional settings file (<song>.json beside the MIDI) may use.
+SETTING_KEYS = {'instruments', 'hold', 'start'}
 DEFAULT_HOLD = 1.0
 
 
 def program_patch(program):
     """General MIDI program (0-127) to a pack patch index."""
     ranges = ((3, 'piano'), (5, 'epiano'), (7, 'pluck'), (15, 'bell'), (23, 'organ'),
-              (31, 'pluck'), (39, 'bass'), (55, 'pad'), (87, 'lead'), (103, 'pad'),
+              (31, 'pluck'), (39, 'bass'), (44, 'pad'), (46, 'pluck'), (55, 'pad'), (87, 'lead'), (103, 'pad'),
               (111, 'pluck'), (119, 'bell'), (127, 'pad'))
     return PATCH_INDEX[next(name for top, name in ranges if program <= top)]
 
@@ -100,8 +106,8 @@ def read_varlen(data, at):
 
 
 def parse_midi(data):
-    """(division, events): events are (tick, order, kind, channel, a, b) with
-    kind 'on'/'off'/'cc'/'program'/'tempo'/'bend'; order keeps file order."""
+    """(division, events, repaired tracks): events are (tick, order, kind, channel,
+    a, b) with kind 'on'/'off'/'cc'/'program'/'tempo'/'bend'; order keeps file order."""
     if data[:4] != b'MThd':
         raise ValueError('Not a Standard MIDI File')
     length, fmt, ntracks, division = struct.unpack_from('>IHHH', data, 4)
@@ -109,55 +115,121 @@ def parse_midi(data):
         raise ValueError(f'MIDI format {fmt} is not supported (use 0 or 1)')
     at = 8 + length
     events = []
+    repaired = []
     order = 0
-    for _ in range(ntracks):
+    for track in range(ntracks):
         if data[at:at + 4] != b'MTrk':
             raise ValueError('Missing MIDI track chunk')
         size = struct.unpack_from('>I', data, at + 4)[0]
-        at += 8
-        end = at + size
-        tick = 0
-        status = None
-        while at < end:
-            delta, at = read_varlen(data, at)
-            tick += delta
-            byte = data[at]
-            if byte & 0x80:
-                at += 1
-                if byte < 0xF0:
-                    status = byte
-            elif status is None:
-                raise ValueError('Running status before any status byte')
-            else:
-                byte = status
-            if byte == 0xFF:
-                kind = data[at]
-                length, at = read_varlen(data, at + 1)
-                if kind == 0x51 and length == 3:
-                    events.append((tick, order, 'tempo', 0, int.from_bytes(data[at:at + 3], 'big'), 0))
-                    order += 1
-                at += length
-                if kind == 0x2F:
-                    break
-                continue
-            if byte in (0xF0, 0xF7):
-                length, at = read_varlen(data, at)
-                at += length
-                continue
-            kind, channel = byte & 0xF0, byte & 0x0F
-            if kind in (0xC0, 0xD0):
-                a, b = data[at], 0
-                at += 1
-            else:
-                a, b = data[at], data[at + 1]
-                at += 2
+        start, end = at + 8, at + 8 + size
+        at = end
+        shift = overflow_shift(data, start, end) if ntracks > 16 else 0
+        raw, tempos = read_track(data, start, end, shift)
+        if shift and not overflow_plausible(raw, shift):
+            shift = 0
+            raw, tempos = read_track(data, start, end, 0)
+        if shift:
+            repaired.append(track)
+            if shift == 1:
+                raw = split_strikes(raw)
+        for tick, us in tempos:
+            events.append((tick, order, 'tempo', 0, us, 0))
+            order += 1
+        for tick, kind, channel, a, b in raw:
             name = {0x80: 'off', 0x90: 'on' if b else 'off', 0xB0: 'cc', 0xC0: 'program',
                     0xE0: 'bend'}.get(kind)
             if name:
                 events.append((tick, order, name, channel, a, b))
                 order += 1
-        at = end
-    return division, events
+    return division, events, repaired
+
+
+# Online Sequencer's export for sequences with over 16 instruments ORs the
+# instrument number into each status byte: instruments 17-32 write note on and
+# off both as 9xh and programs as Dxh; 33 and later write note-offs as Axh,
+# note-ons as Bxh and programs as Exh (one data byte, unlike a pitch bend).
+# Each such track starts with its program, so its first status tells the shift.
+OVERFLOW_UNDO = {1: {0x90: 0x90, 0xD0: 0xC0}, 2: {0xA0: 0x80, 0xB0: 0x90, 0xE0: 0xC0}}
+
+
+def overflow_shift(data, at, end):
+    """1 or 2 when a track's first channel message is Dxh or Exh, else 0."""
+    while at < end:
+        _delta, at = read_varlen(data, at)
+        byte = data[at]
+        if byte == 0xFF:
+            length, at = read_varlen(data, at + 2)
+            at += length
+        elif byte in (0xF0, 0xF7):
+            length, at = read_varlen(data, at + 1)
+            at += length
+        else:
+            return {0xD0: 1, 0xE0: 2}.get(byte & 0xF0, 0)
+    return 0
+
+
+def overflow_plausible(raw, shift):
+    """The whole track (kinds already undone) has the shape of that export."""
+    kinds = collections.Counter(kind for _t, kind, *_rest in raw)
+    if shift == 2:
+        return set(kinds) <= {0x80, 0x90, 0xC0} and kinds[0x80] == kinds[0x90]
+    return set(kinds) <= {0x90, 0xC0} and kinds[0x90] % 2 == 0
+
+
+def split_strikes(raw):
+    """Shift 1 writes strikes and releases alike: alternate them per key."""
+    sounding = set()
+    fixed = []
+    for t, kind, ch, a, b in raw:
+        if kind == 0x90 and (ch, a) in sounding:
+            sounding.discard((ch, a))
+            kind = 0x80
+        elif kind == 0x90:
+            sounding.add((ch, a))
+        fixed.append((t, kind, ch, a, b))
+    return fixed
+
+
+def read_track(data, at, end, shift):
+    """(channel events [(tick, kind, channel, a, b)], tempos [(tick, us)]),
+    with status kinds undone for an overflow shift."""
+    undo = OVERFLOW_UNDO.get(shift, {})
+    raw, tempos = [], []
+    tick = 0
+    status = None
+    while at < end:
+        delta, at = read_varlen(data, at)
+        tick += delta
+        byte = data[at]
+        if byte & 0x80:
+            at += 1
+            if byte < 0xF0:
+                status = byte
+        elif status is None:
+            raise ValueError('Running status before any status byte')
+        else:
+            byte = status
+        if byte == 0xFF:
+            kind = data[at]
+            length, at = read_varlen(data, at + 1)
+            if kind == 0x51 and length == 3:
+                tempos.append((tick, int.from_bytes(data[at:at + 3], 'big')))
+            at += length
+            if kind == 0x2F:
+                break
+            continue
+        if byte in (0xF0, 0xF7):
+            length, at = read_varlen(data, at)
+            at += length
+            continue
+        kind, channel = undo.get(byte & 0xF0, byte & 0xF0), byte & 0x0F
+        if kind in (0xC0, 0xD0):
+            raw.append((tick, kind, channel, data[at], 0))
+            at += 1
+        else:
+            raw.append((tick, kind, channel, data[at], data[at + 1]))
+            at += 2
+    return raw, tempos
 
 
 def seconds_function(division, events):
@@ -220,12 +292,12 @@ def set_levels(notes):
 def read_notes(data):
     """MIDI bytes -> (notes, info). Notes are dicts with on/off in game ticks,
     MIDI channel, key, velocity, loudness (dB) and patch; the pedal (CC 64) is applied."""
-    division, midi = parse_midi(data)
+    division, midi, repaired = parse_midi(data)
     if not division:
         raise ValueError('MIDI division is zero')
     to_seconds = seconds_function(division, midi)
     midi.sort(key=lambda e: (e[0], 0 if e[2] == 'off' else 1, e[1]))
-    info = dict(drum_notes=0, pitch_bends=0, pedal_channels=set())
+    info = dict(drum_notes=0, pitch_bends=0, pedal_channels=set(), repaired_tracks=len(repaired))
     program = [0] * 16
     volume = [100] * 16
     expression = [127] * 16
@@ -304,12 +376,38 @@ def apply_hold(notes, pedal_channels, hold):
     return longer
 
 
-def convert_song(data, hold=DEFAULT_HOLD):
-    """MIDI bytes -> (events [(tick, type, channel, a, b)], report)."""
+def check_settings(settings):
+    """Validate a song's settings; returns them with defaults filled in."""
+    settings = dict(settings or {})
+    unknown = set(settings) - SETTING_KEYS
+    if unknown:
+        raise ValueError(f'Unknown song setting(s): {", ".join(sorted(unknown))}')
+    swaps = settings.get('instruments', {})
+    if not isinstance(swaps, dict) or any(k not in PATCH_INDEX or v not in PATCH_INDEX for k, v in swaps.items()):
+        raise ValueError(f'"instruments" maps patch names to patch names: {", ".join(PATCH_INDEX)}')
+    for key in ('hold', 'start'):
+        if key in settings and (not isinstance(settings[key], (int, float)) or settings[key] < 0):
+            raise ValueError(f'"{key}" must be a number of seconds, 0 or more')
+    return settings
+
+
+def convert_song(data, hold=DEFAULT_HOLD, settings=None):
+    """MIDI bytes -> (events [(tick, type, channel, a, b)], report). settings
+    may swap instruments, set the hold, and skip the first "start" seconds."""
+    settings = check_settings(settings)
+    hold = settings.get('hold', hold)
     notes, info = read_notes(data)
+    swaps = {PATCH_INDEX[k]: PATCH_INDEX[v] for k, v in settings.get('instruments', {}).items()}
+    start = round(settings.get('start', 0) * TICK_HZ)
+    if start:
+        notes = [n for n in notes if n['on'] >= start]
+    for n in notes:
+        n['patch'] = swaps.get(n['patch'], n['patch'])
+        n['on'] -= start
+        n['off'] -= start
     report = dict(notes=len(notes), max_polyphony=0, steals=0, drum_notes=info['drum_notes'],
                   octave_moves=0, pitch_bends=info['pitch_bends'], patches_used=set(),
-                  pedal=bool(info['pedal_channels']),
+                  pedal=bool(info['pedal_channels']), repaired_tracks=info['repaired_tracks'],
                   sustained_notes=apply_hold(notes, info['pedal_channels'], hold),
                   gain_db=set_levels(notes))
     # Releases sort before strikes at the same tick, so voices free up first.
@@ -379,15 +477,18 @@ def encode_events(events):
 
 
 def build_pack(songs, include_builtin=True, hold=DEFAULT_HOLD):
-    """songs: [(name, midi bytes)] -> (pack bytes, reports)."""
+    """songs: [(name, midi bytes[, settings])] -> (pack bytes, reports)."""
     if not songs or len(songs) > MAX_SONGS:
         raise ValueError(f'Need 1 to {MAX_SONGS} songs')
     patches = b''.join(bytes(mod) + bytes(car) + bytes((c0, 0)) for _name, mod, car, c0 in PATCHES)
     directory = bytearray()
     events = bytearray()
     reports = []
-    for name, data in songs:
-        timed, report = convert_song(data, hold)
+    for name, data, *extra in songs:
+        settings = extra[0] if extra else None
+        timed, report = convert_song(data, hold, settings)
+        if settings:
+            report['settings'] = settings
         encoded, count = encode_events(timed)
         if not count or count > MAX_EVENTS:
             raise ValueError(f'{name}: {count} events (1 to {MAX_EVENTS} allowed)')
@@ -406,7 +507,15 @@ def build(output, midi_dir=MIDI_DIR, include_builtin=True, hold=DEFAULT_HOLD):
     files = sorted(p for p in Path(midi_dir).glob('*') if p.suffix.lower() in ('.mid', '.midi'))
     if not files:
         return None
-    pack, reports = build_pack([(p.stem, p.read_bytes()) for p in files], include_builtin, hold)
+    songs = []
+    for p in files:
+        sidecar = p.with_suffix('.json')
+        try:
+            settings = json.loads(sidecar.read_text()) if sidecar.is_file() else None
+        except json.JSONDecodeError as error:
+            raise ValueError(f'{sidecar.name}: {error}') from None
+        songs.append((p.stem, p.read_bytes(), settings))
+    pack, reports = build_pack(songs, include_builtin, hold)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(pack)
@@ -435,7 +544,8 @@ def main():
     for song in report['songs']:
         notes = [f'{song["max_polyphony"]} voices max', 'pedal' if song['pedal'] else 'no pedal data',
                  f'raised {song["gain_db"]} dB' if song['gain_db'] >= 0.5 else 'at full level']
-        for key, label in (('sustained_notes', 'short notes held longer'),
+        for key, label in (('repaired_tracks', 'tracks repaired from an Online Sequencer export'),
+                           ('sustained_notes', 'short notes held longer'),
                            ('steals', 'notes cut for polyphony'), ('drum_notes', 'drum notes dropped'),
                            ('octave_moves', 'notes moved by octaves'), ('pitch_bends', 'pitch bends ignored')):
             if song[key]:

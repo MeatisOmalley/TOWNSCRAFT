@@ -173,6 +173,37 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(deltas, length)
         self.assertEqual(length, 100 + 72000 + 100)
 
+    def test_repairs_online_sequencer_status_overflow(self):
+        # 18 tracks: 16 ordinary, then one exported as the 17th instrument
+        # (on/off both 9xh, program Dxh) and one as the 33rd (off Axh, on Bxh,
+        # program Exh). The 17th track's notes are silent (velocity 0).
+        normal = [track([(0, (0x90 | (i % 16), 60, 0)), (96, (0x80 | (i % 16), 60, 0))]) for i in range(16)]
+        seventeenth = track([(0, (0xD1, 80)), (0, (0x91, 50, 0)), (96, (0x91, 50, 0))])
+        thirty_third = track([(0, (0xE2, 0)), (0, (0xB2, 64, 70)), (480, (0xA2, 64, 0)),
+                              (0, (0xB2, 67, 70)), (480, (0xA2, 67, 0))])
+        out, report = music.convert_song(midi(normal + [seventeenth, thirty_third]), hold=0)
+        self.assertEqual(report['repaired_tracks'], 2)
+        self.assertEqual(sorted(a for t, kind, ch, a, b in out if kind == music.NOTE_ON), [64, 67])
+        self.assertEqual(report['notes'], 2)          # Velocity-0 strikes stay silent
+        # Without the 16-track overflow, aftertouch and controllers are left alone.
+        plain = midi([track([(0, (0xB0, 7, 100)), (0, (0xA0, 60, 10))] + scale())])
+        out, report = music.convert_song(plain, hold=0)
+        self.assertEqual((report['repaired_tracks'], report['notes']), (0, 4))
+
+    def test_song_settings_swap_instruments_trim_and_hold(self):
+        events = [(0, tempo(60))] + scale(notes=(60, 62, 64, 65), length=480)
+        song = midi([track(events)])
+        out, report = music.convert_song(song, settings={'instruments': {'piano': 'darkpiano'},
+                                                         'start': 2, 'hold': 0})
+        ons = [(t, a) for t, kind, ch, a, b in out if kind == music.NOTE_ON]
+        self.assertEqual(ons, [(0, 64), (100, 65)])   # Two seconds skipped, timing kept
+        self.assertEqual(report['patches_used'], ['darkpiano'])
+        for bad in ({'tempo': 2}, {'instruments': {'piano': 'harpsichord'}}, {'start': -1}):
+            with self.assertRaises(ValueError):
+                music.convert_song(song, settings=bad)
+        self.assertEqual(music.PATCHES[music.program_patch(45)][0], 'pluck')   # Pizzicato
+        self.assertEqual(music.PATCHES[music.program_patch(48)][0], 'pad')     # Strings
+
     def test_rejects_unsupported_files(self):
         with self.assertRaises(ValueError):
             music.convert_song(b'RIFF')
