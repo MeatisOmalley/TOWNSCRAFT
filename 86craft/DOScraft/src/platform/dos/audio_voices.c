@@ -4,10 +4,26 @@
 typedef struct { const unsigned char *data;unsigned int phase,step,end,gain,priority,active; } Voice;
 static Voice voices[8];
 static unsigned int rate,cursor;
+/* Soft clip: exact up to +-DOS_AUDIO_KNEE, then a knee that approaches +-127,
+ * so overlapping loud effects compress instead of hard clipping. */
+static unsigned char clip_table[2*DOS_AUDIO_MIX_LIMIT];
 unsigned int dos_audio_voice_drops,dos_audio_mixed_frames;
+int dos_audio_soft_clip(int value)
+{
+    int magnitude=value<0 ? -value : value;
+    if(magnitude>DOS_AUDIO_KNEE) {
+        int over=magnitude-DOS_AUDIO_KNEE,room=127-DOS_AUDIO_KNEE;
+        magnitude=DOS_AUDIO_KNEE+room*over/(over+room);
+    }
+    return value<0 ? -magnitude : magnitude;
+}
 void dos_audio_voices_stop(void) { memset(voices,0,sizeof(voices));cursor=0; }
 void dos_audio_voices_reset(unsigned int hz)
-{ dos_audio_voices_stop();rate=hz>=6000 && hz<=44100 ? hz : 0;dos_audio_voice_drops=dos_audio_mixed_frames=0; }
+{
+    dos_audio_voices_stop();rate=hz>=6000 && hz<=44100 ? hz : 0;dos_audio_voice_drops=dos_audio_mixed_frames=0;
+    for(int v=-DOS_AUDIO_MIX_LIMIT;v<DOS_AUDIO_MIX_LIMIT;++v)
+        clip_table[v+DOS_AUDIO_MIX_LIMIT]=(unsigned char)(dos_audio_soft_clip(v)+128);
+}
 int dos_audio_voice(const DosAudioClip *clip,int pitch,int volume,int priority,int loop)
 {
     if(!rate || !clip || !clip->data || !clip->frames || clip->frames>32767 ||
@@ -58,9 +74,9 @@ void dos_audio_voices_render(unsigned char *out,unsigned int frames)
             v->phase=phase;
             ++ch;
         }
-        if(value<-128)value=-128;
-        if(value>127)value=127;
-        out[i]=(unsigned char)(value+128);
+        if(value<-DOS_AUDIO_MIX_LIMIT)value=-DOS_AUDIO_MIX_LIMIT;
+        if(value>DOS_AUDIO_MIX_LIMIT-1)value=DOS_AUDIO_MIX_LIMIT-1;
+        out[i]=clip_table[value+DOS_AUDIO_MIX_LIMIT];
     }
     dos_audio_mixed_frames+=frames;
 }

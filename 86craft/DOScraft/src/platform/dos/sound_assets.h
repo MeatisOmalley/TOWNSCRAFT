@@ -11,10 +11,13 @@ typedef struct {
     unsigned char note,voice;
 } DosSoundEvent;
 
-/* Startup-only synthesis. Rebuilding restores the fresh-process source seed
- * and score; callers must stop playback before rebuilding borrowed storage.
- * Returns 0, or -1 for any capacity/descriptor/score validation failure. */
+/* Startup-only synthesis, after the game arenas. Rebuilding restores the
+ * fresh-process source seed and score; callers must stop playback before
+ * rebuilding borrowed storage. Returns 0; 1 when the wave buffer could not be
+ * allocated (score and levels only); or -1 for any validation failure. */
 int dos_sound_assets_build(void);
+/* The Towns effect table's volume for an effect, or 0 before a build. */
+int dos_sound_level(int id);
 /* Borrowed unsigned 8-bit waveform. Original sample alignment/offsets remain;
  * RF5c68 end markers and padding become unsigned silence. Length excludes each
  * effect's marker. Preserve the base pitch separately; no baked resampling. */

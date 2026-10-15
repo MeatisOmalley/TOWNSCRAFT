@@ -68,7 +68,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
             bank_path=output/'SOUND.PAK';bank=build_bank(bank_path)
             report['sound_bank']={'path':str(bank_path.resolve()),'sha256':bank['sha256'],
                                   'bytes':bank['bytes'],'samples':len(bank['samples'])}
-            report['audio']='Sampled Sound Blaster effects; basic effects fallback; music pending'
+            report['audio']='Sampled Sound Blaster effects; basic effects fallback; OPL2 music'
             report['stage']='Full game link; sampled effects; gameplay acceptance pending'
         report['extra_adapter_flags']=list(extra_adapter_flags)
         report['graphics_presets']=graphics
@@ -159,7 +159,7 @@ def build(output=OUTPUT, benchmark=False, extra_adapter_flags=None, graphics=Non
         names=tuple('bench_runtime.c' if name=='game_runtime.c' else name for name in GAME_ADAPTERS) if benchmark else GAME_ADAPTERS
         if audio:
             names=tuple(name for name in names if name!='sound_silent.c')+(
-                'game_audio.c','audio_bank.c','audio_voices.c','sound_assets.c','sb_pcm.c','sb_entry.S')
+                'game_audio.c','audio_bank.c','audio_voices.c','opl_music.c','sound_assets.c','sb_pcm.c','sb_entry.S')
         if '-DDOS_AUDIO_PROBE' in extra_adapter_flags:
             if not audio:raise ValueError('Audio probe requires the audio backend')
             names=tuple('audio_probe.c' if name=='game_entry.c' else name for name in names)

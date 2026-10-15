@@ -17,6 +17,8 @@
 #include "game_audio.h"
 #include "sb_pcm.h"
 #include "audio_voices.h"
+#include "opl_music.h"
+#include "audio_bank.h"
 #endif
 #ifdef DOS_FAR_FIELD
 #include "far_field.h"
@@ -185,8 +187,10 @@ static void finish(void)
 #ifdef DOS_GAME_AUDIO
     const char *audio_backend=dos_audio_backend();
     unsigned int audio_events=dos_audio_events,audio_blocks=dos_sb_completions,audio_faults=dos_sb_stream_faults;
-    unsigned int audio_frames=dos_audio_mixed_frames;
-    int audio_ok=!strcmp(audio_backend,"SB_SAMPLED") && audio_events && audio_blocks && !audio_faults;
+    unsigned int audio_frames=dos_audio_mixed_frames,music_notes=dos_music_notes;
+    const char *music_backend=dos_music_backend(),*bank_mode=dos_audio_bank_mode();
+    int audio_ok=!strcmp(audio_backend,"SB_SAMPLED") && audio_events && audio_blocks && !audio_faults &&
+        !strcmp(music_backend,"OPL2");
 #endif
     /* A completed diagnostic exits cleanly, never kill a live save session. */
     dos_save_shutdown(); dos_hdd_shutdown();
@@ -227,8 +231,10 @@ static void finish(void)
         fullres_ok?"PASS":"FAIL",despawn_ok?"PASS":"FAIL",save_result,load_result,inventory_frames,inventory_ticks,
         ok?"PASS":"FAIL")>=0;
 #ifdef DOS_GAME_AUDIO
-    if(fprintf(file,"AUDIO=%s\nAUDIO_EVENTS=%u\nAUDIO_BLOCKS=%u\nAUDIO_FAULTS=%u\nAUDIO_MIXED_FRAMES=%u\n",
-               audio_backend,audio_events,audio_blocks,audio_faults,audio_frames)<0)written=0;
+    if(fprintf(file,"AUDIO=%s\nAUDIO_EVENTS=%u\nAUDIO_BLOCKS=%u\nAUDIO_FAULTS=%u\nAUDIO_MIXED_FRAMES=%u\n"
+               "MUSIC=%s\nMUSIC_NOTES=%u\nAUDIO_BANK=%s\n",
+               audio_backend,audio_events,audio_blocks,audio_faults,audio_frames,music_backend,music_notes,
+               bank_mode)<0)written=0;
 #else
     if(fprintf(file,"AUDIO=SILENT_DEFERRED\n")<0)written=0;
 #endif

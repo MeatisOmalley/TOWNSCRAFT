@@ -1,11 +1,13 @@
-/* Shared game effects. Disk I/O/synthesis happen only before playback starts;
- * the locked SB IRQ mixes short blocks even during long frames/DOS disk calls. */
+/* Shared game effects and music. Disk I/O/synthesis happen only before playback
+ * starts; the locked SB IRQ mixes short blocks even during long frames/DOS disk
+ * calls, and the 100 Hz timer hook sequences the OPL2 music (opl_music.c). */
 #include "sound.h"
 #include "blocks.h"
 #include "fmath.h"
 #include "audio_bank.h"
 #include "audio_voices.h"
 #include "game_audio.h"
+#include "opl_music.h"
 #include "sound_assets.h"
 #include "sb_pcm.h"
 #include "keyboard.h"
@@ -13,6 +15,13 @@
 #include "video_backend.h"
 #include <pc.h>
 #include <stdlib.h>
+
+/* Output gain after the original per-effect level: 7 one-shots plus rain
+ * share the 8-bit output, and the mixer soft-clips the rare loud overlaps. */
+#define EFFECT_GAIN_NUM 4
+#define EFFECT_GAIN_DEN 5
+/* A zombie groans on about 1 of 120 mob ticks: every 6 s on average. */
+#define GROAN_CHANCE 120
 
 int g_musicOn=1,g_sfxOn=1;
 unsigned int dos_audio_events;
@@ -44,11 +53,21 @@ static int group_for(int id,int pitch)
     case SFX_PLACE:return A_PLACE;
     case SFX_HURT:return A_HURT;
     case SFX_CLICK:return A_CLICK;
+    case SFX_EXPLODE:return A_EXPLODE;
+    case SFX_HISS:return A_HISS;
     case DOS_SFX_GLASS:return A_GLASS;
     case DOS_SFX_SAND:return A_SAND;
     case DOS_SFX_GRAVEL:return A_STONE;
+    case DOS_SFX_GROAN:return A_GROAN;
     default:return -1;
     }
+}
+/* The Towns effect table's level for an event (step 120 ... explosion 255);
+ * the DOS block variants and the groan use the block-break level. */
+static int effect_level(int id)
+{
+    int level=dos_sound_level(id<0 || id>=NUM_SFX ? SFX_CRUNCH : id);
+    return level ? level : 200;
 }
 static void play_group(int id,int group,int pitch,int vol,int pan,int priority)
 {
@@ -59,7 +78,7 @@ static void play_group(int id,int group,int pitch,int vol,int pan,int priority)
     /* Original positional mono fold: off-axis sounds retain half their gain. */
     vol=vol*(30-abs(pan))/30;
     if(backend==3) {
-        if(vol>=35 && id!=SFX_RAIN) {
+        if(vol>=35 && id!=SFX_RAIN && id!=DOS_SFX_GROAN) {
             unsigned long state=dos_keyboard_irq_save();speaker(id,priority);dos_keyboard_irq_restore(state);
             ++dos_audio_events;
         }
@@ -74,23 +93,26 @@ static void play_group(int id,int group,int pitch,int vol,int pan,int priority)
         last_variant[group]=(int)variant;clip=dos_audio_bank_clip(group,variant);
         pitch=pitch*(244+(int)(next_random()%25))/256;
     } else {
+        if(id==DOS_SFX_GROAN)return;            /* No synthesized groan */
         if(id<0 || id>=NUM_SFX)id=SFX_CRUNCH;
         const DosSoundSample *s=dos_sound_sample(id);
         const unsigned char *wave=dos_sound_wave(0);
         if(!s || !wave)return;
         legacy=(DosAudioClip){wave+s->offset,s->frames,20833u*s->pitch/256u};clip=&legacy;
-        vol=vol*s->volume/256;
     }
-    /* Seven simultaneous one-shots plus rain; reserve headroom for overlap. */
-    vol=vol*3/5;
+    /* Bank clips share one loudness; the original table sets the balance. */
+    vol=vol*effect_level(id)/256*EFFECT_GAIN_NUM/EFFECT_GAIN_DEN;
+    if(vol<=0)return;
     unsigned long state=dos_keyboard_irq_save();
     if(!dos_audio_voice(clip,pitch,vol,priority,0))++dos_audio_events;
     dos_keyboard_irq_restore(state);
 }
 void sound_play(int id,int pitch,int vol,int pan)
 {
-    if((id<0 || id>=NUM_SFX) && (id<DOS_SFX_GLASS || id>DOS_SFX_GRAVEL))return;
-    int group=group_for(id,pitch),priority=id==SFX_STEP ? 1 : id==SFX_HURT || id==SFX_EXPLODE ? 5 : 3;
+    if((id<0 || id>=NUM_SFX) && (id<DOS_SFX_GLASS || id>DOS_SFX_GROAN))return;
+    int group=group_for(id,pitch);
+    int priority=id==SFX_STEP ? 1 : id==DOS_SFX_GROAN ? 2 : id==SFX_HISS ? 4 :
+                 id==SFX_HURT || id==SFX_EXPLODE ? 5 : 3;
     if(id==SFX_STEP && bank_ready)pitch=256;
     play_group(id,group,pitch,vol,pan,priority);
 }
@@ -101,6 +123,11 @@ void dos_sound_step(unsigned char block,int vol)
     else if(g_blockDef[BLK_ID(block)].tool==TOOL_PICK)group=A_STEP_STONE;
     else if(g_blockDef[BLK_ID(block)].tool==TOOL_AXE)group=A_STEP_WOOD;
     play_group(SFX_STEP,group,256,vol,0,1);
+}
+void dos_sound_zombie(int x,int y,int z)
+{
+    if(next_random()%GROAN_CHANCE)return;
+    sound_play_at(DOS_SFX_GROAN,256,255,x,y,z);
 }
 void sound_set_listener(int x,int y,int z,int yaw)
 { lis_x=x;lis_y=y;lis_z=z;lis_yaw=yaw; }
@@ -119,17 +146,15 @@ void sound_loop(int id,int vol)
     if(!g_sfxOn)vol=0;
     if(vol<0)vol=0;
     if(vol>255)vol=255;
+    const DosSoundSample *s=dos_sound_sample(id);const unsigned char *wave=dos_sound_wave(0);
+    if(!s || !wave)return;
+    int gain=vol*s->volume/256*EFFECT_GAIN_NUM/EFFECT_GAIN_DEN;
     unsigned long state=dos_keyboard_irq_save();
-    if(!vol) { dos_audio_loop_volume(0);loop_started=0; }
+    if(!gain) { dos_audio_loop_volume(0);loop_started=0; }
     else if(!loop_started) {
-        const DosSoundSample *s=dos_sound_sample(id);const unsigned char *wave=dos_sound_wave(0);
-        if(s && wave) {
-            DosAudioClip clip={wave+s->offset,s->frames,20833u*s->pitch/256u};
-            if(!dos_audio_voice(&clip,256,vol*s->volume/512,0,1))loop_started=1;
-        }
-    } else {
-        const DosSoundSample *s=dos_sound_sample(id);dos_audio_loop_volume(vol*s->volume/512);
-    }
+        DosAudioClip clip={wave+s->offset,s->frames,20833u*s->pitch/256u};
+        if(!dos_audio_voice(&clip,256,gain,0,1))loop_started=1;
+    } else dos_audio_loop_volume(gain);
     dos_keyboard_irq_restore(state);
 }
 void sound_tick(void)
@@ -138,11 +163,12 @@ void sound_tick(void)
         outportb(0x61,inportb(0x61)&~3);speaker_ticks=0;
     }
     if((backend==1 || backend==2) && !g_sfxOn) { dos_audio_voices_stop();loop_started=0; }
+    dos_music_tick();
 }
 void dos_audio_shutdown(void)
 {
     if(!initialized)return;
-    dos_irq_set_tick_hook(0);dos_sb_shutdown();
+    dos_irq_set_tick_hook(0);dos_music_shutdown();dos_sb_shutdown();
     if(backend==3) {
         outportb(0x61,speaker_original);dos_video_set_speaker_clock(0);
     }
@@ -155,7 +181,10 @@ void sound_init(void)
     dos_audio_events=0;
     bank_ready=dos_audio_bank_load("C:\\SOUND.PAK")==0;
     if(!bank_ready)bank_ready=dos_audio_bank_load("A:\\SOUND.PAK")==0;
-    int basic=dos_sound_assets_build()==0;
+    /* After the bank: with little memory left the wave buffer goes first,
+     * while the score and effect levels never need it. */
+    int assets=dos_sound_assets_build(),basic=assets==0;
+    if(assets>=0)dos_music_init();
     dos_audio_voices_reset(DOS_SB_RATE);
     if((bank_ready || basic) && !dos_sb_init()) {
         if(!dos_sb_stream_start(mix))backend=bank_ready ? 2 : 1;
@@ -168,7 +197,3 @@ void sound_init(void)
     if(atexit(dos_audio_shutdown)) { dos_audio_shutdown();return; }
     dos_irq_set_tick_hook(sound_tick);
 }
-/* Music remains separate from this effects implementation. */
-void music_schedule(int ticks) { (void)ticks; }
-void music_set_gap(int ticks) { (void)ticks; }
-void music_stop(void) {}

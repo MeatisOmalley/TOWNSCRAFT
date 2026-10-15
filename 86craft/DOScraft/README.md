@@ -10,7 +10,8 @@ into `DOSCRAFT.EXE` through the original `kmain`, with DOS platform adapters.
 The original 256-world procedural generation, AT movement/full-pitch input,
 torch placement/removal and save/fresh-process reload pass in 86Box. Full feature acceptance is still
 pending. The base build now has sampled Sound Blaster effects, with basic
-synthesized effects and PC-speaker fallback. Music remains deferred. Original
+synthesized effects and PC-speaker fallback, zombie groans, and the original
+music score on the Sound Blaster/AdLib OPL2 FM chip. Original
 sound masters and the external target-specific bank are documented in
 [the sound asset guide](assets/audio/README.md).
 Five verified VGA-transport optimizations and the measured i486 frame-register
@@ -130,8 +131,8 @@ Changing an individual option marks the preset Custom; choosing a preset
 restores all of its graphics values. **F2** still cycles Low → Medium → High →
 Very Low → Low, and startup remains Low. Mode X retains the 320x240 display and
 40-row HUD. Controls and Diagnostics are separate settings submenus. Effects
-use the external sound bank described above; the deferred 386 player has not
-been refreshed for this audio checkpoint.
+use the external sound bank described above. F6 toggles music and F7 sound
+effects, as on the Towns.
 
 | Preset | 3D view resolution | View distance | Textured distance | Subdivision |
 | --- | --- | --- | --- | --- |
