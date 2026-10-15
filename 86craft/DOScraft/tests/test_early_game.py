@@ -41,8 +41,8 @@ class EarlyGameTests(unittest.TestCase):
             self.assertIn(expect, result.stdout)
 
     def test_tool_wear_and_save_extension(self):
-        self.build_and_run('early_game_native.c', ('blocks.c', 'inventory.c'),
-                           'PASS: tool wear and save extension')
+        self.build_and_run('early_game_native.c', ('blocks.c', 'inventory.c', 'libc.c'),
+                           'PASS: early-game materials')
 
 
 class EarlyTextureTests(unittest.TestCase):

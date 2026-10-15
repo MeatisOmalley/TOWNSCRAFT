@@ -31,6 +31,21 @@ void dos_tool_wear(int cost)
 	sound_play(SFX_CLICK,160,255,0);
 }
 
+int dos_break_drop(int id,u8 b,int drop)
+{
+	if(B_GRAVEL==id && B_GRAVEL==drop)
+	{
+		/* One roll; flint or tin uses up the gravel, so placed gravel cannot be farmed for tin. */
+		if((BLK_META(b)&GRAVEL_TIN) && 0==rnd_range(100)) return I_TIN;
+		if(0==rnd_range(10)) return I_FLINT;
+	}
+	else if(B_CLAY==id && I_CLAY_LUMP==drop)
+	{
+		inv_add(I_CLAY_LUMP,3);
+	}
+	return drop;
+}
+
 static void put_wear(void (*put)(u32),const Slot *slots,int n)
 {
 	int i;

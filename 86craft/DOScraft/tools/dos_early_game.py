@@ -7,7 +7,7 @@ fields and hook calls that logic needs.
 from build_imported import replace_once
 
 HEADERS = ('blocks.h', 'inventory.h', 'textures.h')
-NAMES = HEADERS + ('blocks.c', 'inventory.c', 'game.c', 'ui.c', 'textures.c')
+NAMES = HEADERS + ('blocks.c', 'inventory.c', 'game.c', 'ui.c', 'textures.c', 'world.c', 'render.c')
 
 # The olive ramp becomes terracotta: red clay, bricks and copper (EARLY_GAME.md, Textures).
 OLIVE = (95, 155, 85)
@@ -125,6 +125,117 @@ def textures(name, one, every):
             '\tdos_tex_import_early();\n')
 
 
+NEW_BLOCKS = ('B_CLAY', 'B_COPPER_ORE', 'B_FIRE', 'B_FIRE_OUT', 'B_ANVIL', 'B_CLAY_FURNACE',
+              'B_BRICKS', 'B_BLOOMERY')
+NEW_ITEMS = ('I_CLAY_LUMP', 'I_BRICK', 'I_FLINT', 'I_CHARCOAL', 'I_COPPER_INGOT', 'I_TIN',
+             'I_BRONZE_INGOT', 'I_STICK_SPEAR', 'I_FLINT_SPEAR', 'I_COPPER_SPEAR', 'I_BRONZE_SPEAR',
+             'I_IRON_SPEAR', 'I_COPPER_PICK', 'I_COPPER_AXE', 'I_COPPER_SHOVEL', 'I_BRONZE_PICK',
+             'I_BRONZE_AXE', 'I_BRONZE_SHOVEL', 'I_BRONZE_SWORD', 'I_IRON_AXE', 'I_IRON_SHOVEL',
+             'I_DIAMOND_AXE', 'I_DIAMOND_SHOVEL', 'I_BELLOWS')
+# Light opacity per new block, in NEW_BLOCKS order.
+NEW_OPACITY = (15, 15, 0, 0, 15, 15, 15, 15)
+BLOCK_ROWS = (
+    '\t{"Clay",       CUBEOPQ,                            0, 40,  TOOL_SHOVEL,0, I_CLAY_LUMP,   {SIDES(T_CLAY)}},\n'
+    '\t{"Copper Ore", CUBEOPQ,                            0, 50,  TOOL_PICK,  1, B_COPPER_ORE,  {SIDES(T_COPPER_ORE)}},\n'
+    '\t{"Campfire",   BF_MODEL|BF_USABLE,                14,  5,  TOOL_NONE,  0, 0,             '
+    '{T_FIRE_LOG,T_FIRE_LOG,T_FIRE_ASH,T_FIRE_LOG,T_FIRE_LOG,T_FIRE_LOG}},\n'
+    '\t{"Fire Pit",   BF_MODEL|BF_USABLE,                 0,  5,  TOOL_NONE,  0, 0,             {SIDES(T_FIRE_ASH)}},\n'
+    '\t{"Stone Anvil",CUBEOPQ|BF_USABLE,                  0, 45,  TOOL_PICK,  0, B_ANVIL,       '
+    '{T_ANVIL_SIDE,T_ANVIL_SIDE,T_ANVIL_SIDE,T_ANVIL_TOP,T_ANVIL_SIDE,T_ANVIL_SIDE}},\n'
+    '\t{"Clay Furnace",CUBEOPQ|BF_USABLE,                 0, 40,  TOOL_PICK,  0, B_CLAY_FURNACE,'
+    '{T_CLAYF_SIDE,T_CLAYF_SIDE,T_CLAYF_TOP,T_CLAYF_TOP,T_CLAYF_FRONT,T_CLAYF_FRONT}},\n'
+    '\t{"Bricks",     CUBEOPQ,                            0, 45,  TOOL_PICK,  1, B_BRICKS,      {SIDES(T_BRICKS)}},\n'
+    '\t{"Bloomery",   CUBEOPQ|BF_USABLE,                  0, 45,  TOOL_PICK,  0, B_BLOOMERY,    '
+    '{T_BLOOMERY_SIDE,T_BLOOMERY_SIDE,T_CLAYF_TOP,T_CLAYF_TOP,T_BLOOMERY_FRONT,T_BLOOMERY_FRONT}},\n'
+)
+# Tool tiers: hand 0, stone/wood 1, copper 2, bronze 3, iron 4, diamond 5.
+RETIER = (('I_WOOD_PICK', 1), ('I_STONE_PICK', 1), ('I_IRON_PICK', 4), ('I_DIAMOND_PICK', 5),
+          ('I_WOOD_SWORD', 1), ('I_STONE_SWORD', 1), ('I_IRON_SWORD', 4), ('I_DIAMOND_SWORD', 5),
+          ('I_WOOD_AXE', 1), ('I_STONE_AXE', 1), ('I_WOOD_SHOVEL', 1), ('I_STONE_SHOVEL', 1))
+# (item, name, icon, tool, tier, damage, durability)
+NEW_TOOLS = (
+    ('I_STICK_SPEAR', 'Stick Spear', 'T_I_STICK_SPEAR', 'TOOL_SPEAR', 1, 1, 59),
+    ('I_FLINT_SPEAR', 'Flint Spear', 'T_I_FLINT_SPEAR', 'TOOL_SPEAR', 1, 2, 131),
+    ('I_COPPER_SPEAR', 'Copper Spear', 'T_I_COPPER_SPEAR', 'TOOL_SPEAR', 2, 2, 190),
+    ('I_BRONZE_SPEAR', 'Bronze Spear', 'T_I_BRONZE_SPEAR', 'TOOL_SPEAR', 3, 3, 450),
+    ('I_IRON_SPEAR', 'Iron Spear', 'T_I_IRON_SPEAR', 'TOOL_SPEAR', 4, 3, 600),
+    ('I_COPPER_PICK', 'Copper Pickaxe', 'T_I_COPPER_PICK', 'TOOL_PICK', 2, 3, 190),
+    ('I_COPPER_AXE', 'Copper Axe', 'T_I_COPPER_AXE', 'TOOL_AXE', 2, 4, 190),
+    ('I_COPPER_SHOVEL', 'Copper Shovel', 'T_I_COPPER_SHOVEL', 'TOOL_SHOVEL', 2, 2, 190),
+    ('I_BRONZE_PICK', 'Bronze Pickaxe', 'T_I_BRONZE_PICK', 'TOOL_PICK', 3, 3, 450),
+    ('I_BRONZE_AXE', 'Bronze Axe', 'T_I_BRONZE_AXE', 'TOOL_AXE', 3, 4, 450),
+    ('I_BRONZE_SHOVEL', 'Bronze Shovel', 'T_I_BRONZE_SHOVEL', 'TOOL_SHOVEL', 3, 2, 450),
+    ('I_BRONZE_SWORD', 'Bronze Sword', 'T_I_BRONZE_SWORD', 'TOOL_SWORD', 3, 5, 450),
+    ('I_IRON_AXE', 'Iron Axe', 'T_I_IRON_AXE', 'TOOL_AXE', 4, 5, 600),
+    ('I_IRON_SHOVEL', 'Iron Shovel', 'T_I_IRON_SHOVEL', 'TOOL_SHOVEL', 4, 3, 600),
+    ('I_DIAMOND_AXE', 'Diamond Axe', 'T_I_DIAMOND_AXE', 'TOOL_AXE', 5, 6, 1500),
+    ('I_DIAMOND_SHOVEL', 'Diamond Shovel', 'T_I_DIAMOND_SHOVEL', 'TOOL_SHOVEL', 5, 4, 1500),
+)
+MATERIALS = (('I_CLAY_LUMP', 'Clay Lump', 'T_I_CLAY_LUMP'), ('I_BRICK', 'Clay Brick', 'T_I_BRICK'),
+             ('I_FLINT', 'Flint', 'T_I_FLINT'), ('I_CHARCOAL', 'Charcoal', 'T_I_CHARCOAL'),
+             ('I_COPPER_INGOT', 'Copper Ingot', 'T_I_COPPER_INGOT'), ('I_TIN', 'Tin', 'T_I_TIN'),
+             ('I_BRONZE_INGOT', 'Bronze Ingot', 'T_I_BRONZE_INGOT'))
+
+
+def materials(name, one):
+    if name == 'blocks.h':
+        one('\tB_WALL_TORCH,B_DOOR_LOWER_OPEN,B_DOOR_UPPER_OPEN,\n\tNUM_BLOCKS',
+            '\tB_WALL_TORCH,B_DOOR_LOWER_OPEN,B_DOOR_UPPER_OPEN,\n'
+            '\t/* Early game */\n\t' + ','.join(NEW_BLOCKS) + ',\n\tNUM_BLOCKS')
+        one('\tI_RAW_CHICKEN,I_COOKED_CHICKEN,I_FEATHER,\n\tNUM_ITEMS',
+            '\tI_RAW_CHICKEN,I_COOKED_CHICKEN,I_FEATHER,\n\t' + ','.join(NEW_ITEMS) + ',\n\tNUM_ITEMS')
+        one('TOOL_NONE,TOOL_PICK,TOOL_AXE,TOOL_SHOVEL,TOOL_SWORD',
+            'TOOL_NONE,TOOL_PICK,TOOL_AXE,TOOL_SHOVEL,TOOL_SWORD,TOOL_SPEAR')
+        one('\tu8 tier;            /* 1 wood, 2 stone, 3 iron */',
+            '\tu8 tier;            /* 1 stone/wood, 2 copper, 3 bronze, 4 iron, 5 diamond */')
+    elif name == 'blocks.c':
+        one('{SIDES(T_DOOR_TOP)}},\n};', '{SIDES(T_DOOR_TOP)}},\n' + BLOCK_ROWS + '};')
+        # Logs need an axe; cobble is loose stone a hand can collect; gravel
+        # digs slowly by hand; iron ore needs bronze, gold and diamond iron.
+        one('0, 35,  TOOL_AXE,   0, B_LOG,', '0, 35,  TOOL_AXE,   1, B_LOG,')
+        one('0, 40,  TOOL_PICK,  1, B_COBBLE,      {SIDES(T_COBBLE)}',
+            '0, 40,  TOOL_PICK,  0, B_COBBLE,      {SIDES(T_COBBLE)}')
+        one('0, 12,  TOOL_SHOVEL,0, B_GRAVEL,', '0, 40,  TOOL_SHOVEL,0, B_GRAVEL,')
+        one('0, 50,  TOOL_PICK,  2, B_IRON_ORE,', '0, 50,  TOOL_PICK,  3, B_IRON_ORE,')
+        one('0, 55,  TOOL_PICK,  3, B_GOLD_ORE,', '0, 55,  TOOL_PICK,  4, B_GOLD_ORE,')
+        one('0, 60,  TOOL_PICK,  3, I_DIAMOND,', '0, 60,  TOOL_PICK,  4, I_DIAMOND,')
+        defs = ''.join(f'\tdef_item({i},"{n}",{icon},TOOL_NONE,0,1,0,64,0);\n' for i, n, icon in MATERIALS)
+        defs += ''.join(f'\tdef_item({i},"{n}",{icon},{tool},{tier},{dmg},0,1,0);\n'
+                        f'\tg_itemDef[{i}].durability={uses};\n'
+                        for i, n, icon, tool, tier, dmg, uses in NEW_TOOLS)
+        defs += '\tdef_item(I_BELLOWS,"Bellows",T_I_BELLOWS,TOOL_NONE,0,1,0,1,0);\n'
+        defs += ''.join(f'\tg_itemDef[{i}].tier={tier};\n' for i, tier in RETIER)
+        defs += ('\tg_itemDef[B_FIRE].icon=T_I_FIRE;\n\tg_itemDef[B_FIRE].name="Campfire";\n'
+                 '\tg_itemDef[B_FIRE_OUT].placeBlock=0;\n'
+                 '\tg_itemDef[B_ANVIL].icon=T_ANVIL_TOP;\n'
+                 '\tg_itemDef[B_CLAY_FURNACE].icon=T_CLAYF_FRONT;\n'
+                 '\tg_itemDef[B_BLOOMERY].icon=T_BLOOMERY_FRONT;\n')
+        one('\tg_itemDef[I_DIAMOND_SWORD].durability=1500;\n',
+            '\tg_itemDef[I_DIAMOND_SWORD].durability=1500;\n' + defs)
+    elif name == 'world.c':
+        one('\t/* WALLTORCH DOORL_OPEN DOORU_OPEN */\n\t0,0,0,\n',
+            '\t/* WALLTORCH DOORL_OPEN DOORU_OPEN */\n\t0,0,0,\n'
+            '\t/* CLAY COPPER FIRE FIRE_OUT ANVIL CLAY_FURNACE BRICKS BLOOMERY */\n\t' +
+            ','.join(map(str, NEW_OPACITY)) + ',\n')
+    elif name == 'game.c':
+        one('\t\tstatic const u8 mult[5]={1,2,4,6,9};\n\t\treturn mult[MIN(4,g_itemDef[item].tier)];',
+            '\t\tstatic const u8 mult[6]={1,2,4,5,6,9};\n\t\treturn mult[MIN(5,g_itemDef[item].tier)];')
+        one('\tif(TOOL_NONE!=tool && def->hardness>1) dos_tool_wear(tool==def->tool ? 1 : 2);\n',
+            '\tif(TOOL_NONE!=tool && def->hardness>1) dos_tool_wear(tool==def->tool ? 1 : 2);\n'
+            '\tdrop=dos_break_drop(id,b,drop);\n')
+        one('\t/* A few starting items so the first night is survivable */\n\tinv_add(B_TORCH,4);\n',
+            '\t/* Players start with nothing (EARLY_GAME.md). */\n')
+    elif name == 'render.c':
+        one('\tcase B_BED_FOOT:\n\tcase B_BED_HEAD:\n\t\t{\n\t\t\tstatic const u8 lo[3]={0,0,0},hi[3]={16,9,16};',
+            '\tcase B_FIRE:\n\tcase B_FIRE_OUT:\n\t\t{\n'
+            '\t\t\t/* A low ring of logs, with flames while lit. */\n'
+            '\t\t\tstatic const u8 lo[3]={2,0,2},hi[3]={14,4,14};\n'
+            '\t\t\tdraw_model_box(bx,by,bz,lo,hi,g_blockDef[id].tex,L,0);\n'
+            '\t\t\tif(B_FIRE==id) draw_cross(bx,by,bz,T_FIRE_FLAME,15);\n'
+            '\t\t}\n\t\tbreak;\n'
+            '\tcase B_BED_FOOT:\n\tcase B_BED_HEAD:\n\t\t{\n\t\t\tstatic const u8 lo[3]={0,0,0},hi[3]={16,9,16};')
+
+
 def adapt(name, data):
     if name not in NAMES:
         return data, []
@@ -147,4 +258,5 @@ def adapt(name, data):
 
     durability(name, one)
     textures(name, one, every)
+    materials(name, one)
     return text.encode(), recipe

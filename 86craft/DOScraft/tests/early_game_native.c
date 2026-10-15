@@ -61,5 +61,35 @@ int main(void)
     wire[1]=321; position=0; wire[0]^=1; CHECK(!dos_extras_load(get));
     wire[0]^=1; position=0; --count; CHECK(!dos_extras_load(get));
     printf("PASS: tool wear and save extension\n");
+    /* Materials: what hands and tools get, and the new tiers. */
+    CHECK(B_CLAY==33 && B_BLOOMERY==40 && NUM_BLOCKS<=BLOCK_IDS && I_BELLOWS<NUM_ITEMS && NUM_ITEMS<=256);
+    CHECK(0==g_blockDef[B_COBBLE].needTier && 1==g_blockDef[B_LOG].needTier && TOOL_AXE==g_blockDef[B_LOG].tool);
+    CHECK(3==g_blockDef[B_IRON_ORE].needTier && 4==g_blockDef[B_DIAMOND_ORE].needTier && 1==g_blockDef[B_COPPER_ORE].needTier);
+    CHECK(g_blockDef[B_FIRE].lightEmit==14 && !g_blockDef[B_FIRE_OUT].lightEmit && (g_blockDef[B_ANVIL].flags&BF_USABLE));
+    CHECK(g_itemDef[B_FIRE].placeBlock==B_FIRE && !g_itemDef[B_FIRE_OUT].placeBlock);
+    CHECK(g_itemDef[I_STONE_PICK].tier==1 && g_itemDef[I_COPPER_PICK].tier==2 && g_itemDef[I_BRONZE_PICK].tier==3);
+    CHECK(g_itemDef[I_IRON_PICK].tier==4 && g_itemDef[I_DIAMOND_PICK].tier==5);
+    CHECK(TOOL_SPEAR==g_itemDef[I_FLINT_SPEAR].tool && g_itemDef[I_FLINT_SPEAR].durability==131 && g_itemDef[I_BRONZE_SWORD].durability==450);
+    {
+        int flint=0,tin=0,gravel=0,n;
+        for(n=0;n<20000;++n)
+        {
+            int d=dos_break_drop(B_GRAVEL,B_GRAVEL,B_GRAVEL);
+            flint+=d==I_FLINT; tin+=d==I_TIN; gravel+=d==B_GRAVEL;
+        }
+        CHECK(!tin && flint>1600 && flint<2400 && flint+gravel==20000);
+        flint=0;
+        for(n=0;n<20000;++n)
+        {
+            int d=dos_break_drop(B_GRAVEL,MKBLK(B_GRAVEL,GRAVEL_TIN),B_GRAVEL);
+            flint+=d==I_FLINT; tin+=d==I_TIN;
+        }
+        CHECK(tin>120 && tin<300 && flint>1500);
+        /* A dropless break (wrong tool) never yields flint or tin. */
+        CHECK(0==dos_break_drop(B_GRAVEL,B_GRAVEL,0));
+        inv_clear();
+        CHECK(I_CLAY_LUMP==dos_break_drop(B_CLAY,B_CLAY,I_CLAY_LUMP) && 3==inv_count(I_CLAY_LUMP));
+    }
+    printf("PASS: early-game materials\n");
     return 0;
 }

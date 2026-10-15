@@ -395,7 +395,11 @@ void __wrap_gfx_present(void)
     } else if(stage==3 && (g_player.pitch==-250 || (int)(g_ticks-until)>=0)) {
         key(0xe0); key(0xd0); pitch0=g_player.pitch;
         snapshot("C:\\DOWN.RAW",frame);
-        torch_before=torches(); key(0x12); /* E places the original starting torch */
+        /* Players start empty-handed; hold one torch for the place/break check. */
+        if(!inv_count(B_TORCH)) inv_add(B_TORCH,1);
+        g_player.selected=0;
+        while(g_inv[0].item!=B_TORCH) { Slot t=g_inv[0]; int k=1; while(g_inv[k].item!=B_TORCH) ++k; g_inv[0]=g_inv[k]; g_inv[k]=t; }
+        torch_before=torches(); key(0x12); /* E places the held torch */
         until=g_ticks+50; stage=10;
     } else if(stage==10 && (int)(g_ticks-until)>=0) {
         key(0x92); torch_after=torches(); placed=torch_after>torch_before;
