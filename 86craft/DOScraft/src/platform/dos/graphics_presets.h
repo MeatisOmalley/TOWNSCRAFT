@@ -8,7 +8,12 @@ enum {
     DOS_GRAPHICS_HIGH,
     DOS_GRAPHICS_VERY_LOW,
     DOS_GRAPHICS_COUNT,
+#ifdef DOS_R96
+    /* 1996 build: a Pentium 200 starts at the top preset. */
+    DOS_GRAPHICS_DEFAULT = DOS_GRAPHICS_HIGH
+#else
     DOS_GRAPHICS_DEFAULT = DOS_GRAPHICS_LOW
+#endif
 };
 
 typedef struct {
