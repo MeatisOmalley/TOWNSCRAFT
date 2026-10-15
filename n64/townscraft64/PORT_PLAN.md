@@ -43,7 +43,7 @@ for hand-tuned code, and every performance claim needs a measurement.
 | CPU | NEC VR4300, 93.75 MHz, MIPS III, 16 KB I-cache / 8 KB D-cache | Runs as 32-bit code (o32-style pointers); 64-bit ops only where measured useful. |
 | RCP | RSP (vector coprocessor, microcode) + RDP (rasterizer), 62.5 MHz | RDP has 4 KB TMEM for textures. |
 | RAM | 4 MB RDRAM base; Expansion Pak decision open | See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) Q2. |
-| Cartridge ROM | Up to 64 MB | Size class open; a larger ROM costs nothing on emulator/flashcart but matters for authenticity. |
+| Cartridge ROM | 64 MB maximum (Q7) | Period hardware only: nothing Nintendo did not ship (through ~2000, Japan). |
 | Save | FlashRAM 128 KB (Q6) | Cartridge only; no 64DD. See §6. |
 | Input | Official: N64 Mouse (NUS-005) + Randnet keyboard. Fallback: standard controller, Turok-style | Q5. Keyboard needs our own Joybus driver; emulator support unconfirmed. |
 | Video | 320x240, 16-bit color, NTSC | 640x480 not considered for gameplay. |
@@ -215,13 +215,14 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
   and toolchain like DOScraft pins DJGPP. The project goal is maximum
   performance, so the 3D layer (GL port, tiny3d or custom microcode) is
   picked by measurement, and custom RSP microcode is in scope.
-- **Emulator.** ares for development and measurement; it is the
-  low-level emulator the libdragon project recommends. High-level emulators
-  give misleading performance and should not be used for numbers. How close
-  ares timing is to hardware for our workload must itself be checked.
-- **Real hardware.** A flashcart (for example SummerCart64) for final
-  measurements, as DOScraft uses 86Box but calibrates against period
-  hardware where possible.
+- **Emulator: ares is the target** (Q7, decided 2026-10-15). Development,
+  measurement and acceptance all run in a pinned ares build, as DOScraft
+  targets pinned 86Box VMs. High-level emulators give misleading
+  performance and are not used for numbers. If ares lacks Randnet keyboard
+  support, maintain a pinned ares fork with that patch.
+- **Real hardware:** not an acceptance gate. Only period hardware features
+  are used (no flashcart SD/USB/extra RAM), so the ROM should still run on
+  a console, but this is not verified.
 - **Host tests.** Keep native logic tests; add the big-endian variant (§3).
 
 ## 9. Phases and milestones
@@ -229,7 +230,7 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
 | Milestone | Deliverable | Gate |
 | --- | --- | --- |
 | N0: plan | This document, open questions answered | User signs off on Q1–Q6. |
-| N1: toolchain | Pinned SDK and toolchain build, hello-triangle ROM, launch script for ares | Boots in ares and (if available) on hardware; build is reproducible. |
+| N1: toolchain | Pinned libdragon/toolchain build, pinned ares, hello-triangle ROM, launch script; check ares Mouse and Randnet keyboard support | Boots in ares; build is reproducible; keyboard path known (stock ares or fork plan). |
 | N2: portable core | Pinned DOScraft snapshot with manifest, DOScraft feature checklist (core / extract / reimplement), Towns core compiled for MIPS, endian/alignment fixes, big-endian host tests | All existing logic tests pass on big-endian; checklist reviewed by the user. |
 | N3: render slice | Static chunk meshes on the RDP with Z, textures, vertex light; controller look/move | Frame time, triangle and fill counters reported in ares. |
 | N4: gameplay | Breaking/placing, inventory, crafting, mobs, day/night, weather, HUD | Feature checklist from the pinned source. |

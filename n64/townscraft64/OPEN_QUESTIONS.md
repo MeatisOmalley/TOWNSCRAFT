@@ -134,11 +134,24 @@ on demand per column without writable storage.
 
 Measure at N5: real edit volume from play sessions against the budget.
 
-## Q7. Authenticity rules
+## Q7. Authenticity rules — ANSWERED 2026-10-15
 
-DOScraft fixed hardware cutoffs (June 1990, 1992). For the N64:
-
-- Modern tools (libdragon, GCC) accepted, as in DOScraft?
-- Must the ROM fit period cartridge sizes (≤ 64 MB) and a period save chip?
-- Is real-hardware testing on a flashcart required for acceptance, or is
-  ares enough?
+- **Tools:** modern tools accepted (libdragon, current GCC, host-side
+  Python), as in DOScraft.
+- **Hardware cutoff: period hardware only.** Only hardware Nintendo
+  actually shipped, through about 2000 (Japan): the console, Expansion Pak,
+  N64 Mouse (Dec 1999), Randnet keyboard (~2000) and period cartridge save
+  chips (FlashRAM). No flashcart-only features: no SD-card saves, USB I/O
+  or extra RAM, even as options.
+- **ROM size: 64 MB maximum** (512 Mbit, the largest commercial size). For
+  scale, the immutable part of DOScraft's V3 world medium is 24.4 MB
+  (`86craft/DOScraft/research/edit-log-v3-2026-10-14.md`); the N64 format
+  will differ, but one prebaked 1024x1024 world should fit with room left.
+  Measure at N5.
+- **Acceptance testing: ares only.** ares is the target platform, as
+  DOScraft's 86Box VMs are. No real-hardware gate. Consequences:
+  - ares's timing is the performance truth; no hardware calibration.
+  - The Randnet keyboard must work in ares. If ares does not emulate it,
+    a patched ares fork is needed (as DOScraft forked 86Box), pinned by
+    revision and hash, with the patch tested separately. Check at N1.
+  - Pin the ares version per release, like DOScraft pins its emulator.
