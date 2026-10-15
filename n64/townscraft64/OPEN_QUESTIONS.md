@@ -25,14 +25,24 @@ Consequences: Q2 (RAM) and Q6 (saves) become harder, because DOScraft's
 large world and edit log assume 8–16 MB RAM and a writable hard disk. See
 PORT_PLAN.md §3.
 
-## Q2. Base 4 MB or Expansion Pak? (blocks N3)
+## Q2. Base 4 MB or Expansion Pak? — ANSWERED 2026-10-15
+
+**Decision: the full game runs on a base 4 MB console; the Expansion Pak
+(8 MB) unlocks new features.** Push hard to fit DOScraft parity in 4 MB.
+The 64DD Expansion Disk path (Q6 amendment) is the one feature that
+requires 8 MB, because the 64DD shipped with the Pak. Other 8 MB extras
+(bigger caches, longer view, and so on) are decided case by case, each
+detected at boot and costing nothing on 4 MB.
+
+Earlier status, kept for the record:
 
 - 4 MB is every console and the honest 1996 target.
 - 8 MB (1998 accessory, needed by Majora's Mask) roughly doubles world and
   mesh space.
 
-Status 2026-10-15: **deferred**; the user is unsure and will discuss it
-later. With DOScraft as the reference (Q1) the world itself lives in ROM, so
+Status 2026-10-15: **deferred for the cartridge**; the user is unsure and
+will discuss it later. The optional Expansion Disk path (Q6 amendment)
+requires the Expansion Pak, so that path is 8 MB. With DOScraft as the reference (Q1) the world itself lives in ROM, so
 RAM limits only the resident working set (nearby columns, light, meshes,
 mobs, edit log): roughly 2.5–3 MB free on 4 MB vs 6.5–7 MB on 8 MB
 (*estimates*). Options on the table: decide after N3 measurements
@@ -125,14 +135,38 @@ nothing on the frame path. Any backend switch sits at the column
 page-in/page-out and save boundary, never per block access; prefer a
 separate ROM build (or an overlay) to keep RAM free.
 
-64DD: considered and **not planned**. Its only advantage is capacity
-(unlimited edits, several worlds); it is slower (disk seeks on page-out),
-needs a 64DD plus the Expansion Pak, and adds a driver. Revisit only if
-measured play hits the cap or several worlds per cartridge are wanted. More
-RAM comes from the Expansion Pak (Q2), and new seeds could be generated
-on demand per column without writable storage.
-
 Measure at N5: real edit volume from play sessions against the budget.
+
+### Q6 amendment, 2026-10-15: optional Expansion Disk
+
+**Decision: support a 64DD "Townscraft64 Expansion Disk" as an optional
+path**, modeled on the F-Zero X Expansion Kit (cartridge game + 64DD disk,
+Japan 2000). The cartridge stays the complete game; the disk adds:
+
+- several saved worlds (the minimum the user wants from it);
+- effectively unlimited edits: edited columns page out to the disk, as
+  DOScraft pages them to its HDD, instead of living in the RAM edit budget;
+- room for later extras ("among other things"), each decided separately.
+
+The user's goal: Townscraft64 should be the N64 game that outdoes every
+other "N64 killer".
+
+Constraints, from the compatibility-path rule above:
+
+- Zero cost to the cartridge path: backend switch only at column
+  page-in/page-out and save; built as a separate ROM or loaded as an
+  overlay only when a 64DD is present.
+- Disk writes must not cause frame hitches: buffer evicted columns in RAM
+  and write during saves or idle time; measure worst-case seeks.
+- Requires the Expansion Pak (the 64DD shipped with it), so Q2 is settled
+  for disk owners: 8 MB.
+- Period hardware (Q7) and ares (Q7) both cover the 64DD. Verify ares 64DD
+  emulation and libdragon 64DD support at N1; write our own driver if
+  libdragon lacks one.
+
+Earlier assessment kept for the record: the disk's only advantage is
+capacity; it is slower than ROM/RAM and needs rarer hardware. The user
+accepted that trade for an optional path.
 
 ## Q7. Authenticity rules — ANSWERED 2026-10-15
 

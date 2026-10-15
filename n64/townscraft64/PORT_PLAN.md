@@ -42,9 +42,9 @@ for hand-tuned code, and every performance claim needs a measurement.
 | Console | NTSC N64 (NUS-001) | PAL timing is a later check, not a release gate. |
 | CPU | NEC VR4300, 93.75 MHz, MIPS III, 16 KB I-cache / 8 KB D-cache | Runs as 32-bit code (o32-style pointers); 64-bit ops only where measured useful. |
 | RCP | RSP (vector coprocessor, microcode) + RDP (rasterizer), 62.5 MHz | RDP has 4 KB TMEM for textures. |
-| RAM | 4 MB RDRAM base; Expansion Pak decision open | See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) Q2. |
+| RAM | 4 MB base runs the full game; 8 MB Expansion Pak unlocks extras | Q2, decided 2026-10-15. The Expansion Disk path requires 8 MB. |
 | Cartridge ROM | 64 MB maximum (Q7) | Period hardware only: nothing Nintendo did not ship (through ~2000, Japan). |
-| Save | FlashRAM 128 KB (Q6) | Cartridge only; no 64DD. See §6. |
+| Save | FlashRAM 128 KB (Q6); optional 64DD Expansion Disk | Cartridge is the complete game; the disk path needs the Expansion Pak. See §6. |
 | Input | Official: N64 Mouse (NUS-005) + Randnet keyboard. Fallback: standard controller, Turok-style | Q5. Keyboard needs our own Joybus driver; emulator support unconfirmed. |
 | Video | 320x240, 16-bit color, NTSC | 640x480 not considered for gameplay. |
 
@@ -180,7 +180,8 @@ residency at that size does not fit next to the framebuffers. The existing
 
 ## 6. World and saves
 
-Model (Q6, decided 2026-10-15: cartridge only, no 64DD):
+Model (Q6, decided 2026-10-15: cartridge is the complete game; an
+optional 64DD Expansion Disk is added later, see below):
 
 1. **Base world in ROM.** Prebaked seed(s) stored compressed on the
    cartridge, read by DMA on demand. Replaces Towns' HDD scratch backing and
@@ -196,6 +197,14 @@ Model (Q6, decided 2026-10-15: cartridge only, no 64DD):
 
 This is a behavior change from DOScraft (effectively unlimited edits), so
 the edit volume of real play must be measured at N5 against the budget.
+
+**Optional Expansion Disk** (Q6 amendment, 2026-10-15). Modeled on the
+F-Zero X Expansion Kit: with a 64DD and Expansion Pak attached, the game
+saves several worlds to the disk and pages edited columns out to it as
+DOScraft does to its HDD, removing the edit cap. Rules: no cost on the
+cartridge path (switch only at column page-in/page-out and save; separate
+ROM or overlay), no frame hitches from disk writes (buffer and write at
+save/idle), and its own milestone after cartridge saves work.
 
 ## 7. Audio
 
@@ -230,13 +239,14 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
 | Milestone | Deliverable | Gate |
 | --- | --- | --- |
 | N0: plan | This document, open questions answered | User signs off on Q1–Q6. |
-| N1: toolchain | Pinned libdragon/toolchain build, pinned ares, hello-triangle ROM, launch script; check ares Mouse and Randnet keyboard support | Boots in ares; build is reproducible; keyboard path known (stock ares or fork plan). |
+| N1: toolchain | Pinned libdragon/toolchain build, pinned ares, hello-triangle ROM, launch script; check ares Mouse, Randnet keyboard and 64DD support, and libdragon 64DD support | Boots in ares; build is reproducible; keyboard path known (stock ares or fork plan). |
 | N2: portable core | Pinned DOScraft snapshot with manifest, DOScraft feature checklist (core / extract / reimplement), Towns core compiled for MIPS, endian/alignment fixes, big-endian host tests | All existing logic tests pass on big-endian; checklist reviewed by the user. |
 | N3: render slice | Static chunk meshes on the RDP with Z, textures, vertex light; controller look/move | Frame time, triangle and fill counters reported in ares. |
 | N4: gameplay | Breaking/placing, inventory, crafting, mobs, day/night, weather, HUD | Feature checklist from the pinned source. |
 | N5: world/save | ROM world, RAM delta, cartridge save/load | Save/reload round trip; edit cap measured. |
 | N6: audio | Effects and music via RSP mixer | Audible check; mixer cost profiled. |
 | N7: parity | Complete feature checklist, measured baseline | User accepts parity. Gates Phase B. |
+| N8: Expansion Disk | 64DD driver (libdragon's or ours), multi-world saves, edited-column page-out to disk, buffered writes | Cartridge-path frame times and I-cache misses unchanged; save/reload round trip on disk in ares; worst-case disk hitch measured. Can start once N5 works; does not gate N7. |
 
 Phase B candidates (not before N7): float math on the VR4300 FPU, no-Z
 opaque terrain, larger view distance, filtered textures, smooth lighting,
