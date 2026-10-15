@@ -1,7 +1,9 @@
 # Townscraft64: N64 port plan
 
-Status, 2026-10-15: planning draft. No implementation, toolchain or emulator
-work has started. Numbers marked *estimate* come from published hardware
+Status, 2026-10-15: N1 done (pinned toolchain, libdragon, ares;
+hello-triangle ROM boots on 4 MB and 8 MB; peripheral findings in
+[research/n1-toolchain-2026-10-15.md](research/n1-toolchain-2026-10-15.md)).
+No game code yet. Numbers marked *estimate* come from published hardware
 figures or rough reasoning and must be replaced by measurements on the
 target before they drive a decision.
 
@@ -227,8 +229,9 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
 - **Emulator: ares is the target** (Q7, decided 2026-10-15). Development,
   measurement and acceptance all run in a pinned ares build, as DOScraft
   targets pinned 86Box VMs. High-level emulators give misleading
-  performance and are not used for numbers. If ares lacks Randnet keyboard
-  support, maintain a pinned ares fork with that patch.
+  performance and are not used for numbers. ares v148 has no Randnet
+  keyboard (N1 finding; ares issue #1482), so a pinned ares fork with a
+  keyboard device is required before the official controls can be tested.
 - **Real hardware:** not an acceptance gate. Only period hardware features
   are used (no flashcart SD/USB/extra RAM), so the ROM should still run on
   a console, but this is not verified.
@@ -239,7 +242,7 @@ The N64 has no FM or PCM chip; audio is mixed in software on the RSP.
 | Milestone | Deliverable | Gate |
 | --- | --- | --- |
 | N0: plan | This document, open questions answered | User signs off on Q1–Q6. |
-| N1: toolchain | Pinned libdragon/toolchain build, pinned ares, hello-triangle ROM, launch script; check ares Mouse, Randnet keyboard and 64DD support, and libdragon 64DD support | Boots in ares; build is reproducible; keyboard path known (stock ares or fork plan). |
+| N1: toolchain — **done 2026-10-15** | Pinned libdragon/toolchain build, pinned ares, hello-triangle ROM, launch script; check ares Mouse, Randnet keyboard and 64DD support, and libdragon 64DD support | Boots in ares on 4 MB and 8 MB. Keyboard: needs an ares fork. 64DD: ares emulates it; libdragon has no disk driver. Mouse runtime check pending one manual step. |
 | N2: portable core | Pinned DOScraft snapshot with manifest, DOScraft feature checklist (core / extract / reimplement), Towns core compiled for MIPS, endian/alignment fixes, big-endian host tests | All existing logic tests pass on big-endian; checklist reviewed by the user. |
 | N3: render slice | Static chunk meshes on the RDP with Z, textures, vertex light; controller look/move | Frame time, triangle and fill counters reported in ares. |
 | N4: gameplay | Breaking/placing, inventory, crafting, mobs, day/night, weather, HUD | Feature checklist from the pinned source. |
