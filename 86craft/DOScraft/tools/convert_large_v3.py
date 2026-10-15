@@ -328,6 +328,147 @@ def check_migration(v2, save, v3, updated):
             raise ValueError('Empty save bank changed')
 
 
+# A shrunk log must leave the game's save-time compaction threshold free (two
+# 24-sector runs per resident column plus one; large_log_compact), so neither
+# the first save compacts nor play refuses records.
+SHRINK_RESERVE_SECTORS = 2 * 26 * RECORD_SECTORS
+
+
+def directory(save, start):
+    """The 4096 (offset, length, sum, previous) entries of a committed bank."""
+    return [struct.unpack_from('<4I', save, start + DIRECTORY + 12 + c * 16) for c in range(COLUMNS)]
+
+
+def shrink_log(v3, save, log_sectors=DEFAULT_LOG_BYTES // SECTOR):
+    """V3 terrain and save -> the same world and saves on a smaller edit log.
+
+    Every log record either committed bank's directory references is copied
+    byte for byte, packed from the start of the new log in offset order. Both
+    banks' offsets and previous-record refs are rewritten and each bank is
+    resealed; nothing else in the save changes. The newest bank's previous
+    refs must name exactly the older bank's records, as the game writes them.
+    The older bank's refs name a bank that no longer exists: one that matches
+    a live record moves with it, any other becomes 0 (nothing to pin). Refused
+    when the live records and the reserve do not fit."""
+    banks = v3_records(v3, save)
+    first, count = log_extent(v3)
+    if len(save) != 2 * BANK:
+        raise ValueError('Expected a complete save medium')
+    if not LOG_MIN_SECTORS <= log_sectors < count:
+        raise ValueError(f'The new log must be {LOG_MIN_SECTORS} sectors or more and '
+                         f'smaller than the current {count}')
+    entries = {start: directory(save, start) for start, _ in banks}
+    live = {}                                   # (offset, length) -> column
+    for start, records in banks:
+        for c, (off, n, total, previous) in records.items():
+            if live.setdefault((off, n), c) != c:
+                raise ValueError('Two columns share a log record')
+    owner = {}
+    for off, n in live:
+        for s in range(off // SECTOR, off // SECTOR + sectors(n)):
+            if owner.setdefault(s, off) != off:
+                raise ValueError('Live log records overlap')
+    newest = entries[banks[0][0]] if banks else []
+    older = entries[banks[1][0]] if len(banks) > 1 else None
+    for c, (off, n, total, previous) in enumerate(newest):
+        expected = pack_ref(older[c][0], older[c][1]) if older and older[c][0] else 0
+        if previous != expected:
+            raise ValueError(f'The newest bank does not pin the older bank\'s record for column {c}')
+    used = sum(sectors(n) for _, n in live)
+    if used + SHRINK_RESERVE_SECTORS > log_sectors:
+        raise ValueError(f'Live log records ({used} sectors) and the {SHRINK_RESERVE_SECTORS}-sector '
+                         f'reserve do not fit a {log_sectors}-sector log')
+    image = bytearray(v3[:first * SECTOR])
+    struct.pack_into('<2I', image, 136, log_sectors, first + log_sectors)
+    image.extend(bytes(log_sectors * SECTOR))
+    place, at = {}, first * SECTOR
+    for off, n in sorted(live):
+        place[off, n] = at
+        image[at:at + n] = v3[off:off + n]
+        at += sectors(n) * SECTOR
+    refs = {pack_ref(off, n): pack_ref(place[off, n], n) for off, n in live}
+    updated, dropped = bytearray(save), 0
+    for start, length, generation in committed_banks(save):
+        for c, (off, n, total, previous) in enumerate(entries[start]):
+            moved = place[off, n] if off else 0
+            if previous and previous not in refs:
+                dropped += 1        # only the older bank can hold such refs
+            struct.pack_into('<4I', updated, start + DIRECTORY + 12 + c * 16,
+                             moved, n, total, refs.get(previous, 0))
+        struct.pack_into('<I', updated, start + 8, save_sum(updated[start + 20:start + 20 + length]))
+    image, updated = bytes(image), bytes(updated)
+    check_shrink(v3, save, image, updated)
+    return image, updated, dict(
+        save_banks=len(banks), live_records=len(live), live_sectors=used,
+        moved_records=sum(place[k] != k[0] for k in live), dropped_previous_refs=dropped,
+        previous_log_sectors=count, log_sectors=log_sectors,
+        previous_bytes=len(v3), log_bytes=len(image))
+
+
+def column_digests(v3, save, start, cache):
+    """SHA-256 of each column a committed bank describes: its record decoded,
+    then its per-block edits applied. cache maps (offset, length) to decoded
+    records of this image."""
+    import hashlib
+    bases, deltas, out = base_records(v3), save_deltas(save, start), []
+    for c, (off, n, total, previous) in enumerate(directory(save, start)):
+        at = off or bases[c][0]
+        if (at, n) not in cache:
+            cache[at, n] = decode(v3[at:at + n], CELLS)
+        column = cache[at, n]
+        if c in deltas:
+            column = bytearray(column)
+            for cell, block in deltas[c].items():
+                column[cell] = block
+        out.append(hashlib.sha256(column).digest())
+    return out
+
+
+def check_shrink(v3, save, image, updated):
+    """Independent check of shrink_log: the immutable bytes and everything in
+    the save but directory offsets and refs are unchanged, every column of
+    both banks decodes the same, and the new refs pin what the game needs."""
+    first, count = log_extent(v3)
+    _, size = log_extent(image)
+    if log_extent(image)[0] != first or len(image) != (first + size) * SECTOR or \
+            image[:136] != v3[:136] or image[144:first * SECTOR] != v3[144:first * SECTOR] or \
+            struct.unpack_from('<I', image, 140)[0] != first + size:
+        raise ValueError('Log shrink changed immutable terrain')
+    banks = committed_banks(save)
+    if committed_banks(updated) != banks or len(updated) != len(save):
+        raise ValueError('Log shrink changed which save banks are committed')
+    after = v3_records(image, updated, checked=True)
+    before_cache, after_cache = {}, {}
+    for start, length, generation in banks:
+        if updated[start:start + 8] != save[start:start + 8] or \
+                updated[start + 12:start + DIRECTORY + 12] != save[start + 12:start + DIRECTORY + 12] or \
+                updated[start + DIRECTORY_END:start + BANK] != save[start + DIRECTORY_END:start + BANK]:
+            raise ValueError('Player, inventory, chests, mobs, edits or bank generation changed')
+        for (off, n, total, _), (moved, n2, total2, _) in zip(directory(save, start), directory(updated, start)):
+            if (n2, total2) != (n, total) or bool(off) != bool(moved):
+                raise ValueError('Saved record length, checksum or kind changed')
+        if column_digests(v3, save, start, before_cache) != column_digests(image, updated, start, after_cache):
+            raise ValueError('A column decodes differently after the log shrink')
+    for start in range(0, 2 * BANK, BANK):
+        if struct.unpack_from('<I', save, start)[0] != SAVE_MAGIC and \
+                updated[start:start + BANK] != save[start:start + BANK]:
+            raise ValueError('Empty save bank changed')
+    owner, live = {}, set()
+    for start, records in after:
+        live.update(pack_ref(off, n) for off, n, _, _ in records.values())
+        for off, n, _, _ in records.values():
+            for s in range(off // SECTOR, off // SECTOR + sectors(n)):
+                if owner.setdefault(s, off) != off:
+                    raise ValueError('Live log records overlap after the shrink')
+    newest = directory(updated, after[0][0]) if after else []
+    older = directory(updated, after[1][0]) if len(after) > 1 else None
+    for c, (off, n, total, previous) in enumerate(newest):
+        if previous != (pack_ref(older[c][0], older[c][1]) if older and older[c][0] else 0):
+            raise ValueError(f'The newest bank no longer pins the older record of column {c}')
+    if older and any(previous and previous not in live for _, _, _, previous in older):
+        raise ValueError('The older bank pins sectors no live record holds')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--terrain', type=Path, required=True, help='V1 or V2 image')
