@@ -1,6 +1,7 @@
 """Build an external PCM bank from retained original-quality, licensed masters.
 
-Explosion, creeper fuse and zombie groan have no Kenney master; they are
+assets/audio/picks.json names each group's takes, chosen by ear: Kenney masters,
+other CC0/CC-BY recordings retained unmodified in assets/audio/extra, or sounds
 synthesized here from fixed seeds (procedural, no third-party recording).
 """
 import argparse
@@ -20,9 +21,19 @@ GROUPS=(('crunch','impactSoft_medium',4),('stone','impactMining',4),
         ('place','impactPlank_medium',4),('hurt','impactPunch_medium',3),
         ('glass','impactGlass_light',3),('click','impactGeneric_light',3),
         ('sand','footstep_snow',4))
-# Bank group numbers: audio_bank.h A_* order. Procedural groups follow the masters.
 PROCEDURAL=(('explode',2),('hiss',1),('groan',3))
-BANK_GROUPS=tuple(g[0] for g in GROUPS)+tuple(g[0] for g in PROCEDURAL)
+# Bank group numbers: audio_bank.h A_* order. 'crunch', 'stone', 'wood', 'sand'
+# and 'break_gravel' are block break sounds; mining hits reuse the footsteps.
+BANK_GROUPS=('crunch','stone','wood','step_grass','step_stone','step_wood','place','hurt','glass','click',
+             'sand','explode','hiss','groan','step_sand','step_gravel','break_gravel',
+             'pig_say','pig_hurt','pig_death','sheep_say','sheep_hurt','sheep_death',
+             'chicken_say','chicken_hurt','chicken_death','zombie_hurt','zombie_death',
+             'creeper_hurt','creeper_death','water_in','swim')
+# The takes each group plays, chosen by ear in the sound picker: 'kenney/<file>'
+# (masters/), 'procedural/<group>_<n>' (synthesized here), or a path under
+# extra/ ('#n' picks the nth sound of a recording split at its pauses).
+PICKS=ROOT/'assets/audio/picks.json'
+EXTRA=ROOT/'assets/audio/extra'
 PROCEDURAL_RECIPES={
     'explode':'two-pole noise with a falling low-pass, falling sine boom and decaying crackle; tanh saturation',
     'hiss':'high-passed noise with a slow swell and flutter',
@@ -129,6 +140,26 @@ def procedural(np):
             yield group,variant,seed,rates[group],makers[group](np,seed)
 
 
+def split(np,samples,source_rate):
+    """A long recording's separate sounds: cut where it stays quiet for 80 ms
+    (the sound picker's numbering of '#n' takes)."""
+    level=np.abs(samples.mean(axis=1))
+    width=int(source_rate*0.01)
+    envelope=np.convolve(level,np.ones(width)/width,mode='same')
+    loud=envelope>max(0.01,envelope.max()*0.08)
+    parts,start,quiet=[],None,0
+    for i,value in enumerate(loud):
+        if value:
+            if start is None:start=i
+            quiet=0
+        elif start is not None:
+            quiet+=1
+            if quiet>source_rate*0.08:parts.append((start,i-quiet));start,quiet=None,0
+    if start is not None:parts.append((start,len(level)))
+    return [samples[max(0,a-int(source_rate*0.01)):b+int(source_rate*0.05)]
+            for a,b in parts if b-a>source_rate*0.05]
+
+
 def build(output,rate=11025,bits=8,channels=1):
     # Host conversion tools only; no decoder or resampler is linked into DOS.
     sys.path.insert(0,str(ROOT/'build/deps/audio-python'))
@@ -165,22 +196,48 @@ def build(output,rate=11025,bits=8,channels=1):
         records.append(struct.pack('<4I',BANK_GROUPS.index(group_name),len(payload),len(samples),checksum(pcm)))
         payload.extend(pcm);rows.append({**row,'frames':len(samples),'pcm_sha256':sha256(pcm).hexdigest()})
 
-    for row in manifest['files']:
-        source=(MASTERS/row['file']).read_bytes()
-        if sha256(source).hexdigest()!=row['sha256']:raise ValueError('Master hash mismatch')
-        samples,source_rate=sf.read(BytesIO(source),always_2d=True,dtype='float64')
+    kenney={row['file']:row for row in manifest['files']}
+    extra={row['file']:row for row in json.loads((EXTRA/'sources.json').read_text())['files']}
+    synthesized={f'{group}_{variant+1}':(seed,source_rate,mono) for group,variant,seed,source_rate,mono in procedural(np)}
+
+    def recording(source,source_rate,row,part=None):
+        samples=source if source.ndim==2 else source[:,None]
         if channels==1:samples=samples.mean(axis=1,keepdims=True)
         elif samples.shape[1]==1:samples=np.repeat(samples,2,axis=1)
         samples=samples[:,:channels];samples-=samples.mean(axis=0,keepdims=True)
+        if part is not None:
+            pieces=split(np,samples,source_rate)
+            if not 1<=part<=len(pieces):raise ValueError(f'{row["take"]}: only {len(pieces)} sounds in the recording')
+            samples=pieces[part-1]
         audible=np.flatnonzero(np.max(np.abs(samples),axis=1)>0.006)
-        if not len(audible):raise ValueError('Silent source')
+        if not len(audible):raise ValueError('Silent source: '+row['take'])
         first=max(0,int(audible[0])-int(source_rate*0.002))
         last=min(int(audible[-1])+1,first+int(source_rate*0.7))
-        add(row['group'],finish(samples[first:last],source_rate,int(audible[0])-first),
-            {**row,'source_rate':source_rate})
-    for group,variant,seed,source_rate,mono in procedural(np):
-        add(group,finish(np.repeat(mono[:,None],channels,axis=1),source_rate,0),
-            dict(group=group,variant=variant,procedural=PROCEDURAL_RECIPES[group],seed=seed,source_rate=source_rate))
+        return finish(samples[first:last],source_rate,int(audible[0])-first)
+
+    picks=json.loads(PICKS.read_text())
+    unknown=set(picks)-set(BANK_GROUPS)
+    if unknown:raise ValueError('Unknown sound group(s) in picks.json: '+', '.join(sorted(unknown)))
+    # A group without picks stays empty: the game then plays its synthesized
+    # Towns sound (block breaks, hurt, click) or nothing (mob calls, water).
+    for group in BANK_GROUPS:
+        for take in picks.get(group,[]):
+            kind,_,rest=take.partition('/')
+            if kind=='procedural':
+                seed,source_rate,mono=synthesized[rest]
+                add(group,finish(np.repeat(mono[:,None],channels,axis=1),source_rate,0),
+                    dict(group=group,take=take,procedural=PROCEDURAL_RECIPES[rest.rsplit('_',1)[0]],
+                         seed=seed,source_rate=source_rate,license='Generated'))
+                continue
+            path,_,part=take.partition('#')
+            meta=kenney.get(rest) if kind=='kenney' else extra.get(path)
+            if meta is None:raise ValueError('No retained source for '+take)
+            source=((MASTERS/rest) if kind=='kenney' else (EXTRA/path)).read_bytes()
+            if sha256(source).hexdigest()!=meta['sha256']:raise ValueError('Source hash mismatch: '+take)
+            samples,source_rate=sf.read(BytesIO(source),always_2d=True,dtype='float64')
+            row=dict(group=group,take=take,license=meta.get('license',manifest['license']),
+                     author=meta.get('author','Kenney'),source_rate=source_rate)
+            add(group,recording(samples,source_rate,row,int(part) if part else None),row)
     header=struct.pack('<8s6I',MAGIC,1,rate,bits|(channels<<16),len(records),len(payload),checksum(payload))
     data=header+b''.join(records)+payload
     output=Path(output);output.parent.mkdir(parents=True,exist_ok=True);output.write_bytes(data)

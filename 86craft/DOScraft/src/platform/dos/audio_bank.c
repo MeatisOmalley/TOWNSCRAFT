@@ -5,8 +5,8 @@
 #ifdef __DJGPP__
 #include <dpmi.h>
 #endif
-#define CAPACITY (192u*1024u)
-#define MAX_CLIPS 64u
+#define CAPACITY (512u*1024u)
+#define MAX_CLIPS 128u
 /* Allocated at sound_init, after the game arenas. A 4 MiB 386 has little left,
  * so when the whole bank does not fit, one variant of each group loads. */
 static unsigned char *storage;

@@ -180,7 +180,12 @@ def prepare(smoke=False, bios=None, output=OUTPUT, benchmark=False, update_point
           'Use a prepared writable HDD for TERRAIN.TMP and WORLD.SAV.\r\n'
           'WASD walk, arrows look, J break, E place/use, Tab inventory, C craft.\r\n'
           'Space new world; L load; F9 save. Wait for save completion before closing.\r\n'
-          'See repository README for source, dependencies and limitations.\r\n').encode('ascii')
+          'See repository README for source, dependencies and limitations.\r\n')
+    if bank is not None:
+        note+=('Sound credits (assets/audio/CREDITS.md): "Chicken Sound Effect" by IMadeIt,\r\n'
+               'CC BY 3.0, opengameart.org/content/chicken-sound-effect. CC0 sounds by\r\n'
+               'Kenney, Fantozzi, TinyWorlds, rubberduck and artisticdude.\r\n')
+    note=note.encode('ascii')
     iso_files={'DOSCRAFT.EXE':exe,'README.TXT':note}
     if bank is not None:iso_files['SOUND.PAK']=bank
     if music is not None:iso_files['MUSIC.PAK']=music

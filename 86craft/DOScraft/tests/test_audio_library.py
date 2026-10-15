@@ -7,7 +7,7 @@ import tempfile
 import unittest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
-from build_sound_bank import checksum,MAGIC
+from build_sound_bank import checksum,MAGIC,BANK_GROUPS
 ZIG=ROOT.parents[1]/'fmtowns/townscraft/build/tools/zig-windows-x86_64-0.13.0/zig.exe'
 BANK=ROOT/'build/assets/audio/SOUND.PAK'
 
@@ -28,8 +28,21 @@ class AudioLibraryTests(unittest.TestCase):
         self.assertEqual(m['license'],'CC0-1.0');self.assertEqual(len(m['files']),44)
         for f in m['files']:self.assertEqual(sha256((p/'masters'/f['file']).read_bytes()).hexdigest(),f['sha256'])
         b=BANK.read_bytes();magic,version,rate,fmt,count,n,total=struct.unpack_from('<8s6I',b)
-        self.assertEqual((magic,version,rate,fmt,count),(MAGIC,1,11025,8|(1<<16),50))
+        self.assertEqual((magic,version,rate,fmt,count),(MAGIC,1,11025,8|(1<<16),30))
         self.assertEqual(n,len(b)-32-16*count);self.assertEqual(total,checksum(b[32+16*count:]))
+
+    def test_bank_groups_match_the_game_enum_and_picks(self):
+        import re
+        header=(ROOT/'src/platform/dos/audio_bank.h').read_text()
+        names=re.findall(r'A_([A-Z_]+)',header.split('enum {',1)[1].split('};',1)[0])
+        self.assertEqual(names[-1],'GROUPS')
+        self.assertEqual(tuple(n.lower() for n in names[:-1]),BANK_GROUPS)
+        picks=json.loads((ROOT/'assets/audio/picks.json').read_text())
+        self.assertLessEqual(set(picks),set(BANK_GROUPS))
+        extra=json.loads((ROOT/'assets/audio/extra/sources.json').read_text())['files']
+        credits=(ROOT/'assets/audio/CREDITS.md').read_text()
+        for f in extra:
+            if 'BY' in f['license']:self.assertIn(f['author'],credits);self.assertIn(f['page'],credits)
 
     def test_audio_overlay_is_only_event_selection_and_replays(self):
         import dos_game_audio,build_imported
@@ -39,12 +52,15 @@ class AudioLibraryTests(unittest.TestCase):
             self.assertEqual(replay.count(s['before'].encode()),s['count'])
             replay=replay.replace(s['before'].encode(),s['after'].encode())
         self.assertEqual(result,replay);self.assertIn(b'dos_sound_step',result)
+        self.assertIn(b'if(!dos_sound_hit(b,tX,tY,tZ)) block_sfx(b,tX,tY,tZ,110,330);',result)
+        self.assertIn(b'if(!wasInWater) dos_sound_splash(b->vy);',result);self.assertIn(b'dos_sound_swim();',result)
         # Minecraft's spacing for both new and loaded worlds; the title screen keeps 8-16 s.
         self.assertEqual(result.count(b'music_set_gap(60000);'),2)
         self.assertNotIn(b'music_set_gap(12000);',result);self.assertIn(b'music_set_gap(800);',result)
         self.assertEqual(dos_game_audio.adapt('world.c',b'test'),(b'test',[]))
         data=(build_imported.VENDOR/'src/mobs.c').read_bytes();result,steps=dos_game_audio.adapt('mobs.c',data)
-        self.assertIn(b'dos_sound_zombie(',result);self.assertEqual(len(steps),2)
+        self.assertIn(b'dos_sound_mob_tick(',result);self.assertIn(b'dos_sound_mob(m->type,m->health<=0,',result)
+        self.assertEqual(len(steps),3)
 
     @unittest.skipUnless(BANK.is_file(),'packaged bank required')
     def test_percussive_attacks_survive_and_levels_are_even(self):
@@ -56,10 +72,12 @@ class AudioLibraryTests(unittest.TestCase):
             self.assertLessEqual(max(abs(v) for v in x),121)
             w=551;loud.setdefault(group,[]).append(max(math.sqrt(sum(v*v for v in x[a:a+w])/len(x[a:a+w]))
                                                      for a in range(0,max(1,len(x)-w),137)))
-        # Footsteps (3-5) keep their attack: no longer ~14 dB below block breaks.
-        for group in (3,4,5):self.assertGreater(min(loud[group]),0.4*min(loud[0]))
-        # Every clip is within 8 dB of the loudest (was 14); the game supplies the balance.
+        # Footsteps keep their attack: no longer ~14 dB below block breaks.
+        for group in ('step_grass','step_stone','step_wood','step_sand','step_gravel'):
+            self.assertGreater(min(loud[BANK_GROUPS.index(group)]),0.4*min(loud[0]))
+        # Every clip is within 10 dB of the loudest (was 14); the game supplies the balance.
+        # Crackly picks (grass rustle, gravel, fuse hiss) reach the peak cap ~9 dB down.
         top=max(max(v) for v in loud.values())
-        for values in loud.values():self.assertGreater(min(values),top*10**(-8/20))
+        for values in loud.values():self.assertGreater(min(values),top*10**(-10/20))
 
 if __name__=='__main__':unittest.main()
