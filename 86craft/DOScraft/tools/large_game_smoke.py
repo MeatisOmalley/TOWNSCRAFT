@@ -9,6 +9,7 @@ import time
 
 from fat_image import FatImage
 from game_media import game_command
+from leaf_flags_media import SAVE_VERSION
 
 
 def large_volume(disk):
@@ -58,12 +59,12 @@ def main():
                     if 'WORLD_WIDTH=1024\n' not in first or 'WORLD_WIDTH=1024\n' not in second:
                         raise RuntimeError('Guest reported incorrect world width')
                     save = volume.read('WORLD.SAV')
-                    if not any(save[at:at + 8] == b'TSCF\x05\x00\x00\x00'
+                    if not any(save[at:at + 8] == b'TSCF' + struct.pack('<I', SAVE_VERSION)
                                for at in (0, len(save) // 2)):
-                        raise RuntimeError('No committed V5 save bank')
+                        raise RuntimeError(f'No committed V{SAVE_VERSION} save bank')
                     (vm / 'large-world-smoke.json').write_text(json.dumps({
-                        'new': first, 'load': second, 'save_version': 5}, indent=2) + '\n')
-                    print('LOAD=PASS\nSAVE_V5=PASS', flush=True)
+                        'new': first, 'load': second, 'save_version': SAVE_VERSION}, indent=2) + '\n')
+                    print(f'LOAD=PASS\nSAVE_V{SAVE_VERSION}=PASS', flush=True)
                     return
             if process.poll() is not None:
                 raise RuntimeError('Large-world guest exited before both reports')

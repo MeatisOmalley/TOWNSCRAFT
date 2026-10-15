@@ -9,6 +9,10 @@ NORMALIZE=bytes(b&~RIM if b&63==7 else b for b in range(256))
 BANK=77*8192
 DIRECTORY=20+64+72
 DIRECTORY_END=DIRECTORY+12+4096*16
+# Large-world save versions. 6 is the 6-bit block-ID layout (items from 64);
+# its bytes are laid out like 5, so media tools read both. The game loads only 6.
+SAVE_VERSION=6
+SAVE_VERSIONS=(5,6)
 
 def offset(column,slot=0):return (33+column*72+slot*24)*512
 
@@ -58,7 +62,7 @@ def upgrade(previous,terrain,save):
         start=bank*BANK
         magic,version,total,length,generation=struct.unpack_from('<5I',save,start)
         if magic!=0x46435354:continue
-        if version!=5 or length<DIRECTORY_END-20 or length>BANK-20:
+        if version not in SAVE_VERSIONS or length<DIRECTORY_END-20 or length>BANK-20:
             raise ValueError('Unsupported player save for leaf migration')
         if save_sum(save[start+20:start+20+length])!=total:
             raise ValueError('Invalid save payload checksum')
@@ -131,7 +135,7 @@ def upgrade_v2(previous,terrain,save):
         start=bank*BANK
         magic,version,total,length,generation=struct.unpack_from('<5I',save,start)
         if magic!=0x46435354:continue
-        if version!=5 or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
+        if version not in SAVE_VERSIONS or not DIRECTORY_END-20<=length<=BANK-20 or save_sum(save[start+20:start+20+length])!=total:
             raise ValueError('Invalid V2 save payload')
         seed,index,count=struct.unpack_from('<3I',save,start+DIRECTORY)
         if (seed,index,count)!=(struct.unpack_from('<I',previous,36)[0],old_sum,4096):
