@@ -13,8 +13,11 @@ judgment happens here, offline, so the game only replays timed register work:
   pluck) ring for at least --hold seconds (default 1), but never past the
   next strike of the same key; many MIDI files have clipped, staccato notes.
   Sustained instruments keep their written lengths.
-- Volume (CC 7), expression (CC 11) and velocity become carrier attenuation
-  in 0.75 dB steps.
+- Loudness: velocity (on a gentler curve, so soft notes stay audible), volume
+  (CC 7) and expression (CC 11), all taken when a note starts. Each song is
+  raised so its loudest note plays at full level. Softer notes are also
+  darker: the modulator is turned down in up to three 3 dB steps, relative to
+  the song's hardest-struck note. Additive patches scale both operators.
 - General MIDI programs map to a few FM patches stored in the pack, so patches
   can be retuned without rebuilding the game. The drum channel (MIDI 10) is
   dropped; pitch bend and other controllers are ignored; notes outside the
@@ -27,7 +30,9 @@ Pack layout (little endian):
            same, C0h feedback/connection, pad); songs x 32 bytes (20-byte
            name, event offset, event count, length in ticks); events x 5
            bytes (u16 ticks since the previous event, u8 type<<4|channel,
-           u8 a, u8 b). Types: 0 note off, 1 note on (a note, b attenuation),
+           u8 a, u8 b). Types: 0 note off, 1 note on (a note; b bits 0-5 are
+           output attenuation in 0.75 dB steps, bits 6-7 darkness: modulator
+           attenuation in 3 dB steps; version 1 packs leave bits 6-7 clear),
            2 patch (a index), 3 wait only.
 """
 import argparse
@@ -39,7 +44,7 @@ import struct
 ROOT = Path(__file__).resolve().parents[1]
 MIDI_DIR = ROOT / 'assets/music/midi'
 MAGIC = b'DCMUS01\0'
-VERSION = 1
+VERSION = 2
 FLAG_BUILTIN = 1
 TICK_HZ = 100
 CHANNELS = 9
@@ -182,16 +187,39 @@ def seconds_function(division, events):
     return convert
 
 
-def attenuation(velocity, volume, expression):
-    level = velocity / 127 * volume / 127 * expression / 127
-    if level <= 0:
-        return 63
-    return max(0, min(63, round(-20 * math.log10(level) / 0.75)))
+# Velocity spans 0.6x the decibels of a straight amplitude mapping: velocity
+# 64 is 3.6 dB down rather than 6, velocity 3 is 19.5 dB down rather than 32.
+VELOCITY_CURVE = 0.6
+DARK_STEPS = 3
+
+
+def loudness_db(velocity, volume, expression):
+    """Level in dB relative to full scale, or None for a silent note."""
+    if velocity <= 0 or volume <= 0 or expression <= 0:
+        return None
+    return (VELOCITY_CURVE * 20 * math.log10(velocity / 127) +
+            20 * math.log10(volume / 127) + 20 * math.log10(expression / 127))
+
+
+def set_levels(notes):
+    """Give each note its event level byte (attenuation | darkness << 6) with
+    the song's loudest note at full level. Returns the gain applied in dB."""
+    loud = [n['db'] for n in notes if n['db'] is not None]
+    top = max(loud) if loud else 0.0
+    top_velocity = max((n['velocity'] for n in notes), default=127) or 127
+    for n in notes:
+        if n['db'] is None:
+            n['level'] = 63
+            continue
+        quieter = max(0, min(63, round((top - n['db']) / 0.75)))
+        dark = max(0, min(DARK_STEPS, round((1 - n['velocity'] / top_velocity) * DARK_STEPS)))
+        n['level'] = quieter | (dark << 6)
+    return round(-top, 1)
 
 
 def read_notes(data):
     """MIDI bytes -> (notes, info). Notes are dicts with on/off in game ticks,
-    MIDI channel, key, attenuation and patch; the pedal (CC 64) is applied."""
+    MIDI channel, key, velocity, loudness (dB) and patch; the pedal (CC 64) is applied."""
     division, midi = parse_midi(data)
     if not division:
         raise ValueError('MIDI division is zero')
@@ -245,7 +273,7 @@ def read_notes(data):
             held[mch].discard(a)
             close((mch, a), tick)               # Striking a sounding key restarts it
             note = dict(on=tick, off=None, channel=mch, key=a, patch=program_patch(program[mch]),
-                        attenuation=attenuation(b, volume[mch], expression[mch]))
+                        velocity=b, db=loudness_db(b, volume[mch], expression[mch]))
             active[(mch, a)] = note
             notes.append(note)
     for key in list(active):
@@ -282,7 +310,8 @@ def convert_song(data, hold=DEFAULT_HOLD):
     report = dict(notes=len(notes), max_polyphony=0, steals=0, drum_notes=info['drum_notes'],
                   octave_moves=0, pitch_bends=info['pitch_bends'], patches_used=set(),
                   pedal=bool(info['pedal_channels']),
-                  sustained_notes=apply_hold(notes, info['pedal_channels'], hold))
+                  sustained_notes=apply_hold(notes, info['pedal_channels'], hold),
+                  gain_db=set_levels(notes))
     # Releases sort before strikes at the same tick, so voices free up first.
     timeline = sorted([(n['on'], 1, i) for i, n in enumerate(notes)] +
                       [(n['off'], 0, i) for i, n in enumerate(notes)])
@@ -322,7 +351,7 @@ def convert_song(data, hold=DEFAULT_HOLD):
             out.append((tick, PATCH, ch, want, 0))
             patch[ch] = want
         report['patches_used'].add(PATCHES[want][0])
-        out.append((tick, NOTE_ON, ch, key, note['attenuation']))
+        out.append((tick, NOTE_ON, ch, key, note['level']))
         owner[ch] = index
         voice[index] = ch
         started[ch] = serial
@@ -404,7 +433,8 @@ def main():
     if report is None:
         parser.error(f'No .mid files in {args.input}')
     for song in report['songs']:
-        notes = [f'{song["max_polyphony"]} voices max', 'pedal' if song['pedal'] else 'no pedal data']
+        notes = [f'{song["max_polyphony"]} voices max', 'pedal' if song['pedal'] else 'no pedal data',
+                 f'raised {song["gain_db"]} dB' if song['gain_db'] >= 0.5 else 'at full level']
         for key, label in (('sustained_notes', 'short notes held longer'),
                            ('steals', 'notes cut for polyphony'), ('drum_notes', 'drum notes dropped'),
                            ('octave_moves', 'notes moved by octaves'), ('pitch_bends', 'pitch bends ignored')):

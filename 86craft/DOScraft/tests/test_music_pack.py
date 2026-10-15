@@ -132,9 +132,27 @@ class ConverterTests(unittest.TestCase):
         patches = {ch: a for t, kind, ch, a, b in out if kind == music.PATCH}
         self.assertEqual(sorted(patches.values()), [music.PATCH_INDEX['epiano'], music.PATCH_INDEX['pad']])
         levels = [b for t, kind, ch, a, b in out if kind == music.NOTE_ON]
-        self.assertEqual(levels[0], music.attenuation(100, 100, 127))
-        self.assertGreater(levels[1], levels[0])    # Channel volume 64 is quieter
-        self.assertEqual(music.attenuation(0, 100, 127), 63)
+        self.assertEqual(levels[0], 0)              # The loudest note plays at full level
+        self.assertEqual(levels[1], 5)              # Volume 64 vs the default 100: 3.9 dB, 0.75 dB steps
+
+    def test_songs_normalize_soft_notes_stay_audible_and_darker(self):
+        # One fixed soft velocity: the whole song is raised to full level.
+        out, report = music.convert_song(midi([track([(0, (0x90, 60, 23)), (240, (0x80, 60, 0))])]), hold=0)
+        self.assertEqual([b for t, kind, ch, a, b in out if kind == music.NOTE_ON], [0])
+        self.assertEqual(report['gain_db'], 11.0)    # Velocity 23 (8.9 dB) and default volume 100 (2.1 dB)
+        # Velocity 3 against 127: 19.5 dB quieter (not 32.5) and three steps darker.
+        events = [(0, (0x90, 60, 127)), (240, (0x80, 60, 0)), (0, (0x90, 62, 3)), (240, (0x80, 62, 0)),
+                  (0, (0x90, 64, 64)), (240, (0x80, 64, 0))]
+        out, report = music.convert_song(midi([track(events)]), hold=0)
+        loud, soft, middle = [b for t, kind, ch, a, b in out if kind == music.NOTE_ON]
+        self.assertEqual((loud & 63, loud >> 6), (0, 0))
+        self.assertEqual((soft & 63, soft >> 6), (26, 3))
+        self.assertEqual((middle & 63, middle >> 6), (5, 1))
+        self.assertEqual(report['gain_db'], 2.1)     # Only the default volume of 100
+        # Zero velocity in a note-on is a release; zero channel volume is silent.
+        out, report = music.convert_song(midi([track([(0, (0xB0, 7, 0)), (0, (0x90, 60, 90)),
+                                                      (240, (0x80, 60, 0))])]), hold=0)
+        self.assertEqual([b for t, kind, ch, a, b in out if kind == music.NOTE_ON], [63])
 
     def test_long_rests_use_wait_events_and_pack_layout(self):
         # A 12-minute rest overflows the 16-bit delta.
@@ -143,7 +161,7 @@ class ConverterTests(unittest.TestCase):
         song = midi([track(events)])
         pack, reports = music.build_pack([('rest', song), ('scale', midi([track(scale())]))], include_builtin=False)
         magic, version, flags, songs, patches, payload, total = struct.unpack_from('<8s6I', pack)
-        self.assertEqual((magic, version, flags, songs, patches), (music.MAGIC, 1, 0, 2, len(music.PATCHES)))
+        self.assertEqual((magic, version, flags, songs, patches), (music.MAGIC, 2, 0, 2, len(music.PATCHES)))
         self.assertEqual((payload, total), (len(pack) - 32, music.checksum(pack[32:])))
         directory = 32 + patches * 12
         name, offset, count, length = struct.unpack_from('<20sIII', pack, directory)

@@ -39,7 +39,9 @@ static unsigned int event_count,song_ticks;
 static volatile int playing,wait_ticks=-1;
 static int gap=6000,music_tick,next_event,rotation[2];
 static int current=BUILTIN,last_piece=-2;
-static unsigned char keyed[CHANNELS],carrier_level[CHANNELS];
+static unsigned char keyed[CHANNELS];
+/* Each channel's patch levels (40h bytes, key-scale bits included). */
+static unsigned char modulator_tl[CHANNELS],carrier_tl[CHANNELS],additive[CHANNELS];
 /* Loaded pack: patch, song and event tables inside one allocation. */
 static unsigned char *pack;
 static const unsigned char *pack_patches,*pack_songs,*pack_events;
@@ -87,7 +89,15 @@ static void set_patch(int ch,const unsigned char *patch)
         opl_write(base[r]+operator_offset[ch]+3,patch[5+r]);
     }
     opl_write(0xC0+ch,patch[10]);
-    carrier_level[ch]=patch[6]&63;
+    modulator_tl[ch]=patch[1];carrier_tl[ch]=patch[6];additive[ch]=patch[10]&1;
+}
+
+/* A total-level register byte: the patch's key-scale bits kept, its level
+ * lowered by steps of 0.75 dB. */
+static int lowered(int tl,int steps)
+{
+    int level=(tl&63)+steps;
+    return (tl&0xC0)|(level>63 ? 63 : level);
 }
 
 static void all_off(void)
@@ -100,14 +110,17 @@ static void key_off(int ch)
     if(keyed[ch]&0x20) { keyed[ch]&=~0x20;opl_write(0xB0+ch,keyed[ch]); }
 }
 
-/* attenuation: 0.75 dB steps added to the patch's carrier level. */
-static void note(int ch,int midi,int attenuation)
+/* level: bits 0-5 lower the output in 0.75 dB steps; bits 6-7 darken the
+ * note, lowering the modulator in 3 dB steps. In an additive patch both
+ * operators are outputs, so both take the output level instead. */
+static void note(int ch,int midi,int level)
 {
-    int block=midi/12-1,fnum=fnum_table[midi%12],level=carrier_level[ch]+attenuation;
+    int block=midi/12-1,fnum=fnum_table[midi%12],quieter=level&63,darker=(level>>6)*4;
     if(block<0)block=0;
     if(block>7)block=7;
     opl_write(0xB0+ch,(block<<2)|(fnum>>8));    /* Key off before the retrigger */
-    opl_write(0x40+operator_offset[ch]+3,level>63 ? 63 : level);
+    opl_write(0x40+operator_offset[ch],lowered(modulator_tl[ch],additive[ch] ? quieter : darker));
+    opl_write(0x40+operator_offset[ch]+3,lowered(carrier_tl[ch],quieter));
     opl_write(0xA0+ch,fnum&255);
     keyed[ch]=(unsigned char)(0x20|(block<<2)|(fnum>>8));
     opl_write(0xB0+ch,keyed[ch]);
@@ -117,7 +130,8 @@ static void note(int ch,int midi,int attenuation)
 /* Checks every table and event once, so the IRQ can trust the pack. */
 static int pack_valid(const unsigned char *data,unsigned int bytes)
 {
-    if(bytes<PACK_HEADER || memcmp(data,"DCMUS01\0",8) || u32le(data+8)!=1)return 0;
+    unsigned int version=bytes>=PACK_HEADER ? u32le(data+8) : 0;
+    if(bytes<PACK_HEADER || memcmp(data,"DCMUS01\0",8) || version<1 || version>2)return 0;
     unsigned int songs=u32le(data+16),patches=u32le(data+20),payload=u32le(data+24);
     if(!songs || songs>32 || !patches || patches>32 || payload!=bytes-PACK_HEADER)return 0;
     unsigned int h=2166136261u;
@@ -133,7 +147,7 @@ static int pack_valid(const unsigned char *data,unsigned int bytes)
         for(unsigned int i=0;i<count;++i) {
             const unsigned char *e=event_base+offset+i*PACK_EVENT;
             unsigned int kind=e[2]>>4,ch=e[2]&15;
-            if(kind>3 || ch>=CHANNELS || (kind==1 && (e[3]<12 || e[3]>107 || e[4]>63)) ||
+            if(kind>3 || ch>=CHANNELS || (kind==1 && (e[3]<12 || e[3]>107 || (version==1 && e[4]>63))) ||
                (kind==2 && e[3]>=patches))return 0;
         }
     }

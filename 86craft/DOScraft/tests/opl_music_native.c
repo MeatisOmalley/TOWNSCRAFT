@@ -99,7 +99,7 @@ int main(int argc,char **argv)
     dos_music_tick();
     assert(dos_music_notes==1 && keyed_on(0) && !keyed_on(1));
     assert(reg[0x20]==0x01 && reg[0x60]==0xF2 && reg[0x63]==0xF2 && reg[0xC0]==0x06);  /* Piano */
-    assert(reg[0xA0]==(345&255) && reg[0xB0]==(0x20|(4<<2)|(345>>8)) && reg[0x43]==3);
+    assert(reg[0xA0]==(345&255) && reg[0xB0]==(0x20|(4<<2)|(345>>8)) && reg[0x43]==0 && reg[0x40]==0x18);  /* Loudest note: full level */
     for(int i=1;i<50;++i)dos_music_tick();
     assert(keyed_on(0) && dos_music_notes==1);                  /* Exactly 0.5 s */
     dos_music_tick();
@@ -119,6 +119,16 @@ int main(int argc,char **argv)
         music_stop();music_schedule(0);g_ticks+=977u*(unsigned)i;dos_music_tick();
         assert(playing && dos_music_current()!=last);last=dos_music_current();
     }
+    /* Level byte: output quieter by bits 0-5, modulator darker by bits 6-7
+     * (3 dB = 4 steps each); key-scale bits survive. */
+    static const unsigned char fm[12]={0x01,0x58,0xF2,0x54,0,0x01,0x40,0xF2,0x24,0,0x06,0};
+    static const unsigned char add[12]={0x22,0x0A,0xF0,0x0F,0,0x21,0x00,0xF0,0x0F,0,0x01,0};
+    set_patch(7,fm);note(7,60,8|(2<<6));
+    assert(reg[0x40+operator_offset[7]]==(0x40|(0x18+8)) && reg[0x40+operator_offset[7]+3]==(0x40|8));
+    set_patch(8,add);note(8,60,8|(2<<6));
+    assert(reg[0x40+operator_offset[8]]==0x0A+8 && reg[0x40+operator_offset[8]+3]==8);  /* Additive: both quieter */
+    note(7,60,60|(3<<6));
+    assert((reg[0x40+operator_offset[7]+3]&63)==60 && (reg[0x40+operator_offset[7]]&63)==0x18+12);
     dos_music_shutdown();
     for(int ch=0;ch<9;++ch)assert(!keyed_on(ch) && reg[0x40+operator_offset[ch]+3]==63);
     puts("PASS: pack load/reject, patches, pitch, level, timing, tail, rotation and shutdown");
