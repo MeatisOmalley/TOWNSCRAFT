@@ -5,7 +5,7 @@ from bake_large_world import checksum
 MAGIC=0x3246414c
 RIM=64
 CELLS=12288
-NORMALIZE=bytes(b&~RIM if b&31==7 else b for b in range(256))
+NORMALIZE=bytes(b&~RIM if b&63==7 else b for b in range(256))
 BANK=77*8192
 DIRECTORY=20+64+72
 DIRECTORY_END=DIRECTORY+12+4096*16
@@ -86,8 +86,8 @@ def upgrade(previous,terrain,save):
                     blocks=decode(encoded,raw);old_blocks=bytes(blocks)
                     base=terrain[offset(c):offset(c)+CELLS]
                     for i,b in enumerate(blocks):
-                        if b&31==7:
-                            flag=base[i]&RIM if base[i]&31==7 else RIM
+                        if b&63==7:
+                            flag=base[i]&RIM if base[i]&63==7 else RIM
                             blocks[i]=(b&~RIM)|flag
                     if old_blocks.translate(NORMALIZE)!=bytes(blocks).translate(NORMALIZE):
                         raise ValueError('Leaf migration changed an edited block')
@@ -164,8 +164,8 @@ def upgrade_v2(previous,terrain,save):
                     blocks=decode(encoded,raw);old_blocks=bytes(blocks)
                     off,size,_=new_base[c];base=unpack(terrain[off:off+size],CELLS)
                     for i,b in enumerate(blocks):
-                        if b&31==7:
-                            blocks[i]=(b&~RIM)|(base[i]&RIM if base[i]&31==7 else RIM)
+                        if b&63==7:
+                            blocks[i]=(b&~RIM)|(base[i]&RIM if base[i]&63==7 else RIM)
                     if old_blocks.translate(NORMALIZE)!=bytes(blocks).translate(NORMALIZE):
                         raise ValueError('Leaf migration changed an edited block')
                     payload,new_raw=encode(blocks)

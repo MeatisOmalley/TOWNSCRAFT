@@ -113,7 +113,7 @@ static u16 far_ink(u8 b,int fog,int side)
 #ifdef DOS_FAR_DETAILS
     if(dos_far_enabled>=DOS_FAR_VERY_LOW) {
         if(side) color=farSideShade[fog][b];
-        pattern=far_pattern(BLK_ID(b),side);
+        pattern=far_pattern(FAR_ID(b),side);
     }
 #endif
     int phase=pattern==FAR_PATTERN_SOLID ? 0 : b>>7;
@@ -132,7 +132,7 @@ static void far_paint(FarColumn *column,int y,u8 b,int fog,int side)
 static void far_paint_surface(FarColumn *column,int y,int cap,u8 b,int fog)
 {
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=DOS_FAR_VERY_LOW && BLK_ID(b)!=B_LEAVES && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS) {
+    if(dos_far_enabled>=DOS_FAR_VERY_LOW && FAR_ID(b)!=B_LEAVES && FAR_ID(b)!=B_WATER && FAR_ID(b)!=B_GLASS) {
         if(cap<column->top) far_paint(column,MAX(y,cap),b,fog,1);
         if(y<column->top) far_paint(column,y,b,fog,0);
         return;
@@ -196,12 +196,12 @@ static u8 far_color(u8 b,int fog,const RenderEnv *env,int side)
 {
     int darken=env->skyDarken+fog;
 #ifdef DOS_FAR_DETAILS
-    if(dos_far_enabled>=DOS_FAR_VERY_LOW && BLK_ID(b)!=B_WATER && BLK_ID(b)!=B_GLASS)
+    if(dos_far_enabled>=DOS_FAR_VERY_LOW && FAR_ID(b)!=B_WATER && FAR_ID(b)!=B_GLASS)
         darken+=(((b>>5)&3)>=2)+side;
 #endif
     int light=CLAMP(15-darken,0,15);
-    int texture=g_blockDef[BLK_ID(b)].tex[side ? DIR_NZ : DIR_PY];
-    if(side && BLK_ID(b)==B_GRASS) texture=g_blockDef[B_DIRT].tex[DIR_PY];
+    int texture=g_blockDef[FAR_ID(b)].tex[side ? DIR_NZ : DIR_PY];
+    if(side && FAR_ID(b)==B_GRASS) texture=g_blockDef[B_DIRT].tex[DIR_PY];
     return g_shadeLUT[light][texAvg[texture]];
 }
 #ifdef DOS_FAR_REPROJECT
@@ -240,8 +240,8 @@ static void far_project_runs(int a,int horizon,const int *inv)
         int y=CLAMP(horizon-((delta*reciprocal)>>16),0,vh);
         if(y<top) {
 #ifdef DOS_FAR_DETAILS
-            if(dos_far_enabled>=DOS_FAR_VERY_LOW && BLK_ID(r->block)!=B_LEAVES &&
-               BLK_ID(r->block)!=B_WATER && BLK_ID(r->block)!=B_GLASS) {
+            if(dos_far_enabled>=DOS_FAR_VERY_LOW && FAR_ID(r->block)!=B_LEAVES &&
+               FAR_ID(r->block)!=B_WATER && FAR_ID(r->block)!=B_GLASS) {
                 int cap=CLAMP(horizon-((delta*previous)>>16),y,top);
                 if(cap==y) cap=MIN(top,y+1);
                 if(cap<top) far_pan_paint(a,cap,far_ink(r->block,r->fog,1));
@@ -271,13 +271,13 @@ static inline int far_lookup_full(int x,int z,u8 *b)
 {
     if((unsigned)x>=1024 || (unsigned)z>=1024) return 0;
     const u8 *p=dos_far_map+((z&~1)<<9)+(x&~1);
-    *b=BLK_ID(p[1]); return p[0];
+    *b=FAR_ID(p[1]); return p[0];
 }
 static inline int far_lookup_win(int x,int z,u8 *b)
 {
     if(!dos_far_in_window(x>>1,z>>1)) return 0;
     const u8 *p=dos_far_map+dos_far_index(x>>1,z>>1);
-    *b=BLK_ID(p[1]); return p[0];
+    *b=FAR_ID(p[1]); return p[0];
 }
 #define FAR_BOUNDARY_SAMPLE(name,lookup) \
 static inline int name(int x,int z,u8 *b) \
@@ -360,7 +360,7 @@ static void draw_far_field(const RenderEnv *env)
     int gain=(16384*16384)/(cp*cp>>14);
     if(farShadeDarken!=env->skyDarken || farShadeDetail!=(dos_far_enabled>=DOS_FAR_VERY_LOW)) {
         for(int fog=0;fog<9;++fog) for(int style=0;style<8;++style)
-        for(int b=0;b<NUM_BLOCKS;++b) {
+        for(int b=0;b<FAR_IDS;++b) {
             farShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,0);
             farSideShade[fog][b|(style<<5)]=far_color(b|(style<<5),fog,env,1);
         }
