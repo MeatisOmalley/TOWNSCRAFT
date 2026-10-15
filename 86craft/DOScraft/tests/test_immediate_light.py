@@ -21,25 +21,29 @@ class ImmediateLightTests(unittest.TestCase):
     def test_torch_edit_finishes_stream_light_first(self):
         with tempfile.TemporaryDirectory(prefix='doscraft-light-') as folder:
             folder = Path(folder)
-            build_imported.stage_sources(build_imported.VENDOR, folder)
-            src = folder / 'src'
-            original = (src / 'world.c').read_bytes()
-            world, _ = dos_sources.adapt('world.c', original)
-            tests = folder / 'tests'
-            tests.mkdir()
-            shutil.copyfile(EDIT, tests / 'edit_test.c')
-            shutil.copyfile(ROOT / 'tests/immediate_light_native.c', tests / 'immediate_light_native.c')
-            command = [str(ZIG), 'cc', '-target', 'x86-windows-gnu', '-O2',
-                       '-std=gnu99', '-fno-builtin', '-Wno-unused-function',
-                       '-I', str(src), str(tests / 'immediate_light_native.c'),
-                       *(str(src / name) for name in ('blocks.c', 'fmath.c', 'libc.c')),
-                       str(TABLES), str(NO_HDD)]
-            for label, data, passing in [('baseline', original, False),
-                                         ('fixed', world, True)]:
-                (src / 'world.c').write_bytes(data)
+            for label, overlay, passing in [('baseline', False, False),
+                                            ('fixed', True, True)]:
+                # The baseline keeps the untouched Towns source; the fixed build
+                # applies the default DOS overlays to every staged file, headers
+                # included, as the game build does.
+                staged = folder / label
+                build_imported.stage_sources(build_imported.VENDOR, staged)
+                src = staged / 'src'
+                if overlay:
+                    for path in src.iterdir():
+                        path.write_bytes(dos_sources.adapt(path.name, path.read_bytes())[0])
+                # edit_test.c includes ../src/world.c.
+                tests = staged / 'tests'
+                tests.mkdir()
+                shutil.copyfile(EDIT, tests / 'edit_test.c')
+                shutil.copyfile(ROOT / 'tests/immediate_light_native.c', tests / 'immediate_light_native.c')
                 exe = folder / (label + '.exe')
-                result = subprocess.run([*command, '-o', str(exe)], capture_output=True,
-                                        text=True, timeout=120)
+                command = [str(ZIG), 'cc', '-target', 'x86-windows-gnu', '-O2',
+                           '-std=gnu99', '-fno-builtin', '-Wno-unused-function',
+                           '-I', str(src), str(tests / 'immediate_light_native.c'),
+                           *(str(src / name) for name in ('blocks.c', 'fmath.c', 'libc.c')),
+                           str(TABLES), str(NO_HDD), '-o', str(exe)]
+                result = subprocess.run(command, capture_output=True, text=True, timeout=120)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr[-3000:])
                 result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=120)
                 self.assertEqual(result.returncode == 0, passing, result.stdout + result.stderr[-3000:])
