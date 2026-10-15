@@ -39,7 +39,7 @@ static int large_pool_assign(int id)
    before giving up) releases records that nothing references any more. A
    record referenced by either committed bank is therefore never overwritten. */
 #define LOG_MAX_SECTORS 65536u
-#define LOG_WINDOW 2048u          /* compaction window: 1 MiB */
+#define LOG_WINDOWS 16u           /* compaction works on 1/16 of the log */
 static u32 logBits[LOG_MAX_SECTORS/32];
 static u32 logPin[2][TERRAIN_COLUMNS];  /* newest, older committed bank; 0 = base */
 static u32 logHead,logFree;             /* next-fit cursor; free sectors (lower bound) */
@@ -170,15 +170,16 @@ static int large_log_alloc(int id,u32 len,u32 *off)
 	*off=(terrainLogFirst+at)*512u;
 	return 1;
 }
-/* Save-time defragmentation, bounded by one window. When too few 24-sector
+/* Save-time defragmentation, bounded by one window: 1/16 of the log, so at
+   most 1 MiB read and 1 MiB written for a 16 MiB log. When too few 24-sector
    runs remain, the live records in the window holding the least live data
    are copied into holes elsewhere and the directory points at the copies.
    The originals stay pinned by the banks; once the next save commits, the
    window is one free run. Best effort: a failed copy keeps its original. */
 static void large_log_compact(void)
 {
-	u32 size=terrainLogEnd-terrainLogFirst,windows=(size+LOG_WINDOW-1)/LOG_WINDOW;
-	u32 live[LOG_MAX_SECTORS/LOG_WINDOW],best=0,t0=g_ticks;
+	u32 size=terrainLogEnd-terrainLogFirst,window=(size+LOG_WINDOWS-1)/LOG_WINDOWS;
+	u32 live[LOG_WINDOWS],best=0,t0=g_ticks;
 	log_rebuild();
 	if(log_slots()>=2u*((u32)g_residentColumns+1) && !g_terrainLogForceCompact) return;
 	memset(live,0,sizeof(live));
@@ -186,10 +187,12 @@ static void large_log_compact(void)
 	{
 		u32 ref=large_ref(&columnRecords[id]),s=(ref>>5)-terrainLogFirst;
 		if(!ref) continue;
-		for(u32 w=s/LOG_WINDOW; w<=(s+(ref&31u)-1)/LOG_WINDOW; ++w) live[w]+=ref&31u;
+		for(u32 w=s/window; w<=(s+(ref&31u)-1)/window; ++w) live[w]+=ref&31u;
 	}
-	for(u32 w=1; w<windows; ++w) if(live[w]<live[best]) best=w;
-	u32 w0=best*LOG_WINDOW,w1=MIN(size,w0+LOG_WINDOW);
+	/* A window without live records frees itself once the banks move on. */
+	for(u32 w=0; w<LOG_WINDOWS; ++w) if(live[w] && (!live[best] || live[w]<live[best])) best=w;
+	if(!live[best]) return;
+	u32 w0=best*window,w1=MIN(size,w0+window);
 	terrainBlocking=1;
 	for(int id=0; id<TERRAIN_COLUMNS; ++id)
 	{

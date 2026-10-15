@@ -30,7 +30,7 @@ from convert_large_v2 import V2_MAGIC, COLUMNS, CELLS, check_v2, decode, sectors
 V3_MAGIC = b'DOSCRAFT-1024-V3'
 SECTOR = 512
 RECORD_SECTORS = CELLS // SECTOR          # 24, the largest record
-DEFAULT_LOG_BYTES = 16 * 1024 * 1024
+DEFAULT_LOG_BYTES = 24 * 1024 * 1024    # 486 media; the 386 disk takes what fits
 LOG_MIN_SECTORS = 2048                    # 1 MiB; the game refuses less
 LOG_MAX_SECTORS = 65536                   # 32 MiB; the game's bitmap size
 SAVE_MAGIC = 0x46435354
@@ -64,9 +64,10 @@ def v2_view(v3):
     return bytes(view)
 
 
-def from_v2(v2, log_sectors=DEFAULT_LOG_BYTES // SECTOR):
+def from_v2(v2, log_sectors=DEFAULT_LOG_BYTES // SECTOR, *, checked=False):
     """Fresh V3 medium: V2's immutable data, then an empty edit log."""
-    check_v2(v2)
+    if not checked:
+        check_v2(v2)
     if not LOG_MIN_SECTORS <= log_sectors <= LOG_MAX_SECTORS:
         raise ValueError(f'Edit log must be {LOG_MIN_SECTORS}..{LOG_MAX_SECTORS} sectors')
     first = struct.unpack_from('<I', v2, 132)[0]
@@ -75,7 +76,7 @@ def from_v2(v2, log_sectors=DEFAULT_LOG_BYTES // SECTOR):
     image[:16] = V3_MAGIC
     struct.pack_into('<I', image, 16, 3)
     struct.pack_into('<3I', image, 132, first, log_sectors, first + log_sectors)
-    check_v3(image)
+    check_v3(image, records=False)  # the immutable bytes are the checked V2 bytes
     return bytes(image)
 
 
@@ -84,7 +85,7 @@ def convert(v1, log_sectors=DEFAULT_LOG_BYTES // SECTOR):
     return from_v2(to_v2(v1, pool_pairs=0), log_sectors)
 
 
-def check_v3(v3, v1=None):
+def check_v3(v3, v1=None, records=True):
     """Header, extents and (through check_v2) every immutable record."""
     if v3[:16] != V3_MAGIC or len(v3) % SECTOR or struct.unpack_from('<I', v3, 16)[0] != 3:
         raise ValueError('Not a V3 1024-world image')
@@ -92,7 +93,8 @@ def check_v3(v3, v1=None):
     if total != first + count or total * SECTOR != len(v3) or \
             not LOG_MIN_SECTORS <= count <= LOG_MAX_SECTORS:
         raise ValueError('V3 edit log extent mismatch')
-    check_v2(v2_view(v3), v1)
+    if records or v1 is not None:
+        check_v2(v2_view(v3), v1)
 
 
 def log_size_for_volume(volume, terrain_prefix_sectors, other_bytes, headroom=1024 * 1024):
@@ -141,15 +143,15 @@ def newest_first(banks):
     return list(banks)
 
 
-def v3_records(v3, save):
+def v3_records(v3, save, checked=False):
     """Per committed bank (newest first): {column: (offset, length, sum, previous)}.
 
     Verifies the identity, every extent and every edited record's checksum."""
-    check_v3(v3)
+    check_v3(v3, records=not checked)
     first, count = log_extent(v3)
     bases = base_records(v3)
     index_sum = checksum(b''.join(struct.pack('<I', s) for _, _, s in bases))
-    result = []
+    result, sums = [], {}  # both banks usually share most records
     for start, length, generation in newest_first(committed_banks(save)):
         seed, index, columns = struct.unpack_from('<3I', save, start + DIRECTORY)
         if (seed, index, columns) != (struct.unpack_from('<I', v3, 36)[0], index_sum, COLUMNS):
@@ -171,9 +173,11 @@ def v3_records(v3, save):
             for s in range(off // SECTOR, off // SECTOR + sectors(n)):
                 if owner.setdefault(s, c) != c:
                     raise ValueError('Two columns share log sectors')
-            if checksum(v3[off:off + n]) != total:
+            if (off, n) not in sums:
+                sums[off, n] = checksum(v3[off:off + n])
+                decode(v3[off:off + n], CELLS)
+            if sums[off, n] != total:
                 raise ValueError(f'Saved log record for column {c} is corrupt')
-            decode(v3[off:off + n], CELLS)
             records[c] = (off, n, total, previous)
         result.append((start, records))
     return result
@@ -226,7 +230,7 @@ def migrate_player(v2, save, log_sectors=DEFAULT_LOG_BYTES // SECTOR):
         plan.append((start, length, entries))
     if len(log) // SECTOR > log_sectors:
         raise ValueError('Edit log too small for the saved edits')
-    image = bytearray(from_v2(v2, log_sectors))
+    image = bytearray(from_v2(v2, log_sectors, checked=True))
     first, _ = log_extent(image)
     image[first * SECTOR:first * SECTOR + len(log)] = log
     updated = bytearray(save)
@@ -240,7 +244,6 @@ def migrate_player(v2, save, log_sectors=DEFAULT_LOG_BYTES // SECTOR):
             previous = pack_ref(first * SECTOR + prior[0], prior[1]) if prior else 0
             struct.pack_into('<4I', updated, at, off, n, total, previous)
         struct.pack_into('<I', updated, start + 8, save_sum(updated[start + 20:start + 20 + length]))
-    check_v3(image)
     check_migration(v2, save, bytes(image), bytes(updated))
     return bytes(image), bytes(updated), dict(
         edited_columns=len({c for c, _ in placed}), edited_records=len(placed),
@@ -254,7 +257,7 @@ def check_migration(v2, save, v3, updated):
             v2[20:132] != v3[20:132] or v2[144:512] != v3[144:512]:
         raise ValueError('Migration changed immutable terrain')
     pool = struct.unpack_from('<I', v2, 132)[0]
-    after = {start: records for start, records in v3_records(v3, updated)}
+    after = {start: records for start, records in v3_records(v3, updated, checked=True)}
     for start, length, generation in committed_banks(save):
         if updated[start:start + 8] != save[start:start + 8] or \
                 updated[start + 12:start + DIRECTORY + 12] != save[start + 12:start + DIRECTORY + 12] or \
